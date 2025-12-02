@@ -20,14 +20,43 @@ import { Badge } from "@/components/ui/badge";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import Image from "next/image";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query } from "firebase/firestore";
+import { collection, query, addDoc } from "firebase/firestore";
 import type { Doctor } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PlaceHolderImages as placeholderImages } from "@/lib/placeholder-images";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
+const addDoctorSchema = z.object({
+  firstName: z.string().min(2, { message: "First name must be at least 2 characters." }),
+  lastName: z.string().min(2, { message: "Last name must be at least 2 characters." }),
+  email: z.string().email({ message: "Please enter a valid email." }),
+  specialty: z.string().min(2, { message: "Specialty is required." }),
+  location: z.string().min(2, { message: "Location is required." }),
+});
+
+type AddDoctorFormValues = z.infer<typeof addDoctorSchema>;
 
 export default function AdminDoctorsPage() {
     const firestore = useFirestore();
+    const { toast } = useToast();
+    const [isDialogOpen, setIsDialogOpen] = useState(false);
 
     const doctorsCollection = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -36,14 +65,154 @@ export default function AdminDoctorsPage() {
 
     const { data: doctors, isLoading: isLoadingDoctors } = useCollection<Doctor>(doctorsCollection);
 
+    const form = useForm<AddDoctorFormValues>({
+        resolver: zodResolver(addDoctorSchema),
+        defaultValues: {
+            firstName: "",
+            lastName: "",
+            email: "",
+            specialty: "",
+            location: "",
+        },
+    });
+
+    async function onSubmit(values: AddDoctorFormValues) {
+        if (!firestore) {
+            toast({
+                variant: "destructive",
+                title: "Error",
+                description: "Firestore is not available.",
+            });
+            return;
+        }
+
+        try {
+            const doctorsCollectionRef = collection(firestore, 'doctors');
+            await addDoc(doctorsCollectionRef, {
+                ...values,
+                verified: false,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+            });
+
+            toast({
+                title: "Doctor Added",
+                description: `Dr. ${values.firstName} ${values.lastName} has been successfully added.`,
+            });
+            form.reset();
+            setIsDialogOpen(false);
+        } catch (error) {
+            console.error("Error adding document: ", error);
+            toast({
+                variant: "destructive",
+                title: "Uh oh! Something went wrong.",
+                description: "There was a problem with your request.",
+            });
+        }
+    }
+
     return (
     <div className="p-4 md:p-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold font-headline">Manage Doctors</h1>
-        <Button>
-          <PlusCircle className="mr-2 h-4 w-4" />
-          Add Doctor
-        </Button>
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+          <DialogTrigger asChild>
+            <Button>
+              <PlusCircle className="mr-2 h-4 w-4" />
+              Add Doctor
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[425px]">
+            <DialogHeader>
+              <DialogTitle>Add New Doctor</DialogTitle>
+              <DialogDescription>
+                Fill in the details below to add a new doctor profile.
+              </DialogDescription>
+            </DialogHeader>
+            <Form {...form}>
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <FormField
+                            control={form.control}
+                            name="firstName"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>First Name</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Amina" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="lastName"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Last Name</FormLabel>
+                                <FormControl>
+                                    <Input placeholder="Khan" {...field} />
+                                </FormControl>
+                                <FormMessage />
+                                </FormMessage>
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                    <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                                <Input placeholder="amina.khan@example.com" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <FormField
+                        control={form.control}
+                        name="specialty"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Specialty</FormLabel>
+                            <FormControl>
+                                <Input placeholder="Cardiology" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                     <FormField
+                        control={form.control}
+                        name="location"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Location</FormLabel>
+                            <FormControl>
+                                <Input placeholder="Karachi" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+                    <DialogFooter>
+                        <DialogClose asChild>
+                            <Button type="button" variant="secondary">
+                                Cancel
+                            </Button>
+                        </DialogClose>
+                        <Button type="submit" disabled={form.formState.isSubmitting}>
+                            {form.formState.isSubmitting ? "Adding..." : "Add Doctor"}
+                        </Button>
+                    </DialogFooter>
+                </form>
+            </Form>
+          </DialogContent>
+        </Dialog>
       </div>
       <div className="border rounded-lg">
         <Table>
