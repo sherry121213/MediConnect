@@ -23,8 +23,9 @@ import { signOut } from 'firebase/auth';
 const navLinks = [
   { href: '/', label: 'Home' },
   { href: '/find-a-doctor', label: 'Find a Doctor' },
+  { href: '/appointments', label: 'Appointments' },
   { href: '/contact', label: 'Contact' },
-  { href: '/admin', label: 'Admin' },
+  { href: '/admin', label: 'Admin Portal' },
 ];
 
 export default function AppHeader() {
@@ -72,20 +73,20 @@ export default function AppHeader() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between">
+      <div className="container flex h-20 items-center justify-between">
         <Link href="/" className="flex items-center gap-2">
           <Logo />
         </Link>
         
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex gap-6">
+        <nav className="hidden md:flex gap-8">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
               className={cn(
-                'text-sm font-medium transition-colors hover:text-primary',
-                pathname === link.href ? 'text-primary' : 'text-muted-foreground'
+                'text-base font-medium transition-colors hover:text-accent',
+                pathname === link.href ? 'text-primary' : 'text-foreground'
               )}
             >
               {link.label}
@@ -101,7 +102,7 @@ export default function AppHeader() {
               <Button variant="ghost" asChild>
                 <Link href="/login">Log In</Link>
               </Button>
-              <Button asChild>
+              <Button asChild className="bg-accent hover:bg-accent/90 text-white font-bold">
                 <Link href="/signup">Sign Up</Link>
               </Button>
             </>
@@ -124,7 +125,7 @@ export default function AppHeader() {
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
                   className={cn(
-                    'transition-colors hover:text-primary',
+                    'transition-colors hover:text-accent',
                     pathname === link.href ? 'text-primary' : 'text-foreground'
                   )}
                 >
@@ -140,7 +141,7 @@ export default function AppHeader() {
                   <Button variant="ghost" asChild>
                     <Link href="/login" onClick={() => setMobileMenuOpen(false)}>Log In</Link>
                   </Button>
-                  <Button asChild>
+                  <Button asChild className="bg-accent hover:bg-accent/90 text-white font-bold">
                     <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>Sign Up</Link>
                   </Button>
                 </>

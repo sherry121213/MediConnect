@@ -13,7 +13,7 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    --primary: 217 91% 60%; /* #3b82f6 */
+    --primary: 217 91% 60%; /* #3b82f6 - a pleasant blue */
     --primary-foreground: 210 40% 98%;
 
     --secondary: 210 40% 96.1%; /* #f1f5f9 */
@@ -22,7 +22,7 @@
     --muted: 210 40% 96.1%;
     --muted-foreground: 215 20% 65%;
 
-    --accent: 210 40% 96.1%;
+    --accent: 88 74% 56%; /* #84cc16 - vibrant green */
     --accent-foreground: 222 47% 11%;
 
     --destructive: 0 84.2% 60.2%;
@@ -67,7 +67,7 @@
     --muted: 217 33% 17%;
     --muted-foreground: 215 20% 65%;
 
-    --accent: 217 33% 17%;
+    --accent: 88 74% 56%; /* #84cc16 */
     --accent-foreground: 210 40% 98%;
 
     --destructive: 0 62.8% 30.6%;
