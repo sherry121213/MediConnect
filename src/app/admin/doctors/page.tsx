@@ -1,3 +1,5 @@
+'use client';
+
 import {
   Table,
   TableBody,
@@ -15,13 +17,51 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
-import { doctors } from "@/lib/data";
+import { MoreHorizontal, PlusCircle, ShieldAlert } from "lucide-react";
 import Image from "next/image";
+import { useAdmin } from "@/hooks/useAdmin";
+import { useCollection, useFirestore } from "@/firebase";
+import { collection, query, where } from "firebase/firestore";
+import { useMemo } from "react";
+import type { Doctor } from "@/lib/types";
+import { Skeleton } from "@/components/ui/skeleton";
 import { PlaceHolderImages as placeholderImages } from "@/lib/placeholder-images";
 
+
 export default function AdminDoctorsPage() {
-  return (
+    const { isAdmin, isLoading } = useAdmin();
+    const firestore = useFirestore();
+
+    const doctorsCollection = useMemo(() => {
+        if (!firestore || !isAdmin) return null;
+        return query(collection(firestore, 'doctors'));
+    }, [firestore, isAdmin]);
+
+    const { data: doctors, isLoading: isLoadingDoctors } = useCollection<Doctor>(doctorsCollection);
+
+    if (isLoading) {
+        return (
+             <div className="p-4 md:p-8">
+                <div className="flex items-center justify-between mb-6">
+                    <h1 className="text-3xl font-bold font-headline">Manage Doctors</h1>
+                    <Button disabled><PlusCircle className="mr-2 h-4 w-4" /> Add Doctor</Button>
+                </div>
+                <Skeleton className="border rounded-lg h-96" />
+            </div>
+        )
+    }
+
+    if (!isAdmin) {
+        return (
+            <div className="p-4 md:p-8 flex flex-col items-center justify-center text-center h-[60vh]">
+                <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
+                <h1 className="text-2xl font-bold font-headline text-destructive">Access Denied</h1>
+                <p className="text-muted-foreground mt-2">You do not have permission to view this page.</p>
+            </div>
+        )
+    }
+
+    return (
     <div className="p-4 md:p-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-3xl font-bold font-headline">Manage Doctors</h1>
@@ -42,7 +82,16 @@ export default function AdminDoctorsPage() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {doctors.map((doctor) => {
+            {isLoadingDoctors && Array.from({length: 5}).map((_, i) => (
+                <TableRow key={i}>
+                    <TableCell><Skeleton className="h-10 w-48"/></TableCell>
+                    <TableCell><Skeleton className="h-6 w-24"/></TableCell>
+                    <TableCell><Skeleton className="h-6 w-20"/></TableCell>
+                    <TableCell><Skeleton className="h-6 w-24"/></TableCell>
+                    <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto"/></TableCell>
+                </TableRow>
+            ))}
+            {doctors && doctors.map((doctor) => {
               const doctorImage = placeholderImages.find(p => p.id === doctor.profileImageId);
               return (
               <TableRow key={doctor.id}>

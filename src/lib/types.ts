@@ -11,3 +11,13 @@ export interface Doctor {
   profileImageId: string;
   bio: string;
 }
+
+export interface Patient {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: 'patient' | 'doctor' | 'admin';
+    createdAt: string;
+    updatedAt: string;
+}

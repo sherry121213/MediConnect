@@ -1,9 +1,9 @@
 "use client"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
-import { DollarSign, BookOpen, Stethoscope, UserPlus } from "lucide-react";
-import { useUser } from "@/firebase";
-import { useEffect, useState } from "react";
+import { DollarSign, BookOpen, Stethoscope, UserPlus, ShieldAlert } from "lucide-react";
+import { useAdmin } from "@/hooks/useAdmin";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const monthlyBookings = [
   { name: "Jan", total: Math.floor(Math.random() * 200) + 50 },
@@ -29,41 +29,51 @@ const topSpecialties = [
 ]
 
 export default function AdminDashboardPage() {
-  const { user } = useUser();
-  const [isAdmin, setIsAdmin] = useState(false);
+  const { isAdmin, isLoading } = useAdmin();
 
-  useEffect(() => {
-    const checkAdmin = async () => {
-      if (user) {
-        try {
-          const idTokenResult = await user.getIdTokenResult();
-          setIsAdmin(!!idTokenResult.claims.admin);
-        } catch (error) {
-          console.error("Error checking admin status:", error);
-          setIsAdmin(false);
-        }
-      }
-    };
-    checkAdmin();
-  }, [user]);
+  if (isLoading) {
+    return (
+        <div className="p-4 md:p-8 space-y-8">
+            <h1 className="text-3xl font-bold font-headline">Admin Dashboard</h1>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <Skeleton className="h-28" />
+                <Skeleton className="h-28" />
+                <Skeleton className="h-28" />
+                <Skeleton className="h-28" />
+            </div>
+             <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-7">
+                <Skeleton className="col-span-4 h-96" />
+                <Skeleton className="col-span-4 lg:col-span-3 h-96" />
+            </div>
+        </div>
+    )
+  }
 
+  if (!isAdmin) {
+    return (
+        <div className="p-4 md:p-8 flex flex-col items-center justify-center text-center h-[60vh]">
+            <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
+            <h1 className="text-2xl font-bold font-headline text-destructive">Access Denied</h1>
+            <p className="text-muted-foreground mt-2">You do not have permission to view this page.</p>
+        </div>
+    )
+  }
+  
   return (
     <div className="p-4 md:p-8 space-y-8">
       <h1 className="text-3xl font-bold font-headline">Admin Dashboard</h1>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {isAdmin && (
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-                <DollarSign className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">$45,231.89</div>
-                <p className="text-xs text-muted-foreground">+20.1% from last month</p>
-              </CardContent>
-            </Card>
-        )}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">$45,231.89</div>
+            <p className="text-xs text-muted-foreground">+20.1% from last month</p>
+          </CardContent>
+        </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>

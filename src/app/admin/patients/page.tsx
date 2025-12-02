@@ -1,3 +1,5 @@
+'use client';
+
 import {
   Table,
   TableBody,
@@ -7,47 +9,84 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-
-const patients = [
-  { id: 'p_1', name: 'Ali Khan', email: 'ali.k@example.com', lastBooking: '2023-10-26', status: 'Active' },
-  { id: 'p_2', name: 'Sana Ahmed', email: 'sana.a@example.com', lastBooking: '2023-10-25', status: 'Active' },
-  { id: 'p_3', name: 'Zoya Farooq', email: 'zoya.f@example.com', lastBooking: '2023-08-12', status: 'Inactive' },
-  { id: 'p_4', name: 'Usman Sharif', email: 'usman.s@example.com', lastBooking: '2023-10-24', status: 'Active' },
-  { id: 'p_5', name: 'Hina Iqbal', email: 'hina.i@example.com', lastBooking: '2023-05-01', status: 'Inactive' },
-];
+import { useAdmin } from "@/hooks/useAdmin";
+import { useCollection, useFirestore } from "@/firebase";
+import { collection } from "firebase/firestore";
+import { useMemo } from "react";
+import type { Patient } from "@/lib/types";
+import { ShieldAlert } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AdminPatientsPage() {
-  return (
-    <div className="p-4 md:p-8">
-      <h1 className="text-3xl font-bold font-headline mb-6">Patient Management</h1>
-      <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Patient ID</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Last Booking</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {patients.map((patient) => (
-              <TableRow key={patient.id}>
-                <TableCell className="font-mono text-xs">{patient.id}</TableCell>
-                <TableCell>{patient.name}</TableCell>
-                <TableCell>{patient.email}</TableCell>
-                <TableCell>{patient.lastBooking}</TableCell>
-                <TableCell>
-                  <Badge variant={patient.status === 'Active' ? 'secondary' : 'outline'} className={patient.status === 'Active' ? "bg-green-100 text-green-800" : ""}>
-                    {patient.status}
-                  </Badge>
-                </TableCell>
-              </TableRow>
-            ))}
-          </TableBody>
-        </Table>
-      </div>
-    </div>
-  );
+    const { isAdmin, isLoading } = useAdmin();
+    const firestore = useFirestore();
+
+    const patientsCollection = useMemo(() => {
+        if (!firestore || !isAdmin) return null;
+        return collection(firestore, 'patients');
+    }, [firestore, isAdmin]);
+
+    const { data: patients, isLoading: isLoadingPatients } = useCollection<Patient>(patientsCollection);
+
+    if (isLoading) {
+        return (
+             <div className="p-4 md:p-8">
+                <h1 className="text-3xl font-bold font-headline mb-6">Patient Management</h1>
+                <Skeleton className="border rounded-lg h-96" />
+            </div>
+        )
+    }
+
+    if (!isAdmin) {
+        return (
+            <div className="p-4 md:p-8 flex flex-col items-center justify-center text-center h-[60vh]">
+                <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
+                <h1 className="text-2xl font-bold font-headline text-destructive">Access Denied</h1>
+                <p className="text-muted-foreground mt-2">You do not have permission to view this page.</p>
+            </div>
+        )
+    }
+
+    return (
+        <div className="p-4 md:p-8">
+        <h1 className="text-3xl font-bold font-headline mb-6">Patient Management</h1>
+        <div className="border rounded-lg">
+            <Table>
+            <TableHeader>
+                <TableRow>
+                <TableHead>Patient ID</TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {isLoadingPatients && Array.from({length: 5}).map((_, i) => (
+                    <TableRow key={i}>
+                        <TableCell><Skeleton className="h-6 w-40"/></TableCell>
+                        <TableCell><Skeleton className="h-6 w-32"/></TableCell>
+                        <TableCell><Skeleton className="h-6 w-48"/></TableCell>
+                        <TableCell><Skeleton className="h-6 w-20"/></TableCell>
+                        <TableCell><Skeleton className="h-6 w-20"/></TableCell>
+                    </TableRow>
+                ))}
+                {patients && patients.map((patient) => (
+                <TableRow key={patient.id}>
+                    <TableCell className="font-mono text-xs">{patient.id}</TableCell>
+                    <TableCell>{patient.firstName} {patient.lastName}</TableCell>
+                    <TableCell>{patient.email}</TableCell>
+                    <TableCell>{patient.role}</TableCell>
+                    <TableCell>
+                    <Badge variant={"secondary"} className={"bg-green-100 text-green-800"}>
+                        Active
+                    </Badge>
+                    </TableCell>
+                </TableRow>
+                ))}
+            </TableBody>
+            </Table>
+        </div>
+        </div>
+    );
 }
