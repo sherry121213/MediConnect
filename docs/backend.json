@@ -4,46 +4,51 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Patient",
       "type": "object",
-      "description": "Represents a patient using the MediAI Assist platform.",
+      "description": "Represents a user (patient or doctor) on the MediAI Assist platform.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the patient."
+          "description": "Unique identifier for the user, matching their Auth UID."
         },
         "firstName": {
           "type": "string",
-          "description": "Patient's first name."
+          "description": "User's first name."
         },
         "lastName": {
           "type": "string",
-          "description": "Patient's last name."
+          "description": "User's last name."
         },
         "email": {
           "type": "string",
-          "description": "Patient's email address.",
+          "description": "User's email address.",
           "format": "email"
+        },
+        "role": {
+          "type": "string",
+          "description": "The role of the user on the platform.",
+          "enum": ["patient", "doctor", "admin"]
         },
         "phone": {
           "type": "string",
-          "description": "Patient's phone number."
+          "description": "User's phone number."
         },
         "dateOfBirth": {
           "type": "string",
-          "description": "Patient's date of birth.",
-          "format": "date-time"
+          "description": "User's date of birth.",
+          "format": "date"
         },
         "address": {
           "type": "string",
-          "description": "Patient's address."
+          "description": "User's address."
         },
         "createdAt": {
           "type": "string",
-          "description": "Timestamp of when the patient record was created.",
+          "description": "Timestamp of when the user record was created.",
           "format": "date-time"
         },
         "updatedAt": {
           "type": "string",
-          "description": "Timestamp of when the patient record was last updated.",
+          "description": "Timestamp of when the user record was last updated.",
           "format": "date-time"
         }
       },
@@ -51,18 +56,19 @@
         "id",
         "firstName",
         "lastName",
-        "email"
+        "email",
+        "role"
       ]
     },
     "Doctor": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Doctor",
       "type": "object",
-      "description": "Represents a doctor on the MediAI Assist platform.",
+      "description": "Represents a doctor's professional profile on the MediAI Assist platform.",
       "properties": {
         "id": {
           "type": "string",
-          "description": "Unique identifier for the doctor."
+          "description": "Unique identifier for the doctor, matching their Auth UID."
         },
         "firstName": {
           "type": "string",
@@ -95,7 +101,7 @@
         },
         "verified": {
           "type": "boolean",
-          "description": "Indicates if the doctor's profile has been verified."
+          "description": "Indicates if the doctor's profile has been verified by an admin."
         },
         "createdAt": {
           "type": "string",
@@ -128,11 +134,11 @@
         },
         "patientId": {
           "type": "string",
-          "description": "Reference to Patient. (Relationship: Patient 1:N Appointment)"
+          "description": "Reference to Patient (user UID). (Relationship: Patient 1:N Appointment)"
         },
         "doctorId": {
           "type": "string",
-          "description": "Reference to Doctor. (Relationship: Doctor 1:N Appointment)"
+          "description": "Reference to Doctor (user UID). (Relationship: Doctor 1:N Appointment)"
         },
         "appointmentDateTime": {
           "type": "string",
@@ -176,7 +182,8 @@
     "providers": [
       "password",
       "anonymous"
-    ]
+    ],
+    "customClaims": ["admin", "doctorId"]
   },
   "firestore": {
     "structure": [
@@ -187,11 +194,11 @@
           "schema": {
             "$ref": "#/backend/entities/Patient"
           },
-          "description": "Stores patient profiles. Only the authenticated user (patient) with the matching `patientId` can access their own document.",
+          "description": "Stores user profiles for both patients and doctors. Only the authenticated user with the matching `patientId` (their UID) or an admin can access their own document.",
           "params": [
             {
               "name": "patientId",
-              "description": "The unique identifier for the patient."
+              "description": "The unique identifier for the user, matching their auth UID."
             }
           ]
         }
@@ -203,11 +210,11 @@
           "schema": {
             "$ref": "#/backend/entities/Doctor"
           },
-          "description": "Stores doctor profiles. Only the admin (via a dedicated admin role check) can manage doctor profiles. Patients can read doctor profiles to find suitable healthcare providers.",
+          "description": "Stores professional doctor profiles. Only an admin can manage these profiles. All authenticated users can read doctor profiles to find suitable healthcare providers.",
           "params": [
             {
               "name": "doctorId",
-              "description": "The unique identifier for the doctor."
+              "description": "The unique identifier for the doctor, matching their auth UID."
             }
           ]
         }
@@ -219,7 +226,7 @@
           "schema": {
             "$ref": "#/backend/entities/Appointment"
           },
-          "description": "Stores appointment records. Patients and Doctors have read access to the records with their IDs. Includes `patientId` and `doctorId` within the document to enforce authorization independence.",
+          "description": "Stores appointment records. Patients and Doctors have read access to the records where their UID is present. Admins can read all appointments. Includes `patientId` and `doctorId` within the document to enforce authorization independence.",
           "params": [
             {
               "name": "appointmentId",
@@ -229,6 +236,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to support MediAI Assist's core features, focusing on doctor-patient interactions, appointment booking, and administrative oversight. To ensure security, scalability, and debuggability, the structure adheres to the principles of Authorization Independence, Structural Segregation, and Access Modeling.\n\n**Authorization Independence:**\n\n*   For appointments, the `patientId` and `doctorId` are stored directly within the appointment document. This allows security rules to validate that only the patient or the doctor associated with the appointment can access it, without needing to perform `get()` operations to check parent documents. This is crucial for maintaining atomic operations and avoiding rule complexity.\n\n**Structural Segregation:**\n\n*   Patient and doctor data are stored in separate collections (`/patients` and `/doctors`), reflecting their distinct security requirements.  This segregation simplifies security rules and avoids the need for complex conditional logic within a single collection.\n\n**Access Modeling:**\n\n*   **Private Data (Patients & Doctors):** Patient and Doctor data are stored in top-level collections `patients` and `doctors` respectively.\n*   **User-Owned Data (Appointments):** Appointments are created as a top level collection to allow for querying across both patients and doctors, and both `patientId` and `doctorId` are denormalized on the record for simple rule authorization."
+    "reasoning": "The Firestore data structure is designed to support MediAI Assist's core features with role-based access. To ensure security, scalability, and debuggability, the structure adheres to the principles of Authorization Independence, Structural Segregation, and Access Modeling.\n\n**Authorization Independence:**\n\n*   For appointments, the `patientId` and `doctorId` are stored directly within the appointment document. This allows security rules to validate that only the patient, the doctor, or an admin can access it, without needing to perform `get()` operations to check parent documents.\n\n**Structural Segregation:**\n\n*   User account data (`/patients`), professional doctor profiles (`/doctors`), and appointments (`/appointments`) are stored in separate collections, reflecting their distinct security requirements and access patterns. This segregation simplifies security rules and avoids complex conditional logic within a single collection.\n\n**Access Modeling:**\n\n*   **User-Owned Data (Patient/User Profiles):** User data is stored in the top-level `/patients` collection, with access restricted to the user themselves or an admin.\n*   **Admin-Managed Data (Doctor Profiles):** Doctor profiles are in `/doctors`, readable by all signed-in users but writeable only by admins.\n*   **Shared Data (Appointments):** Appointments are in a top-level collection to allow for querying. Access is limited to the two participants (patient and doctor) or an admin."
   }
 }

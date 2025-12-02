@@ -5,7 +5,7 @@
  * unless explicitly granted.
  *
  * Data Structure: The data is organized into three distinct top-level collections:
- * - /patients/{patientId}: Stores private patient data, accessible only by the patient themselves.
+ * - /patients/{patientId}: Stores private patient data, accessible only by the patient themselves. Now includes a 'role' field.
  * - /doctors/{doctorId}: Stores public doctor profiles, readable by any authenticated user.
  * - /appointments/{appointmentId}: Stores records of appointments shared between a specific patient and doctor.
  *
@@ -49,30 +49,31 @@ service cloud.firestore {
     }
 
     /**
-     * Checks if the user has administrative privileges.
-     * CRITICAL: This is a placeholder. Implement your own logic, for example,
-     * by checking for a custom claim on the user's auth token.
-     * Example: `return request.auth.token.admin == true;`
+     * Checks if the user has administrative privileges by checking custom claims.
      */
     function isAdmin() {
-      // TODO: Implement your own admin verification logic here.
-      return false;
+      return request.auth.token.admin == true;
     }
     
     /**
      * Validates that an incoming patient document contains an `id` field
      * that matches the document's ID in the path. Enforces relational integrity on create.
+     * Also validates the 'role' field.
      * @param patientId The wildcard ID from the document path.
      */
     function isValidNewPatient(patientId) {
-      return request.resource.data.id == patientId;
+      let data = request.resource.data;
+      return data.id == patientId &&
+             (data.role == 'patient' || data.role == 'doctor');
     }
     
     /**
-     * Ensures the `id` field of a patient document cannot be changed after creation.
+     * Ensures the `id` and `role` fields of a patient document cannot be changed after creation.
      */
-    function isPatientIdImmutable() {
-      return request.resource.data.id == resource.data.id;
+    function isPatientIdAndRoleImmutable() {
+      let data = request.resource.data;
+      return data.id == resource.data.id &&
+             data.role == resource.data.role;
     }
     
     /**
@@ -122,24 +123,25 @@ service cloud.firestore {
     // ----------------------------------------------------------------
 
     /**
-     * @description Manages patient profiles. Access is strictly limited to the patient themselves.
+     * @description Manages patient/user profiles. Access is strictly limited to the user themselves or an admin.
      * @path /patients/{patientId}
-     * @allow (create) A new user creating their own patient profile document. `request.auth.uid == patientId`.
-     * @deny (get) A user trying to read another patient's profile. `request.auth.uid != patientId`.
-     * @principle Restricts access to a user's own data tree, preventing unauthorized data exposure.
+     * @allow (create) A new user creating their own profile document. `request.auth.uid == patientId`.
+     * @allow (get) An admin reading any patient's profile.
+     * @deny (get) A user trying to read another user's profile. `request.auth.uid != patientId`.
+     * @principle Restricts access to a user's own data tree, preventing unauthorized data exposure, with an exception for admins.
      */
     match /patients/{patientId} {
-      allow get: if isOwner(patientId);
-      allow list: if false; // Explicitly deny listing all patients for privacy.
+      allow get: if isOwner(patientId) || isAdmin();
+      allow list: if isAdmin();
       allow create: if isOwner(patientId) && isValidNewPatient(patientId);
-      allow update: if isExistingOwner(patientId) && isPatientIdImmutable();
-      allow delete: if isExistingOwner(patientId);
+      allow update: if (isExistingOwner(patientId) || isAdmin()) && isPatientIdAndRoleImmutable();
+      allow delete: if isExistingOwner(patientId) || isAdmin();
     }
 
     /**
      * @description Manages doctor profiles. These are publicly readable by any signed-in user but writeable only by admins.
      * @path /doctors/{doctorId}
-     * @allow (get) An authenticated patient looking up a doctor's profile.
+     * @allow (get) An authenticated user looking up a doctor's profile.
      * @deny (create) A regular user attempting to add a new doctor profile. `isAdmin() == false`.
      * @principle Implements a public-read, admin-only write pattern for curated public data.
      */
@@ -152,18 +154,18 @@ service cloud.firestore {
     }
 
     /**
-     * @description Manages appointment records. Access is restricted to the involved patient and doctor.
+     * @description Manages appointment records. Access is restricted to the involved patient and doctor, or an admin.
      * @path /appointments/{appointmentId}
      * @allow (get) A doctor or patient retrieving an appointment they are a part of.
-     * @deny (get) A user trying to read an appointment where they are not the patient or the doctor.
+     * @deny (get) A user trying to read an appointment where they are not a participant or admin.
      * @principle Enforces a "Closed Collaborators" model using denormalized IDs for efficient and secure authorization.
      */
     match /appointments/{appointmentId} {
-      allow get: if isParticipant();
-      allow list: if false; // Explicitly deny listing all appointments for privacy.
+      allow get: if isParticipant() || isAdmin();
+      allow list: if isAdmin(); // Only admins can list all appointments.
       allow create: if isSignedIn() && isCreatingParticipant();
-      allow update: if resource != null && isParticipant() && areAppointmentParticipantsImmutable();
-      allow delete: if resource != null && isParticipant();
+      allow update: if resource != null && (isParticipant() || isAdmin()) && areAppointmentParticipantsImmutable();
+      allow delete: if resource != null && (isParticipant() || isAdmin());
     }
   }
 }

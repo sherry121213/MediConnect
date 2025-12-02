@@ -11,19 +11,49 @@ import { useAuth, useUser } from "@/firebase";
 import { initiateEmailSignIn } from "@/firebase/non-blocking-login";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
+import { doc, getDoc } from "firebase/firestore";
+import { useFirestore } from "@/firebase";
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const auth = useAuth();
+  const firestore = useFirestore();
   const router = useRouter();
   const { user, isUserLoading } = useUser();
 
   useEffect(() => {
-    if (user && !isUserLoading) {
-      router.push('/appointments');
-    }
-  }, [user, isUserLoading, router]);
+    const routeUser = async () => {
+      if (user && !isUserLoading) {
+        try {
+          const idTokenResult = await user.getIdTokenResult();
+          if (idTokenResult.claims.admin) {
+            router.push('/admin');
+            return;
+          }
+
+          const userDocRef = doc(firestore, 'patients', user.uid);
+          const userDoc = await getDoc(userDocRef);
+
+          if (userDoc.exists()) {
+            const userData = userDoc.data();
+            if (userData.role === 'doctor') {
+              router.push('/doctor-portal');
+            } else {
+              router.push('/patient-portal');
+            }
+          } else {
+             // Default redirect if doc doesn't exist yet
+             router.push('/patient-portal');
+          }
+        } catch (error) {
+          console.error("Error getting user role:", error);
+          router.push('/'); // Fallback to home
+        }
+      }
+    };
+    routeUser();
+  }, [user, isUserLoading, router, firestore]);
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();

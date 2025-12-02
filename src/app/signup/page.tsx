@@ -19,13 +19,15 @@ import { initiateEmailSignUp } from "@/firebase/non-blocking-login";
 import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { doc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
-
+import { onAuthStateChanged } from "firebase/auth";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 export default function SignupPage() {
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState('patient');
   const auth = useAuth();
   const firestore = useFirestore();
   const router = useRouter();
@@ -33,25 +35,34 @@ export default function SignupPage() {
 
   useEffect(() => {
     if (user && !isUserLoading) {
-      router.push('/appointments');
+      const redirectPath = role === 'doctor' ? '/doctor-portal' : '/patient-portal';
+      router.push(redirectPath);
     }
-  }, [user, isUserLoading, router]);
+  }, [user, isUserLoading, router, role]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    try {
-        initiateEmailSignUp(auth, email, password);
-        // We can't get the user immediately after creation with non-blocking updates,
-        // so we'll listen for user state changes in the effect.
-        // For creating the user profile, we can optimistically use a temporary ID or wait for the user object.
-        // A robust solution would involve a server-side function to create the profile upon user creation.
-        // For this client-side example, we might have to create the profile upon first login or on a profile page.
+    
+    const unsubscribe = onAuthStateChanged(auth, (newUser) => {
+      if (newUser) {
+        // Now that we have the user object, create their profile document
+        const userDocRef = doc(firestore, 'patients', newUser.uid);
+        const userData = {
+          id: newUser.uid,
+          firstName,
+          lastName,
+          email,
+          role,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        setDocumentNonBlocking(userDocRef, userData, { merge: true });
         
-        // A simple approach for now is to just create the user. Profile creation can be handled later.
-        
-    } catch (error) {
-        console.error("Sign up error:", error);
-    }
+        unsubscribe(); // Unsubscribe to avoid running this multiple times
+      }
+    });
+
+    initiateEmailSignUp(auth, email, password);
   };
 
   return (
@@ -91,7 +102,20 @@ export default function SignupPage() {
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="password">Password</Label>
-                  <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} />
+                  <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required/>
+                </div>
+                <div className="grid gap-2">
+                  <Label>I am a...</Label>
+                  <RadioGroup defaultValue="patient" onValueChange={setRole} className="flex gap-4">
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="patient" id="role-patient" />
+                      <Label htmlFor="role-patient">Patient</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="doctor" id="role-doctor" />
+                      <Label htmlFor="role-doctor">Doctor</Label>
+                    </div>
+                  </RadioGroup>
                 </div>
                 <Button type="submit" className="w-full">
                   Create an account

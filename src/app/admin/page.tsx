@@ -2,6 +2,8 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 import { DollarSign, BookOpen, Stethoscope, UserPlus } from "lucide-react";
+import { useUser } from "@/firebase";
+import { useEffect, useState } from "react";
 
 const monthlyBookings = [
   { name: "Jan", total: Math.floor(Math.random() * 200) + 50 },
@@ -27,21 +29,41 @@ const topSpecialties = [
 ]
 
 export default function AdminDashboardPage() {
+  const { user } = useUser();
+  const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      if (user) {
+        try {
+          const idTokenResult = await user.getIdTokenResult();
+          setIsAdmin(!!idTokenResult.claims.admin);
+        } catch (error) {
+          console.error("Error checking admin status:", error);
+          setIsAdmin(false);
+        }
+      }
+    };
+    checkAdmin();
+  }, [user]);
+
   return (
     <div className="p-4 md:p-8 space-y-8">
       <h1 className="text-3xl font-bold font-headline">Admin Dashboard</h1>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">$45,231.89</div>
-            <p className="text-xs text-muted-foreground">+20.1% from last month</p>
-          </CardContent>
-        </Card>
+        {isAdmin && (
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
+                <DollarSign className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">$45,231.89</div>
+                <p className="text-xs text-muted-foreground">+20.1% from last month</p>
+              </CardContent>
+            </Card>
+        )}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Bookings</CardTitle>
