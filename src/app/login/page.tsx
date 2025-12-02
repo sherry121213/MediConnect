@@ -30,7 +30,7 @@ export default function LoginPage() {
     const routeUser = async () => {
       if (user && !isUserLoading) {
         try {
-          const idTokenResult = await user.getIdTokenResult();
+          const idTokenResult = await user.getIdTokenResult(true); // Force refresh
           if (idTokenResult.claims.admin) {
             router.push('/admin');
             return;
@@ -47,7 +47,7 @@ export default function LoginPage() {
               router.push('/patient-portal');
             }
           } else {
-             // Default redirect if doc doesn't exist yet
+             // Default redirect if doc doesn't exist yet for patient
              router.push('/patient-portal');
           }
         } catch (error) {
@@ -72,9 +72,9 @@ export default function LoginPage() {
         title: "Login Failed",
         description: error.message || "Invalid credentials. Please try again.",
       });
-    } finally {
-      setLoading(false);
-    }
+      setLoading(false); // Only set loading to false on error
+    } 
+    // Do not set loading to false on success, as redirection will occur
   };
 
   return (

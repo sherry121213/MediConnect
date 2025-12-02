@@ -37,16 +37,30 @@ export default function SignupPage() {
   const { toast } = useToast();
 
   useEffect(() => {
-    if (user && !isUserLoading) {
-      let redirectPath = '/patient-portal';
-      if (role === 'doctor') {
-        redirectPath = '/doctor-portal';
-      } else if (role === 'admin') {
-        redirectPath = '/admin';
+    const routeUser = async () => {
+      if (user && !isUserLoading) {
+        try {
+          const idTokenResult = await user.getIdTokenResult(true); // Force refresh
+          if (idTokenResult.claims.admin) {
+            router.push('/admin');
+            return;
+          }
+          // If not an admin, check for doctor/patient role from doc
+          const userDocRef = doc(firestore, 'patients', user.uid);
+          const userDoc = await getDoc(userDocRef);
+          if (userDoc.exists() && userDoc.data().role === 'doctor') {
+            router.push('/doctor-portal');
+          } else {
+            router.push('/patient-portal');
+          }
+        } catch (error) {
+          console.error("Error routing user after signup:", error);
+          router.push('/patient-portal'); // Default fallback
+        }
       }
-      router.push(redirectPath);
-    }
-  }, [user, isUserLoading, router, role]);
+    };
+    routeUser();
+  }, [user, isUserLoading, router, firestore]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -78,11 +92,9 @@ export default function SignupPage() {
           title: "Sign Up Failed",
           description: error.message || "Could not create account. Please try again.",
         });
-    } finally {
-      // setLoading is not turned off here immediately because redirection will happen.
-      // If redirection fails or user creation has an issue not caught by the try/catch,
-      // you might want to handle that case. For now, we assume success leads to redirect.
+        setLoading(false); // Only set loading to false on error
     }
+    // Do not set loading to false on success, as redirection will occur.
   };
 
   return (
