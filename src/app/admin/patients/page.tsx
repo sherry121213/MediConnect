@@ -10,7 +10,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection } from "firebase/firestore";
+import { collection, query, where } from "firebase/firestore";
 import type { Patient } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -19,7 +19,8 @@ export default function AdminPatientsPage() {
 
     const patientsCollection = useMemoFirebase(() => {
         if (!firestore) return null;
-        return collection(firestore, 'patients');
+        // Query only for documents where role is 'patient'
+        return query(collection(firestore, 'patients'), where('role', '==', 'patient'));
     }, [firestore]);
 
     const { data: patients, isLoading: isLoadingPatients } = useCollection<Patient>(patientsCollection);

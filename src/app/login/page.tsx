@@ -36,20 +36,25 @@ export default function LoginPage() {
             return;
           }
 
-          const userDocRef = doc(firestore, 'patients', user.uid);
-          const userDoc = await getDoc(userDocRef);
-
-          if (userDoc.exists()) {
-            const userData = userDoc.data();
-            if (userData.role === 'doctor') {
-              router.push('/doctor-portal');
-            } else {
-              router.push('/patient-portal');
-            }
-          } else {
-             // Default redirect if doc doesn't exist yet for patient
-             router.push('/patient-portal');
+          // Check if user is in doctors collection
+          const doctorDocRef = doc(firestore, 'doctors', user.uid);
+          const doctorDoc = await getDoc(doctorDocRef);
+          if (doctorDoc.exists()) {
+            router.push('/doctor-portal');
+            return;
           }
+          
+          // Check if user is in patients collection
+          const patientDocRef = doc(firestore, 'patients', user.uid);
+          const patientDoc = await getDoc(patientDocRef);
+          if (patientDoc.exists()) {
+             router.push('/patient-portal');
+             return;
+          }
+
+          // Default redirect if doc doesn't exist in either collection
+          router.push('/patient-portal');
+
         } catch (error) {
           console.error("Error getting user role:", error);
           router.push('/'); // Fallback to home

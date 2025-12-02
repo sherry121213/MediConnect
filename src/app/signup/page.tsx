@@ -15,7 +15,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth, useUser } from "@/firebase";
-import { doc } from "firebase/firestore";
+import { doc, getDoc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
@@ -46,13 +46,24 @@ export default function SignupPage() {
             return;
           }
           // If not an admin, check for doctor/patient role from doc
-          const userDocRef = doc(firestore, 'patients', user.uid);
-          const userDoc = await getDoc(userDocRef);
-          if (userDoc.exists() && userDoc.data().role === 'doctor') {
-            router.push('/doctor-portal');
-          } else {
-            router.push('/patient-portal');
+          // Note: This logic assumes a user can't be both a doctor and a patient with the same account
+          const doctorDocRef = doc(firestore, 'doctors', user.uid);
+          const doctorDoc = await getDoc(doctorDocRef);
+          if (doctorDoc.exists()) {
+              router.push('/doctor-portal');
+              return;
           }
+
+          const patientDocRef = doc(firestore, 'patients', user.uid);
+          const patientDoc = await getDoc(patientDocRef);
+          if (patientDoc.exists()) {
+              router.push('/patient-portal');
+              return;
+          }
+          
+          // Default redirect if doc doesn't exist in either collection
+          router.push('/patient-portal');
+
         } catch (error) {
           console.error("Error routing user after signup:", error);
           router.push('/patient-portal'); // Default fallback
@@ -71,17 +82,30 @@ export default function SignupPage() {
       const newUser = userCredential.user;
 
       if (newUser) {
-        const userDocRef = doc(firestore, 'patients', newUser.uid);
-        const userData = {
+        // Determine the collection based on the selected role
+        const collectionName = role === 'doctor' ? 'doctors' : 'patients';
+        const userDocRef = doc(firestore, collectionName, newUser.uid);
+
+        let userData: any = {
           id: newUser.uid,
           firstName,
           lastName,
           email,
-          role,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
-        // Use the non-blocking function with contextual error handling
+
+        // Add role-specific fields
+        if (role === 'doctor') {
+            userData = {
+                ...userData,
+                specialty: "General Physician", // Default specialty
+                verified: false,
+            };
+        } else {
+             userData.role = role; // 'patient' or 'admin'
+        }
+        
         setDocumentNonBlocking(userDocRef, userData, { merge: true });
         // The useEffect will handle redirection.
       }
