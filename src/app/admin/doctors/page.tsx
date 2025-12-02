@@ -88,7 +88,6 @@ export default function AdminDoctorsPage() {
 
         try {
             const doctorsCollectionRef = collection(firestore, 'doctors');
-            // This now uses the non-blocking update
             await addDoc(doctorsCollectionRef, {
                 ...values,
                 verified: false,
@@ -241,7 +240,7 @@ export default function AdminDoctorsPage() {
             ))}
             {doctors && doctors.map((doctor: any) => {
               const doctorImage = placeholderImages.find(p => p.id === 'doctor1');
-              const name = doctor.name || `${doctor.firstName} ${doctor.lastName}`;
+              const name = `${doctor.firstName} ${doctor.lastName}`;
               return (
               <TableRow key={doctor.id}>
                 <TableCell className="font-medium">

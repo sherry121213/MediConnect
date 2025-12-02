@@ -28,23 +28,26 @@ export default function LoginPage() {
 
   useEffect(() => {
     const routeUser = async () => {
-      if (user && !isUserLoading) {
+      if (user && !isUserLoading && firestore) {
         try {
-          const idTokenResult = await user.getIdTokenResult(true); // Force refresh
+          const idTokenResult = await user.getIdTokenResult(true);
           if (idTokenResult.claims.admin) {
             router.push('/admin');
             return;
           }
 
-          // Check if user is in doctors collection
           const doctorDocRef = doc(firestore, 'doctors', user.uid);
           const doctorDoc = await getDoc(doctorDocRef);
           if (doctorDoc.exists()) {
-            router.push('/doctor-portal');
-            return;
+             const doctorData = doctorDoc.data();
+             if (doctorData.profileComplete) {
+                router.push('/doctor-portal');
+             } else {
+                router.push('/doctor-portal/profile');
+             }
+             return;
           }
           
-          // Check if user is in patients collection
           const patientDocRef = doc(firestore, 'patients', user.uid);
           const patientDoc = await getDoc(patientDocRef);
           if (patientDoc.exists()) {
@@ -52,12 +55,11 @@ export default function LoginPage() {
              return;
           }
 
-          // Default redirect if doc doesn't exist in either collection
           router.push('/patient-portal');
 
         } catch (error) {
           console.error("Error getting user role:", error);
-          router.push('/'); // Fallback to home
+          router.push('/');
         }
       }
     };
@@ -66,10 +68,10 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth) return;
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // The useEffect will handle redirection on successful login
     } catch (error: any) {
       console.error("Login Error:", error);
       toast({
@@ -77,9 +79,8 @@ export default function LoginPage() {
         title: "Login Failed",
         description: error.message || "Invalid credentials. Please try again.",
       });
-      setLoading(false); // Only set loading to false on error
+      setLoading(false);
     } 
-    // Do not set loading to false on success, as redirection will occur
   };
 
   return (

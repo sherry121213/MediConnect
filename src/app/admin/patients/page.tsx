@@ -9,23 +9,23 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { patients as staticPatients } from "@/lib/patient-data";
 import type { Patient } from "@/lib/types";
-import { useState, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { collection, query, where } from "firebase/firestore";
 
 
 export default function AdminPatientsPage() {
-    const [patients, setPatients] = useState<Patient[]>([]);
-    const [isLoadingPatients, setIsLoadingPatients] = useState(true);
+    const firestore = useFirestore();
 
-    useEffect(() => {
-        // Simulate fetching data
-        setTimeout(() => {
-            setPatients(staticPatients);
-            setIsLoadingPatients(false);
-        }, 1000);
-    }, []);
+    const patientsCollection = useMemoFirebase(() => {
+        if (!firestore) return null;
+        // Query for documents in the 'patients' collection where the role is 'patient'
+        return query(collection(firestore, 'patients'), where("role", "==", "patient"));
+    }, [firestore]);
+
+    const { data: patients, isLoading: isLoadingPatients } = useCollection<Patient>(patientsCollection);
+
 
     return (
         <div className="p-4 md:p-8">
@@ -51,7 +51,7 @@ export default function AdminPatientsPage() {
                         <TableCell><Skeleton className="h-6 w-20"/></TableCell>
                     </TableRow>
                 ))}
-                {!isLoadingPatients && patients.map((patient) => (
+                {patients && patients.map((patient) => (
                 <TableRow key={patient.id}>
                     <TableCell className="font-mono text-xs">{patient.id}</TableCell>
                     <TableCell>{patient.firstName} {patient.lastName}</TableCell>
@@ -64,6 +64,11 @@ export default function AdminPatientsPage() {
                     </TableCell>
                 </TableRow>
                 ))}
+                {!isLoadingPatients && patients && patients.length === 0 && (
+                    <TableRow>
+                        <TableCell colSpan={5} className="text-center h-24">No patients found.</TableCell>
+                    </TableRow>
+                )}
             </TableBody>
             </Table>
         </div>

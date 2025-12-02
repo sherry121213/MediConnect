@@ -21,7 +21,7 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { setDoc } from 'firebase/firestore';
 
 export default function SignupPage() {
   const [firstName, setFirstName] = useState('');
@@ -38,20 +38,24 @@ export default function SignupPage() {
 
   useEffect(() => {
     const routeUser = async () => {
-      if (user && !isUserLoading) {
+      if (user && !isUserLoading && firestore) {
         try {
-          const idTokenResult = await user.getIdTokenResult(true); // Force refresh
+          const idTokenResult = await user.getIdTokenResult(true);
           if (idTokenResult.claims.admin) {
             router.push('/admin');
             return;
           }
-          // If not an admin, check for doctor/patient role from doc
-          // Note: This logic assumes a user can't be both a doctor and a patient with the same account
+          
           const doctorDocRef = doc(firestore, 'doctors', user.uid);
           const doctorDoc = await getDoc(doctorDocRef);
           if (doctorDoc.exists()) {
-              router.push('/doctor-portal');
-              return;
+             const doctorData = doctorDoc.data();
+             if (doctorData.profileComplete) {
+                router.push('/doctor-portal');
+             } else {
+                router.push('/doctor-portal/profile');
+             }
+             return;
           }
 
           const patientDocRef = doc(firestore, 'patients', user.uid);
@@ -61,8 +65,11 @@ export default function SignupPage() {
               return;
           }
           
-          // Default redirect if doc doesn't exist in either collection
-          router.push('/patient-portal');
+          if (role === 'doctor') {
+            router.push('/doctor-portal/profile');
+          } else {
+            router.push('/patient-portal');
+          }
 
         } catch (error) {
           console.error("Error routing user after signup:", error);
@@ -71,10 +78,11 @@ export default function SignupPage() {
       }
     };
     routeUser();
-  }, [user, isUserLoading, router, firestore]);
+  }, [user, isUserLoading, router, firestore, role]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!auth || !firestore) return;
     setLoading(true);
     
     try {
@@ -82,10 +90,7 @@ export default function SignupPage() {
       const newUser = userCredential.user;
 
       if (newUser) {
-        // Determine the collection based on the selected role
-        const collectionName = role === 'doctor' ? 'doctors' : 'patients';
-        const userDocRef = doc(firestore, collectionName, newUser.uid);
-
+        let collectionName: string;
         let userData: any = {
           id: newUser.uid,
           firstName,
@@ -95,19 +100,21 @@ export default function SignupPage() {
           updatedAt: new Date().toISOString(),
         };
 
-        // Add role-specific fields
         if (role === 'doctor') {
-            userData = {
-                ...userData,
-                specialty: "General Physician", // Default specialty
-                verified: false,
-            };
+          collectionName = 'doctors';
+          userData = {
+            ...userData,
+            verified: false,
+            profileComplete: false, // New flag for onboarding
+          };
         } else {
-             userData.role = role; // 'patient' or 'admin'
+          collectionName = 'patients';
+          userData.role = role; // 'patient' or 'admin'
         }
         
-        setDocumentNonBlocking(userDocRef, userData, { merge: true });
-        // The useEffect will handle redirection.
+        const userDocRef = doc(firestore, collectionName, newUser.uid);
+        await setDoc(userDocRef, userData);
+        
       }
     } catch (error: any) {
         console.error("Signup Error:", error);
@@ -116,9 +123,8 @@ export default function SignupPage() {
           title: "Sign Up Failed",
           description: error.message || "Could not create account. Please try again.",
         });
-        setLoading(false); // Only set loading to false on error
+        setLoading(false);
     }
-    // Do not set loading to false on success, as redirection will occur.
   };
 
   return (
