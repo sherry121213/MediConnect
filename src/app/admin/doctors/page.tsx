@@ -60,7 +60,11 @@ export default function AdminDoctorsPage() {
     
     // For now, we will use the static data for display purposes.
     // In a real application, you would fetch and combine data from Firestore.
-    const [doctors, setDoctors] = useState<Doctor[]>(staticDoctors.map(d => ({...d, firstName: d.name.split(' ')[0], lastName: d.name.split(' ').slice(1).join(' ')})));
+    const [doctors, setDoctors] = useState<Doctor[]>(
+        staticDoctors
+          .filter(d => d.location === 'Rawalpindi' || d.location === 'Islamabad')
+          .map(d => ({...d, firstName: d.name.split(' ')[0], lastName: d.name.split(' ').slice(1).join(' ')}))
+      );
     const isLoadingDoctors = false;
 
 
@@ -302,5 +306,3 @@ export default function AdminDoctorsPage() {
     </div>
   );
 }
-
-    
