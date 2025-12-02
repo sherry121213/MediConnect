@@ -23,6 +23,7 @@ import { signOut } from 'firebase/auth';
 const navLinks = [
   { href: '/', label: 'Home' },
   { href: '/find-a-doctor', label: 'Find a Doctor' },
+  { href: '/contact', label: 'Contact' },
   { href: '/admin', label: 'Admin' },
 ];
 
@@ -33,7 +34,7 @@ export default function AppHeader() {
   const auth = useAuth();
 
   const handleLogout = () => {
-    signOut(auth);
+    if(auth) signOut(auth);
   };
 
   const UserMenu = () => (

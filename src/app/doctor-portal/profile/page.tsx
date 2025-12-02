@@ -18,10 +18,11 @@ import { useState } from 'react';
 
 const profileSchema = z.object({
   specialty: z.string().min(2, 'Specialty is required.'),
+  experience: z.coerce.number().min(0, 'Experience must be a positive number.'),
   medicalSchool: z.string().min(2, 'Medical school is required.'),
   degree: z.string().min(2, 'Degree is required.'),
-  experience: z.coerce.number().min(0, 'Experience must be a positive number.'),
   contact: z.string().min(10, 'Please enter a valid contact number.'),
+  location: z.string().min(3, 'Clinic location is required.'),
   degreeFile: z.instanceof(File).optional(),
 });
 
@@ -38,10 +39,11 @@ export default function CompleteDoctorProfilePage() {
     resolver: zodResolver(profileSchema),
     defaultValues: {
       specialty: '',
+      experience: 0,
       medicalSchool: '',
       degree: '',
-      experience: 0,
       contact: '',
+      location: '',
     },
   });
 
@@ -65,10 +67,11 @@ export default function CompleteDoctorProfilePage() {
       const doctorDocRef = doc(firestore, 'doctors', user.uid);
       await updateDoc(doctorDocRef, {
         specialty: values.specialty,
+        experience: values.experience,
         medicalSchool: values.medicalSchool,
         degree: values.degree,
-        experience: values.experience,
-        phone: values.contact, // Using 'phone' to match backend schema
+        phone: values.contact,
+        location: values.location,
         degreeUrl: degreeUrl,
         profileComplete: true,
         updatedAt: new Date().toISOString(),
@@ -167,19 +170,34 @@ export default function CompleteDoctorProfilePage() {
                       )}
                     />
                 </div>
-                 <FormField
+                 <div className="grid md:grid-cols-2 gap-6">
+                    <FormField
+                        control={control}
+                        name="contact"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Contact Number</FormLabel>
+                            <FormControl>
+                              <Input placeholder="e.g., 0300-1234567" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    <FormField
                       control={control}
-                      name="contact"
+                      name="location"
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel>Contact Number</FormLabel>
+                          <FormLabel>Clinic Location</FormLabel>
                           <FormControl>
-                            <Input placeholder="e.g., 0300-1234567" {...field} />
+                            <Input placeholder="e.g., Blue Area, Islamabad" {...field} />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
                     />
+                 </div>
 
                 <FormItem>
                   <FormLabel>Degree Certificate</FormLabel>

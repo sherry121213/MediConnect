@@ -17,6 +17,7 @@ export default function AppFooter() {
             <ul className="mt-4 space-y-2 text-sm">
               <li><Link href="/find-a-doctor" className="text-muted-foreground hover:text-primary">Find a Doctor</Link></li>
               <li><Link href="/appointments" className="text-muted-foreground hover:text-primary">Appointments</Link></li>
+              <li><Link href="/contact" className="text-muted-foreground hover:text-primary">Contact Us</Link></li>
             </ul>
           </div>
           <div>
