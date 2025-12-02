@@ -2,10 +2,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
-import { ArrowRight, Briefcase, Heart, Brain, Clock, FileText, User, Lock, Video, Calendar } from "lucide-react";
+import { ArrowRight, Briefcase, Heart, Brain, Clock, FileText, User, Lock, Video, Calendar, ShieldCheck, Siren, Activity } from "lucide-react";
 import DoctorCard from "@/components/doctor-card";
 import AppHeader from "@/components/layout/header";
 import AppFooter from "@/components/layout/footer";
@@ -53,12 +53,28 @@ const features = [
     },
   ];
 
-  const partners = [
-    { id: "partner_chughtai", alt: "Chughtai Lab Logo"},
-    { id: "partner_aga_khan", alt: "Aga Khan University Hospital Logo"},
-    { id: "partner_shaukat", alt: "Shaukat Khanum Memorial Cancer Hospital Logo"},
-    { id: "partner_red_crescent", alt: "Pakistan Red Crescent Logo"},
-  ]
+  const healthSafetyTips = [
+    {
+        icon: ShieldCheck,
+        title: "Regular Check-ups",
+        description: "Schedule regular check-ups with your doctor to monitor your health and catch potential issues early.",
+    },
+    {
+        icon: Activity,
+        title: "Stay Active",
+        description: "Incorporate at least 30 minutes of moderate physical activity into your daily routine to maintain a healthy heart.",
+    },
+    {
+        icon: Siren,
+        title: "Know Emergency Signs",
+        description: "Be aware of heart attack and stroke symptoms. Quick action can save lives. Call for help immediately.",
+    },
+    {
+        icon: Brain,
+        title: "Prioritize Mental Health",
+        description: "Your mental well-being is as important as your physical health. Don't hesitate to seek help from a professional.",
+    },
+  ];
 
 export default function Home() {
   const heroImage = placeholderImages.find(p => p.id === 'hero-v2');
@@ -225,25 +241,38 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Our Trusted Partners */}
-        <section className="py-16 bg-white">
+        {/* Health & Safety Tips Section */}
+        <section className="py-16 md:py-24 bg-white">
             <div className="container mx-auto px-4">
                 <div className="text-center">
-                    <h2 className="text-3xl font-bold font-headline">Our Trusted Partners</h2>
-                    <p className="text-muted-foreground mt-2">We are proud to partner with leading organizations to deliver quality healthcare.</p>
+                    <h2 className="text-3xl font-bold font-headline">Health & Safety Tips</h2>
+                    <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">Stay informed with our essential health and safety advice.</p>
                 </div>
-                <div className="mt-12 flex flex-wrap justify-center items-center gap-x-8 gap-y-8">
-                  {partners.map(partner => {
-                    const partnerImage = placeholderImages.find(p => p.id === partner.id);
-                    return partnerImage ? (
-                      <div key={partner.id} className="group relative p-4 rounded-lg border border-gray-200/80 hover:shadow-lg hover:border-gray-300 transition-all duration-300">
-                        <div className="relative h-16 w-36">
-                            <Image src={partnerImage.imageUrl} alt={partner.alt} fill className="object-contain grayscale group-hover:grayscale-0 transition-all" data-ai-hint="company logo"/>
-                        </div>
-                      </div>
-                    ) : null;
-                  })}
-                </div>
+                 <Carousel
+                    opts={{ align: "start", loop: true, }}
+                    plugins={[ Autoplay({ delay: 4000, stopOnInteraction: true, }), ]}
+                    className="mt-12"
+                    >
+                    <CarouselContent>
+                        {healthSafetyTips.map((tip, index) => (
+                        <CarouselItem key={index} className="md:basis-1/2 lg:basis-1/3">
+                            <div className="p-4">
+                                <Card className="h-full p-6 text-center shadow-lg hover:shadow-xl transition-shadow flex flex-col items-center">
+                                     <div className="mx-auto bg-primary/20 text-primary rounded-full p-4 w-fit mb-4">
+                                        <tip.icon className="w-8 h-8" />
+                                    </div>
+                                    <CardHeader className="p-0">
+                                        <CardTitle>{tip.title}</CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-0 mt-2 flex-grow">
+                                        <p className="text-muted-foreground">{tip.description}</p>
+                                    </CardContent>
+                                </Card>
+                            </div>
+                        </CarouselItem>
+                        ))}
+                    </CarouselContent>
+                </Carousel>
             </div>
         </section>
       </main>
@@ -251,5 +280,3 @@ export default function Home() {
     </div>
   );
 }
-
-    

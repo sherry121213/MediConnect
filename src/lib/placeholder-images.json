@@ -63,44 +63,20 @@
     {
       "id": "testimonial1",
       "description": "Portrait of Javed Ahmed",
-      "imageUrl": "https://images.unsplash.com/photo-1590086782792-42dd2350140d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjQ2NzYxNTh8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "https://images.unsplash.com/photo-1590086782792-42dd2350140d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjQ2NzYxNTh8MA&ixlibrb-4.1.0&q=80&w=1080",
       "imageHint": "person portrait"
     },
     {
       "id": "testimonial2",
       "description": "Portrait of Aisha Malik",
-      "imageUrl": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjQ2NzYxNTh8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjQ2NzYxNTh8MA&ixlib-rb-4.1.0&q=80&w=1080",
       "imageHint": "person portrait"
     },
     {
       "id": "testimonial3",
       "description": "Portrait of Fatima Ali",
-      "imageUrl": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjQ2NzYxNTh8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjQ2NzYxNTh8MA&ixlib-rb-4.1.0&q=80&w=1080",
       "imageHint": "person portrait"
-    },
-    {
-      "id": "partner_chughtai",
-      "description": "Logo of Chughtai Lab",
-      "imageUrl": "https://www.chughtailab.com/wp-content/uploads/2020/03/Chughtai-Lab-Logo-Urdu.png",
-      "imageHint": "medical logo"
-    },
-    {
-      "id": "partner_aga_khan",
-      "description": "Logo of Aga Khan University Hospital",
-      "imageUrl": "https://www.aku.edu/aboutaku/PublishingImages/aku-logo-vertical.png",
-      "imageHint": "medical logo"
-    },
-    {
-      "id": "partner_shaukat",
-      "description": "Logo of Shaukat Khanum Memorial Cancer Hospital & Research Centre",
-      "imageUrl": "https://shaukatkhanum.org.pk/wp-content/uploads/2021/11/skm-logo.png",
-      "imageHint": "medical logo"
-    },
-    {
-      "id": "partner_red_crescent",
-      "description": "Logo of Pakistan Red Crescent Society",
-      "imageUrl": "https://www.prcs.org.pk/wp-content/uploads/2021/10/logo.png",
-      "imageHint": "medical logo"
     }
   ]
 }
