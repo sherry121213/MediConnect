@@ -1,3 +1,4 @@
+
 import type { Doctor } from '@/lib/types';
 import { Specialty } from '@/lib/types';
 
@@ -178,5 +179,49 @@ export const doctors: Doctor[] = [
     isVerified: true,
     profileImageId: 'doctor7',
     bio: 'Compassionate oncologist providing cutting-edge cancer treatment and supportive care. Member of the National Comprehensive Cancer Network.'
+  },
+  {
+    id: '16',
+    name: 'Dr. Ahmed Raza',
+    specialty: 'Gastroenterology',
+    location: 'Rawalpindi',
+    rating: 4.9,
+    reviews: 92,
+    isVerified: true,
+    profileImageId: 'doctor1',
+    bio: 'Specialist in digestive diseases and endoscopy. Committed to providing the highest quality care to patients in Rawalpindi.'
+  },
+  {
+    id: '17',
+    name: 'Dr. Mariam Baig',
+    specialty: 'Endocrinology',
+    location: 'Islamabad',
+    rating: 4.8,
+    reviews: 105,
+    isVerified: true,
+    profileImageId: 'doctor2',
+    bio: 'Expert in managing diabetes and thyroid disorders, with a patient-centered approach. Based in the heart of Islamabad.'
+  },
+  {
+    id: '18',
+    name: 'Dr. Saad Abbasi',
+    specialty: 'General Physician',
+    location: 'Rawalpindi',
+    rating: 4.7,
+    reviews: 215,
+    isVerified: true,
+    profileImageId: 'doctor4',
+    bio: 'A trusted family physician in Rawalpindi, providing comprehensive healthcare for all ages.'
+  },
+  {
+    id: '19',
+    name: 'Dr. Iqra Aziz',
+    specialty: 'Oncology',
+    location: 'Islamabad',
+    rating: 5.0,
+    reviews: 80,
+    isVerified: true,
+    profileImageId: 'doctor5',
+    bio: 'Dedicated oncologist in Islamabad, specializing in chemotherapy and immunotherapy with a compassionate touch.'
   }
 ];
