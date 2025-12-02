@@ -55,10 +55,12 @@ export default function LoginPage() {
              return;
           }
 
+          // Default fallback for any other case (e.g., patient just signed up)
           router.push('/patient-portal');
 
         } catch (error) {
           console.error("Error getting user role:", error);
+          // Fallback to a safe default page if routing fails
           router.push('/');
         }
       }
@@ -72,6 +74,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      // Let the useEffect handle redirection
     } catch (error: any) {
       console.error("Login Error:", error);
       toast({
@@ -126,8 +129,8 @@ export default function LoginPage() {
                     disabled={loading}
                   />
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button type="submit" className="w-full" disabled={loading || isUserLoading}>
+                  {(loading || isUserLoading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Login
                 </Button>
               </div>

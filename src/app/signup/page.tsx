@@ -108,6 +108,8 @@ export default function SignupPage() {
             profileComplete: false, // New flag for onboarding
           };
         } else {
+          // Both patients and admins are stored in the 'patients' collection
+          // The role is differentiated by the 'role' field.
           collectionName = 'patients';
           userData.role = role; // 'patient' or 'admin'
         }
