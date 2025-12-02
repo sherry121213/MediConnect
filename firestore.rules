@@ -2,18 +2,18 @@
  * Core Philosophy: This ruleset enforces a multi-tiered security model tailored for a medical application.
  * It strictly separates user-owned private data (patients), publicly readable data (doctors), and
  * shared data with closed collaborators (appointments). The default posture is to deny all access
- * unless explicitly granted.
+ * unless explicitly granted. Admins have unrestricted access.
  *
  * Data Structure: The data is organized into three distinct top-level collections:
- * - /patients/{patientId}: Stores private patient data, accessible only by the patient themselves. Now includes a 'role' field.
+ * - /patients/{patientId}: Stores private patient data. Access is restricted to the patient, an admin, or a doctor linked via a completed appointment.
  * - /doctors/{doctorId}: Stores public doctor profiles, readable by any authenticated user.
  * - /appointments/{appointmentId}: Stores records of appointments shared between a specific patient and doctor.
  *
  * Key Security Decisions:
- * - User Isolation: Users are strictly forbidden from listing or accessing the data of other users. The /patients collection cannot be queried wholesale.
- * - Admin-Managed Content: Doctor profiles are treated as curated content. They are publicly readable but can only be created, updated, or deleted by a user with administrative privileges.
- * - Shared Access Control: Access to an appointment document is granted only to the two participants (patient and doctor) whose UIDs are denormalized directly onto the document itself. General listing of all appointments is disabled to protect patient privacy.
- * - Prototyping Flexibility: These rules focus on authorization (who can access what) and relational integrity (e.g., ensuring a patient ID in a document matches the ID in the path). They do not enforce the full data schema (e.g., data types, optional fields), allowing for rapid application development.
+ * - Admin Supremacy: Users with an `admin` custom claim have full read/write access to all collections for administrative purposes.
+ * - User Isolation: Users are generally forbidden from accessing data of other users unless a specific relationship (like a completed appointment) exists.
+ * - Conditional Doctor Access: Doctors can only read a patient's profile if they have had a completed appointment with them, ensuring patient privacy is maintained until a professional relationship is established.
+ * - Shared Access Control: Access to an appointment document is granted only to the two participants (patient and doctor) or an admin.
  */
 rules_version = '2';
 service cloud.firestore {
@@ -54,7 +54,7 @@ service cloud.firestore {
     function isAdmin() {
       return request.auth.token.admin == true;
     }
-    
+
     /**
      * Validates that an incoming patient document contains an `id` field
      * that matches the document's ID in the path. Enforces relational integrity on create.
@@ -64,9 +64,9 @@ service cloud.firestore {
     function isValidNewPatient(patientId) {
       let data = request.resource.data;
       return data.id == patientId &&
-             (data.role == 'patient' || data.role == 'doctor');
+             (data.role == 'patient' || data.role == 'doctor' || data.role == 'admin');
     }
-    
+
     /**
      * Ensures the `id` and `role` fields of a patient document cannot be changed after creation.
      */
@@ -75,7 +75,7 @@ service cloud.firestore {
       return data.id == resource.data.id &&
              data.role == resource.data.role;
     }
-    
+
     /**
      * Validates that an incoming doctor document contains an `id` field
      * that matches the document's ID in the path.
@@ -91,7 +91,7 @@ service cloud.firestore {
     function isDoctorIdImmutable() {
       return request.resource.data.id == resource.data.id;
     }
-    
+
     /**
      * Returns true if the requesting user's UID matches either the patientId or
      * doctorId on an existing appointment document.
@@ -107,7 +107,7 @@ service cloud.firestore {
     function isCreatingParticipant() {
       return request.auth.uid == request.resource.data.patientId || request.auth.uid == request.resource.data.doctorId;
     }
-    
+
     /**
      * Ensures the core relational fields (`patientId`, `doctorId`) of an appointment
      * cannot be changed after the document has been created.
@@ -116,6 +116,15 @@ service cloud.firestore {
       return request.resource.data.patientId == resource.data.patientId &&
              request.resource.data.doctorId == resource.data.doctorId;
     }
+    
+    /**
+     * Checks if the requesting user (a doctor) has a completed appointment with the patient.
+     * This is used to grant doctors access to patient details only after a paid/completed consultation.
+     * @param patientId The ID of the patient whose record is being accessed.
+     */
+    function hasCompletedAppointmentWithPatient(patientId) {
+      return exists(/databases/$(database)/documents/appointments?where("doctorId", "==", request.auth.uid).where("patientId", "==", patientId).where("status", "==", "Completed"));
+    }
 
 
     // ----------------------------------------------------------------
@@ -123,49 +132,44 @@ service cloud.firestore {
     // ----------------------------------------------------------------
 
     /**
-     * @description Manages patient/user profiles. Access is strictly limited to the user themselves or an admin.
+     * @description Manages patient/user profiles. Access is strictly limited.
      * @path /patients/{patientId}
-     * @allow (create) A new user creating their own profile document. `request.auth.uid == patientId`.
-     * @allow (get) An admin reading any patient's profile.
-     * @deny (get) A user trying to read another user's profile. `request.auth.uid != patientId`.
-     * @principle Restricts access to a user's own data tree, preventing unauthorized data exposure, with an exception for admins.
+     * @allow (get) An admin, the patient themselves, or a doctor who has had a completed appointment with the patient.
+     * @principle Restricts access to a user's own data tree, with exceptions for admins and treating physicians.
      */
     match /patients/{patientId} {
-      allow get: if isOwner(patientId) || isAdmin();
+      allow read: if isAdmin() || isOwner(patientId) || hasCompletedAppointmentWithPatient(patientId);
       allow list: if isAdmin();
       allow create: if isOwner(patientId) && isValidNewPatient(patientId);
-      allow update: if (isExistingOwner(patientId) || isAdmin()) && isPatientIdAndRoleImmutable();
-      allow delete: if isExistingOwner(patientId) || isAdmin();
+      allow update: if (isOwner(patientId) || isAdmin()) && isPatientIdAndRoleImmutable();
+      allow delete: if isOwner(patientId) || isAdmin();
     }
 
     /**
      * @description Manages doctor profiles. These are publicly readable by any signed-in user but writeable only by admins.
      * @path /doctors/{doctorId}
-     * @allow (get) An authenticated user looking up a doctor's profile.
-     * @deny (create) A regular user attempting to add a new doctor profile. `isAdmin() == false`.
+     * @allow (read) Any authenticated user and admins.
+     * @allow (write) Admins only.
      * @principle Implements a public-read, admin-only write pattern for curated public data.
      */
     match /doctors/{doctorId} {
-      allow get: if isSignedIn();
-      allow list: if isSignedIn();
-      allow create: if isAdmin() && isValidNewDoctor(doctorId);
-      allow update: if isAdmin() && resource != null && isDoctorIdImmutable();
-      allow delete: if isAdmin() && resource != null;
+      allow read: if isSignedIn() || isAdmin();
+      allow write: if isAdmin();
     }
 
     /**
      * @description Manages appointment records. Access is restricted to the involved patient and doctor, or an admin.
      * @path /appointments/{appointmentId}
-     * @allow (get) A doctor or patient retrieving an appointment they are a part of.
-     * @deny (get) A user trying to read an appointment where they are not a participant or admin.
+     * @allow (read, write) A doctor, patient, or an admin.
      * @principle Enforces a "Closed Collaborators" model using denormalized IDs for efficient and secure authorization.
      */
     match /appointments/{appointmentId} {
-      allow get: if isParticipant() || isAdmin();
-      allow list: if isAdmin(); // Only admins can list all appointments.
+      allow read: if isAdmin() || isParticipant();
+      // Doctors can query their own appointments
+      allow list: if isAdmin() || (isSignedIn() && request.query.where.doctorId == request.auth.uid);
       allow create: if isSignedIn() && isCreatingParticipant();
-      allow update: if resource != null && (isParticipant() || isAdmin()) && areAppointmentParticipantsImmutable();
-      allow delete: if resource != null && (isParticipant() || isAdmin());
+      allow update: if (isParticipant() || isAdmin()) && areAppointmentParticipantsImmutable();
+      allow delete: if isParticipant() || isAdmin();
     }
   }
 }
