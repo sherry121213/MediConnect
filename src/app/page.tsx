@@ -84,13 +84,13 @@ export default function Home() {
                   </Button>
                 </div>
               </div>
-              <div className="relative h-64 md:h-auto md:aspect-video">
+              <div className="relative aspect-video rounded-lg overflow-hidden shadow-2xl">
                  {heroImage && (
                     <Image
                         src={heroImage.imageUrl}
                         alt={heroImage.description}
                         fill
-                        className="object-contain"
+                        className="object-cover"
                         data-ai-hint={heroImage.imageHint}
                         priority
                     />
@@ -249,3 +249,5 @@ export default function Home() {
     </div>
   );
 }
+
+    
