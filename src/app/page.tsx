@@ -13,10 +13,10 @@ import { PlaceHolderImages as placeholderImages } from "@/lib/placeholder-images
 import { doctors } from "@/lib/data";
 
 const services = [
-  { icon: Smartphone, title: "Sehat Kahani App", description: "Access healthcare services on the go through our user-friendly mobile application." },
-  { icon: Briefcase, title: "Sehat Kahani Corporate Care", description: "Corporate wellness programs designed to keep your workforce healthy and productive." },
-  { icon: Heart, title: "Sehat Kahani E-Clinics", description: "Walk-in clinics providing access to quality healthcare in your community." },
-  { icon: Brain, title: "Sehat Kahani Mental Health & Well-being", description: "Confidential and professional mental health support from certified therapists." },
+  { icon: Smartphone, title: "Mediconnect App", description: "Access healthcare services on the go through our user-friendly mobile application." },
+  { icon: Briefcase, title: "Mediconnect Corporate Care", description: "Corporate wellness programs designed to keep your workforce healthy and productive." },
+  { icon: Heart, title: "Mediconnect E-Clinics", description: "Walk-in clinics providing access to quality healthcare in your community." },
+  { icon: Brain, title: "Mediconnect Mental Health & Well-being", description: "Confidential and professional mental health support from certified therapists." },
 ];
 
 const features = [
@@ -35,14 +35,14 @@ const features = [
       id: 1,
       name: "Javed Ahmed",
       role: "CEO, Adamjee Life Insurance",
-      text: "Our partnership with Sehat Kahani has been transformative. It allowed us to extend our reach and provide quality healthcare services to millions, fulfilling our vision of democratizing healthcare access.",
+      text: "Our partnership with Mediconnect has been transformative. It allowed us to extend our reach and provide quality healthcare services to millions, fulfilling our vision of democratizing healthcare access.",
       imageId: "testimonial1",
     },
     {
       id: 2,
       name: "Aisha Malik",
       role: "Working Professional",
-      text: "As a busy professional, the Sehat Kahani app has been a lifesaver. I can consult with a doctor anytime, even during my short breaks, without the hassle of traffic and waiting rooms. Highly recommended!",
+      text: "As a busy professional, the Mediconnect app has been a lifesaver. I can consult with a doctor anytime, even during my short breaks, without the hassle of traffic and waiting rooms. Highly recommended!",
       imageId: "testimonial2",
     },
      {
