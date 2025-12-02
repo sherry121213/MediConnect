@@ -65,7 +65,7 @@ export default function AdminSidebar() {
               </Avatar>
               <div className="group-data-[collapsible=icon]:hidden">
                 <p className="text-sm font-semibold">Admin User</p>
-                <p className="text-xs text-muted-foreground">admin@mediai.com</p>
+                <p className="text-xs text-muted-foreground">admin@mediconnect.com</p>
               </div>
             </div>
           </SidebarMenuItem>

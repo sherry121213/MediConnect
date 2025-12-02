@@ -5,7 +5,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from '@/firebase/client-provider';
 
 export const metadata: Metadata = {
-  title: 'MediAI Assist',
+  title: 'Mediconnect',
   description: 'AI-powered telemedicine platform',
 };
 

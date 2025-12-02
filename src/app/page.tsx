@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ArrowRight, Calendar, MessageSquare, Search } from "lucide-react";
 import DoctorCard from "@/components/doctor-card";
 import { doctors } from "@/lib/data";
-import SymptomCheckerForm from "@/components/symptom-checker-form";
 import AppHeader from "@/components/layout/header";
 import AppFooter from "@/components/layout/footer";
 import { PlaceHolderImages as placeholderImages } from "@/lib/placeholder-images";
@@ -35,16 +34,13 @@ export default function Home() {
             <div className="max-w-3xl text-center mx-auto">
               <h1 className="text-4xl md:text-6xl font-headline font-bold text-foreground">Your Trusted Partner in Health</h1>
               <p className="mt-4 text-lg md:text-xl text-foreground/80">
-                Connect with verified doctors, get instant advice with our AI Symptom Checker, and manage your health seamlessly.
+                Connect with verified doctors, get instant advice, and manage your health seamlessly.
               </p>
               <div className="mt-8 flex flex-col sm:flex-row gap-4 justify-center">
                 <Button size="lg" className="font-bold" asChild>
                   <Link href="/find-a-doctor">
                     Find a Doctor <ArrowRight className="ml-2" />
                   </Link>
-                </Button>
-                <Button size="lg" variant="outline" className="font-bold bg-background/80 backdrop-blur-sm" asChild>
-                   <Link href="/symptom-checker">Check Symptoms</Link>
                 </Button>
               </div>
             </div>
@@ -54,7 +50,7 @@ export default function Home() {
         {/* How it Works */}
         <section className="py-16 md:py-24 bg-background">
           <div className="container mx-auto px-4">
-            <h2 className="text-3xl font-bold text-center font-headline">How MediAI Assist Works</h2>
+            <h2 className="text-3xl font-bold text-center font-headline">How Mediconnect Works</h2>
             <p className="text-center text-muted-foreground mt-2 max-w-2xl mx-auto">A simple, three-step process to get the care you need.</p>
             <div className="mt-12 grid grid-cols-1 md:grid-cols-3 gap-8 text-center">
               <div className="flex flex-col items-center">
@@ -81,43 +77,6 @@ export default function Home() {
             </div>
           </div>
         </section>
-
-        {/* AI Symptom Checker Section */}
-        <section className="py-16 md:py-24 bg-secondary/50">
-          <div className="container mx-auto px-4">
-            <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div>
-                <h2 className="text-3xl font-bold font-headline">AI-Powered Symptom Checker</h2>
-                <p className="mt-4 text-lg text-muted-foreground">
-                  Not sure what's wrong? Describe your symptoms, and our advanced AI will suggest potential conditions and the right specialist to consult.
-                </p>
-                <ul className="mt-6 space-y-2 text-muted-foreground">
-                  <li className="flex items-center gap-2">
-                    <ArrowRight className="text-primary w-5 h-5" />
-                    <span>Analyzes symptoms using advanced NLP</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <ArrowRight className="text-primary w-5 h-5" />
-                    <span>Recommends relevant specialists</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <ArrowRight className="text-primary w-5 h-5" />
-                    <span>Suggests potential lab tests</span>
-                  </li>
-                </ul>
-              </div>
-              <Card className="shadow-lg">
-                <CardHeader>
-                  <CardTitle>Check Your Symptoms</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <SymptomCheckerForm />
-                </CardContent>
-              </Card>
-            </div>
-          </div>
-        </section>
-
 
         {/* Featured Doctors Section */}
         <section className="py-16 md:py-24 bg-background">

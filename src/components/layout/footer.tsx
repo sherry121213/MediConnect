@@ -16,7 +16,6 @@ export default function AppFooter() {
             <h3 className="font-semibold text-foreground">Platform</h3>
             <ul className="mt-4 space-y-2 text-sm">
               <li><Link href="/find-a-doctor" className="text-muted-foreground hover:text-primary">Find a Doctor</Link></li>
-              <li><Link href="/symptom-checker" className="text-muted-foreground hover:text-primary">Symptom Checker</Link></li>
               <li><Link href="/appointments" className="text-muted-foreground hover:text-primary">Appointments</Link></li>
             </ul>
           </div>
@@ -37,7 +36,7 @@ export default function AppFooter() {
           </div>
         </div>
         <div className="mt-8 border-t border-border pt-4 text-center text-sm text-muted-foreground">
-          &copy; {new Date().getFullYear()} MediAI Assist. All rights reserved.
+          &copy; {new Date().getFullYear()} Mediconnect. All rights reserved.
         </div>
       </div>
     </footer>
