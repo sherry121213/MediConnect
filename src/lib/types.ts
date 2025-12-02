@@ -1,17 +1,15 @@
-export type Specialty = 'Cardiology' | 'Dermatology' | 'Neurology' | 'Orthopedics' | 'Pediatrics' | 'General Physician';
+export type Specialty = 'Cardiology' | 'Dermatology' | 'Neurology' | 'Orthopedics' | 'Pediatrics' | 'General Physician' | 'Endocrinology' | 'Gastroenterology' | 'Oncology';
 
 export interface Doctor {
   id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone?: string;
+  name: string;
   specialty: Specialty;
-  location?: string;
-  ratings?: number;
-  verified: boolean;
-  createdAt: string;
-  updatedAt: string;
+  location: string;
+  rating: number;
+  reviews: number;
+  isVerified: boolean;
+  profileImageId: string;
+  bio: string;
 }
 
 export interface Patient {

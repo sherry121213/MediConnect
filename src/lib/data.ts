@@ -1,4 +1,5 @@
-import type { Doctor, Specialty } from './types';
+import type { Doctor } from '@/lib/types';
+import { Specialty } from '@/lib/types';
 
 export const specialties: Specialty[] = [
   'Cardiology',
@@ -7,6 +8,9 @@ export const specialties: Specialty[] = [
   'Orthopedics',
   'Pediatrics',
   'General Physician',
+  'Endocrinology',
+  'Gastroenterology',
+  'Oncology'
 ];
 
 export const doctors: Doctor[] = [
@@ -98,7 +102,7 @@ export const doctors: Doctor[] = [
     profileImageId: 'doctor8',
     bio: 'A dermatologist with a focus on skin cancer screening and treatment of chronic skin conditions like psoriasis.'
   },
-  {
+    {
     id: '9',
     name: 'Dr. Zoya Farooq',
     specialty: 'Pediatrics',
