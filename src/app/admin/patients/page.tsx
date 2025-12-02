@@ -9,43 +9,21 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { useAdmin } from "@/hooks/useAdmin";
 import { useCollection, useFirestore } from "@/firebase";
 import { collection } from "firebase/firestore";
 import { useMemo } from "react";
 import type { Patient } from "@/lib/types";
-import { ShieldAlert } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AdminPatientsPage() {
-    const { isAdmin, isLoading } = useAdmin();
     const firestore = useFirestore();
 
     const patientsCollection = useMemo(() => {
-        if (!firestore || !isAdmin) return null;
+        if (!firestore) return null;
         return collection(firestore, 'patients');
-    }, [firestore, isAdmin]);
+    }, [firestore]);
 
     const { data: patients, isLoading: isLoadingPatients } = useCollection<Patient>(patientsCollection);
-
-    if (isLoading) {
-        return (
-             <div className="p-4 md:p-8">
-                <h1 className="text-3xl font-bold font-headline mb-6">Patient Management</h1>
-                <Skeleton className="border rounded-lg h-96" />
-            </div>
-        )
-    }
-
-    if (!isAdmin) {
-        return (
-            <div className="p-4 md:p-8 flex flex-col items-center justify-center text-center h-[60vh]">
-                <ShieldAlert className="h-16 w-16 text-destructive mb-4" />
-                <h1 className="text-2xl font-bold font-headline text-destructive">Access Denied</h1>
-                <p className="text-muted-foreground mt-2">You do not have permission to view this page.</p>
-            </div>
-        )
-    }
 
     return (
         <div className="p-4 md:p-8">

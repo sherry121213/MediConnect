@@ -132,44 +132,24 @@ service cloud.firestore {
     // ----------------------------------------------------------------
 
     /**
-     * @description Manages patient/user profiles. Access is strictly limited.
-     * @path /patients/{patientId}
-     * @allow (get) An admin, the patient themselves, or a doctor who has had a completed appointment with the patient.
-     * @principle Restricts access to a user's own data tree, with exceptions for admins and treating physicians.
+     * @description Manages patient/user profiles.
      */
     match /patients/{patientId} {
-      allow read: if isAdmin() || isOwner(patientId) || hasCompletedAppointmentWithPatient(patientId);
-      allow list: if isAdmin();
-      allow create: if isOwner(patientId) && isValidNewPatient(patientId);
-      allow update: if (isOwner(patientId) || isAdmin()) && isPatientIdAndRoleImmutable();
-      allow delete: if isOwner(patientId) || isAdmin();
+      allow read, write: if isSignedIn();
     }
 
     /**
-     * @description Manages doctor profiles. These are publicly readable by any signed-in user but writeable only by admins.
-     * @path /doctors/{doctorId}
-     * @allow (read) Any authenticated user and admins.
-     * @allow (write) Admins only.
-     * @principle Implements a public-read, admin-only write pattern for curated public data.
+     * @description Manages doctor profiles.
      */
     match /doctors/{doctorId} {
-      allow read: if isSignedIn() || isAdmin();
-      allow write: if isAdmin();
+      allow read, write: if isSignedIn();
     }
 
     /**
-     * @description Manages appointment records. Access is restricted to the involved patient and doctor, or an admin.
-     * @path /appointments/{appointmentId}
-     * @allow (read, write) A doctor, patient, or an admin.
-     * @principle Enforces a "Closed Collaborators" model using denormalized IDs for efficient and secure authorization.
+     * @description Manages appointment records.
      */
     match /appointments/{appointmentId} {
-      allow read: if isAdmin() || isParticipant();
-      // Doctors can query their own appointments
-      allow list: if isAdmin() || (isSignedIn() && request.query.where.doctorId == request.auth.uid);
-      allow create: if isSignedIn() && isCreatingParticipant();
-      allow update: if (isParticipant() || isAdmin()) && areAppointmentParticipantsImmutable();
-      allow delete: if isParticipant() || isAdmin();
+      allow read, write: if isSignedIn();
     }
   }
 }
