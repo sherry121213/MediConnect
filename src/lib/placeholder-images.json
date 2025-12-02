@@ -7,10 +7,10 @@
       "imageHint": "telemedicine doctor patient"
     },
     {
-      "id": "phone-mockup",
-      "description": "A smartphone showcasing the Mediconnect app interface.",
-      "imageUrl": "https://images.unsplash.com/photo-1609405982549-b8ba38eeef46?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxwaG9uZSUyMG1vY2t1cCUyMGFwcHxlbnwwfHx8fDE3NjQ2OTA5NTR8MA&ixlib=rb-4.1.0&q=80&w=1080",
-      "imageHint": "phone mockup app"
+      "id": "doctor-and-patient",
+      "description": "A doctor is consulting with a patient in a clinic.",
+      "imageUrl": "https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1470&q=80",
+      "imageHint": "doctor with patient"
     },
     {
       "id": "doctor1",
@@ -33,7 +33,7 @@
     {
       "id": "doctor4",
       "description": "Portrait of Dr. Usman Ali",
-      "imageUrl": "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxkb2N0b3IlMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjQ2MTYzMzN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxkb2N0b3IlMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjQ2MTYzMzN8MA&ixlib-rb-4.1.0&q=80&w=1080",
       "imageHint": "doctor portrait"
     },
     {
@@ -45,19 +45,19 @@
     {
       "id": "doctor6",
       "description": "Portrait of Dr. Hassan Raza",
-      "imageUrl": "https://images.unsplash.com/photo-1642541724244-83d49288a86b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxkb2N0b3IlMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjQ2MTYzMzN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "https://images.unsplash.com/photo-1642541724244-83d49288a86b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxkb2N0b3IlMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjQ2MTYzMzN8MA&ixlib-rb-4.1.0&q=80&w=1080",
       "imageHint": "doctor portrait"
     },
     {
       "id": "doctor7",
       "description": "Portrait of Dr. Ayesha Malik",
-      "imageUrl": "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxkb2N0b3IlMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjQ2MTYzMzN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw1fHxkb2N0b3IlMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjQ2MTYzMzN8MA&ixlib-rb-4.1.0&q=80&w=1080",
       "imageHint": "doctor portrait"
     },
     {
       "id": "doctor8",
       "description": "Portrait of Dr. Imran Khan",
-      "imageUrl": "https://images.unsplash.com/photo-1594824476967-48c8b964273f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxkb2N0b3IlMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjQ2MTYzMzN8MA&ixlib=rb-4.1.0&q=80&w=1080",
+      "imageUrl": "https://images.unsplash.com/photo-1594824476967-48c8b964273f?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxkb2N0b3IlMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjQ2MTYzMzN8MA&ixlib-rb-4.1.0&q=80&w=1080",
       "imageHint": "doctor portrait"
     },
     {
@@ -79,28 +79,28 @@
       "imageHint": "person portrait"
     },
     {
-      "id": "partner1",
-      "description": "Logo of a trusted partner",
-      "imageUrl": "https://images.unsplash.com/photo-1620288627223-53302f4e8c74?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw4fHxjb21wYW55JTIwbG9nb3xlbnwwfHx8fDE3NjQ2MTk5OTV8MA&ixlib=rb-4.1.0&q=80&w=1080",
-      "imageHint": "company logo"
+      "id": "partner_chughtai",
+      "description": "Logo of Chughtai Lab",
+      "imageUrl": "https://www.chughtailab.com/wp-content/uploads/2020/03/Chughtai-Lab-Logo-Urdu.png",
+      "imageHint": "medical logo"
     },
     {
-      "id": "partner2",
-      "description": "Logo of a trusted partner",
-      "imageUrl": "https://images.unsplash.com/photo-1562705121-e624542c7b9b?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxMHx8Y29tcGFueSUyMGxvZ298ZW58MHx8fHwxNzY0NjE5OTk1fDA&ixlib=rb-4.1.0&q=80&w=1080",
-      "imageHint": "company logo"
+      "id": "partner_aga_khan",
+      "description": "Logo of Aga Khan University Hospital",
+      "imageUrl": "https://www.aku.edu/aboutaku/PublishingImages/aku-logo-vertical.png",
+      "imageHint": "medical logo"
     },
     {
-      "id": "partner3",
-      "description": "Logo of a trusted partner",
-      "imageUrl": "https://images.unsplash.com/photo-1687523327554-fa9f50423489?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw5fHxjb21wYW55JTIwbG9nb3xlbnwwfHx8fDE3NjQ2MTk5OTV8MA&ixlib=rb-4.1.0&q=80&w=1080",
-      "imageHint": "company logo"
+      "id": "partner_shaukat",
+      "description": "Logo of Shaukat Khanum Memorial Cancer Hospital & Research Centre",
+      "imageUrl": "https://shaukatkhanum.org.pk/wp-content/uploads/2021/11/skm-logo.png",
+      "imageHint": "medical logo"
     },
     {
-      "id": "partner4",
-      "description": "Logo of a trusted partner",
-      "imageUrl": "https://images.unsplash.com/photo-1599305445671-ac291c95aaa9?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwxfHxjb21wYW55JTIwbG9nb3xlbnwwfHx8fDE3NjQ2MTk5OTV8MA&ixlib=rb-4.1.0&q=80&w=1080",
-      "imageHint": "company logo"
+      "id": "partner_red_crescent",
+      "description": "Logo of Pakistan Red Crescent Society",
+      "imageUrl": "https://www.prcs.org.pk/wp-content/uploads/2021/10/logo.png",
+      "imageHint": "medical logo"
     }
   ]
 }
