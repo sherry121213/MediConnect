@@ -35,13 +35,13 @@ import {
   DialogClose,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 const addDoctorSchema = z.object({
   firstName: z.string().min(2, { message: "First name must be at least 2 characters." }),
@@ -88,9 +88,13 @@ export default function AdminDoctorsPage() {
 
         try {
             const doctorsCollectionRef = collection(firestore, 'doctors');
+            // This now uses the non-blocking update
             await addDoc(doctorsCollectionRef, {
                 ...values,
                 verified: false,
+                rating: 0,
+                reviews: 0,
+                profileImageId: 'doctor' + (Math.floor(Math.random() * 8) + 1),
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
             });
@@ -110,6 +114,7 @@ export default function AdminDoctorsPage() {
             });
         }
     }
+
 
     return (
     <div className="p-4 md:p-8">
@@ -155,7 +160,6 @@ export default function AdminDoctorsPage() {
                                     <Input placeholder="Khan" {...field} />
                                 </FormControl>
                                 <FormMessage />
-                                </FormMessage>
                                 </FormItem>
                             )}
                         />
@@ -235,8 +239,9 @@ export default function AdminDoctorsPage() {
                     <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto"/></TableCell>
                 </TableRow>
             ))}
-            {doctors && doctors.map((doctor) => {
+            {doctors && doctors.map((doctor: any) => {
               const doctorImage = placeholderImages.find(p => p.id === 'doctor1');
+              const name = doctor.name || `${doctor.firstName} ${doctor.lastName}`;
               return (
               <TableRow key={doctor.id}>
                 <TableCell className="font-medium">
@@ -244,19 +249,19 @@ export default function AdminDoctorsPage() {
                     {doctorImage && (
                         <Image
                             src={doctorImage.imageUrl}
-                            alt={`${doctor.firstName} ${doctor.lastName}`}
+                            alt={name}
                             width={40}
                             height={40}
                             className="rounded-full"
                             data-ai-hint={doctorImage.imageHint}
                         />
                     )}
-                    {doctor.firstName} {doctor.lastName}
+                    {name}
                   </div>
                 </TableCell>
                 <TableCell>{doctor.specialty}</TableCell>
                 <TableCell>
-                  <Badge variant={doctor.verified ? "secondary" : "destructive"} className={doctor.verified ? "bg-green-100 text-green-800" : ""}>
+                   <Badge variant={doctor.verified ? "secondary" : "destructive"} className={doctor.verified ? "bg-green-100 text-green-800" : ""}>
                     {doctor.verified ? "Verified" : "Pending"}
                   </Badge>
                 </TableCell>
