@@ -232,12 +232,14 @@ export default function Home() {
                     <h2 className="text-3xl font-bold font-headline">Our Trusted Partners</h2>
                     <p className="text-muted-foreground mt-2">We are proud to partner with leading organizations to deliver quality healthcare.</p>
                 </div>
-                <div className="mt-12 flex flex-wrap justify-center items-center gap-x-12 gap-y-8">
+                <div className="mt-12 flex flex-wrap justify-center items-center gap-x-8 gap-y-8">
                   {partners.map(partner => {
                     const partnerImage = placeholderImages.find(p => p.id === partner.id);
                     return partnerImage ? (
-                      <div key={partner.id} className="relative h-16 w-40 grayscale opacity-60 hover:opacity-100 hover:grayscale-0 transition-all">
-                        <Image src={partnerImage.imageUrl} alt={partner.alt} fill className="object-contain" data-ai-hint="company logo"/>
+                      <div key={partner.id} className="group relative p-4 rounded-lg border border-gray-200/80 hover:shadow-lg hover:border-gray-300 transition-all duration-300">
+                        <div className="relative h-16 w-36">
+                            <Image src={partnerImage.imageUrl} alt={partner.alt} fill className="object-contain grayscale group-hover:grayscale-0 transition-all" data-ai-hint="company logo"/>
+                        </div>
                       </div>
                     ) : null;
                   })}
