@@ -15,12 +15,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth, useUser } from "@/firebase";
-import { initiateEmailSignUp } from "@/firebase/non-blocking-login";
-import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
-import { doc } from "firebase/firestore";
+import { doc, setDoc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
-import { onAuthStateChanged } from "firebase/auth";
+import { createUserWithEmailAndPassword } from "firebase/auth";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { useToast } from "@/hooks/use-toast";
+import { Loader2 } from "lucide-react";
 
 export default function SignupPage() {
   const [firstName, setFirstName] = useState('');
@@ -28,10 +28,12 @@ export default function SignupPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState('patient');
+  const [loading, setLoading] = useState(false);
   const auth = useAuth();
   const firestore = useFirestore();
   const router = useRouter();
   const { user, isUserLoading } = useUser();
+  const { toast } = useToast();
 
   useEffect(() => {
     if (user && !isUserLoading) {
@@ -42,10 +44,13 @@ export default function SignupPage() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     
-    const unsubscribe = onAuthStateChanged(auth, (newUser) => {
+    try {
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+      const newUser = userCredential.user;
+
       if (newUser) {
-        // Now that we have the user object, create their profile document
         const userDocRef = doc(firestore, 'patients', newUser.uid);
         const userData = {
           id: newUser.uid,
@@ -56,13 +61,19 @@ export default function SignupPage() {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
-        setDocumentNonBlocking(userDocRef, userData, { merge: true });
-        
-        unsubscribe(); // Unsubscribe to avoid running this multiple times
+        await setDoc(userDocRef, userData, { merge: true });
+        // The useEffect will handle redirection.
       }
-    });
-
-    initiateEmailSignUp(auth, email, password);
+    } catch (error: any) {
+        console.error("Signup Error:", error);
+        toast({
+          variant: "destructive",
+          title: "Sign Up Failed",
+          description: error.message || "Could not create account. Please try again.",
+        });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -82,11 +93,11 @@ export default function SignupPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="grid gap-2">
                     <Label htmlFor="first-name">First name</Label>
-                    <Input id="first-name" placeholder="Max" required value={firstName} onChange={e => setFirstName(e.target.value)} />
+                    <Input id="first-name" placeholder="Max" required value={firstName} onChange={e => setFirstName(e.target.value)} disabled={loading} />
                   </div>
                   <div className="grid gap-2">
                     <Label htmlFor="last-name">Last name</Label>
-                    <Input id="last-name" placeholder="Robinson" required value={lastName} onChange={e => setLastName(e.target.value)} />
+                    <Input id="last-name" placeholder="Robinson" required value={lastName} onChange={e => setLastName(e.target.value)} disabled={loading} />
                   </div>
                 </div>
                 <div className="grid gap-2">
@@ -98,11 +109,12 @@ export default function SignupPage() {
                     required
                     value={email}
                     onChange={e => setEmail(e.target.value)}
+                    disabled={loading}
                   />
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="password">Password</Label>
-                  <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required/>
+                  <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required disabled={loading} />
                 </div>
                 <div className="grid gap-2">
                   <Label>I am a...</Label>
@@ -117,7 +129,8 @@ export default function SignupPage() {
                     </div>
                   </RadioGroup>
                 </div>
-                <Button type="submit" className="w-full">
+                <Button type="submit" className="w-full" disabled={loading}>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Create an account
                 </Button>
               </div>
