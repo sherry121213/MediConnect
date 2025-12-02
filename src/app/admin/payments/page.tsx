@@ -12,11 +12,11 @@ import { Badge } from "@/components/ui/badge";
 
 // NOTE: Payments data is static for now as there is no payments collection in Firestore.
 const payments = [
-  { id: 'pay_1', patient: 'Ali Khan', doctor: 'Dr. Amina Khan', amount: 50, status: 'Approved', date: '2023-10-26' },
-  { id: 'pay_2', patient: 'Sana Ahmed', doctor: 'Dr. Bilal Ahmed', amount: 75, status: 'Approved', date: '2023-10-25' },
-  { id: 'pay_3', patient: 'Zoya Farooq', doctor: 'Dr. Fatima Zahra', amount: 60, status: 'Pending', date: '2023-10-25' },
-  { id: 'pay_4', patient: 'Usman Sharif', doctor: 'Dr. Amina Khan', amount: 50, status: 'Approved', date: '2023-10-24' },
-  { id: 'pay_5', patient: 'Hina Iqbal', doctor: 'Dr. Hassan Raza', amount: 40, status: 'Disputed', date: '2023-10-23' },
+  { id: 'pay_1', patient: 'Ali Khan', doctor: 'Dr. Amina Khan', amount: 5000, status: 'Approved', date: '2023-10-26' },
+  { id: 'pay_2', patient: 'Sana Ahmed', doctor: 'Dr. Bilal Ahmed', amount: 7500, status: 'Approved', date: '2023-10-25' },
+  { id: 'pay_3', patient: 'Zoya Farooq', doctor: 'Dr. Fatima Zahra', amount: 6000, status: 'Pending', date: '2023-10-25' },
+  { id: 'pay_4', patient: 'Usman Sharif', doctor: 'Dr. Amina Khan', amount: 5000, status: 'Approved', date: '2023-10-24' },
+  { id: 'pay_5', patient: 'Hina Iqbal', doctor: 'Dr. Hassan Raza', amount: 4000, status: 'Disputed', date: '2023-10-23' },
 ];
 
 export default function AdminPaymentsPage() {
@@ -55,7 +55,7 @@ export default function AdminPaymentsPage() {
                 <TableCell className="font-mono text-xs">{payment.id}</TableCell>
                 <TableCell>{payment.patient}</TableCell>
                 <TableCell>{payment.doctor}</TableCell>
-                <TableCell>${payment.amount.toFixed(2)}</TableCell>
+                <TableCell>PKR {payment.amount.toLocaleString()}</TableCell>
                 <TableCell>{payment.date}</TableCell>
                 <TableCell>{getStatusBadge(payment.status)}</TableCell>
               </TableRow>
