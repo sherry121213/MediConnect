@@ -2,8 +2,9 @@
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
 import { BookOpen, Stethoscope, UserPlus } from "lucide-react";
+import { useEffect, useState } from "react";
 
-const monthlyBookings = [
+const generateMonthlyBookings = () => [
   { name: "Jan", total: Math.floor(Math.random() * 200) + 50 },
   { name: "Feb", total: Math.floor(Math.random() * 200) + 50 },
   { name: "Mar", total: Math.floor(Math.random() * 200) + 50 },
@@ -27,6 +28,12 @@ const topSpecialties = [
 ]
 
 export default function AdminDashboardPage() {
+  const [monthlyBookings, setMonthlyBookings] = useState<any[]>([]);
+
+  useEffect(() => {
+    setMonthlyBookings(generateMonthlyBookings());
+  }, []);
+
   return (
     <div className="p-4 md:p-8 space-y-8">
       <h1 className="text-3xl font-bold font-headline">Admin Dashboard</h1>
