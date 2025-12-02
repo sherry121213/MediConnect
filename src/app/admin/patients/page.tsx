@@ -11,21 +11,13 @@ import {
 import { Badge } from "@/components/ui/badge";
 import type { Patient } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, where } from "firebase/firestore";
+import { patients as staticPatients } from "@/lib/patient-data";
+import { useState } from 'react';
 
 
 export default function AdminPatientsPage() {
-    const firestore = useFirestore();
-
-    const patientsCollection = useMemoFirebase(() => {
-        if (!firestore) return null;
-        // Query for documents in the 'patients' collection where the role is 'patient'
-        return query(collection(firestore, 'patients'), where("role", "==", "patient"));
-    }, [firestore]);
-
-    const { data: patients, isLoading: isLoadingPatients } = useCollection<Patient>(patientsCollection);
-
+    const [patients] = useState<Patient[]>(staticPatients);
+    const isLoadingPatients = false;
 
     return (
         <div className="p-4 md:p-8">
