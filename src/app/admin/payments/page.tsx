@@ -1,0 +1,64 @@
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
+
+const payments = [
+  { id: 'pay_1', patient: 'Ali Khan', doctor: 'Dr. Amina Khan', amount: 50, status: 'Approved', date: '2023-10-26' },
+  { id: 'pay_2', patient: 'Sana Ahmed', doctor: 'Dr. Bilal Ahmed', amount: 75, status: 'Approved', date: '2023-10-25' },
+  { id: 'pay_3', patient: 'Zoya Farooq', doctor: 'Dr. Fatima Zahra', amount: 60, status: 'Pending', date: '2023-10-25' },
+  { id: 'pay_4', patient: 'Usman Sharif', doctor: 'Dr. Amina Khan', amount: 50, status: 'Approved', date: '2023-10-24' },
+  { id: 'pay_5', patient: 'Hina Iqbal', doctor: 'Dr. Hassan Raza', amount: 40, status: 'Disputed', date: '2023-10-23' },
+];
+
+export default function AdminPaymentsPage() {
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'Approved':
+        return <Badge className="bg-green-100 text-green-800">Approved</Badge>;
+      case 'Pending':
+        return <Badge className="bg-amber-100 text-amber-800">Pending</Badge>;
+      case 'Disputed':
+        return <Badge variant="destructive">Disputed</Badge>;
+      default:
+        return <Badge variant="secondary">{status}</Badge>;
+    }
+  };
+
+  return (
+    <div className="p-4 md:p-8">
+      <h1 className="text-3xl font-bold font-headline mb-6">Payment Management</h1>
+      <div className="border rounded-lg">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Transaction ID</TableHead>
+              <TableHead>Patient</TableHead>
+              <TableHead>Doctor</TableHead>
+              <TableHead>Amount</TableHead>
+              <TableHead>Date</TableHead>
+              <TableHead>Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {payments.map((payment) => (
+              <TableRow key={payment.id}>
+                <TableCell className="font-mono text-xs">{payment.id}</TableCell>
+                <TableCell>{payment.patient}</TableCell>
+                <TableCell>{payment.doctor}</TableCell>
+                <TableCell>${payment.amount.toFixed(2)}</TableCell>
+                <TableCell>{payment.date}</TableCell>
+                <TableCell>{getStatusBadge(payment.status)}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  );
+}
