@@ -2,6 +2,7 @@ export type Specialty = 'Cardiology' | 'Dermatology' | 'Neurology' | 'Orthopedic
 
 export interface Doctor {
   id: string;
+  name: string; // Keep for static data compatibility
   firstName: string;
   lastName: string;
   email: string;
@@ -9,7 +10,8 @@ export interface Doctor {
   location?: string;
   rating?: number;
   reviews?: number;
-  verified: boolean;
+  isVerified?: boolean; // Keep for static data
+  verified: boolean; // For Firestore data
   profileImageId?: string;
   bio?: string;
   medicalSchool?: string;
@@ -27,3 +29,5 @@ export interface Patient {
     createdAt: string;
     updatedAt: string;
 }
+
+    

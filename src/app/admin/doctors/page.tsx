@@ -19,9 +19,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import Image from "next/image";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, addDoc } from "firebase/firestore";
+import { useFirestore } from "@/firebase";
+import { collection, addDoc } from "firebase/firestore";
 import type { Doctor } from "@/lib/types";
+import { doctors as staticDoctors } from "@/lib/data"; // Import static data
 import { Skeleton } from "@/components/ui/skeleton";
 import { PlaceHolderImages as placeholderImages } from "@/lib/placeholder-images";
 import {
@@ -41,7 +42,6 @@ import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
-import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 const addDoctorSchema = z.object({
   firstName: z.string().min(2, { message: "First name must be at least 2 characters." }),
@@ -57,13 +57,12 @@ export default function AdminDoctorsPage() {
     const firestore = useFirestore();
     const { toast } = useToast();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    
+    // For now, we will use the static data for display purposes.
+    // In a real application, you would fetch and combine data from Firestore.
+    const [doctors, setDoctors] = useState<Doctor[]>(staticDoctors.map(d => ({...d, firstName: d.name.split(' ')[0], lastName: d.name.split(' ').slice(1).join(' ')})));
+    const isLoadingDoctors = false;
 
-    const doctorsCollection = useMemoFirebase(() => {
-        if (!firestore) return null;
-        return query(collection(firestore, 'doctors'));
-    }, [firestore]);
-
-    const { data: doctors, isLoading: isLoadingDoctors } = useCollection<Doctor>(doctorsCollection);
 
     const form = useForm<AddDoctorFormValues>({
         resolver: zodResolver(addDoctorSchema),
@@ -87,16 +86,27 @@ export default function AdminDoctorsPage() {
         }
 
         try {
-            const doctorsCollectionRef = collection(firestore, 'doctors');
-            await addDoc(doctorsCollectionRef, {
-                ...values,
+            const newDoctorData: Partial<Doctor> = {
+                firstName: values.firstName,
+                lastName: values.lastName,
+                email: values.email,
+                specialty: values.specialty,
+                location: values.location,
                 verified: false,
                 rating: 0,
                 reviews: 0,
                 profileImageId: 'doctor' + (Math.floor(Math.random() * 8) + 1),
+            };
+
+            const doctorsCollectionRef = collection(firestore, 'doctors');
+            const docRef = await addDoc(doctorsCollectionRef, {
+                ...newDoctorData,
                 createdAt: new Date().toISOString(),
                 updatedAt: new Date().toISOString(),
             });
+
+            // Add to local state to update UI instantly
+            setDoctors(prev => [...prev, {id: docRef.id, ...newDoctorData} as Doctor]);
 
             toast({
                 title: "Doctor Added",
@@ -239,7 +249,7 @@ export default function AdminDoctorsPage() {
                 </TableRow>
             ))}
             {doctors && doctors.map((doctor: any) => {
-              const doctorImage = placeholderImages.find(p => p.id === 'doctor1');
+              const doctorImage = placeholderImages.find(p => p.id === doctor.profileImageId);
               const name = `${doctor.firstName} ${doctor.lastName}`;
               return (
               <TableRow key={doctor.id}>
@@ -260,8 +270,8 @@ export default function AdminDoctorsPage() {
                 </TableCell>
                 <TableCell>{doctor.specialty}</TableCell>
                 <TableCell>
-                   <Badge variant={doctor.verified ? "secondary" : "destructive"} className={doctor.verified ? "bg-green-100 text-green-800" : ""}>
-                    {doctor.verified ? "Verified" : "Pending"}
+                   <Badge variant={doctor.verified || doctor.isVerified ? "secondary" : "destructive"} className={doctor.verified || doctor.isVerified ? "bg-green-100 text-green-800" : ""}>
+                    {doctor.verified || doctor.isVerified ? "Verified" : "Pending"}
                   </Badge>
                 </TableCell>
                 <TableCell>{doctor.location}</TableCell>
@@ -275,7 +285,7 @@ export default function AdminDoctorsPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      {!doctor.verified && <DropdownMenuItem>Verify Document</DropdownMenuItem>}
+                      {!(doctor.verified || doctor.isVerified) && <DropdownMenuItem>Verify Document</DropdownMenuItem>}
                       <DropdownMenuItem>Edit</DropdownMenuItem>
                       <DropdownMenuItem>View Profile</DropdownMenuItem>
                       <DropdownMenuItem className="text-destructive">
@@ -292,3 +302,5 @@ export default function AdminDoctorsPage() {
     </div>
   );
 }
+
+    
