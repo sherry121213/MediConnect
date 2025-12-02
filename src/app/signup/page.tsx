@@ -20,7 +20,7 @@ import { createUserWithEmailAndPassword } from "firebase/auth";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { setDoc, doc } from 'firebase/firestore';
+import { setDoc, doc, getDoc } from 'firebase/firestore';
 
 export default function SignupPage() {
   const [firstName, setFirstName] = useState('');
