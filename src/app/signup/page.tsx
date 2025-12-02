@@ -37,7 +37,12 @@ export default function SignupPage() {
 
   useEffect(() => {
     if (user && !isUserLoading) {
-      const redirectPath = role === 'doctor' ? '/doctor-portal' : '/patient-portal';
+      let redirectPath = '/patient-portal';
+      if (role === 'doctor') {
+        redirectPath = '/doctor-portal';
+      } else if (role === 'admin') {
+        redirectPath = '/admin';
+      }
       router.push(redirectPath);
     }
   }, [user, isUserLoading, router, role]);
@@ -126,6 +131,10 @@ export default function SignupPage() {
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="doctor" id="role-doctor" />
                       <Label htmlFor="role-doctor">Doctor</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="admin" id="role-admin" />
+                      <Label htmlFor="role-admin">Admin</Label>
                     </div>
                   </RadioGroup>
                 </div>
