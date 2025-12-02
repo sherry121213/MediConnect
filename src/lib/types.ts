@@ -6,6 +6,7 @@ export interface Doctor {
   firstName: string;
   lastName: string;
   email: string;
+  phone?: string;
   specialty?: string;
   location?: string;
   rating?: number;
@@ -16,6 +17,8 @@ export interface Doctor {
   bio?: string;
   medicalSchool?: string;
   degree?: string;
+  experience?: number;
+  degreeUrl?: string;
   profileComplete?: boolean;
 }
 

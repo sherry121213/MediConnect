@@ -14,11 +14,15 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
+import { useState } from 'react';
 
 const profileSchema = z.object({
   specialty: z.string().min(2, 'Specialty is required.'),
   medicalSchool: z.string().min(2, 'Medical school is required.'),
   degree: z.string().min(2, 'Degree is required.'),
+  experience: z.coerce.number().min(0, 'Experience must be a positive number.'),
+  contact: z.string().min(10, 'Please enter a valid contact number.'),
+  degreeFile: z.instanceof(File).optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -28,6 +32,7 @@ export default function CompleteDoctorProfilePage() {
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
+  const [degreePreview, setDegreePreview] = useState<string | null>(null);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -35,10 +40,12 @@ export default function CompleteDoctorProfilePage() {
       specialty: '',
       medicalSchool: '',
       degree: '',
+      experience: 0,
+      contact: '',
     },
   });
 
-  const { formState } = form;
+  const { formState, control, register } = form;
 
   const onSubmit = async (values: ProfileFormValues) => {
     if (!user || !firestore) {
@@ -51,10 +58,19 @@ export default function CompleteDoctorProfilePage() {
     }
 
     try {
+      // In a real app, you would upload the file to Firebase Storage
+      // and get the download URL. For now, we'll just simulate it.
+      const degreeUrl = values.degreeFile ? URL.createObjectURL(values.degreeFile) : '';
+
       const doctorDocRef = doc(firestore, 'doctors', user.uid);
       await updateDoc(doctorDocRef, {
-        ...values,
-        profileComplete: true, // Flag to prevent redirecting here again
+        specialty: values.specialty,
+        medicalSchool: values.medicalSchool,
+        degree: values.degree,
+        experience: values.experience,
+        phone: values.contact, // Using 'phone' to match backend schema
+        degreeUrl: degreeUrl,
+        profileComplete: true,
         updatedAt: new Date().toISOString(),
       });
 
@@ -85,55 +101,114 @@ export default function CompleteDoctorProfilePage() {
     <div className="flex flex-col min-h-screen">
       <AppHeader />
       <main className="flex-grow flex items-center justify-center bg-secondary/30 py-12">
-        <Card className="w-full max-w-lg">
+        <Card className="w-full max-w-2xl">
           <CardHeader>
-            <CardTitle>Complete Your Profile</CardTitle>
+            <CardTitle>Complete Your Professional Profile</CardTitle>
             <CardDescription>
-              Please provide your professional details to continue to the doctor portal.
+              Please provide your details to continue to the doctor portal.
             </CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <FormField
-                  control={form.control}
-                  name="specialty"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Specialty</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., Cardiology" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="medicalSchool"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Medical School / University</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., King Edward Medical University" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="degree"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Degree</FormLabel>
-                      <FormControl>
-                        <Input placeholder="e.g., MBBS, FCPS" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+                 <div className="grid md:grid-cols-2 gap-6">
+                    <FormField
+                      control={control}
+                      name="specialty"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Specialty</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., Cardiology" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                     <FormField
+                      control={control}
+                      name="experience"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Years of Experience</FormLabel>
+                          <FormControl>
+                            <Input type="number" placeholder="e.g., 5" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                </div>
+                <div className="grid md:grid-cols-2 gap-6">
+                    <FormField
+                      control={control}
+                      name="medicalSchool"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Medical School / University</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., King Edward Medical University" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={control}
+                      name="degree"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Degree(s)</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., MBBS, FCPS" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                </div>
+                 <FormField
+                      control={control}
+                      name="contact"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Contact Number</FormLabel>
+                          <FormControl>
+                            <Input placeholder="e.g., 0300-1234567" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                <FormItem>
+                  <FormLabel>Degree Certificate</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="file"
+                      accept="image/*,.pdf"
+                      {...register('degreeFile', {
+                        onChange: (e) => {
+                          const file = e.target.files?.[0];
+                          if (file && file.type.startsWith('image/')) {
+                            setDegreePreview(URL.createObjectURL(file));
+                          } else {
+                            setDegreePreview(null);
+                          }
+                        }
+                      })}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+
+                {degreePreview && (
+                  <div className="mt-4">
+                    <p className="text-sm font-medium mb-2">Image Preview:</p>
+                    <img src={degreePreview} alt="Degree preview" className="rounded-md border max-h-60" />
+                  </div>
+                )}
+                
                 <Button type="submit" className="w-full" disabled={formState.isSubmitting}>
                   {formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Save and Continue

@@ -91,6 +91,15 @@
           "type": "string",
           "description": "Doctor's medical specialty."
         },
+        "experience": {
+          "type": "number",
+          "description": "Doctor's years of professional experience."
+        },
+        "degreeUrl": {
+          "type": "string",
+          "description": "URL to the uploaded image of the doctor's degree.",
+          "format": "uri"
+        },
         "location": {
           "type": "string",
           "description": "Doctor's practice location."
