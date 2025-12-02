@@ -15,12 +15,13 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth, useUser } from "@/firebase";
-import { doc, setDoc } from "firebase/firestore";
+import { doc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 export default function SignupPage() {
   const [firstName, setFirstName] = useState('');
@@ -66,7 +67,8 @@ export default function SignupPage() {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
         };
-        await setDoc(userDocRef, userData, { merge: true });
+        // Use the non-blocking function with contextual error handling
+        setDocumentNonBlocking(userDocRef, userData, { merge: true });
         // The useEffect will handle redirection.
       }
     } catch (error: any) {
@@ -77,7 +79,9 @@ export default function SignupPage() {
           description: error.message || "Could not create account. Please try again.",
         });
     } finally {
-      setLoading(false);
+      // setLoading is not turned off here immediately because redirection will happen.
+      // If redirection fails or user creation has an issue not caught by the try/catch,
+      // you might want to handle that case. For now, we assume success leads to redirect.
     }
   };
 
