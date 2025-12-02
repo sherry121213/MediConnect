@@ -2,12 +2,23 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Menu } from 'lucide-react';
+import { Menu, LogOut, User as UserIcon } from 'lucide-react';
 import Logo from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
+import { useUser, useAuth } from '@/firebase';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
+import { signOut } from 'firebase/auth';
 
 const navLinks = [
   { href: '/', label: 'Home' },
@@ -19,6 +30,45 @@ const navLinks = [
 export default function AppHeader() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { user, isUserLoading } = useUser();
+  const auth = useAuth();
+
+  const handleLogout = () => {
+    signOut(auth);
+  };
+
+  const UserMenu = () => (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+          <Avatar className="h-8 w-8">
+             <AvatarImage src={user?.photoURL || "https://picsum.photos/seed/user/100/100"} alt={user?.displayName || 'User'} />
+             <AvatarFallback>{user?.email?.[0].toUpperCase()}</AvatarFallback>
+          </Avatar>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56" align="end" forceMount>
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium leading-none">{user?.displayName || 'User'}</p>
+            <p className="text-xs leading-none text-muted-foreground">
+              {user?.email}
+            </p>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem>
+          <UserIcon className="mr-2 h-4 w-4" />
+          <span>Profile</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={handleLogout}>
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>Log out</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -44,12 +94,18 @@ export default function AppHeader() {
         </nav>
 
         <div className="hidden md:flex items-center gap-2">
-          <Button variant="ghost" asChild>
-            <Link href="/login">Log In</Link>
-          </Button>
-          <Button asChild>
-            <Link href="/signup">Sign Up</Link>
-          </Button>
+          {isUserLoading ? null : user ? (
+            <UserMenu />
+          ) : (
+            <>
+              <Button variant="ghost" asChild>
+                <Link href="/login">Log In</Link>
+              </Button>
+              <Button asChild>
+                <Link href="/signup">Sign Up</Link>
+              </Button>
+            </>
+          )}
         </div>
 
         {/* Mobile Navigation */}
@@ -77,12 +133,18 @@ export default function AppHeader() {
               ))}
             </nav>
             <div className="mt-8 flex flex-col gap-2">
-              <Button variant="ghost" asChild>
-                <Link href="/login" onClick={() => setMobileMenuOpen(false)}>Log In</Link>
-              </Button>
-              <Button asChild>
-                <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>Sign Up</Link>
-              </Button>
+               {isUserLoading ? null : user ? (
+                <Button variant="outline" onClick={() => {handleLogout(); setMobileMenuOpen(false);}}>Log Out</Button>
+               ) : (
+                <>
+                  <Button variant="ghost" asChild>
+                    <Link href="/login" onClick={() => setMobileMenuOpen(false)}>Log In</Link>
+                  </Button>
+                  <Button asChild>
+                    <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>Sign Up</Link>
+                  </Button>
+                </>
+               )}
             </div>
           </SheetContent>
         </Sheet>
