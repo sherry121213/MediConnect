@@ -1,0 +1,67 @@
+import type { Patient } from './types';
+
+export const patients: Patient[] = [
+    {
+        id: 'user_001',
+        firstName: 'Ali',
+        lastName: 'Khan',
+        email: 'ali.khan@example.com',
+        role: 'patient',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+    },
+    {
+        id: 'user_002',
+        firstName: 'Sana',
+        lastName: 'Ahmed',
+        email: 'sana.ahmed@example.com',
+        role: 'patient',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+    },
+    {
+        id: 'user_003',
+        firstName: 'Zoya',
+        lastName: 'Farooq',
+        email: 'zoya.farooq@example.com',
+        role: 'patient',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+    },
+    {
+        id: 'user_004',
+        firstName: 'Usman',
+        lastName: 'Sharif',
+        email: 'usman.sharif@example.com',
+        role: 'patient',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+    },
+    {
+        id: 'user_005',
+        firstName: 'Hina',
+        lastName: 'Iqbal',
+        email: 'hina.iqbal@example.com',
+        role: 'patient',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+    },
+    {
+        id: 'user_006',
+        firstName: 'Fahad',
+        lastName: 'Mustafa',
+        email: 'fahad.mustafa@example.com',
+        role: 'patient',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+    },
+    {
+        id: 'user_007',
+        firstName: 'Mahira',
+        lastName: 'Khan',
+        email: 'mahira.khan@example.com',
+        role: 'patient',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+    }
+];

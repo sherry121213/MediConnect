@@ -9,21 +9,23 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, where } from "firebase/firestore";
+import { patients as staticPatients } from "@/lib/patient-data";
 import type { Patient } from "@/lib/types";
+import { useState, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 
+
 export default function AdminPatientsPage() {
-    const firestore = useFirestore();
+    const [patients, setPatients] = useState<Patient[]>([]);
+    const [isLoadingPatients, setIsLoadingPatients] = useState(true);
 
-    const patientsCollection = useMemoFirebase(() => {
-        if (!firestore) return null;
-        // Query only for documents where role is 'patient'
-        return query(collection(firestore, 'patients'), where('role', '==', 'patient'));
-    }, [firestore]);
-
-    const { data: patients, isLoading: isLoadingPatients } = useCollection<Patient>(patientsCollection);
+    useEffect(() => {
+        // Simulate fetching data
+        setTimeout(() => {
+            setPatients(staticPatients);
+            setIsLoadingPatients(false);
+        }, 1000);
+    }, []);
 
     return (
         <div className="p-4 md:p-8">
@@ -49,7 +51,7 @@ export default function AdminPatientsPage() {
                         <TableCell><Skeleton className="h-6 w-20"/></TableCell>
                     </TableRow>
                 ))}
-                {patients && patients.map((patient) => (
+                {!isLoadingPatients && patients.map((patient) => (
                 <TableRow key={patient.id}>
                     <TableCell className="font-mono text-xs">{patient.id}</TableCell>
                     <TableCell>{patient.firstName} {patient.lastName}</TableCell>
