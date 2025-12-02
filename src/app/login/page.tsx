@@ -30,8 +30,11 @@ export default function LoginPage() {
     const routeUser = async () => {
       if (user && !isUserLoading && firestore) {
         try {
-          const idTokenResult = await user.getIdTokenResult(true);
-          if (idTokenResult.claims.admin) {
+          // Check for admin role first
+          const userDocRef = doc(firestore, 'patients', user.uid);
+          const userDoc = await getDoc(userDocRef);
+          
+          if (userDoc.exists() && userDoc.data().role === 'admin') {
             router.push('/admin');
             return;
           }
@@ -48,9 +51,7 @@ export default function LoginPage() {
              return;
           }
           
-          const patientDocRef = doc(firestore, 'patients', user.uid);
-          const patientDoc = await getDoc(patientDocRef);
-          if (patientDoc.exists()) {
+          if (userDoc.exists() && userDoc.data().role === 'patient') {
              router.push('/patient-portal');
              return;
           }

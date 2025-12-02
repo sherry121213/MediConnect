@@ -15,13 +15,12 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAuth, useUser } from "@/firebase";
-import { doc, getDoc } from "firebase/firestore";
 import { useFirestore } from "@/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { setDoc } from 'firebase/firestore';
+import { setDoc, doc } from 'firebase/firestore';
 
 export default function SignupPage() {
   const [firstName, setFirstName] = useState('');
@@ -40,8 +39,11 @@ export default function SignupPage() {
     const routeUser = async () => {
       if (user && !isUserLoading && firestore) {
         try {
-          const idTokenResult = await user.getIdTokenResult(true);
-          if (idTokenResult.claims.admin) {
+          // Check for admin role first
+          const userDocRef = doc(firestore, 'patients', user.uid);
+          const userDoc = await getDoc(userDocRef);
+
+          if (userDoc.exists() && userDoc.data().role === 'admin') {
             router.push('/admin');
             return;
           }
@@ -58,16 +60,18 @@ export default function SignupPage() {
              return;
           }
 
-          const patientDocRef = doc(firestore, 'patients', user.uid);
-          const patientDoc = await getDoc(patientDocRef);
-          if (patientDoc.exists()) {
+          if (userDoc.exists() && userDoc.data().role === 'patient') {
               router.push('/patient-portal');
               return;
           }
           
+          // Fallback redirection based on the role selected during signup
           if (role === 'doctor') {
             router.push('/doctor-portal/profile');
-          } else {
+          } else if (role === 'admin') {
+            router.push('/admin');
+          }
+          else {
             router.push('/patient-portal');
           }
 

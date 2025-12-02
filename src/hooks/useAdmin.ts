@@ -1,15 +1,17 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useUser } from '@/firebase';
+import { useUser, useFirestore } from '@/firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 /**
  * Hook to determine if the current user has admin privileges.
- * It forces a token refresh to ensure custom claims are up-to-date.
+ * It now checks the user's role from their Firestore document.
  * @returns An object with `isAdmin`, `isLoading`, and `error`.
  */
 export function useAdmin() {
   const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -22,30 +24,36 @@ export function useAdmin() {
     }
 
     // If there is no user, they are definitely not an admin.
-    if (!user) {
+    if (!user || !firestore) {
       setIsAdmin(false);
       setIsLoading(false);
       return;
     }
 
-    // User is available, now check their custom claims.
-    // We force a token refresh by passing `true` to `getIdTokenResult`.
-    // This is crucial to get the latest claims after a user logs in.
-    user.getIdTokenResult(true)
-      .then(idTokenResult => {
-        // The `admin` claim is set via a backend function (e.g., Cloud Function).
-        const isAdminClaim = !!idTokenResult.claims.admin;
-        setIsAdmin(isAdminClaim);
-        setIsLoading(false);
-      })
-      .catch(err => {
-        console.error("Error fetching admin token:", err);
+    // User is available, now check their role in Firestore.
+    const checkAdminRole = async () => {
+      try {
+        // The user's role is stored in the 'patients' collection.
+        const userDocRef = doc(firestore, 'patients', user.uid);
+        const userDoc = await getDoc(userDocRef);
+
+        if (userDoc.exists() && userDoc.data().role === 'admin') {
+          setIsAdmin(true);
+        } else {
+          setIsAdmin(false);
+        }
+      } catch (err: any) {
+        console.error("Error fetching user role from Firestore:", err);
         setError(err);
         setIsAdmin(false);
+      } finally {
         setIsLoading(false);
-      });
+      }
+    };
 
-  }, [user, isUserLoading]);
+    checkAdminRole();
+
+  }, [user, isUserLoading, firestore]);
 
   return { isAdmin, isLoading, error };
 }
