@@ -9,16 +9,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { useCollection, useFirestore } from "@/firebase";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection } from "firebase/firestore";
-import { useMemo } from "react";
 import type { Patient } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AdminPatientsPage() {
     const firestore = useFirestore();
 
-    const patientsCollection = useMemo(() => {
+    const patientsCollection = useMemoFirebase(() => {
         if (!firestore) return null;
         return collection(firestore, 'patients');
     }, [firestore]);

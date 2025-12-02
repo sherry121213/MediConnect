@@ -19,9 +19,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import Image from "next/image";
-import { useCollection, useFirestore } from "@/firebase";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query } from "firebase/firestore";
-import { useMemo } from "react";
 import type { Doctor } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PlaceHolderImages as placeholderImages } from "@/lib/placeholder-images";
@@ -30,7 +29,7 @@ import { PlaceHolderImages as placeholderImages } from "@/lib/placeholder-images
 export default function AdminDoctorsPage() {
     const firestore = useFirestore();
 
-    const doctorsCollection = useMemo(() => {
+    const doctorsCollection = useMemoFirebase(() => {
         if (!firestore) return null;
         return query(collection(firestore, 'doctors'));
     }, [firestore]);
