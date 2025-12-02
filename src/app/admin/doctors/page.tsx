@@ -67,7 +67,7 @@ export default function AdminDoctorsPage() {
                 </TableRow>
             ))}
             {doctors && doctors.map((doctor) => {
-              const doctorImage = placeholderImages.find(p => p.id === doctor.profileImageId);
+              const doctorImage = placeholderImages.find(p => p.id === 'doctor1');
               return (
               <TableRow key={doctor.id}>
                 <TableCell className="font-medium">
@@ -75,20 +75,20 @@ export default function AdminDoctorsPage() {
                     {doctorImage && (
                         <Image
                             src={doctorImage.imageUrl}
-                            alt={doctor.name}
+                            alt={`${doctor.firstName} ${doctor.lastName}`}
                             width={40}
                             height={40}
                             className="rounded-full"
                             data-ai-hint={doctorImage.imageHint}
                         />
                     )}
-                    {doctor.name}
+                    {doctor.firstName} {doctor.lastName}
                   </div>
                 </TableCell>
                 <TableCell>{doctor.specialty}</TableCell>
                 <TableCell>
-                  <Badge variant={doctor.isVerified ? "secondary" : "destructive"} className={doctor.isVerified ? "bg-green-100 text-green-800" : ""}>
-                    {doctor.isVerified ? "Verified" : "Pending"}
+                  <Badge variant={doctor.verified ? "secondary" : "destructive"} className={doctor.verified ? "bg-green-100 text-green-800" : ""}>
+                    {doctor.verified ? "Verified" : "Pending"}
                   </Badge>
                 </TableCell>
                 <TableCell>{doctor.location}</TableCell>
@@ -102,7 +102,7 @@ export default function AdminDoctorsPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      {!doctor.isVerified && <DropdownMenuItem>Verify Document</DropdownMenuItem>}
+                      {!doctor.verified && <DropdownMenuItem>Verify Document</DropdownMenuItem>}
                       <DropdownMenuItem>Edit</DropdownMenuItem>
                       <DropdownMenuItem>View Profile</DropdownMenuItem>
                       <DropdownMenuItem className="text-destructive">
