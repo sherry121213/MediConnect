@@ -1,0 +1,169 @@
+/**
+ * Core Philosophy: This ruleset enforces a multi-tiered security model tailored for a medical application.
+ * It strictly separates user-owned private data (patients), publicly readable data (doctors), and
+ * shared data with closed collaborators (appointments). The default posture is to deny all access
+ * unless explicitly granted.
+ *
+ * Data Structure: The data is organized into three distinct top-level collections:
+ * - /patients/{patientId}: Stores private patient data, accessible only by the patient themselves.
+ * - /doctors/{doctorId}: Stores public doctor profiles, readable by any authenticated user.
+ * - /appointments/{appointmentId}: Stores records of appointments shared between a specific patient and doctor.
+ *
+ * Key Security Decisions:
+ * - User Isolation: Users are strictly forbidden from listing or accessing the data of other users. The /patients collection cannot be queried wholesale.
+ * - Admin-Managed Content: Doctor profiles are treated as curated content. They are publicly readable but can only be created, updated, or deleted by a user with administrative privileges.
+ * - Shared Access Control: Access to an appointment document is granted only to the two participants (patient and doctor) whose UIDs are denormalized directly onto the document itself. General listing of all appointments is disabled to protect patient privacy.
+ * - Prototyping Flexibility: These rules focus on authorization (who can access what) and relational integrity (e.g., ensuring a patient ID in a document matches the ID in the path). They do not enforce the full data schema (e.g., data types, optional fields), allowing for rapid application development.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ----------------------------------------------------------------
+    // Helper Functions
+    // ----------------------------------------------------------------
+
+    /**
+     * Returns true if the user is authenticated.
+     */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /**
+     * Returns true if the authenticated user's UID matches the provided userId.
+     * This is the foundation of the user-ownership model.
+     * @param userId The user ID to check against the request's auth UID.
+     */
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    /**
+     * Returns true if the document being accessed already exists and the
+     * authenticated user is its owner. Used for safe updates and deletes.
+     * @param userId The user ID to check for ownership.
+     */
+    function isExistingOwner(userId) {
+      return isOwner(userId) && resource != null;
+    }
+
+    /**
+     * Checks if the user has administrative privileges.
+     * CRITICAL: This is a placeholder. Implement your own logic, for example,
+     * by checking for a custom claim on the user's auth token.
+     * Example: `return request.auth.token.admin == true;`
+     */
+    function isAdmin() {
+      // TODO: Implement your own admin verification logic here.
+      return false;
+    }
+    
+    /**
+     * Validates that an incoming patient document contains an `id` field
+     * that matches the document's ID in the path. Enforces relational integrity on create.
+     * @param patientId The wildcard ID from the document path.
+     */
+    function isValidNewPatient(patientId) {
+      return request.resource.data.id == patientId;
+    }
+    
+    /**
+     * Ensures the `id` field of a patient document cannot be changed after creation.
+     */
+    function isPatientIdImmutable() {
+      return request.resource.data.id == resource.data.id;
+    }
+    
+    /**
+     * Validates that an incoming doctor document contains an `id` field
+     * that matches the document's ID in the path.
+     * @param doctorId The wildcard ID from the document path.
+     */
+    function isValidNewDoctor(doctorId) {
+      return request.resource.data.id == doctorId;
+    }
+
+    /**
+     * Ensures the `id` field of a doctor document cannot be changed after creation.
+     */
+    function isDoctorIdImmutable() {
+      return request.resource.data.id == resource.data.id;
+    }
+    
+    /**
+     * Returns true if the requesting user's UID matches either the patientId or
+     * doctorId on an existing appointment document.
+     */
+    function isParticipant() {
+      return request.auth.uid == resource.data.patientId || request.auth.uid == resource.data.doctorId;
+    }
+
+    /**
+     * Returns true if the requesting user's UID matches either the patientId or
+     * doctorId on a new appointment document being created.
+     */
+    function isCreatingParticipant() {
+      return request.auth.uid == request.resource.data.patientId || request.auth.uid == request.resource.data.doctorId;
+    }
+    
+    /**
+     * Ensures the core relational fields (`patientId`, `doctorId`) of an appointment
+     * cannot be changed after the document has been created.
+     */
+    function areAppointmentParticipantsImmutable() {
+      return request.resource.data.patientId == resource.data.patientId &&
+             request.resource.data.doctorId == resource.data.doctorId;
+    }
+
+
+    // ----------------------------------------------------------------
+    // Collection Rules
+    // ----------------------------------------------------------------
+
+    /**
+     * @description Manages patient profiles. Access is strictly limited to the patient themselves.
+     * @path /patients/{patientId}
+     * @allow (create) A new user creating their own patient profile document. `request.auth.uid == patientId`.
+     * @deny (get) A user trying to read another patient's profile. `request.auth.uid != patientId`.
+     * @principle Restricts access to a user's own data tree, preventing unauthorized data exposure.
+     */
+    match /patients/{patientId} {
+      allow get: if isOwner(patientId);
+      allow list: if false; // Explicitly deny listing all patients for privacy.
+      allow create: if isOwner(patientId) && isValidNewPatient(patientId);
+      allow update: if isExistingOwner(patientId) && isPatientIdImmutable();
+      allow delete: if isExistingOwner(patientId);
+    }
+
+    /**
+     * @description Manages doctor profiles. These are publicly readable by any signed-in user but writeable only by admins.
+     * @path /doctors/{doctorId}
+     * @allow (get) An authenticated patient looking up a doctor's profile.
+     * @deny (create) A regular user attempting to add a new doctor profile. `isAdmin() == false`.
+     * @principle Implements a public-read, admin-only write pattern for curated public data.
+     */
+    match /doctors/{doctorId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isAdmin() && isValidNewDoctor(doctorId);
+      allow update: if isAdmin() && resource != null && isDoctorIdImmutable();
+      allow delete: if isAdmin() && resource != null;
+    }
+
+    /**
+     * @description Manages appointment records. Access is restricted to the involved patient and doctor.
+     * @path /appointments/{appointmentId}
+     * @allow (get) A doctor or patient retrieving an appointment they are a part of.
+     * @deny (get) A user trying to read an appointment where they are not the patient or the doctor.
+     * @principle Enforces a "Closed Collaborators" model using denormalized IDs for efficient and secure authorization.
+     */
+    match /appointments/{appointmentId} {
+      allow get: if isParticipant();
+      allow list: if false; // Explicitly deny listing all appointments for privacy.
+      allow create: if isSignedIn() && isCreatingParticipant();
+      allow update: if resource != null && isParticipant() && areAppointmentParticipantsImmutable();
+      allow delete: if resource != null && isParticipant();
+    }
+  }
+}
