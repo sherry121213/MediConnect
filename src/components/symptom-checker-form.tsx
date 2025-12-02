@@ -5,26 +5,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-
-// This is a mock function. In a real app, this would be a server action calling the AI flow.
-async function getSymptomAnalysis(symptoms: string) {
-  return new Promise<string>((resolve) => {
-    setTimeout(() => {
-      if (symptoms.toLowerCase().includes('chest pain')) {
-        resolve("Based on your symptoms, it is advisable to consult a **Cardiologist**. We also recommend considering an **ECG** and a **Lipid Profile** test.");
-      } else if (symptoms.toLowerCase().includes('rash')) {
-        resolve("Your symptoms may be related to a skin condition. We suggest consulting a **Dermatologist**. A **skin biopsy** might be recommended for further diagnosis.");
-      } else {
-        resolve("Based on your symptoms, we recommend consulting a **General Physician** for a primary evaluation. They may suggest further tests like a **Complete Blood Count (CBC)**.");
-      }
-    }, 1500);
-  });
-}
+import { aiSymptomChecker } from '@/ai/ai-symptom-checker';
 
 export default function SymptomCheckerForm() {
   const [symptoms, setSymptoms] = useState('');
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState('');
+  const [result, setResult] = useState<{ suggestedLabTests: string; relevantMedicalSpecialists: string; } | null>(null);
   const [error, setError] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -35,13 +21,14 @@ export default function SymptomCheckerForm() {
     }
     setLoading(true);
     setError('');
-    setResult('');
+    setResult(null);
     
     try {
-      const analysis = await getSymptomAnalysis(symptoms);
+      const analysis = await aiSymptomChecker({ symptoms });
       setResult(analysis);
     } catch (err) {
-      setError('An error occurred. Please try again.');
+      setError('An error occurred while analyzing your symptoms. Please try again.');
+      console.error(err);
     } finally {
       setLoading(false);
     }
@@ -69,7 +56,10 @@ export default function SymptomCheckerForm() {
         <Alert variant="default" className="bg-primary/10">
           <AlertTitle>AI Analysis Result</AlertTitle>
           <AlertDescription>
-            <div dangerouslySetInnerHTML={{ __html: result.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') }} />
+            <div className="space-y-2">
+              <p><strong>Suggested Specialist:</strong> {result.relevantMedicalSpecialists}</p>
+              <p><strong>Suggested Lab Tests:</strong> {result.suggestedLabTests}</p>
+            </div>
           </AlertDescription>
         </Alert>
       )}
