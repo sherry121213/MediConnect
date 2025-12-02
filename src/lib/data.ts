@@ -102,7 +102,7 @@ export const doctors: Doctor[] = [
     profileImageId: 'doctor8',
     bio: 'A dermatologist with a focus on skin cancer screening and treatment of chronic skin conditions like psoriasis.'
   },
-    {
+  {
     id: '9',
     name: 'Dr. Zoya Farooq',
     specialty: 'Pediatrics',
@@ -145,5 +145,38 @@ export const doctors: Doctor[] = [
     isVerified: true,
     profileImageId: 'doctor1',
     bio: 'Your friendly neighborhood GP, great with chronic disease management.'
+  },
+  {
+    id: '13',
+    name: 'Dr. Hina Altaf',
+    specialty: 'Endocrinology',
+    location: 'Lahore',
+    rating: 4.9,
+    reviews: 112,
+    isVerified: true,
+    profileImageId: 'doctor2',
+    bio: 'Expert in hormonal imbalances, diabetes, and thyroid disorders. Committed to personalized patient care plans.'
+  },
+  {
+    id: '14',
+    name: 'Dr. Junaid Akram',
+    specialty: 'Gastroenterology',
+    location: 'Islamabad',
+    rating: 4.8,
+    reviews: 88,
+    isVerified: true,
+    profileImageId: 'doctor6',
+    bio: 'Specializing in digestive health, including GERD, IBS, and liver diseases. Proficient in endoscopic procedures.'
+  },
+  {
+    id: '15',
+    name: 'Dr. Maya Ali',
+    specialty: 'Oncology',
+    location: 'Karachi',
+    rating: 5.0,
+    reviews: 75,
+    isVerified: true,
+    profileImageId: 'doctor7',
+    bio: 'Compassionate oncologist providing cutting-edge cancer treatment and supportive care. Member of the National Comprehensive Cancer Network.'
   }
 ];
