@@ -39,7 +39,6 @@ export default function SignupPage() {
     const routeUser = async () => {
       if (user && !isUserLoading && firestore) {
         try {
-          // Check for admin role first
           const userDocRef = doc(firestore, 'patients', user.uid);
           const userDoc = await getDoc(userDocRef);
 
@@ -65,11 +64,8 @@ export default function SignupPage() {
               return;
           }
           
-          // Fallback redirection based on the role selected during signup
           if (role === 'doctor') {
             router.push('/doctor-portal/profile');
-          } else if (role === 'admin') {
-            router.push('/admin');
           }
           else {
             router.push('/patient-portal');
@@ -112,10 +108,8 @@ export default function SignupPage() {
             profileComplete: false, // New flag for onboarding
           };
         } else {
-          // Both patients and admins are stored in the 'patients' collection
-          // The role is differentiated by the 'role' field.
           collectionName = 'patients';
-          userData.role = role; // 'patient' or 'admin'
+          userData.role = role; 
         }
         
         const userDocRef = doc(firestore, collectionName, newUser.uid);
@@ -183,10 +177,6 @@ export default function SignupPage() {
                     <div className="flex items-center space-x-2">
                       <RadioGroupItem value="doctor" id="role-doctor" />
                       <Label htmlFor="role-doctor">Doctor</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="admin" id="role-admin" />
-                      <Label htmlFor="role-admin">Admin</Label>
                     </div>
                   </RadioGroup>
                 </div>

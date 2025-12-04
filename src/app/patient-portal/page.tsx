@@ -7,11 +7,16 @@ import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 
-
-const appointments = [
+const upcomingAppointments = [
     { id: 1, doctor: "Dr. Amina Khan", specialty: "Cardiology", date: "2024-08-15", time: "10:00 AM", type: "Video Call", status: "Upcoming", imageId: "doctor1" },
+    { id: 4, doctor: "Dr. Usman Ali", specialty: "Orthopedics", date: "2024-08-22", time: "09:00 AM", type: "Video Call", status: "Upcoming", imageId: "doctor4" },
+];
+
+const pastAppointments = [
     { id: 2, doctor: "Dr. Bilal Ahmed", specialty: "Dermatology", date: "2024-07-20", time: "02:30 PM", type: "Chat", status: "Completed", imageId: "doctor2" },
-]
+    { id: 3, doctor: "Dr. Hassan Raza", specialty: "General Physician", date: "2024-06-10", time: "11:00 AM", type: "Video Call", status: "Completed", imageId: "doctor6" },
+];
+
 
 export default function PatientPortalPage() {
     const getIcon = (type: string) => {
@@ -50,8 +55,8 @@ export default function PatientPortalPage() {
                     </div>
                 </CardContent>
                 <div className="p-6 pt-0 md:pt-6 text-right">
-                    {apt.status === "Upcoming" && <Button asChild><Link href="#">Join Call</Link></Button>}
-                    {apt.status === "Completed" && <Button variant="outline" asChild><Link href="#">View Details</Link></Button>}
+                    {apt.status === "Upcoming" && <Button asChild><Link href="https://meet.google.com" target="_blank">Join Call</Link></Button>}
+                    {apt.status === "Completed" && <Button variant="outline" asChild><Link href={`/appointments/${apt.id}`}>View Details</Link></Button>}
                 </div>
             </Card>
         )
@@ -76,20 +81,41 @@ export default function PatientPortalPage() {
                     </Button>
                 </div>
                 
-                <div className="space-y-6">
-                    {appointments.length > 0 ? (
-                        appointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)
-                    ) : (
-                        <Card className="text-center py-16">
-                            <CardContent>
-                                <h3 className="text-xl font-medium">No Appointments Yet</h3>
-                                <p className="text-muted-foreground mt-2 mb-6">It looks like you haven't booked any appointments.</p>
-                                <Button asChild>
-                                    <Link href="/find-a-doctor">Find a Doctor</Link>
-                                </Button>
-                            </CardContent>
-                        </Card>
-                    )}
+                <div className="space-y-8">
+                    <section>
+                        <h2 className="text-2xl font-bold font-headline mb-4">Upcoming Appointments</h2>
+                        {upcomingAppointments.length > 0 ? (
+                            <div className="space-y-4">
+                                {upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
+                            </div>
+                        ) : (
+                             <Card className="text-center py-16">
+                                <CardContent>
+                                    <h3 className="text-xl font-medium">No Upcoming Appointments</h3>
+                                    <p className="text-muted-foreground mt-2 mb-6">It looks like you haven't booked any new appointments.</p>
+                                    <Button asChild>
+                                        <Link href="/find-a-doctor">Book an Appointment</Link>
+                                    </Button>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </section>
+
+                     <section>
+                        <h2 className="text-2xl font-bold font-headline mb-4">Past Appointments</h2>
+                         {pastAppointments.length > 0 ? (
+                            <div className="space-y-4">
+                                {pastAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
+                            </div>
+                        ) : (
+                            <Card className="text-center py-12">
+                                <CardContent>
+                                    <h3 className="text-xl font-medium">No Past Appointments</h3>
+                                    <p className="text-muted-foreground mt-2">Your completed appointment history will appear here.</p>
+                                </CardContent>
+                            </Card>
+                        )}
+                    </section>
                 </div>
             </div>
           </main>
