@@ -4,12 +4,11 @@ import AppHeader from "@/components/layout/header";
 import AppFooter from "@/components/layout/footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, MessageSquare, AlertTriangle } from "lucide-react";
+import { Calendar, Video, MessageSquare, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -21,13 +20,13 @@ import {
 
 
 const upcomingAppointments = [
-    { id: 1, patient: "Ali Khan", date: "2024-08-15", time: "10:00 AM", type: "Video Call", status: "Upcoming", patientImage: "https://picsum.photos/seed/p1/100/100" },
-    { id: 2, patient: "Sana Ahmed", date: "2024-08-15", time: "11:30 AM", type: "Chat", status: "Upcoming", patientImage: "https://picsum.photos/seed/p2/100/100" },
+    // { id: 1, patient: "Ali Khan", date: "2024-08-15", time: "10:00 AM", type: "Video Call", status: "Upcoming", patientImage: "https://picsum.photos/seed/p1/100/100" },
+    // { id: 2, patient: "Sana Ahmed", date: "2024-08-15", time: "11:30 AM", type: "Chat", status: "Upcoming", patientImage: "https://picsum.photos/seed/p2/100/100" },
 ]
 
 const recentAppointments = [
-    { id: 3, patient: "Zoya Farooq", date: "2024-07-20", time: "02:30 PM", type: "Chat", status: "Completed", patientImage: "https://picsum.photos/seed/p3/100/100" },
-    { id: 4, patient: "Usman Sharif", date: "2024-06-10", time: "11:00 AM", type: "Video Call", status: "Completed", patientImage: "https://picsum.photos/seed/p4/100/100" },
+    // { id: 3, patient: "Zoya Farooq", date: "2024-07-20", time: "02:30 PM", type: "Chat", status: "Completed", patientImage: "https://picsum.photos/seed/p3/100/100" },
+    // { id: 4, patient: "Usman Sharif", date: "2024-06-10", time: "11:00 AM", type: "Video Call", status: "Completed", patientImage: "https://picsum.photos/seed/p4/100/100" },
 ]
 
 export default function DoctorPortalPage() {
@@ -99,30 +98,34 @@ export default function DoctorPortalPage() {
                         <p className="text-muted-foreground">Welcome back, Dr. Ahmed!</p>
                     </div>
 
-                    <div className="space-y-8">
-                        <div>
-                            <h2 className="text-2xl font-bold font-headline mb-4">Upcoming Appointments</h2>
-                            <div className="space-y-4">
-                                {upcomingAppointments.length > 0 ? (
-                                    upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)
-                                ) : (
-                                    <Card className="text-center py-16">
-                                        <CardContent>
-                                        <h3 className="text-xl font-medium">No Upcoming Appointments</h3>
-                                        <p className="text-muted-foreground mt-2">You have no scheduled appointments at this time.</p>
-                                        </CardContent>
-                                    </Card>
-                                )}
-                            </div>
-                        </div>
+                    {upcomingAppointments.length === 0 && recentAppointments.length === 0 ? (
+                         <Card className="text-center py-24">
+                            <CardContent>
+                                <h3 className="text-2xl font-medium font-headline">No Appointments Yet</h3>
+                                <p className="text-muted-foreground mt-2 max-w-md mx-auto">Your dashboard is currently empty. As soon as a patient books a consultation with you, it will appear here.</p>
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <div className="space-y-8">
+                            {upcomingAppointments.length > 0 && (
+                                <div>
+                                    <h2 className="text-2xl font-bold font-headline mb-4">Upcoming Appointments</h2>
+                                    <div className="space-y-4">
+                                        {upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
+                                    </div>
+                                </div>
+                            )}
 
-                        <div>
-                            <h2 className="text-2xl font-bold font-headline mb-4">Recent Activity</h2>
-                            <div className="space-y-4">
-                                {recentAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
-                            </div>
+                           {recentAppointments.length > 0 && (
+                                <div>
+                                    <h2 className="text-2xl font-bold font-headline mb-4">Recent Activity</h2>
+                                    <div className="space-y-4">
+                                        {recentAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
+                                    </div>
+                                </div>
+                           )}
                         </div>
-                    </div>
+                    )}
                 </div>
             </main>
             <AppFooter />

@@ -4,13 +4,12 @@ import AppHeader from "@/components/layout/header";
 import AppFooter from "@/components/layout/footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, MessageSquare, PlusCircle, AlertTriangle } from "lucide-react";
+import { Calendar, Video, MessageSquare, PlusCircle } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -22,13 +21,13 @@ import {
 
 
 const upcomingAppointments = [
-    { id: 1, doctor: "Dr. Amina Khan", specialty: "Cardiology", date: "2024-08-15", time: "10:00 AM", type: "Video Call", status: "Upcoming", imageId: "doctor1" },
-    { id: 4, doctor: "Dr. Usman Ali", specialty: "Orthopedics", date: "2024-08-22", time: "09:00 AM", type: "Video Call", status: "Upcoming", imageId: "doctor4" },
+    // { id: 1, doctor: "Dr. Amina Khan", specialty: "Cardiology", date: "2024-08-15", time: "10:00 AM", type: "Video Call", status: "Upcoming", imageId: "doctor1" },
+    // { id: 4, doctor: "Dr. Usman Ali", specialty: "Orthopedics", date: "2024-08-22", time: "09:00 AM", type: "Video Call", status: "Upcoming", imageId: "doctor4" },
 ];
 
 const pastAppointments = [
-    { id: 2, doctor: "Dr. Bilal Ahmed", specialty: "Dermatology", date: "2024-07-20", time: "02:30 PM", type: "Chat", status: "Completed", imageId: "doctor2" },
-    { id: 3, doctor: "Dr. Hassan Raza", specialty: "General Physician", date: "2024-06-10", time: "11:00 AM", type: "Video Call", status: "Completed", imageId: "doctor6" },
+    // { id: 2, doctor: "Dr. Bilal Ahmed", specialty: "Dermatology", date: "2024-07-20", time: "02:30 PM", type: "Chat", status: "Completed", imageId: "doctor2" },
+    // { id: 3, doctor: "Dr. Hassan Raza", specialty: "General Physician", date: "2024-06-10", time: "11:00 AM", type: "Video Call", status: "Completed", imageId: "doctor6" },
 ];
 
 
@@ -120,42 +119,40 @@ export default function PatientPortalPage() {
                     </Button>
                 </div>
                 
-                <div className="space-y-8">
-                    <section>
-                        <h2 className="text-2xl font-bold font-headline mb-4">Upcoming Appointments</h2>
-                        {upcomingAppointments.length > 0 ? (
-                            <div className="space-y-4">
-                                {upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
-                            </div>
-                        ) : (
-                             <Card className="text-center py-16">
-                                <CardContent>
-                                    <h3 className="text-xl font-medium">No Upcoming Appointments</h3>
-                                    <p className="text-muted-foreground mt-2 mb-6">It looks like you haven't booked any new appointments.</p>
-                                    <Button asChild>
-                                        <Link href="/find-a-doctor">Book an Appointment</Link>
-                                    </Button>
-                                </CardContent>
-                            </Card>
+                {upcomingAppointments.length === 0 && pastAppointments.length === 0 ? (
+                     <Card className="text-center py-24">
+                        <CardContent>
+                            <h3 className="text-2xl font-medium font-headline">Welcome to Your Portal</h3>
+                            <p className="text-muted-foreground mt-2 mb-6 max-w-md mx-auto">It looks like you don't have any appointments yet. Book your first consultation to get started.</p>
+                            <Button asChild>
+                                <Link href="/find-a-doctor">
+                                     <PlusCircle className="mr-2 h-4 w-4" />
+                                    Book an Appointment
+                                </Link>
+                            </Button>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <div className="space-y-8">
+                        {upcomingAppointments.length > 0 && (
+                            <section>
+                                <h2 className="text-2xl font-bold font-headline mb-4">Upcoming Appointments</h2>
+                                <div className="space-y-4">
+                                    {upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
+                                </div>
+                            </section>
                         )}
-                    </section>
 
-                     <section>
-                        <h2 className="text-2xl font-bold font-headline mb-4">Past Appointments</h2>
-                         {pastAppointments.length > 0 ? (
-                            <div className="space-y-4">
-                                {pastAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
-                            </div>
-                        ) : (
-                            <Card className="text-center py-12">
-                                <CardContent>
-                                    <h3 className="text-xl font-medium">No Past Appointments</h3>
-                                    <p className="text-muted-foreground mt-2">Your completed appointment history will appear here.</p>
-                                </CardContent>
-                            </Card>
+                        {pastAppointments.length > 0 && (
+                            <section>
+                                <h2 className="text-2xl font-bold font-headline mb-4">Past Appointments</h2>
+                                <div className="space-y-4">
+                                    {pastAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
+                                </div>
+                            </section>
                         )}
-                    </section>
-                </div>
+                    </div>
+                )}
             </div>
           </main>
           <AppFooter />
