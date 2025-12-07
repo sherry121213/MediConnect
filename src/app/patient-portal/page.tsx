@@ -20,12 +20,12 @@ import {
 } from "@/components/ui/alert-dialog";
 
 
-const upcomingAppointments = [
+const upcomingAppointments: any[] = [
     // { id: 1, doctor: "Dr. Amina Khan", specialty: "Cardiology", date: "2024-08-15", time: "10:00 AM", type: "Video Call", status: "Upcoming", imageId: "doctor1" },
     // { id: 4, doctor: "Dr. Usman Ali", specialty: "Orthopedics", date: "2024-08-22", time: "09:00 AM", type: "Video Call", status: "Upcoming", imageId: "doctor4" },
 ];
 
-const pastAppointments = [
+const pastAppointments: any[] = [
     // { id: 2, doctor: "Dr. Bilal Ahmed", specialty: "Dermatology", date: "2024-07-20", time: "02:30 PM", type: "Chat", status: "Completed", imageId: "doctor2" },
     // { id: 3, doctor: "Dr. Hassan Raza", specialty: "General Physician", date: "2024-06-10", time: "11:00 AM", type: "Video Call", status: "Completed", imageId: "doctor6" },
 ];
