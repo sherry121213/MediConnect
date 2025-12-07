@@ -13,7 +13,7 @@ export default function AppFooter() {
           <div className="lg:col-span-1">
             <Logo />
             <p className="mt-4 text-sm text-gray-400">
-              Get the best online consultation from the best doctors and specialists in Pakistan through our mobile app.
+              Get the best online consultation from the best doctors and specialists in Pakistan.
             </p>
              <div className="flex space-x-4 mt-6">
                 <Link href="#" className="text-gray-400 hover:text-accent"><Facebook size={20}/></Link>
