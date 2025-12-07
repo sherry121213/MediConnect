@@ -4,7 +4,7 @@ import AppHeader from "@/components/layout/header";
 import AppFooter from "@/components/layout/footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft, Calendar, Clock, Stethoscope, User, Video } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Stethoscope, User, Video, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { doctors } from "@/lib/data";
@@ -24,6 +24,11 @@ export default function AppointmentDetailsPage() {
     const appointment = pastAppointments.find(apt => apt.id.toString() === id);
     const doctor = appointment ? doctors.find(doc => doc.id === appointment.doctorId) : null;
     const doctorImage = doctor ? PlaceHolderImages.find(p => p.id === doctor.profileImageId) : null;
+    
+    const getIcon = (type: string) => {
+        if (type === 'Video Call') return <Video className="w-5 h-5" />;
+        return <MessageSquare className="w-5 h-5" />;
+    }
 
     if (!appointment || !doctor) {
         return (
@@ -73,16 +78,23 @@ export default function AppointmentDetailsPage() {
                             <CardDescription className="text-lg text-primary">{doctor.specialty}</CardDescription>
                         </CardHeader>
                         <CardContent className="p-8 space-y-6">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-center">
+                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 text-center">
                                 <div className="flex flex-col items-center gap-2">
                                     <Calendar className="h-8 w-8 text-primary"/>
-                                    <p className="font-semibold">Appointment Date</p>
+                                    <p className="font-semibold">Date</p>
                                     <p className="text-muted-foreground">{appointment.date}</p>
                                 </div>
                                 <div className="flex flex-col items-center gap-2">
                                     <Clock className="h-8 w-8 text-primary"/>
-                                    <p className="font-semibold">Appointment Time</p>
+                                    <p className="font-semibold">Time</p>
                                     <p className="text-muted-foreground">{appointment.time}</p>
+                                </div>
+                                <div className="flex flex-col items-center gap-2">
+                                     <div className="p-2 rounded-full bg-primary/10">
+                                         {getIcon(appointment.type)}
+                                     </div>
+                                    <p className="font-semibold">Type</p>
+                                    <p className="text-muted-foreground">{appointment.type}</p>
                                 </div>
                             </div>
                              <div className="border-t pt-6">

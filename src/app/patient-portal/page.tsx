@@ -1,11 +1,25 @@
+'use client';
+
 import AppHeader from "@/components/layout/header";
 import AppFooter from "@/components/layout/footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, MessageSquare, PlusCircle } from "lucide-react";
+import { Calendar, Video, MessageSquare, PlusCircle, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
 
 const upcomingAppointments = [
     { id: 1, doctor: "Dr. Amina Khan", specialty: "Cardiology", date: "2024-08-15", time: "10:00 AM", type: "Video Call", status: "Upcoming", imageId: "doctor1" },
@@ -19,10 +33,39 @@ const pastAppointments = [
 
 
 export default function PatientPortalPage() {
-    const getIcon = (type: string) => {
-        if (type === 'Video Call') return <Video className="w-5 h-5 text-muted-foreground" />;
-        return <MessageSquare className="w-5 h-5 text-muted-foreground" />;
-    }
+    
+    const JoinCallDialog = ({ apt }: { apt: any }) => (
+        <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button>Join</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Choose Consultation Method</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        How would you like to connect with {apt.doctor}?
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-4">
+                    <Button variant="outline" asChild>
+                        <Link href="https://meet.google.com" target="_blank">
+                            <Video className="mr-2 h-4 w-4"/> Video Call
+                        </Link>
+                    </Button>
+                    <Button variant="outline">
+                       <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                        Audio Call
+                    </Button>
+                     <Button variant="outline">
+                        <MessageSquare className="mr-2 h-4 w-4"/> Chat
+                    </Button>
+                </div>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    );
 
     const AppointmentCard = ({ apt }: { apt: any }) => {
         const doctorImage = PlaceHolderImages.find(p => p.id === apt.imageId);
@@ -49,13 +92,9 @@ export default function PatientPortalPage() {
                         <Calendar className="w-4 h-4" />
                         <span>{apt.date} at {apt.time}</span>
                     </div>
-                    <div className="flex items-center gap-2 text-sm mt-1">
-                        {getIcon(apt.type)}
-                        <span>{apt.type}</span>
-                    </div>
                 </CardContent>
                 <div className="p-6 pt-0 md:pt-6 text-right">
-                    {apt.status === "Upcoming" && <Button asChild><Link href="https://meet.google.com" target="_blank">Join Call</Link></Button>}
+                    {apt.status === "Upcoming" && <JoinCallDialog apt={apt}/>}
                     {apt.status === "Completed" && <Button variant="outline" asChild><Link href={`/appointments/${apt.id}`}>View Details</Link></Button>}
                 </div>
             </Card>

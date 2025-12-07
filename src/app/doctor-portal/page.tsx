@@ -1,10 +1,24 @@
+'use client';
+
 import AppHeader from "@/components/layout/header";
 import AppFooter from "@/components/layout/footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, MessageSquare } from "lucide-react";
+import { Calendar, Video, MessageSquare, AlertTriangle } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+
 
 const upcomingAppointments = [
     { id: 1, patient: "Ali Khan", date: "2024-08-15", time: "10:00 AM", type: "Video Call", status: "Upcoming", patientImage: "https://picsum.photos/seed/p1/100/100" },
@@ -17,10 +31,39 @@ const recentAppointments = [
 ]
 
 export default function DoctorPortalPage() {
-    const getIcon = (type: string) => {
-        if (type === 'Video Call') return <Video className="w-5 h-5" />;
-        return <MessageSquare className="w-5 h-5" />;
-    }
+
+    const JoinCallDialog = ({ apt }: { apt: any }) => (
+        <AlertDialog>
+            <AlertDialogTrigger asChild>
+                <Button>Join</Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Choose Consultation Method</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        How would you like to connect with {apt.patient}?
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-4">
+                    <Button variant="outline" asChild>
+                        <Link href="https://meet.google.com" target="_blank">
+                            <Video className="mr-2 h-4 w-4"/> Video Call
+                        </Link>
+                    </Button>
+                    <Button variant="outline">
+                       <svg xmlns="http://www.w3.org/2000/svg" className="mr-2 h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+                        Audio Call
+                    </Button>
+                     <Button variant="outline">
+                        <MessageSquare className="mr-2 h-4 w-4"/> Chat
+                    </Button>
+                </div>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+    );
 
     const AppointmentCard = ({ apt }: { apt: any }) => (
         <Card className="grid grid-cols-1 md:grid-cols-4 items-center gap-4">
@@ -38,13 +81,9 @@ export default function DoctorPortalPage() {
                     <Calendar className="w-4 h-4" />
                     <span>{apt.date} at {apt.time}</span>
                 </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground mt-1">
-                    {getIcon(apt.type)}
-                    <span>{apt.type}</span>
-                </div>
             </CardContent>
             <div className="p-6 pt-0 md:pt-6 text-right">
-                {apt.status === "Upcoming" && <Button asChild><Link href="#">Join Call</Link></Button>}
+                {apt.status === "Upcoming" && <JoinCallDialog apt={apt} />}
                 {apt.status === "Completed" && <Button variant="outline" asChild><Link href="#">View Notes</Link></Button>}
             </div>
         </Card>
@@ -64,7 +103,16 @@ export default function DoctorPortalPage() {
                         <div>
                             <h2 className="text-2xl font-bold font-headline mb-4">Upcoming Appointments</h2>
                             <div className="space-y-4">
-                                {upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
+                                {upcomingAppointments.length > 0 ? (
+                                    upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)
+                                ) : (
+                                    <Card className="text-center py-16">
+                                        <CardContent>
+                                        <h3 className="text-xl font-medium">No Upcoming Appointments</h3>
+                                        <p className="text-muted-foreground mt-2">You have no scheduled appointments at this time.</p>
+                                        </CardContent>
+                                    </Card>
+                                )}
                             </div>
                         </div>
 
