@@ -23,7 +23,6 @@ import { signOut } from 'firebase/auth';
 const navLinks = [
   { href: '/', label: 'Home' },
   { href: '/find-a-doctor', label: 'Find a Doctor' },
-  { href: '/patient-portal', label: 'Patient Portal' },
   { href: '/contact', label: 'Contact' },
   { href: '/admin', label: 'Admin Portal' },
 ];
