@@ -104,6 +104,7 @@ export default function SignupPage() {
           collectionName = 'doctors';
           userData = {
             ...userData,
+            role: 'doctor', // Assign role
             verified: false,
             profileComplete: false, // New flag for onboarding
           };
