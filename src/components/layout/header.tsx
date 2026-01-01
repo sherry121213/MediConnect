@@ -35,7 +35,11 @@ export default function AppHeader() {
   const auth = useAuth();
 
   const handleLogout = () => {
-    if(auth) signOut(auth);
+    if (auth) {
+      signOut(auth).then(() => {
+        router.push('/');
+      });
+    }
   };
   
   const handleProfileClick = () => {
