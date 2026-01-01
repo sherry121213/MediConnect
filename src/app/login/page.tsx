@@ -34,15 +34,19 @@ export default function LoginPage() {
       // Fetch user role from Firestore to decide redirection
       let userDocSnap = await getDoc(doc(firestore, 'patients', user.uid));
       
+      let isDoctor = false;
       if (!userDocSnap.exists()) {
         userDocSnap = await getDoc(doc(firestore, 'doctors', user.uid));
+        if (userDocSnap.exists()) {
+            isDoctor = true;
+        }
       }
 
       if (userDocSnap.exists()) {
         const userData = userDocSnap.data();
         if (userData.role === 'admin') {
           router.push('/admin');
-        } else if (userData.role === 'doctor') {
+        } else if (isDoctor) {
             if (userData.verified === false) {
                toast({
                   title: "Pending Approval",

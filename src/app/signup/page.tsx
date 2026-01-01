@@ -84,13 +84,7 @@ export default function SignupPage() {
         if (isPreverifiedDoctor) {
             router.push('/doctor-portal');
         } else {
-             toast({
-              title: "Registration Successful!",
-              description: "Your profile is under review. You'll be notified once it's approved.",
-              duration: 5000,
-           });
-           auth.signOut();
-           router.push('/login');
+           router.push('/doctor-portal/profile');
         }
 
       } else {
