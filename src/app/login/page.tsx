@@ -31,54 +31,65 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Fetch user role from Firestore to decide redirection
-      let userDocSnap = await getDoc(doc(firestore, 'patients', user.uid));
-      
-      let isDoctor = false;
-      if (!userDocSnap.exists()) {
-        userDocSnap = await getDoc(doc(firestore, 'doctors', user.uid));
-        if (userDocSnap.exists()) {
-            isDoctor = true;
-        }
-      }
+      // Check if user is a doctor first
+      const doctorDocRef = doc(firestore, 'doctors', user.uid);
+      const doctorDocSnap = await getDoc(doctorDocRef);
 
-      if (userDocSnap.exists()) {
-        const userData = userDocSnap.data();
-        if (userData.role === 'admin') {
-          router.push('/admin');
-        } else if (isDoctor) {
-            if (userData.verified === false) {
-               toast({
-                  title: "Pending Approval",
-                  description: "Your profile is under review. You'll be notified once it's approved.",
-                  duration: 5000,
-               });
-               auth.signOut();
-               setLoading(false);
-               return;
-            }
-          if (userData.profileComplete) {
-            router.push('/doctor-portal');
-          } else {
-            router.push('/doctor-portal/profile');
-          }
+      if (doctorDocSnap.exists()) {
+        // User is a doctor
+        const doctorData = doctorDocSnap.data();
+        if (doctorData.verified === false) {
+          toast({
+            title: "Pending Approval",
+            description: "Your profile is under review. You'll be notified once it's approved.",
+            duration: 5000,
+          });
+          auth.signOut();
+          setLoading(false);
+          return;
+        }
+        if (doctorData.profileComplete) {
+          router.push('/doctor-portal');
         } else {
-          router.push('/patient-portal');
+          router.push('/doctor-portal/profile');
         }
       } else {
-         // Default redirection if no specific role document is found
-         router.push('/patient-portal');
+        // User is not a doctor, check if they are a patient or admin
+        const patientDocRef = doc(firestore, 'patients', user.uid);
+        const patientDocSnap = await getDoc(patientDocRef);
+
+        if (patientDocSnap.exists()) {
+          const patientData = patientDocSnap.data();
+          if (patientData.role === 'admin') {
+            router.push('/admin');
+          } else {
+            router.push('/patient-portal');
+          }
+        } else {
+          // Fallback if no document found (should not happen in normal flow)
+          toast({
+            variant: "destructive",
+            title: "Login Failed",
+            description: "User profile not found. Please contact support.",
+          });
+          auth.signOut();
+        }
       }
 
     } catch (error: any) {
       console.error("Login Error:", error);
+      let description = "Invalid credentials. Please try again.";
+      if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
+        description = "The email or password you entered is incorrect. Please try again.";
+      }
       toast({
         variant: "destructive",
         title: "Login Failed",
-        description: error.message || "Invalid credentials. Please try again.",
+        description: description,
       });
-      setLoading(false);
-    } 
+    } finally {
+        setLoading(false);
+    }
   };
 
   return (
