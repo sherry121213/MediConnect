@@ -14,13 +14,14 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth, useUser } from "@/firebase";
-import { useFirestore } from "@/firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
+import { useAuth, useUserData } from "@/firebase";
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { setDoc, doc, getDoc } from 'firebase/firestore';
+import { setDoc, doc } from 'firebase/firestore';
+import { useFirestore } from "@/firebase";
+
 
 export default function SignupPage() {
   const [firstName, setFirstName] = useState('');
@@ -32,62 +33,34 @@ export default function SignupPage() {
   const auth = useAuth();
   const firestore = useFirestore();
   const router = useRouter();
-  const { user, isUserLoading } = useUser();
+  const { userData, isUserLoading } = useUserData();
   const { toast } = useToast();
 
   useEffect(() => {
-    const routeUser = async () => {
-      if (user && !isUserLoading && firestore) {
-        try {
-          const userDocRef = doc(firestore, 'patients', user.uid);
-          const userDoc = await getDoc(userDocRef);
-
-          if (userDoc.exists() && userDoc.data().role === 'admin') {
-            router.push('/admin');
-            return;
-          }
-          
-          const doctorDocRef = doc(firestore, 'doctors', user.uid);
-          const doctorDoc = await getDoc(doctorDocRef);
-          if (doctorDoc.exists()) {
-             const doctorData = doctorDoc.data();
-             if (doctorData.profileComplete) {
-                if (doctorData.verified === false) {
-                    toast({
-                        title: "Pending Approval",
-                        description: "Your profile is under review. You'll be notified once it's approved.",
-                        duration: 5000,
-                    });
-                    if (auth) auth.signOut();
-                    return;
-                }
-                router.push('/doctor-portal');
-             } else {
-                router.push('/doctor-portal/profile');
-             }
-             return;
-          }
-
-          if (userDoc.exists() && userDoc.data().role === 'patient') {
-              router.push('/patient-portal');
-              return;
-          }
-          
-          if (role === 'doctor') {
-            router.push('/doctor-portal/profile');
-          }
-          else {
-            router.push('/patient-portal');
-          }
-
-        } catch (error) {
-          console.error("Error routing user after signup:", error);
-          router.push('/patient-portal'); // Default fallback
+    if (!isUserLoading && userData) {
+      if (userData.role === 'admin') {
+        router.push('/admin');
+      } else if (userData.role === 'doctor') {
+        if (userData.verified === false) {
+           toast({
+              title: "Pending Approval",
+              description: "Your profile is under review. You'll be notified once it's approved.",
+              duration: 5000,
+           });
+           if (auth) auth.signOut();
+           setLoading(false);
+           return;
         }
+        if (userData.profileComplete) {
+          router.push('/doctor-portal');
+        } else {
+          router.push('/doctor-portal/profile');
+        }
+      } else {
+        router.push('/patient-portal');
       }
-    };
-    routeUser();
-  }, [user, isUserLoading, router, firestore, role, auth, toast]);
+    }
+  }, [userData, isUserLoading, router, auth, toast]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,8 +72,10 @@ export default function SignupPage() {
       const newUser = userCredential.user;
 
       if (newUser) {
-        
-        const patientDocRef = doc(firestore, 'patients', newUser.uid);
+        await updateProfile(newUser, {
+            displayName: `${firstName} ${lastName}`
+        });
+
         const baseUserData = {
             id: newUser.uid,
             firstName,
@@ -118,12 +93,13 @@ export default function SignupPage() {
             profileComplete: false,
             role: 'doctor',
           });
+          const patientDocRef = doc(firestore, 'patients', newUser.uid);
           await setDoc(patientDocRef, {...baseUserData, role: 'doctor' });
 
         } else {
-          await setDoc(patientDocRef, {...baseUserData, role: 'patient' });
+          const patientDocRef = doc(firestore, 'patients', newUser.uid);
+          await setDoc(patientDocRef, {...baseUserData, role: 'patient', profileComplete: true });
         }
-        
       }
     } catch (error: any) {
         console.error("Signup Error:", error);

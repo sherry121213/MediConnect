@@ -29,6 +29,7 @@ export interface Patient {
     lastName: string;
     email: string;
     role: 'patient' | 'doctor' | 'admin';
+    profileComplete?: boolean;
     createdAt: string;
     updatedAt: string;
 }

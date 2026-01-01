@@ -1,14 +1,14 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Menu, LogOut, User as UserIcon } from 'lucide-react';
 import Logo from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
-import { useUser, useAuth } from '@/firebase';
+import { useAuth, useUserData } from '@/firebase';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -29,35 +29,44 @@ const navLinks = [
 
 export default function AppHeader() {
   const pathname = usePathname();
+  const router = useRouter();
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { user, isUserLoading } = useUser();
+  const { userData, isUserLoading } = useUserData();
   const auth = useAuth();
 
   const handleLogout = () => {
     if(auth) signOut(auth);
   };
+  
+  const handleProfileClick = () => {
+    if (userData?.role === 'doctor') {
+      router.push('/doctor-portal/profile');
+    } else if (userData?.role === 'patient') {
+      router.push('/patient-portal/profile');
+    }
+  }
 
   const UserMenu = () => (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-8 w-8">
-             <AvatarImage src={user?.photoURL || "https://picsum.photos/seed/user/100/100"} alt={user?.displayName || 'User'} />
-             <AvatarFallback>{user?.email?.[0].toUpperCase()}</AvatarFallback>
+             <AvatarImage src={userData?.photoURL || "https://picsum.photos/seed/user/100/100"} alt={userData?.displayName || 'User'} />
+             <AvatarFallback>{userData?.email?.[0].toUpperCase()}</AvatarFallback>
           </Avatar>
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent className="w-56" align="end" forceMount>
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{user?.displayName || 'User'}</p>
+            <p className="text-sm font-medium leading-none">{userData?.displayName || `${userData?.firstName} ${userData?.lastName}` || 'User'}</p>
             <p className="text-xs leading-none text-muted-foreground">
-              {user?.email}
+              {userData?.email}
             </p>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
+        <DropdownMenuItem onClick={handleProfileClick}>
           <UserIcon className="mr-2 h-4 w-4" />
           <span>Profile</span>
         </DropdownMenuItem>
@@ -94,7 +103,7 @@ export default function AppHeader() {
         </nav>
 
         <div className="hidden md:flex items-center gap-2">
-          {isUserLoading ? null : user ? (
+          {isUserLoading ? null : userData ? (
             <UserMenu />
           ) : (
             <>
@@ -133,7 +142,7 @@ export default function AppHeader() {
               ))}
             </nav>
             <div className="mt-8 flex flex-col gap-2">
-               {isUserLoading ? null : user ? (
+               {isUserLoading ? null : userData ? (
                 <Button variant="outline" onClick={() => {handleLogout(); setMobileMenuOpen(false);}}>Log Out</Button>
                ) : (
                 <>

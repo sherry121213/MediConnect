@@ -3,8 +3,8 @@
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useUser, useFirestore } from '@/firebase';
-import { doc, setDoc } from 'firebase/firestore';
+import { useFirestore, useUser } from '@/firebase';
+import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Loader2, Upload } from 'lucide-react';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Image from 'next/image';
 
 const profileSchema = z.object({
@@ -29,12 +29,16 @@ const profileSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
-export default function CompleteDoctorProfilePage() {
+export default function DoctorProfilePage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const [degreePreview, setDegreePreview] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pageTitle, setPageTitle] = useState('Complete Your Professional Profile');
+  const [pageDescription, setPageDescription] = useState('Please provide your details to get your profile verified by our team.');
+
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -48,7 +52,34 @@ export default function CompleteDoctorProfilePage() {
     },
   });
 
-  const { formState, control } = form;
+  useEffect(() => {
+    if (user && firestore) {
+      const fetchDoctorProfile = async () => {
+        const doctorDocRef = doc(firestore, 'doctors', user.uid);
+        const docSnap = await getDoc(doctorDocRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          form.reset({
+            specialty: data.specialty || '',
+            experience: data.experience || 0,
+            medicalSchool: data.medicalSchool || '',
+            degree: data.degree || '',
+            contact: data.phone || '',
+            location: data.location || '',
+          });
+          if (data.degreeUrl) {
+            setDegreePreview(data.degreeUrl);
+          }
+           if (data.profileComplete) {
+            setPageTitle("Edit Your Professional Profile");
+            setPageDescription("Keep your professional information up to date.");
+          }
+        }
+      };
+      fetchDoctorProfile();
+    }
+  }, [user, firestore, form]);
+
 
   const handleDegreeFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -73,11 +104,14 @@ export default function CompleteDoctorProfilePage() {
       });
       return;
     }
+    setIsSubmitting(true);
 
     try {
       const doctorDocRef = doc(firestore, 'doctors', user.uid);
       
-      let degreeUrl = ''; 
+      let degreeUrl = degreePreview || ''; 
+
+      const isCompletingProfile = !((await getDoc(doctorDocRef)).data()?.profileComplete);
 
       await setDoc(doctorDocRef, {
         specialty: values.specialty,
@@ -87,17 +121,24 @@ export default function CompleteDoctorProfilePage() {
         phone: values.contact,
         location: values.location,
         degreeUrl: degreeUrl,
-        profileComplete: true, // Mark profile as complete
+        profileComplete: true, 
         updatedAt: new Date().toISOString(),
       }, { merge: true });
 
-      toast({
-        title: 'Profile Submitted!',
-        description: 'Your profile is now under review. You will be notified once it is approved.',
-        duration: 5000,
-      });
-      // Don't redirect, let the user stay here or go to a generic page
-      router.push('/'); // Redirect to homepage after submission
+      if(isCompletingProfile) {
+        toast({
+          title: 'Profile Submitted!',
+          description: 'Your profile is now under review. You will be notified once it is approved.',
+          duration: 5000,
+        });
+        router.push('/');
+      } else {
+         toast({
+          title: 'Profile Updated!',
+          description: 'Your professional information has been successfully updated.',
+        });
+      }
+
     } catch (error) {
       console.error('Error updating profile:', error);
       toast({
@@ -105,6 +146,8 @@ export default function CompleteDoctorProfilePage() {
         title: 'Uh oh!',
         description: 'Could not update your profile. Please try again.',
       });
+    } finally {
+        setIsSubmitting(false);
     }
   };
 
@@ -122,17 +165,15 @@ export default function CompleteDoctorProfilePage() {
       <main className="flex-grow flex items-center justify-center bg-secondary/30 py-12">
         <Card className="w-full max-w-3xl">
           <CardHeader>
-            <CardTitle>Complete Your Professional Profile</CardTitle>
-            <CardDescription>
-              Please provide your details to get your profile verified by our team.
-            </CardDescription>
+            <CardTitle>{pageTitle}</CardTitle>
+            <CardDescription>{pageDescription}</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                  <div className="grid md:grid-cols-2 gap-6">
                     <FormField
-                      control={control}
+                      control={form.control}
                       name="specialty"
                       render={({ field }) => (
                         <FormItem>
@@ -145,7 +186,7 @@ export default function CompleteDoctorProfilePage() {
                       )}
                     />
                      <FormField
-                      control={control}
+                      control={form.control}
                       name="experience"
                       render={({ field }) => (
                         <FormItem>
@@ -160,7 +201,7 @@ export default function CompleteDoctorProfilePage() {
                 </div>
                 <div className="grid md:grid-cols-2 gap-6">
                     <FormField
-                      control={control}
+                      control={form.control}
                       name="medicalSchool"
                       render={({ field }) => (
                         <FormItem>
@@ -173,7 +214,7 @@ export default function CompleteDoctorProfilePage() {
                       )}
                     />
                     <FormField
-                      control={control}
+                      control={form.control}
                       name="degree"
                       render={({ field }) => (
                         <FormItem>
@@ -188,7 +229,7 @@ export default function CompleteDoctorProfilePage() {
                 </div>
                  <div className="grid md:grid-cols-2 gap-6">
                     <FormField
-                        control={control}
+                        control={form.control}
                         name="contact"
                         render={({ field }) => (
                           <FormItem>
@@ -201,7 +242,7 @@ export default function CompleteDoctorProfilePage() {
                         )}
                       />
                     <FormField
-                      control={control}
+                      control={form.control}
                       name="location"
                       render={({ field }) => (
                         <FormItem>
@@ -249,9 +290,9 @@ export default function CompleteDoctorProfilePage() {
                     </div>
                 )}
 
-                <Button type="submit" className="w-full" disabled={formState.isSubmitting}>
-                  {formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Submit for Verification
+                <Button type="submit" className="w-full" disabled={isSubmitting}>
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save and Continue
                 </Button>
               </form>
             </Form>

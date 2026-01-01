@@ -6,12 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
-import { useAuth, useUser } from "@/firebase";
+import { useState, useEffect } from "react";
+import { useAuth, useUserData } from "@/firebase";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
-import { doc, getDoc } from "firebase/firestore";
-import { useFirestore } from "@/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
@@ -21,59 +18,35 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const auth = useAuth();
-  const firestore = useFirestore();
   const router = useRouter();
-  const { user, isUserLoading } = useUser();
+  const { userData, isUserLoading } = useUserData();
   const { toast } = useToast();
 
   useEffect(() => {
-    const routeUser = async () => {
-      if (user && !isUserLoading && firestore) {
-        try {
-          const userDocRef = doc(firestore, 'patients', user.uid);
-          const userDoc = await getDoc(userDocRef);
-          
-          if (userDoc.exists() && userDoc.data().role === 'admin') {
-            router.push('/admin');
-            return;
-          }
-
-          const doctorDocRef = doc(firestore, 'doctors', user.uid);
-          const doctorDoc = await getDoc(doctorDocRef);
-          if (doctorDoc.exists()) {
-             const doctorData = doctorDoc.data();
-             if (doctorData.verified === false) {
-                 toast({
-                    title: "Pending Approval",
-                    description: "Your profile is under review. You'll be notified once it's approved.",
-                    duration: 5000,
-                 });
-                 if (auth) auth.signOut();
-                 return;
-             }
-             if (doctorData.profileComplete) {
-                router.push('/doctor-portal');
-             } else {
-                router.push('/doctor-portal/profile');
-             }
-             return;
-          }
-          
-          if (userDoc.exists() && userDoc.data().role === 'patient') {
-             router.push('/patient-portal');
-             return;
-          }
-
-          router.push('/patient-portal');
-
-        } catch (error) {
-          console.error("Error getting user role:", error);
-          router.push('/');
+    if (!isUserLoading && userData) {
+      if (userData.role === 'admin') {
+        router.push('/admin');
+      } else if (userData.role === 'doctor') {
+        if (userData.verified === false) {
+           toast({
+              title: "Pending Approval",
+              description: "Your profile is under review. You'll be notified once it's approved.",
+              duration: 5000,
+           });
+           if (auth) auth.signOut();
+           setLoading(false);
+           return;
         }
+        if (userData.profileComplete) {
+          router.push('/doctor-portal');
+        } else {
+          router.push('/doctor-portal/profile');
+        }
+      } else {
+        router.push('/patient-portal');
       }
-    };
-    routeUser();
-  }, [user, isUserLoading, router, firestore, auth, toast]);
+    }
+  }, [userData, isUserLoading, router, auth, toast]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -81,6 +54,7 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
+      // Let the useEffect handle redirection
     } catch (error: any) {
       console.error("Login Error:", error);
       toast({
