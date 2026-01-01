@@ -14,7 +14,6 @@ import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
-import { useState } from 'react';
 
 const profileSchema = z.object({
   specialty: z.string().min(2, 'Specialty is required.'),
@@ -23,7 +22,6 @@ const profileSchema = z.object({
   degree: z.string().min(2, 'Degree is required.'),
   contact: z.string().min(10, 'Please enter a valid contact number.'),
   location: z.string().min(3, 'Clinic location is required.'),
-  degreeFile: z.instanceof(File).optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -33,7 +31,6 @@ export default function CompleteDoctorProfilePage() {
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
-  const [degreePreview, setDegreePreview] = useState<string | null>(null);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -47,7 +44,7 @@ export default function CompleteDoctorProfilePage() {
     },
   });
 
-  const { formState, control, register } = form;
+  const { formState, control } = form;
 
   const onSubmit = async (values: ProfileFormValues) => {
     if (!user || !firestore) {
@@ -60,10 +57,6 @@ export default function CompleteDoctorProfilePage() {
     }
 
     try {
-      // In a real app, you would upload the file to Firebase Storage
-      // and get the download URL. For now, we'll just simulate it.
-      const degreeUrl = values.degreeFile ? URL.createObjectURL(values.degreeFile) : '';
-
       const doctorDocRef = doc(firestore, 'doctors', user.uid);
       await setDoc(doctorDocRef, {
         specialty: values.specialty,
@@ -72,7 +65,6 @@ export default function CompleteDoctorProfilePage() {
         degree: values.degree,
         phone: values.contact,
         location: values.location,
-        degreeUrl: degreeUrl,
         profileComplete: true,
         updatedAt: new Date().toISOString(),
       }, { merge: true });
@@ -198,34 +190,6 @@ export default function CompleteDoctorProfilePage() {
                       )}
                     />
                  </div>
-
-                <FormItem>
-                  <FormLabel>Degree Certificate</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="file"
-                      accept="image/*,.pdf"
-                      {...register('degreeFile', {
-                        onChange: (e) => {
-                          const file = e.target.files?.[0];
-                          if (file && file.type.startsWith('image/')) {
-                            setDegreePreview(URL.createObjectURL(file));
-                          } else {
-                            setDegreePreview(null);
-                          }
-                        }
-                      })}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-
-                {degreePreview && (
-                  <div className="mt-4">
-                    <p className="text-sm font-medium mb-2">Image Preview:</p>
-                    <img src={degreePreview} alt="Degree preview" className="rounded-md border max-h-60" />
-                  </div>
-                )}
                 
                 <Button type="submit" className="w-full" disabled={formState.isSubmitting}>
                   {formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
