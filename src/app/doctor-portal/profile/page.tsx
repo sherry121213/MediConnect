@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useUser, useFirestore } from '@/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -65,7 +65,7 @@ export default function CompleteDoctorProfilePage() {
       const degreeUrl = values.degreeFile ? URL.createObjectURL(values.degreeFile) : '';
 
       const doctorDocRef = doc(firestore, 'doctors', user.uid);
-      await updateDoc(doctorDocRef, {
+      await setDoc(doctorDocRef, {
         specialty: values.specialty,
         experience: values.experience,
         medicalSchool: values.medicalSchool,
@@ -75,7 +75,7 @@ export default function CompleteDoctorProfilePage() {
         degreeUrl: degreeUrl,
         profileComplete: true,
         updatedAt: new Date().toISOString(),
-      });
+      }, { merge: true });
 
       toast({
         title: 'Profile Updated!',
