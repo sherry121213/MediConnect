@@ -1,7 +1,7 @@
 'use client';
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import AppHeader from "@/components/layout/header";
 import AppFooter from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useAuth, useUserData } from "@/firebase";
+import { useAuth } from "@/firebase";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
@@ -33,34 +33,7 @@ export default function SignupPage() {
   const auth = useAuth();
   const firestore = useFirestore();
   const router = useRouter();
-  const { userData, isUserLoading } = useUserData();
   const { toast } = useToast();
-
-  useEffect(() => {
-    if (!isUserLoading && userData) {
-      if (userData.role === 'admin') {
-        router.push('/admin');
-      } else if (userData.role === 'doctor') {
-        if (userData.verified === false) {
-           toast({
-              title: "Pending Approval",
-              description: "Your profile is under review. You'll be notified once it's approved.",
-              duration: 5000,
-           });
-           if (auth) auth.signOut();
-           setLoading(false);
-           return;
-        }
-        if (userData.profileComplete) {
-          router.push('/doctor-portal');
-        } else {
-          router.push('/doctor-portal/profile');
-        }
-      } else {
-        router.push('/patient-portal');
-      }
-    }
-  }, [userData, isUserLoading, router, auth, toast]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,48 +44,61 @@ export default function SignupPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const newUser = userCredential.user;
 
-      if (newUser) {
-        await updateProfile(newUser, {
-            displayName: `${firstName} ${lastName}`
+      await updateProfile(newUser, {
+          displayName: `${firstName} ${lastName}`
+      });
+
+      const baseUserData = {
+          id: newUser.uid,
+          firstName,
+          lastName,
+          email,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+      }
+      
+      if (role === 'doctor') {
+        const isPreverifiedDoctor = email === 'doc1@gmail.com';
+
+        const doctorDocRef = doc(firestore, 'doctors', newUser.uid);
+        await setDoc(doctorDocRef, {
+          ...baseUserData,
+          verified: isPreverifiedDoctor,
+          profileComplete: isPreverifiedDoctor,
+          role: 'doctor',
+          ...(isPreverifiedDoctor && {
+              specialty: 'Cardiology',
+              experience: 15,
+              medicalSchool: 'King Edward Medical University',
+              degree: 'MBBS, FCPS',
+              phone: '0300-1234567',
+              location: 'Islamabad',
+              degreeUrl: '',
+          })
         });
 
-        const baseUserData = {
-            id: newUser.uid,
-            firstName,
-            lastName,
-            email,
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-        }
+        // Also create a record in 'patients' for role lookup
+        const patientDocRef = doc(firestore, 'patients', newUser.uid);
+        await setDoc(patientDocRef, {...baseUserData, role: 'doctor' });
         
-        if (role === 'doctor') {
-          const isPreverifiedDoctor = email === 'doc1@gmail.com';
-
-          const doctorDocRef = doc(firestore, 'doctors', newUser.uid);
-          await setDoc(doctorDocRef, {
-            ...baseUserData,
-            verified: isPreverifiedDoctor,
-            profileComplete: isPreverifiedDoctor,
-            role: 'doctor',
-            ...(isPreverifiedDoctor && {
-                specialty: 'Cardiology',
-                experience: 15,
-                medicalSchool: 'King Edward Medical University',
-                degree: 'MBBS, FCPS',
-                phone: '0300-1234567',
-                location: 'Islamabad',
-                degreeUrl: '',
-            })
-          });
-
-          const patientDocRef = doc(firestore, 'patients', newUser.uid);
-          await setDoc(patientDocRef, {...baseUserData, role: 'doctor' });
-
+        if (isPreverifiedDoctor) {
+            router.push('/doctor-portal');
         } else {
-          const patientDocRef = doc(firestore, 'patients', newUser.uid);
-          await setDoc(patientDocRef, {...baseUserData, role: 'patient' });
+             toast({
+              title: "Registration Successful!",
+              description: "Your profile is under review. You'll be notified once it's approved.",
+              duration: 5000,
+           });
+           auth.signOut();
+           router.push('/login');
         }
+
+      } else {
+        const patientDocRef = doc(firestore, 'patients', newUser.uid);
+        await setDoc(patientDocRef, {...baseUserData, role: 'patient' });
+        router.push('/patient-portal');
       }
+
     } catch (error: any) {
         console.error("Signup Error:", error);
         if (error.code === 'auth/email-already-in-use') {
