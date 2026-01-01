@@ -110,16 +110,24 @@ export default function SignupPage() {
 
         } else {
           const patientDocRef = doc(firestore, 'patients', newUser.uid);
-          await setDoc(patientDocRef, {...baseUserData, role: 'patient', profileComplete: true });
+          await setDoc(patientDocRef, {...baseUserData, role: 'patient' });
         }
       }
     } catch (error: any) {
         console.error("Signup Error:", error);
-        toast({
-          variant: "destructive",
-          title: "Sign Up Failed",
-          description: error.message || "Could not create account. Please try again.",
-        });
+        if (error.code === 'auth/email-already-in-use') {
+            toast({
+              variant: "destructive",
+              title: "Email Already Registered",
+              description: "This email is already in use. Please log in instead.",
+            });
+        } else {
+            toast({
+              variant: "destructive",
+              title: "Sign Up Failed",
+              description: error.message || "Could not create account. Please try again.",
+            });
+        }
         setLoading(false);
     }
   };
