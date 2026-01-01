@@ -99,4 +99,3 @@ export const doctors: Doctor[] = [
     bio: 'Specializing in adolescent and adult psychiatry, with a focus on therapy and medication management.'
   }
 ];
-

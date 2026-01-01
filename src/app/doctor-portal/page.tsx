@@ -20,13 +20,13 @@ import {
 
 
 const upcomingAppointments: any[] = [
-    // { id: 1, patient: "Ali Khan", date: "2024-08-15", time: "10:00 AM", type: "Video Call", status: "Upcoming", patientImage: "https://picsum.photos/seed/p1/100/100" },
-    // { id: 2, patient: "Sana Ahmed", date: "2024-08-15", time: "11:30 AM", type: "Chat", status: "Upcoming", patientImage: "https://picsum.photos/seed/p2/100/100" },
+    { id: 1, patient: "Ali Khan", date: "2024-08-15", time: "10:00 AM", type: "Video Call", status: "Upcoming", patientImage: "https://picsum.photos/seed/p1/100/100" },
+    { id: 2, patient: "Sana Ahmed", date: "2024-08-15", time: "11:30 AM", type: "Chat", status: "Upcoming", patientImage: "https://picsum.photos/seed/p2/100/100" },
 ]
 
 const recentAppointments: any[] = [
-    // { id: 3, patient: "Zoya Farooq", date: "2024-07-20", time: "02:30 PM", type: "Chat", status: "Completed", patientImage: "https://picsum.photos/seed/p3/100/100" },
-    // { id: 4, patient: "Usman Sharif", date: "2024-06-10", time: "11:00 AM", type: "Video Call", status: "Completed", patientImage: "https://picsum.photos/seed/p4/100/100" },
+    { id: 3, patient: "Zoya Farooq", date: "2024-07-20", time: "02:30 PM", type: "Chat", status: "Completed", patientImage: "https://picsum.photos/seed/p3/100/100" },
+    { id: 4, patient: "Usman Sharif", date: "2024-06-10", time: "11:00 AM", type: "Video Call", status: "Completed", patientImage: "https://picsum.photos/seed/p4/100/100" },
 ]
 
 export default function DoctorPortalPage() {
