@@ -86,13 +86,25 @@ export default function SignupPage() {
         }
         
         if (role === 'doctor') {
+          const isPreverifiedDoctor = email === 'doc1@gmail.com';
+
           const doctorDocRef = doc(firestore, 'doctors', newUser.uid);
           await setDoc(doctorDocRef, {
             ...baseUserData,
-            verified: false,
-            profileComplete: false,
+            verified: isPreverifiedDoctor,
+            profileComplete: isPreverifiedDoctor,
             role: 'doctor',
+            ...(isPreverifiedDoctor && {
+                specialty: 'Cardiology',
+                experience: 15,
+                medicalSchool: 'King Edward Medical University',
+                degree: 'MBBS, FCPS',
+                phone: '0300-1234567',
+                location: 'Islamabad',
+                degreeUrl: '',
+            })
           });
+
           const patientDocRef = doc(firestore, 'patients', newUser.uid);
           await setDoc(patientDocRef, {...baseUserData, role: 'doctor' });
 
