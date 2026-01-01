@@ -30,7 +30,6 @@ export default function LoginPage() {
     const routeUser = async () => {
       if (user && !isUserLoading && firestore) {
         try {
-          // Check for admin role first
           const userDocRef = doc(firestore, 'patients', user.uid);
           const userDoc = await getDoc(userDocRef);
           
@@ -43,6 +42,15 @@ export default function LoginPage() {
           const doctorDoc = await getDoc(doctorDocRef);
           if (doctorDoc.exists()) {
              const doctorData = doctorDoc.data();
+             if (doctorData.verified === false) {
+                 toast({
+                    title: "Pending Approval",
+                    description: "Your profile is under review. You'll be notified once it's approved.",
+                    duration: 5000,
+                 });
+                 if (auth) auth.signOut();
+                 return;
+             }
              if (doctorData.profileComplete) {
                 router.push('/doctor-portal');
              } else {
@@ -56,18 +64,16 @@ export default function LoginPage() {
              return;
           }
 
-          // Default fallback for any other case (e.g., patient just signed up)
           router.push('/patient-portal');
 
         } catch (error) {
           console.error("Error getting user role:", error);
-          // Fallback to a safe default page if routing fails
           router.push('/');
         }
       }
     };
     routeUser();
-  }, [user, isUserLoading, router, firestore]);
+  }, [user, isUserLoading, router, firestore, auth, toast]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -75,7 +81,6 @@ export default function LoginPage() {
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
-      // Let the useEffect handle redirection
     } catch (error: any) {
       console.error("Login Error:", error);
       toast({

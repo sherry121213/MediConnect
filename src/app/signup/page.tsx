@@ -52,6 +52,15 @@ export default function SignupPage() {
           if (doctorDoc.exists()) {
              const doctorData = doctorDoc.data();
              if (doctorData.profileComplete) {
+                if (doctorData.verified === false) {
+                    toast({
+                        title: "Pending Approval",
+                        description: "Your profile is under review. You'll be notified once it's approved.",
+                        duration: 5000,
+                    });
+                    if (auth) auth.signOut();
+                    return;
+                }
                 router.push('/doctor-portal');
              } else {
                 router.push('/doctor-portal/profile');
@@ -78,7 +87,7 @@ export default function SignupPage() {
       }
     };
     routeUser();
-  }, [user, isUserLoading, router, firestore, role]);
+  }, [user, isUserLoading, router, firestore, role, auth, toast]);
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -90,31 +99,30 @@ export default function SignupPage() {
       const newUser = userCredential.user;
 
       if (newUser) {
-        let collectionName: string;
-        let userData: any = {
-          id: newUser.uid,
-          firstName,
-          lastName,
-          email,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        };
-
-        if (role === 'doctor') {
-          collectionName = 'doctors';
-          userData = {
-            ...userData,
-            role: 'doctor', // Assign role
-            verified: false,
-            profileComplete: false, // New flag for onboarding
-          };
-        } else {
-          collectionName = 'patients';
-          userData.role = role; 
+        
+        const patientDocRef = doc(firestore, 'patients', newUser.uid);
+        const baseUserData = {
+            id: newUser.uid,
+            firstName,
+            lastName,
+            email,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
         }
         
-        const userDocRef = doc(firestore, collectionName, newUser.uid);
-        await setDoc(userDocRef, userData);
+        if (role === 'doctor') {
+          const doctorDocRef = doc(firestore, 'doctors', newUser.uid);
+          await setDoc(doctorDocRef, {
+            ...baseUserData,
+            verified: false,
+            profileComplete: false,
+            role: 'doctor',
+          });
+          await setDoc(patientDocRef, {...baseUserData, role: 'doctor' });
+
+        } else {
+          await setDoc(patientDocRef, {...baseUserData, role: 'patient' });
+        }
         
       }
     } catch (error: any) {

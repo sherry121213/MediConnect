@@ -77,9 +77,7 @@ export default function CompleteDoctorProfilePage() {
     try {
       const doctorDocRef = doc(firestore, 'doctors', user.uid);
       
-      // NOTE: File upload logic will be added here in the future.
-      // For now, we save the text fields and mark profile as complete.
-      let degreeUrl = ''; // Placeholder for the degree image URL
+      let degreeUrl = ''; 
 
       await setDoc(doctorDocRef, {
         specialty: values.specialty,
@@ -89,15 +87,17 @@ export default function CompleteDoctorProfilePage() {
         phone: values.contact,
         location: values.location,
         degreeUrl: degreeUrl,
-        profileComplete: true,
+        profileComplete: true, // Mark profile as complete
         updatedAt: new Date().toISOString(),
       }, { merge: true });
 
       toast({
-        title: 'Profile Updated!',
-        description: 'Your professional details have been saved.',
+        title: 'Profile Submitted!',
+        description: 'Your profile is now under review. You will be notified once it is approved.',
+        duration: 5000,
       });
-      router.push('/doctor-portal');
+      // Don't redirect, let the user stay here or go to a generic page
+      router.push('/'); // Redirect to homepage after submission
     } catch (error) {
       console.error('Error updating profile:', error);
       toast({
@@ -124,7 +124,7 @@ export default function CompleteDoctorProfilePage() {
           <CardHeader>
             <CardTitle>Complete Your Professional Profile</CardTitle>
             <CardDescription>
-              Please provide your details to continue to the doctor portal.
+              Please provide your details to get your profile verified by our team.
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -244,14 +244,14 @@ export default function CompleteDoctorProfilePage() {
                     <div className="mt-4">
                         <p className="font-medium text-sm mb-2">Image Preview:</p>
                         <div className="relative w-full max-w-sm h-64 border rounded-md overflow-hidden">
-                           <Image src={degreePreview} alt="Degree preview" layout="fill" objectFit="contain" />
+                           <Image src={degreePreview} alt="Degree preview" fill objectFit="contain" />
                         </div>
                     </div>
                 )}
 
                 <Button type="submit" className="w-full" disabled={formState.isSubmitting}>
                   {formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Save and Continue
+                  Submit for Verification
                 </Button>
               </form>
             </Form>
