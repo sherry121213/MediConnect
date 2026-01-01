@@ -11,9 +11,11 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Upload } from 'lucide-react';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
+import { useState } from 'react';
+import Image from 'next/image';
 
 const profileSchema = z.object({
   specialty: z.string().min(2, 'Specialty is required.'),
@@ -22,6 +24,7 @@ const profileSchema = z.object({
   degree: z.string().min(2, 'Degree is required.'),
   contact: z.string().min(10, 'Please enter a valid contact number.'),
   location: z.string().min(3, 'Clinic location is required.'),
+  degreeFile: z.any().optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -31,6 +34,7 @@ export default function CompleteDoctorProfilePage() {
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
+  const [degreePreview, setDegreePreview] = useState<string | null>(null);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -46,6 +50,20 @@ export default function CompleteDoctorProfilePage() {
 
   const { formState, control } = form;
 
+  const handleDegreeFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setDegreePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    } else {
+      setDegreePreview(null);
+    }
+  };
+
+
   const onSubmit = async (values: ProfileFormValues) => {
     if (!user || !firestore) {
       toast({
@@ -58,6 +76,11 @@ export default function CompleteDoctorProfilePage() {
 
     try {
       const doctorDocRef = doc(firestore, 'doctors', user.uid);
+      
+      // NOTE: File upload logic will be added here in the future.
+      // For now, we save the text fields and mark profile as complete.
+      let degreeUrl = ''; // Placeholder for the degree image URL
+
       await setDoc(doctorDocRef, {
         specialty: values.specialty,
         experience: values.experience,
@@ -65,6 +88,7 @@ export default function CompleteDoctorProfilePage() {
         degree: values.degree,
         phone: values.contact,
         location: values.location,
+        degreeUrl: degreeUrl,
         profileComplete: true,
         updatedAt: new Date().toISOString(),
       }, { merge: true });
@@ -96,7 +120,7 @@ export default function CompleteDoctorProfilePage() {
     <div className="flex flex-col min-h-screen">
       <AppHeader />
       <main className="flex-grow flex items-center justify-center bg-secondary/30 py-12">
-        <Card className="w-full max-w-2xl">
+        <Card className="w-full max-w-3xl">
           <CardHeader>
             <CardTitle>Complete Your Professional Profile</CardTitle>
             <CardDescription>
@@ -190,7 +214,41 @@ export default function CompleteDoctorProfilePage() {
                       )}
                     />
                  </div>
-                
+                 
+                 <FormField
+                    control={form.control}
+                    name="degreeFile"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>Upload Degree/Certificate</FormLabel>
+                        <FormControl>
+                            <div className="relative border-2 border-dashed border-muted-foreground/50 rounded-lg p-6 flex flex-col items-center justify-center text-center">
+                                <Upload className="h-10 w-10 text-muted-foreground mb-2" />
+                                <p className="text-muted-foreground text-sm mb-2">Drag & drop your file here or click to browse</p>
+                                <Input 
+                                  type="file" 
+                                  className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
+                                  accept="image/*"
+                                  onChange={(e) => {
+                                      field.onChange(e.target.files);
+                                      handleDegreeFileChange(e);
+                                  }}
+                                />
+                            </div>
+                        </FormControl>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
+                {degreePreview && (
+                    <div className="mt-4">
+                        <p className="font-medium text-sm mb-2">Image Preview:</p>
+                        <div className="relative w-full max-w-sm h-64 border rounded-md overflow-hidden">
+                           <Image src={degreePreview} alt="Degree preview" layout="fill" objectFit="contain" />
+                        </div>
+                    </div>
+                )}
+
                 <Button type="submit" className="w-full" disabled={formState.isSubmitting}>
                   {formState.isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Save and Continue
