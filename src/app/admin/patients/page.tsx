@@ -11,20 +11,20 @@ import {
 import { Badge } from "@/components/ui/badge";
 import type { Patient } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
-import { collection } from "firebase/firestore";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { collection, query, where } from "firebase/firestore";
 
 
 export default function AdminPatientsPage() {
     const firestore = useFirestore();
-    const { user } = useUser();
 
-    const patientsCollection = useMemoFirebase(() => {
+    const patientsQuery = useMemoFirebase(() => {
         if (!firestore) return null;
-        return collection(firestore, 'patients');
+        // Query the 'patients' collection and filter for documents where the role is 'patient'
+        return query(collection(firestore, 'patients'), where('role', '==', 'patient'));
     }, [firestore]);
 
-    const { data: patients, isLoading: isLoadingPatients, error } = useCollection<Patient>(patientsCollection);
+    const { data: patients, isLoading: isLoadingPatients, error } = useCollection<Patient>(patientsQuery);
 
     return (
         <div className="p-4 md:p-8">
@@ -56,7 +56,7 @@ export default function AdminPatientsPage() {
                     <TableCell>{patient.firstName} {patient.lastName}</TableCell>
                     <TableCell>{patient.email}</TableCell>
                     <TableCell>
-                        <Badge variant={patient.role === 'admin' ? 'default' : 'secondary'}>
+                        <Badge variant={'secondary'}>
                             {patient.role}
                         </Badge>
                     </TableCell>
