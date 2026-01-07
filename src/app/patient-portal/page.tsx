@@ -33,7 +33,7 @@ const demoPastAppointments = [
 export default function PatientPortalPage() {
     const { userData } = useUserData();
 
-    const isDemoPatient = userData?.email === 'patient@mediconnect.com';
+    const isDemoPatient = userData?.email === 'patient1@gmail.com';
 
     const upcomingAppointments = isDemoPatient ? demoUpcomingAppointments : [];
     const pastAppointments = isDemoPatient ? demoPastAppointments : [];
