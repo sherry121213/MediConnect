@@ -19,10 +19,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import Image from "next/image";
-import { useFirestore } from "@/firebase";
-import { collection, addDoc } from "firebase/firestore";
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, addDoc, doc, updateDoc } from "firebase/firestore";
 import type { Doctor } from "@/lib/types";
-import { doctors as staticDoctors } from "@/lib/data"; // Import static data
 import { Skeleton } from "@/components/ui/skeleton";
 import { PlaceHolderImages as placeholderImages } from "@/lib/placeholder-images";
 import {
@@ -57,16 +56,21 @@ export default function AdminDoctorsPage() {
     const firestore = useFirestore();
     const { toast } = useToast();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
-    
-    // For now, we will use the static data for display purposes.
-    // In a real application, you would fetch and combine data from Firestore.
-    const [doctors, setDoctors] = useState<Doctor[]>(
-        staticDoctors
-          .filter(d => d.location === 'Rawalpindi' || d.location === 'Islamabad')
-          .map(d => ({...d, firstName: d.name.split(' ')[0], lastName: d.name.split(' ').slice(1).join(' ')}))
-      );
-    const isLoadingDoctors = false;
 
+    const doctorsCollection = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return collection(firestore, 'doctors');
+    }, [firestore]);
+
+    const { data: doctors, isLoading: isLoadingDoctors, error } = useCollection<Doctor>(doctorsCollection);
+
+    const [localDoctors, setLocalDoctors] = useState<Doctor[] | null>(null);
+
+    useState(() => {
+        if (doctors) {
+            setLocalDoctors(doctors);
+        }
+    });
 
     const form = useForm<AddDoctorFormValues>({
         resolver: zodResolver(addDoctorSchema),
@@ -90,7 +94,7 @@ export default function AdminDoctorsPage() {
         }
 
         try {
-            const newDoctorData: Partial<Doctor> = {
+            const newDoctorData: Omit<Doctor, 'id'> = {
                 firstName: values.firstName,
                 lastName: values.lastName,
                 email: values.email,
@@ -100,17 +104,12 @@ export default function AdminDoctorsPage() {
                 rating: 0,
                 reviews: 0,
                 profileImageId: 'doctor' + (Math.floor(Math.random() * 8) + 1),
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
             };
 
             const doctorsCollectionRef = collection(firestore, 'doctors');
-            const docRef = await addDoc(doctorsCollectionRef, {
-                ...newDoctorData,
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-            });
-
-            // Add to local state to update UI instantly
-            setDoctors(prev => [...prev, {id: docRef.id, ...newDoctorData} as Doctor]);
+            await addDoc(doctorsCollectionRef, newDoctorData);
 
             toast({
                 title: "Doctor Added",
@@ -124,6 +123,25 @@ export default function AdminDoctorsPage() {
                 variant: "destructive",
                 title: "Uh oh! Something went wrong.",
                 description: "There was a problem with your request.",
+            });
+        }
+    }
+
+    const handleVerifyDoctor = async (doctorId: string) => {
+        if (!firestore) return;
+        const doctorDocRef = doc(firestore, 'doctors', doctorId);
+        try {
+            await updateDoc(doctorDocRef, { verified: true, updatedAt: new Date().toISOString() });
+            toast({
+                title: "Doctor Verified",
+                description: "The doctor has been verified and can now access their portal.",
+            });
+        } catch (error) {
+            console.error("Error verifying doctor:", error);
+             toast({
+                variant: "destructive",
+                title: "Verification Failed",
+                description: "Could not update the doctor's status.",
             });
         }
     }
@@ -252,7 +270,7 @@ export default function AdminDoctorsPage() {
                     <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto"/></TableCell>
                 </TableRow>
             ))}
-            {doctors && doctors.map((doctor: any) => {
+            {doctors && doctors.map((doctor: Doctor) => {
               const doctorImage = placeholderImages.find(p => p.id === doctor.profileImageId);
               const name = `${doctor.firstName} ${doctor.lastName}`;
               return (
@@ -274,8 +292,8 @@ export default function AdminDoctorsPage() {
                 </TableCell>
                 <TableCell>{doctor.specialty}</TableCell>
                 <TableCell>
-                   <Badge variant={doctor.verified || doctor.isVerified ? "secondary" : "destructive"} className={doctor.verified || doctor.isVerified ? "bg-green-100 text-green-800" : ""}>
-                    {doctor.verified || doctor.isVerified ? "Verified" : "Pending"}
+                   <Badge variant={doctor.verified ? "secondary" : "destructive"} className={doctor.verified ? "bg-green-100 text-green-800" : ""}>
+                    {doctor.verified ? "Verified" : "Pending"}
                   </Badge>
                 </TableCell>
                 <TableCell>{doctor.location}</TableCell>
@@ -289,7 +307,7 @@ export default function AdminDoctorsPage() {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      {!(doctor.verified || doctor.isVerified) && <DropdownMenuItem>Verify Document</DropdownMenuItem>}
+                      {!doctor.verified && <DropdownMenuItem onClick={() => handleVerifyDoctor(doctor.id)}>Verify</DropdownMenuItem>}
                       <DropdownMenuItem>Edit</DropdownMenuItem>
                       <DropdownMenuItem>View Profile</DropdownMenuItem>
                       <DropdownMenuItem className="text-destructive">
@@ -300,6 +318,18 @@ export default function AdminDoctorsPage() {
                 </TableCell>
               </TableRow>
             )})}
+             {!isLoadingDoctors && doctors?.length === 0 && (
+                <TableRow>
+                    <TableCell colSpan={5} className="text-center h-24">No doctors found.</TableCell>
+                </TableRow>
+            )}
+             {error && (
+                <TableRow>
+                    <TableCell colSpan={5} className="text-center h-24 text-destructive">
+                        Error loading doctors: {error.message}
+                    </TableCell>
+                </TableRow>
+             )}
           </TableBody>
         </Table>
       </div>

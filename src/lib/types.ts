@@ -2,7 +2,7 @@ export type Specialty = 'Psychiatrist' | 'Cardiologist' | 'General Physician' | 
 
 export interface Doctor {
   id: string;
-  name: string; // Keep for static data compatibility
+  name?: string; // Keep for static data compatibility
   firstName: string;
   lastName: string;
   email: string;
@@ -20,6 +20,8 @@ export interface Doctor {
   experience?: number;
   degreeUrl?: string;
   profileComplete?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 
