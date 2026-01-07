@@ -62,8 +62,12 @@ export default function LoginPage() {
           const patientData = patientDocSnap.data();
           if (patientData.role === 'admin') {
             router.push('/admin');
-          } else {
-            router.push('/patient-portal');
+          } else { // It's a patient
+            if (patientData.profileComplete) {
+              router.push('/patient-portal');
+            } else {
+              router.push('/patient-portal/profile');
+            }
           }
         } else {
           // Fallback if no document found (should not happen in normal flow)

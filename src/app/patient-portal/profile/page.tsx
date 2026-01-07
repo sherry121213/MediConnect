@@ -15,11 +15,23 @@ import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import { useEffect, useState } from 'react';
 import { updateProfile } from 'firebase/auth';
+import { useRouter } from 'next/navigation';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { CalendarIcon } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { Textarea } from '@/components/ui/textarea';
 
 const profileSchema = z.object({
   firstName: z.string().min(2, 'First name is required.'),
   lastName: z.string().min(2, 'Last name is required.'),
   email: z.string().email('Please enter a valid email.').optional(),
+  phone: z.string().min(10, 'Please enter a valid phone number.'),
+  dateOfBirth: z.date({
+    required_error: 'A date of birth is required.',
+  }),
+  address: z.string().min(5, 'Address is required.'),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -27,8 +39,11 @@ type ProfileFormValues = z.infer<typeof profileSchema>;
 export default function PatientProfilePage() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
+  const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pageTitle, setPageTitle] = useState('Complete Your Profile');
+  const [pageDescription, setPageDescription] = useState("We need a few more details to set up your account.");
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -36,6 +51,8 @@ export default function PatientProfilePage() {
       firstName: '',
       lastName: '',
       email: '',
+      phone: '',
+      address: '',
     },
   });
 
@@ -50,7 +67,14 @@ export default function PatientProfilePage() {
             firstName: data.firstName || '',
             lastName: data.lastName || '',
             email: data.email || '',
+            phone: data.phone || '',
+            dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
+            address: data.address || '',
           });
+           if (data.profileComplete) {
+            setPageTitle("Edit Your Profile");
+            setPageDescription("Keep your personal information up to date.");
+          }
         }
       };
       fetchPatientProfile();
@@ -69,23 +93,36 @@ export default function PatientProfilePage() {
     setIsSubmitting(true);
 
     try {
-      // Update displayName in Firebase Auth
+      const isCompletingProfile = !((await getDoc(doc(firestore, 'patients', user.uid))).data()?.profileComplete);
+
       await updateProfile(user, {
         displayName: `${values.firstName} ${values.lastName}`,
       });
 
-      // Update data in Firestore
       const patientDocRef = doc(firestore, 'patients', user.uid);
       await setDoc(patientDocRef, {
         firstName: values.firstName,
         lastName: values.lastName,
+        phone: values.phone,
+        dateOfBirth: values.dateOfBirth.toISOString(),
+        address: values.address,
+        profileComplete: true,
         updatedAt: new Date().toISOString(),
       }, { merge: true });
 
-      toast({
-        title: 'Profile Updated!',
-        description: 'Your information has been successfully updated.',
-      });
+      if (isCompletingProfile) {
+        toast({
+          title: 'Profile Complete!',
+          description: "Thank you! Your profile has been set up.",
+        });
+        router.push('/patient-portal');
+      } else {
+        toast({
+          title: 'Profile Updated!',
+          description: 'Your information has been successfully updated.',
+        });
+      }
+
     } catch (error) {
       console.error('Error updating profile:', error);
       toast({
@@ -112,8 +149,8 @@ export default function PatientProfilePage() {
       <main className="flex-grow flex items-center justify-center bg-secondary/30 py-12">
         <Card className="w-full max-w-2xl">
           <CardHeader>
-            <CardTitle>My Profile</CardTitle>
-            <CardDescription>View and edit your personal information.</CardDescription>
+            <CardTitle>{pageTitle}</CardTitle>
+            <CardDescription>{pageDescription}</CardDescription>
           </CardHeader>
           <CardContent>
             <Form {...form}>
@@ -146,7 +183,7 @@ export default function PatientProfilePage() {
                     )}
                   />
                 </div>
-                <FormField
+                 <FormField
                   control={form.control}
                   name="email"
                   render={({ field }) => (
@@ -159,9 +196,78 @@ export default function PatientProfilePage() {
                     </FormItem>
                   )}
                 />
+                 <div className="grid md:grid-cols-2 gap-6">
+                   <FormField
+                      control={form.control}
+                      name="phone"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Phone Number</FormLabel>
+                          <FormControl>
+                            <Input placeholder="0300-1234567" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                     <FormField
+                      control={form.control}
+                      name="dateOfBirth"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Date of Birth</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant={"outline"}
+                                  className={cn(
+                                    "w-full pl-3 text-left font-normal",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  {field.value ? (
+                                    format(field.value, "PPP")
+                                  ) : (
+                                    <span>Pick a date</span>
+                                  )}
+                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={field.value}
+                                onSelect={field.onChange}
+                                disabled={(date) =>
+                                  date > new Date() || date < new Date("1900-01-01")
+                                }
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                </div>
+                 <FormField
+                    control={form.control}
+                    name="address"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Address</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="123, Street Name, City" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 <Button type="submit" className="w-full" disabled={isSubmitting}>
                   {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Update Profile
+                  Save Information
                 </Button>
               </form>
             </Form>

@@ -30,6 +30,9 @@ export interface Patient {
     firstName: string;
     lastName: string;
     email: string;
+    phone?: string;
+    dateOfBirth?: string;
+    address?: string;
     role: 'patient' | 'doctor' | 'admin';
     profileComplete?: boolean;
     createdAt: string;

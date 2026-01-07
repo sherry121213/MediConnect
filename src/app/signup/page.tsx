@@ -89,8 +89,8 @@ export default function SignupPage() {
 
       } else {
         const patientDocRef = doc(firestore, 'patients', newUser.uid);
-        await setDoc(patientDocRef, {...baseUserData, role: 'patient' });
-        router.push('/patient-portal');
+        await setDoc(patientDocRef, {...baseUserData, role: 'patient', profileComplete: false });
+        router.push('/patient-portal/profile');
       }
 
     } catch (error: any) {
