@@ -40,6 +40,55 @@ export default function SignupPage() {
     if (!auth || !firestore) return;
     setLoading(true);
     
+    // Special handling for pre-configured admin user
+    if (email === 'admin@mediconnect.com') {
+      try {
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+        const newUser = userCredential.user;
+
+        await updateProfile(newUser, {
+          displayName: 'Admin User'
+        });
+
+        // Create admin user document in 'patients' collection for role lookup
+        const adminDocRef = doc(firestore, 'patients', newUser.uid);
+        await setDoc(adminDocRef, {
+          id: newUser.uid,
+          firstName: 'Admin',
+          lastName: 'User',
+          email: newUser.email,
+          role: 'admin',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          profileComplete: true,
+        });
+
+        toast({
+          title: 'Admin Account Created',
+          description: 'Redirecting to the admin dashboard.',
+        });
+        router.push('/admin');
+        return; // Exit function after handling admin
+      } catch (error: any) {
+        if (error.code === 'auth/email-already-in-use') {
+            toast({
+              title: "Admin Account Exists",
+              description: "Please log in with the admin credentials.",
+            });
+            router.push('/login');
+        } else {
+             toast({
+              variant: "destructive",
+              title: "Admin Creation Failed",
+              description: error.message,
+            });
+        }
+        setLoading(false);
+        return;
+      }
+    }
+
+
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const newUser = userCredential.user;
@@ -87,7 +136,7 @@ export default function SignupPage() {
            router.push('/doctor-portal/profile');
         }
 
-      } else {
+      } else { // Patient role
         const patientDocRef = doc(firestore, 'patients', newUser.uid);
         await setDoc(patientDocRef, {...baseUserData, role: 'patient', profileComplete: false });
         router.push('/patient-portal/profile');
