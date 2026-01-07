@@ -6,7 +6,9 @@ export const specialties: Specialty[] = [
   'Psychiatrist',
   'Cardiologist',
   'General Physician',
-  'Gynecologist'
+  'Gynecologist',
+  'Dermatology',
+  'Orthopedics'
 ];
 
 export const doctors: Doctor[] = [
@@ -14,7 +16,7 @@ export const doctors: Doctor[] = [
     id: '1',
     name: 'Dr. Amina Khan',
     specialty: 'Cardiology',
-    location: 'Karachi',
+    location: 'Islamabad',
     rating: 4.9,
     reviews: 124,
     isVerified: true,
@@ -25,7 +27,7 @@ export const doctors: Doctor[] = [
     id: '6',
     name: 'Dr. Hassan Raza',
     specialty: 'General Physician',
-    location: 'Lahore',
+    location: 'Rawalpindi',
     rating: 4.8,
     reviews: 302,
     isVerified: true,
@@ -47,7 +49,7 @@ export const doctors: Doctor[] = [
     id: '12',
     name: 'Dr. Fawad Khan',
     specialty: 'General Physician',
-    location: 'Karachi',
+    location: 'Islamabad',
     rating: 4.7,
     reviews: 250,
     isVerified: true,
@@ -69,7 +71,7 @@ export const doctors: Doctor[] = [
     id: '20',
     name: 'Dr. Nadia Hassan',
     specialty: 'Psychiatrist',
-    location: 'Karachi',
+    location: 'Islamabad',
     rating: 4.9,
     reviews: 150,
     isVerified: true,
@@ -80,7 +82,7 @@ export const doctors: Doctor[] = [
     id: '21',
     name: 'Dr. Sara Ahmed',
     specialty: 'Gynecologist',
-    location: 'Lahore',
+    location: 'Rawalpindi',
     rating: 4.8,
     reviews: 180,
     isVerified: true,
@@ -99,3 +101,4 @@ export const doctors: Doctor[] = [
     bio: 'Specializing in adolescent and adult psychiatry, with a focus on therapy and medication management.'
   }
 ];
+
