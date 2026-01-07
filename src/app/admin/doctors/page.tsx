@@ -52,6 +52,7 @@ import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
+import Link from "next/link";
 
 const addDoctorSchema = z.object({
   firstName: z.string().min(2, { message: "First name must be at least 2 characters." }),
@@ -167,14 +168,6 @@ export default function AdminDoctorsPage() {
             });
         }
     };
-    
-    const showNotImplementedToast = (feature: string) => {
-        toast({
-            title: "Coming Soon!",
-            description: `${feature} functionality is not yet implemented.`,
-        });
-    };
-
 
     return (
     <div className="p-4 md:p-8">
@@ -338,8 +331,9 @@ export default function AdminDoctorsPage() {
                         <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         {!doctor.verified && <DropdownMenuItem onClick={() => handleVerifyDoctor(doctor.id)}>Verify</DropdownMenuItem>}
-                        <DropdownMenuItem onClick={() => showNotImplementedToast('Edit Profile')}>Edit</DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => showNotImplementedToast('View Profile')}>View Profile</DropdownMenuItem>
+                        <DropdownMenuItem asChild>
+                           <Link href={`/admin/doctors/${doctor.id}`}>View Profile</Link>
+                        </DropdownMenuItem>
                         <AlertDialogTrigger asChild>
                             <DropdownMenuItem className="text-destructive" onSelect={(e) => e.preventDefault()}>
                                 Delete
