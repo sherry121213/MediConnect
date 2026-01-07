@@ -17,19 +17,26 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { useUserData } from "@/firebase";
 
 
-const upcomingAppointments: any[] = [
+const demoUpcomingAppointments = [
     { id: 1, patient: "Ali Khan", date: "2024-08-15", time: "10:00 AM", type: "Video Call", status: "Upcoming", patientImage: "https://picsum.photos/seed/p1/100/100" },
     { id: 2, patient: "Sana Ahmed", date: "2024-08-15", time: "11:30 AM", type: "Chat", status: "Upcoming", patientImage: "https://picsum.photos/seed/p2/100/100" },
 ]
 
-const recentAppointments: any[] = [
+const demoRecentAppointments = [
     { id: 3, patient: "Zoya Farooq", date: "2024-07-20", time: "02:30 PM", type: "Chat", status: "Completed", patientImage: "https://picsum.photos/seed/p3/100/100" },
     { id: 4, patient: "Usman Sharif", date: "2024-06-10", time: "11:00 AM", type: "Video Call", status: "Completed", patientImage: "https://picsum.photos/seed/p4/100/100" },
 ]
 
 export default function DoctorPortalPage() {
+    const { userData } = useUserData();
+
+    const isDemoDoctor = userData?.email === 'doc1@gmail.com';
+
+    const upcomingAppointments = isDemoDoctor ? demoUpcomingAppointments : [];
+    const recentAppointments = isDemoDoctor ? demoRecentAppointments : [];
 
     const JoinCallDialog = ({ apt }: { apt: any }) => (
         <AlertDialog>
@@ -95,7 +102,7 @@ export default function DoctorPortalPage() {
                 <div className="container mx-auto px-4">
                     <div className="mb-8">
                         <h1 className="text-3xl font-bold font-headline">Doctor Portal</h1>
-                        <p className="text-muted-foreground">Welcome back, Dr. Ahmed!</p>
+                        <p className="text-muted-foreground">Welcome back, {userData?.displayName || 'Doctor'}!</p>
                     </div>
 
                     {upcomingAppointments.length === 0 && recentAppointments.length === 0 ? (
