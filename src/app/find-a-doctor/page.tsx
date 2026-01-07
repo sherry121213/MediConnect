@@ -13,6 +13,7 @@ import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import type { Doctor } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 
 export default function FindADoctorPage() {
   const [searchTerm, setSearchTerm] = useState('');
