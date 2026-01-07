@@ -3,6 +3,7 @@ import './globals.css';
 import { cn } from '@/lib/utils';
 import { Toaster } from "@/components/ui/toaster";
 import { FirebaseClientProvider } from '@/firebase/client-provider';
+import { IdleTimeoutProvider } from '@/components/IdleTimeoutProvider';
 
 export const metadata: Metadata = {
   title: 'Mediconnect',
@@ -23,7 +24,9 @@ export default function RootLayout({
       </head>
       <body className={cn('min-h-screen bg-background font-body antialiased')}>
         <FirebaseClientProvider>
-          {children}
+          <IdleTimeoutProvider>
+            {children}
+          </IdleTimeoutProvider>
         </FirebaseClientProvider>
         <Toaster />
       </body>
