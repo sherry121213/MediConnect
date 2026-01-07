@@ -1,3 +1,4 @@
+
 import Image from 'next/image';
 import type { Doctor } from '@/lib/types';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
@@ -15,6 +16,7 @@ interface DoctorCardProps {
 
 export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardProps) {
   const doctorImage = placeholderImages.find(p => p.id === doctor.profileImageId);
+  const name = doctor.name || `${doctor.firstName} ${doctor.lastName}`;
 
   if (variant === 'compact') {
      return (
@@ -24,7 +26,7 @@ export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardPr
                 {doctorImage && (
                     <Image
                     src={doctorImage.imageUrl}
-                    alt={doctor.name}
+                    alt={name}
                     fill
                     className="object-cover"
                     data-ai-hint={doctorImage.imageHint}
@@ -33,11 +35,11 @@ export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardPr
                 </div>
             </CardHeader>
             <CardContent className="p-3 text-center flex-grow">
-                <h3 className="text-base font-bold font-headline">{doctor.name}</h3>
+                <h3 className="text-base font-bold font-headline">{name}</h3>
                 <p className="text-xs text-muted-foreground">{doctor.specialty}</p>
                  <div className="flex items-center justify-center gap-1 text-xs mt-1">
                     <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                    <span className="font-bold text-gray-700">{doctor.rating}</span>
+                    <span className="font-bold text-gray-700">{doctor.rating || 0}</span>
                 </div>
             </CardContent>
             <CardFooter className="p-3 pt-0">
@@ -56,13 +58,13 @@ export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardPr
           {doctorImage && (
             <Image
               src={doctorImage.imageUrl}
-              alt={doctor.name}
+              alt={name}
               fill
               className="object-cover"
               data-ai-hint={doctorImage.imageHint}
             />
           )}
-          {doctor.isVerified && (
+          {doctor.verified && (
             <Badge variant="secondary" className="absolute top-2 right-2 bg-green-100 text-green-800 border-green-300">
               <ShieldCheck className="w-3.5 h-3.5 mr-1" />
               Verified
@@ -71,7 +73,7 @@ export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardPr
         </div>
       </CardHeader>
       <CardContent className="p-4 flex-grow">
-        <h3 className="text-lg font-bold font-headline">{doctor.name}</h3>
+        <h3 className="text-lg font-bold font-headline">{name}</h3>
         <p className="text-sm text-primary font-medium">{doctor.specialty}</p>
         <div className="flex items-center gap-1 text-sm text-muted-foreground mt-2">
           <MapPin className="w-4 h-4" />
@@ -79,8 +81,8 @@ export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardPr
         </div>
         <div className="flex items-center gap-1 text-sm mt-1">
           <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-          <span className="font-bold">{doctor.rating}</span>
-          <span className="text-muted-foreground">({doctor.reviews} reviews)</span>
+          <span className="font-bold">{doctor.rating || 0}</span>
+          <span className="text-muted-foreground">({doctor.reviews || 0} reviews)</span>
         </div>
       </CardContent>
       <CardFooter className="p-4 pt-0">

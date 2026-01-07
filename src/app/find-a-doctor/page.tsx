@@ -1,23 +1,39 @@
-"use client";
 
-import { useState } from "react";
-import AppHeader from "@/components/layout/header";
-import AppFooter from "@/components/layout/footer";
-import DoctorCard from "@/components/doctor-card";
-import { doctors, specialties } from "@/lib/data";
-import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search } from "lucide-react";
+'use client';
+
+import { useState, useMemo } from 'react';
+import AppHeader from '@/components/layout/header';
+import AppFooter from '@/components/layout/footer';
+import DoctorCard from '@/components/doctor-card';
+import { specialties } from '@/lib/data';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Search } from 'lucide-react';
+import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
+import { collection, query, where } from 'firebase/firestore';
+import type { Doctor } from '@/lib/types';
+import { Skeleton } from '@/components/ui/skeleton';
 
 export default function FindADoctorPage() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedSpecialty, setSelectedSpecialty] = useState<string>("all");
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSpecialty, setSelectedSpecialty] = useState<string>('all');
+  const firestore = useFirestore();
 
-  const filteredDoctors = doctors.filter(doctor => {
-    const nameMatch = doctor.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const specialtyMatch = selectedSpecialty === "all" || doctor.specialty === selectedSpecialty;
-    return nameMatch && specialtyMatch;
-  });
+  const doctorsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'doctors'), where('verified', '==', true));
+  }, [firestore]);
+
+  const { data: doctors, isLoading: isLoadingDoctors, error } = useCollection<Doctor>(doctorsQuery);
+
+  const filteredDoctors = useMemo(() => {
+    if (!doctors) return [];
+    return doctors.filter(doctor => {
+      const nameMatch = `${doctor.firstName} ${doctor.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
+      const specialtyMatch = selectedSpecialty === 'all' || doctor.specialty === selectedSpecialty;
+      return nameMatch && specialtyMatch;
+    });
+  }, [doctors, searchTerm, selectedSpecialty]);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -37,7 +53,7 @@ export default function FindADoctorPage() {
                   placeholder="Search by doctor's name..."
                   className="pl-10"
                   value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
+                  onChange={e => setSearchTerm(e.target.value)}
                 />
               </div>
               <Select onValueChange={setSelectedSpecialty} defaultValue="all">
@@ -47,7 +63,9 @@ export default function FindADoctorPage() {
                 <SelectContent>
                   <SelectItem value="all">All Specialties</SelectItem>
                   {specialties.map(specialty => (
-                    <SelectItem key={specialty} value={specialty}>{specialty}</SelectItem>
+                    <SelectItem key={specialty} value={specialty}>
+                      {specialty}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -55,15 +73,37 @@ export default function FindADoctorPage() {
           </div>
 
           <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {filteredDoctors.length > 0 ? (
+            {isLoadingDoctors && Array.from({ length: 8 }).map((_, i) => (
+                <Card key={i}>
+                    <CardContent className="p-0">
+                        <Skeleton className="h-48 w-full" />
+                    </CardContent>
+                    <CardContent className="p-4 space-y-2">
+                        <Skeleton className="h-6 w-3/4" />
+                        <Skeleton className="h-4 w-1/2" />
+                        <Skeleton className="h-4 w-1/3" />
+                    </CardContent>
+                    <CardFooter className="p-4">
+                        <Skeleton className="h-10 w-full" />
+                    </CardFooter>
+                </Card>
+            ))}
+            {!isLoadingDoctors && filteredDoctors.length > 0 ? (
               filteredDoctors.map(doctor => (
                 <DoctorCard key={doctor.id} doctor={doctor} />
               ))
-            ) : (
+            ) : null}
+             {!isLoadingDoctors && !error && filteredDoctors.length === 0 && (
               <div className="col-span-full text-center py-16">
                 <h3 className="text-xl font-medium">No doctors found</h3>
                 <p className="text-muted-foreground mt-2">Try adjusting your search or filters.</p>
               </div>
+            )}
+             {error && (
+                <div className="col-span-full text-center py-16 text-destructive">
+                    <h3 className="text-xl font-medium">Error loading doctors</h3>
+                    <p className="text-muted-foreground mt-2">{error.message}</p>
+                </div>
             )}
           </div>
         </div>
