@@ -5,7 +5,12 @@ import { useAuth } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
 
-const useIdleTimer = (idleTimeout = 30000, countdownTime = 7000) => {
+interface IdleTimerProps {
+    idleTimeout?: number;
+    countdownTime?: number;
+}
+
+const useIdleTimer = ({ idleTimeout = 30000, countdownTime = 7000 }: IdleTimerProps) => {
   const [isIdle, setIsIdle] = useState(false);
   const [countdown, setCountdown] = useState(countdownTime / 1000);
   const auth = useAuth();
@@ -21,11 +26,9 @@ const useIdleTimer = (idleTimeout = 30000, countdownTime = 7000) => {
 
   useEffect(() => {
     let idleTimer: NodeJS.Timeout;
-    let countdownTimer: NodeJS.Timeout;
 
-    const resetTimers = () => {
+    const resetTimer = () => {
       clearTimeout(idleTimer);
-      clearTimeout(countdownTimer);
       setIsIdle(false);
       setCountdown(countdownTime / 1000);
 
@@ -36,13 +39,12 @@ const useIdleTimer = (idleTimeout = 30000, countdownTime = 7000) => {
 
     const events = ['mousemove', 'mousedown', 'keypress', 'touchstart', 'scroll'];
 
-    events.forEach(event => window.addEventListener(event, resetTimers));
-    resetTimers();
+    events.forEach(event => window.addEventListener(event, resetTimer));
+    resetTimer();
 
     return () => {
-      events.forEach(event => window.removeEventListener(event, resetTimers));
+      events.forEach(event => window.removeEventListener(event, resetTimer));
       clearTimeout(idleTimer);
-      clearTimeout(countdownTimer);
     };
   }, [idleTimeout, countdownTime]);
 
@@ -66,8 +68,8 @@ const useIdleTimer = (idleTimeout = 30000, countdownTime = 7000) => {
   }, [isIdle, handleSignOut]);
 
   const reset = () => {
-     setIsIdle(false);
-     setCountdown(countdownTime / 1000);
+     const events = ['mousemove', 'mousedown', 'keypress', 'touchstart', 'scroll'];
+     events.forEach(event => window.dispatchEvent(new Event(event)));
   }
 
   return { isIdle, countdown, reset };

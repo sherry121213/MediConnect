@@ -14,7 +14,10 @@ import { Button } from './ui/button';
 
 export const IdleTimeoutProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useUser();
-  const { isIdle, countdown, reset } = useIdleTimer(30000, 7000);
+  const { isIdle, countdown, reset } = useIdleTimer({
+    idleTimeout: 30000, 
+    countdownTime: 7000 
+  });
 
   const handleStay = () => {
     reset();
