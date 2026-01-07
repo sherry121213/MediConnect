@@ -11,13 +11,20 @@ import {
 import { Badge } from "@/components/ui/badge";
 import type { Patient } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
-import { patients as staticPatients } from "@/lib/patient-data";
-import { useState } from 'react';
+import { useCollection, useFirestore, useMemoFirebase, useUser } from "@/firebase";
+import { collection } from "firebase/firestore";
 
 
 export default function AdminPatientsPage() {
-    const [patients] = useState<Patient[]>(staticPatients);
-    const isLoadingPatients = false;
+    const firestore = useFirestore();
+    const { user } = useUser();
+
+    const patientsCollection = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return collection(firestore, 'patients');
+    }, [firestore]);
+
+    const { data: patients, isLoading: isLoadingPatients, error } = useCollection<Patient>(patientsCollection);
 
     return (
         <div className="p-4 md:p-8">
@@ -48,7 +55,11 @@ export default function AdminPatientsPage() {
                     <TableCell className="font-mono text-xs">{patient.id}</TableCell>
                     <TableCell>{patient.firstName} {patient.lastName}</TableCell>
                     <TableCell>{patient.email}</TableCell>
-                    <TableCell>{patient.role}</TableCell>
+                    <TableCell>
+                        <Badge variant={patient.role === 'admin' ? 'default' : 'secondary'}>
+                            {patient.role}
+                        </Badge>
+                    </TableCell>
                     <TableCell>
                     <Badge variant={"secondary"} className={"bg-green-100 text-green-800"}>
                         Active
@@ -59,6 +70,13 @@ export default function AdminPatientsPage() {
                 {!isLoadingPatients && patients && patients.length === 0 && (
                     <TableRow>
                         <TableCell colSpan={5} className="text-center h-24">No patients found.</TableCell>
+                    </TableRow>
+                )}
+                 {error && (
+                    <TableRow>
+                        <TableCell colSpan={5} className="text-center h-24 text-destructive">
+                            Error loading patients: {error.message}
+                        </TableCell>
                     </TableRow>
                 )}
             </TableBody>

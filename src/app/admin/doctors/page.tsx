@@ -20,7 +20,7 @@ import { Badge } from "@/components/ui/badge";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import Image from "next/image";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, addDoc, doc, updateDoc } from "firebase/firestore";
+import { collection, addDoc, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import type { Doctor } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PlaceHolderImages as placeholderImages } from "@/lib/placeholder-images";
@@ -34,6 +34,17 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -63,14 +74,6 @@ export default function AdminDoctorsPage() {
     }, [firestore]);
 
     const { data: doctors, isLoading: isLoadingDoctors, error } = useCollection<Doctor>(doctorsCollection);
-
-    const [localDoctors, setLocalDoctors] = useState<Doctor[] | null>(null);
-
-    useState(() => {
-        if (doctors) {
-            setLocalDoctors(doctors);
-        }
-    });
 
     const form = useForm<AddDoctorFormValues>({
         resolver: zodResolver(addDoctorSchema),
@@ -145,6 +148,32 @@ export default function AdminDoctorsPage() {
             });
         }
     }
+
+    const handleDeleteDoctor = async (doctorId: string) => {
+        if (!firestore) return;
+        const doctorDocRef = doc(firestore, 'doctors', doctorId);
+        try {
+            await deleteDoc(doctorDocRef);
+            toast({
+                title: "Doctor Deleted",
+                description: "The doctor's profile has been successfully deleted.",
+            });
+        } catch (error) {
+            console.error("Error deleting doctor:", error);
+            toast({
+                variant: "destructive",
+                title: "Deletion Failed",
+                description: "Could not delete the doctor's profile.",
+            });
+        }
+    };
+    
+    const showNotImplementedToast = (feature: string) => {
+        toast({
+            title: "Coming Soon!",
+            description: `${feature} functionality is not yet implemented.`,
+        });
+    };
 
 
     return (
@@ -250,88 +279,107 @@ export default function AdminDoctorsPage() {
         </Dialog>
       </div>
       <div className="border rounded-lg">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Doctor</TableHead>
-              <TableHead>Specialty</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Location</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoadingDoctors && Array.from({length: 5}).map((_, i) => (
-                <TableRow key={i}>
-                    <TableCell><Skeleton className="h-10 w-48"/></TableCell>
-                    <TableCell><Skeleton className="h-6 w-24"/></TableCell>
-                    <TableCell><Skeleton className="h-6 w-20"/></TableCell>
-                    <TableCell><Skeleton className="h-6 w-24"/></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto"/></TableCell>
-                </TableRow>
-            ))}
-            {doctors && doctors.map((doctor: Doctor) => {
-              const doctorImage = placeholderImages.find(p => p.id === doctor.profileImageId);
-              const name = `${doctor.firstName} ${doctor.lastName}`;
-              return (
-              <TableRow key={doctor.id}>
-                <TableCell className="font-medium">
-                  <div className="flex items-center gap-3">
-                    {doctorImage && (
-                        <Image
-                            src={doctorImage.imageUrl}
-                            alt={name}
-                            width={40}
-                            height={40}
-                            className="rounded-full"
-                            data-ai-hint={doctorImage.imageHint}
-                        />
-                    )}
-                    {name}
-                  </div>
-                </TableCell>
-                <TableCell>{doctor.specialty}</TableCell>
-                <TableCell>
-                   <Badge variant={doctor.verified ? "secondary" : "destructive"} className={doctor.verified ? "bg-green-100 text-green-800" : ""}>
-                    {doctor.verified ? "Verified" : "Pending"}
-                  </Badge>
-                </TableCell>
-                <TableCell>{doctor.location}</TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <MoreHorizontal className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      {!doctor.verified && <DropdownMenuItem onClick={() => handleVerifyDoctor(doctor.id)}>Verify</DropdownMenuItem>}
-                      <DropdownMenuItem>Edit</DropdownMenuItem>
-                      <DropdownMenuItem>View Profile</DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive">
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            )})}
-             {!isLoadingDoctors && doctors?.length === 0 && (
+         <AlertDialog>
+            <Table>
+            <TableHeader>
                 <TableRow>
-                    <TableCell colSpan={5} className="text-center h-24">No doctors found.</TableCell>
+                <TableHead>Doctor</TableHead>
+                <TableHead>Specialty</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
-            )}
-             {error && (
-                <TableRow>
-                    <TableCell colSpan={5} className="text-center h-24 text-destructive">
-                        Error loading doctors: {error.message}
+            </TableHeader>
+            <TableBody>
+                {isLoadingDoctors && Array.from({length: 5}).map((_, i) => (
+                    <TableRow key={i}>
+                        <TableCell><Skeleton className="h-10 w-48"/></TableCell>
+                        <TableCell><Skeleton className="h-6 w-24"/></TableCell>
+                        <TableCell><Skeleton className="h-6 w-20"/></TableCell>
+                        <TableCell><Skeleton className="h-6 w-24"/></TableCell>
+                        <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto"/></TableCell>
+                    </TableRow>
+                ))}
+                {doctors && doctors.map((doctor: Doctor) => {
+                const doctorImage = placeholderImages.find(p => p.id === doctor.profileImageId);
+                const name = `${doctor.firstName} ${doctor.lastName}`;
+                return (
+                <TableRow key={doctor.id}>
+                    <TableCell className="font-medium">
+                    <div className="flex items-center gap-3">
+                        {doctorImage && (
+                            <Image
+                                src={doctorImage.imageUrl}
+                                alt={name}
+                                width={40}
+                                height={40}
+                                className="rounded-full"
+                                data-ai-hint={doctorImage.imageHint}
+                            />
+                        )}
+                        {name}
+                    </div>
+                    </TableCell>
+                    <TableCell>{doctor.specialty}</TableCell>
+                    <TableCell>
+                    <Badge variant={doctor.verified ? "secondary" : "destructive"} className={doctor.verified ? "bg-green-100 text-green-800" : ""}>
+                        {doctor.verified ? "Verified" : "Pending"}
+                    </Badge>
+                    </TableCell>
+                    <TableCell>{doctor.location}</TableCell>
+                    <TableCell className="text-right">
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                            <span className="sr-only">Open menu</span>
+                            <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                        {!doctor.verified && <DropdownMenuItem onClick={() => handleVerifyDoctor(doctor.id)}>Verify</DropdownMenuItem>}
+                        <DropdownMenuItem onClick={() => showNotImplementedToast('Edit Profile')}>Edit</DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => showNotImplementedToast('View Profile')}>View Profile</DropdownMenuItem>
+                        <AlertDialogTrigger asChild>
+                            <DropdownMenuItem className="text-destructive" onSelect={(e) => e.preventDefault()}>
+                                Delete
+                            </DropdownMenuItem>
+                        </AlertDialogTrigger>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                                This action cannot be undone. This will permanently delete the doctor's account
+                                and remove their data from our servers.
+                            </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction onClick={() => handleDeleteDoctor(doctor.id)} className="bg-destructive hover:bg-destructive/90">
+                                Delete
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
                     </TableCell>
                 </TableRow>
-             )}
-          </TableBody>
-        </Table>
+                )})}
+                {!isLoadingDoctors && doctors?.length === 0 && (
+                    <TableRow>
+                        <TableCell colSpan={5} className="text-center h-24">No doctors found.</TableCell>
+                    </TableRow>
+                )}
+                {error && (
+                    <TableRow>
+                        <TableCell colSpan={5} className="text-center h-24 text-destructive">
+                            Error loading doctors: {error.message}
+                        </TableCell>
+                    </TableRow>
+                )}
+            </TableBody>
+            </Table>
+        </AlertDialog>
       </div>
     </div>
   );
