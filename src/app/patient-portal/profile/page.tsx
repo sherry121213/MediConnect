@@ -58,6 +58,7 @@ export default function PatientProfilePage() {
 
   useEffect(() => {
     if (user && firestore) {
+      form.setValue('email', user.email || '');
       const fetchPatientProfile = async () => {
         const patientDocRef = doc(firestore, 'patients', user.uid);
         const docSnap = await getDoc(patientDocRef);
@@ -66,7 +67,7 @@ export default function PatientProfilePage() {
           form.reset({
             firstName: data.firstName || '',
             lastName: data.lastName || '',
-            email: data.email || '',
+            email: data.email || user.email || '',
             phone: data.phone || '',
             dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth) : undefined,
             address: data.address || '',
@@ -240,6 +241,10 @@ export default function PatientProfilePage() {
                                 mode="single"
                                 selected={field.value}
                                 onSelect={field.onChange}
+                                defaultMonth={new Date(new Date().setFullYear(new Date().getFullYear() - 20))}
+                                captionLayout="dropdown-buttons"
+                                fromYear={1900}
+                                toYear={new Date().getFullYear()}
                                 disabled={(date) =>
                                   date > new Date() || date < new Date("1900-01-01")
                                 }

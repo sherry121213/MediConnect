@@ -11,9 +11,11 @@ import { doctors } from "@/lib/data";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 
+const currentYear = new Date().getFullYear();
+
 const pastAppointments = [
-    { id: 2, doctorId: '2', date: "2024-07-20", time: "02:30 PM", type: "Chat", summary: "Discussed skin rash and prescribed a topical cream. Follow-up in 2 weeks if no improvement." },
-    { id: 3, doctorId: '6', date: "2024-06-10", time: "11:00 AM", type: "Video Call", summary: "Annual physical check-up. All vitals are normal. Discussed diet and exercise improvements." },
+    { id: 2, doctorId: '2', date: `${currentYear}-07-20`, time: "02:30 PM", type: "Chat", summary: "Discussed skin rash and prescribed a topical cream. Follow-up in 2 weeks if no improvement." },
+    { id: 3, doctorId: '6', date: `${currentYear}-06-10`, time: "11:00 AM", type: "Video Call", summary: "Annual physical check-up. All vitals are normal. Discussed diet and exercise improvements." },
 ];
 
 export default function AppointmentDetailsPage() {
@@ -82,7 +84,7 @@ export default function AppointmentDetailsPage() {
                                 <div className="flex flex-col items-center gap-2">
                                     <Calendar className="h-8 w-8 text-primary"/>
                                     <p className="font-semibold">Date</p>
-                                    <p className="text-muted-foreground">{appointment.date}</p>
+                                    <p className="text-muted-foreground">{new Date(appointment.date).toLocaleDateString()}</p>
                                 </div>
                                 <div className="flex flex-col items-center gap-2">
                                     <Clock className="h-8 w-8 text-primary"/>
