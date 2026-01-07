@@ -82,7 +82,7 @@ export default function LoginPage() {
 
     } catch (error: any) {
       console.error("Login Error:", error);
-      let description = "Invalid credentials. Please try again.";
+      let description = "An unexpected error occurred. Please try again.";
       if (error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password' || error.code === 'auth/user-not-found') {
         description = "The email or password you entered is incorrect. Please try again.";
       }
