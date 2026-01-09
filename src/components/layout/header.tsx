@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, LogOut, User as UserIcon, Shield } from 'lucide-react';
+import { Menu, LogOut, User as UserIcon, Shield, LayoutDashboard } from 'lucide-react';
 import Logo from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { signOut } from 'firebase/auth';
-import { Separator } from '../ui/separator';
 
 const navLinks = [
   { href: '/', label: 'Home' },
@@ -72,6 +71,12 @@ export default function AppHeader() {
             <span>Admin Portal</span>
           </DropdownMenuItem>
         )}
+        {userData?.role === 'patient' && (
+            <DropdownMenuItem onClick={() => router.push('/patient-portal')}>
+                <LayoutDashboard className="mr-2 h-4 w-4" />
+                <span>Patient Portal</span>
+            </DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={handleProfileClick}>
           <UserIcon className="mr-2 h-4 w-4" />
           <span>Profile</span>
@@ -93,12 +98,6 @@ export default function AppHeader() {
             <Link href="/" className="flex items-center gap-2">
             <Logo />
             </Link>
-            {userData?.role === 'patient' && (
-                <div className="hidden md:flex items-center">
-                    <Separator orientation="vertical" className="h-6 mx-4" />
-                    <Link href="/patient-portal" className="font-semibold text-muted-foreground hover:text-primary transition-colors">Patient Portal</Link>
-                </div>
-            )}
         </div>
         
         {/* Desktop Navigation */}
