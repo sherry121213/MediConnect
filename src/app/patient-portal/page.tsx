@@ -20,13 +20,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useUserData } from "@/firebase";
 
+const currentYear = new Date().getFullYear();
+
 const demoUpcomingAppointments = [
-    { id: 1, doctor: "Dr. Hassan Raza", specialty: "General Physician", date: "2024-08-20", time: "10:00 AM", status: "Upcoming", imageId: "doctor6" },
+    { id: 1, doctor: "Dr. Hassan Raza", specialty: "General Physician", date: `${currentYear}-08-20`, time: "10:00 AM", status: "Upcoming", imageId: "doctor6" },
 ];
 
 const demoPastAppointments = [
-    { id: 2, doctor: "Dr. Amina Khan", specialty: "Cardiology", date: "2024-07-20", time: "02:30 PM", status: "Completed", imageId: "doctor1" },
-    { id: 3, doctor: "Dr. Ayesha Malik", specialty: "Cardiology", date: "2024-06-10", time: "11:00 AM", status: "Completed", imageId: "doctor7" },
+    { id: 2, doctor: "Dr. Amina Khan", specialty: "Cardiology", date: `${currentYear}-07-20`, time: "02:30 PM", status: "Completed", imageId: "doctor1" },
+    { id: 3, doctor: "Dr. Ayesha Malik", specialty: "Cardiology", date: `${currentYear}-06-10`, time: "11:00 AM", status: "Completed", imageId: "doctor7" },
 ];
 
 
