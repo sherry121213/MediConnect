@@ -6,8 +6,34 @@ service cloud.firestore {
       return request.auth != null;
     }
 
+    // Admins can read and write all documents.
     match /{document=**} {
-      allow read, write: if isSignedIn();
+      allow read, write: if get(/databases/$(database)/documents/patients/$(request.auth.uid)).data.role == 'admin';
+    }
+
+    // Patients collection: users can only access their own document.
+    match /patients/{userId} {
+      allow read, update: if request.auth.uid == userId;
+      allow create: if request.auth.uid == userId;
+    }
+
+    // Doctors collection: all users can read, but only admins can write.
+    match /doctors/{doctorId} {
+      allow read: if true;
+      // Write access is handled by the admin rule above.
+    }
+    
+    // Appointments collection: only participants (patient/doctor) can access.
+    match /appointments/{appointmentId} {
+      allow read: if isSignedIn() && (request.auth.uid == resource.data.patientId || request.auth.uid == resource.data.doctorId);
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.patientId;
+      allow update: if isSignedIn() && (request.auth.uid == resource.data.patientId || request.auth.uid == resource.data.doctorId);
+    }
+    
+    // Contact form: anyone can create (write), but only admins can read.
+    match /contacts/{contactId} {
+      allow create: if true;
+      // Read access is handled by the admin rule above.
     }
   }
 }
