@@ -24,7 +24,6 @@ const navLinks = [
   { href: '/', label: 'Home' },
   { href: '/find-a-doctor', label: 'Find a Doctor' },
   { href: '/contact', label: 'Contact' },
-  { href: '/admin', label: 'Admin Portal' },
 ];
 
 export default function AppHeader() {
