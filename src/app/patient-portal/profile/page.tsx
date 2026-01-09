@@ -242,7 +242,7 @@ export default function PatientProfilePage() {
                                 selected={field.value}
                                 onSelect={field.onChange}
                                 defaultMonth={field.value || new Date(new Date().setFullYear(new Date().getFullYear() - 25))}
-                                captionLayout="dropdown-buttons"
+                                captionLayout="dropdown"
                                 fromYear={new Date().getFullYear() - 80}
                                 toYear={new Date().getFullYear() - 10}
                                 disabled={(date) =>
