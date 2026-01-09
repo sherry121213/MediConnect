@@ -34,8 +34,6 @@ export default function AppHeader() {
   const { user, userData, isUserLoading } = useUserData();
   const auth = useAuth();
   
-  const isPatientPortal = pathname.startsWith('/patient-portal') || pathname.startsWith('/appointments');
-
   const handleLogout = () => {
     if (auth) {
       signOut(auth).then(() => {
@@ -95,10 +93,10 @@ export default function AppHeader() {
             <Link href="/" className="flex items-center gap-2">
             <Logo />
             </Link>
-            {isPatientPortal && userData?.role === 'patient' && (
+            {userData?.role === 'patient' && (
                 <div className="hidden md:flex items-center">
                     <Separator orientation="vertical" className="h-6 mx-4" />
-                    <span className="font-semibold text-muted-foreground">Patient Portal</span>
+                    <Link href="/patient-portal" className="font-semibold text-muted-foreground hover:text-primary transition-colors">Patient Portal</Link>
                 </div>
             )}
         </div>
@@ -143,10 +141,9 @@ export default function AppHeader() {
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="w-[300px] sm:w-[400px]">
-             {isPatientPortal && userData?.role === 'patient' && (
-                <div className="flex items-center mb-6">
-                    <Separator orientation="vertical" className="h-6 mr-4" />
-                    <span className="font-semibold text-muted-foreground">Patient Portal</span>
+             {userData?.role === 'patient' && (
+                <div className="mb-6">
+                    <Link href="/patient-portal" className="font-semibold text-muted-foreground" onClick={() => setMobileMenuOpen(false)}>Patient Portal</Link>
                 </div>
             )}
             <nav className="flex flex-col gap-6 text-lg font-medium mt-12">
