@@ -30,7 +30,7 @@ export default function AppHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { userData, isUserLoading } = useUserData();
+  const { user, userData, isUserLoading } = useUserData();
   const auth = useAuth();
 
   const handleLogout = () => {
@@ -50,7 +50,7 @@ export default function AppHeader() {
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-8 w-8 rounded-full">
           <Avatar className="h-8 w-8">
-             <AvatarImage src={userData?.photoURL || "https://picsum.photos/seed/user/100/100"} alt={userData?.displayName || 'User'} />
+             <AvatarImage src={userData?.photoURL || user?.photoURL || undefined} alt={userData?.displayName || 'User'} />
              <AvatarFallback>{userData?.email?.[0].toUpperCase()}</AvatarFallback>
           </Avatar>
         </Button>
@@ -109,7 +109,7 @@ export default function AppHeader() {
         </nav>
 
         <div className="hidden md:flex items-center gap-2">
-          {isUserLoading ? null : userData ? (
+          {isUserLoading ? null : user ? (
             <UserMenu />
           ) : (
             <>
@@ -148,9 +148,9 @@ export default function AppHeader() {
               ))}
             </nav>
             <div className="mt-8 flex flex-col gap-2">
-               {isUserLoading ? null : userData ? (
+               {isUserLoading ? null : user ? (
                 <div className="space-y-2">
-                  {userData.role === 'admin' && <Button variant="outline" className="w-full" onClick={() => {router.push('/admin'); setMobileMenuOpen(false);}}>Admin Portal</Button>}
+                  {userData?.role === 'admin' && <Button variant="outline" className="w-full" onClick={() => {router.push('/admin'); setMobileMenuOpen(false);}}>Admin Portal</Button>}
                   <Button variant="outline" className="w-full" onClick={() => {handleProfileClick(); setMobileMenuOpen(false);}}>My Profile</Button>
                   <Button variant="outline" className="w-full" onClick={() => {handleLogout(); setMobileMenuOpen(false);}}>Log Out</Button>
                 </div>

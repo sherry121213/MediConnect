@@ -111,7 +111,8 @@ export default function ProfilePage() {
     setIsSubmitting(true);
 
     try {
-      const credential = EmailAuthProvider.credential(user.email!, values.currentPassword);
+      if (!user.email) throw new Error("User email not found.");
+      const credential = EmailAuthProvider.credential(user.email, values.currentPassword);
       await reauthenticateWithCredential(user, credential);
       await updatePassword(user, values.newPassword);
       
@@ -139,7 +140,7 @@ export default function ProfilePage() {
   };
 
   const onForgotPassword = async () => {
-    if (!user?.email) return;
+    if (!auth || !user?.email) return;
     try {
       await sendPasswordResetEmail(auth, user.email);
       toast({
@@ -194,27 +195,34 @@ export default function ProfilePage() {
             </CardHeader>
             <CardContent className="space-y-6">
                 <div className="flex items-start justify-between gap-6">
-                  <div className="flex-grow">
-                    <p className="text-sm text-muted-foreground capitalize">{userData?.role}</p>
-                    <h2 className="text-3xl font-bold font-headline">{userData?.firstName} {userData?.lastName}</h2>
-                    <p className="text-muted-foreground">{user.email}</p>
-                    <div className="mt-4">
-                        <label htmlFor="photo-upload-button" className="cursor-pointer">
-                            <Button variant="outline" asChild>
-                                <span>
-                                    <Upload className="mr-2 h-4 w-4" />
-                                    Change Picture
-                                </span>
-                            </Button>
-                            <Input id="photo-upload-button" type="file" className="hidden" accept="image/*" onChange={handlePhotoChange} />
-                        </label>
+                  <div className="flex-grow space-y-4">
+                    <div>
+                      <Label>First Name</Label>
+                      <p className="font-medium">{userData?.firstName}</p>
+                    </div>
+                     <div>
+                      <Label>Last Name</Label>
+                      <p className="font-medium">{userData?.lastName}</p>
+                    </div>
+                     <div>
+                      <Label>Email</Label>
+                      <p className="font-medium">{user.email}</p>
                     </div>
                   </div>
-                  <div className="flex-shrink-0">
+                  <div className="flex-shrink-0 flex flex-col items-center gap-2">
                     <Avatar className="h-28 w-28">
                         <AvatarImage src={photoPreview || undefined} alt={userData?.displayName || 'User'} />
                         <AvatarFallback className="text-3xl">{userData?.email?.[0].toUpperCase()}</AvatarFallback>
                     </Avatar>
+                     <label htmlFor="photo-upload-button" className="cursor-pointer">
+                        <Button variant="outline" size="sm" asChild>
+                            <span>
+                                <Upload className="mr-2 h-4 w-4" />
+                                Change
+                            </span>
+                        </Button>
+                        <Input id="photo-upload-button" type="file" className="hidden" accept="image/*" onChange={handlePhotoChange} />
+                    </label>
                   </div>
                 </div>
                  {photoFile && (
