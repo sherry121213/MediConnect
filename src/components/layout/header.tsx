@@ -42,21 +42,7 @@ export default function AppHeader() {
   };
   
   const handleProfileClick = () => {
-    if (userData?.role === 'doctor') {
-      if(userData?.profileComplete) {
-         router.push('/doctor-portal');
-      } else {
-         router.push('/doctor-portal/profile');
-      }
-    } else if (userData?.role === 'patient') {
-        if(userData?.profileComplete) {
-            router.push('/patient-portal');
-        } else {
-           router.push('/patient-portal/profile');
-        }
-    } else if (userData?.role === 'admin') {
-        router.push('/admin');
-    }
+    router.push('/profile');
   }
 
   const UserMenu = () => (

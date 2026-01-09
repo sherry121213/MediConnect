@@ -9,10 +9,21 @@ import { Label } from "@/components/ui/label";
 import { useState } from "react";
 import { useAuth, useFirestore } from "@/firebase";
 import { useRouter } from "next/navigation";
-import { signInWithEmailAndPassword } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -95,6 +106,34 @@ export default function LoginPage() {
         setLoading(false);
     }
   };
+  
+  const handlePasswordReset = async () => {
+    if (!auth) return;
+    if (!email) {
+      toast({
+        variant: "destructive",
+        title: "Email Required",
+        description: "Please enter your email address to reset your password.",
+      });
+      return;
+    }
+    setLoading(true);
+    try {
+      await sendPasswordResetEmail(auth, email);
+      toast({
+        title: "Password Reset Email Sent",
+        description: "Check your inbox for a link to reset your password.",
+      });
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Could not send password reset email. Please try again.",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -123,12 +162,25 @@ export default function LoginPage() {
                 <div className="grid gap-2">
                   <div className="flex items-center">
                     <Label htmlFor="password">Password</Label>
-                    <Link
-                      href="#"
-                      className="ml-auto inline-block text-sm underline"
-                    >
-                      Forgot your password?
-                    </Link>
+                     <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="link" type="button" className="ml-auto inline-block text-sm p-0 h-auto">
+                            Forgot your password?
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Reset Password?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            We will send a password reset link to <strong>{email || 'the email you entered'}</strong>. Are you sure you want to continue?
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={handlePasswordReset}>Continue</AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   </div>
                   <Input 
                     id="password" 
