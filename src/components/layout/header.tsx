@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, LogOut, User as UserIcon } from 'lucide-react';
+import { Menu, LogOut, User as UserIcon, Shield } from 'lucide-react';
 import Logo from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -65,10 +65,17 @@ export default function AppHeader() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
+        {userData?.role === 'admin' && (
+          <DropdownMenuItem onClick={() => router.push('/admin')}>
+            <Shield className="mr-2 h-4 w-4" />
+            <span>Admin Portal</span>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={handleProfileClick}>
           <UserIcon className="mr-2 h-4 w-4" />
           <span>Profile</span>
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout}>
           <LogOut className="mr-2 h-4 w-4" />
           <span>Log out</span>
@@ -143,6 +150,7 @@ export default function AppHeader() {
             <div className="mt-8 flex flex-col gap-2">
                {isUserLoading ? null : userData ? (
                 <div className="space-y-2">
+                  {userData.role === 'admin' && <Button variant="outline" className="w-full" onClick={() => {router.push('/admin'); setMobileMenuOpen(false);}}>Admin Portal</Button>}
                   <Button variant="outline" className="w-full" onClick={() => {handleProfileClick(); setMobileMenuOpen(false);}}>My Profile</Button>
                   <Button variant="outline" className="w-full" onClick={() => {handleLogout(); setMobileMenuOpen(false);}}>Log Out</Button>
                 </div>
