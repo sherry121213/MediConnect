@@ -241,12 +241,12 @@ export default function PatientProfilePage() {
                                 mode="single"
                                 selected={field.value}
                                 onSelect={field.onChange}
-                                defaultMonth={new Date(new Date().setFullYear(new Date().getFullYear() - 20))}
+                                defaultMonth={field.value || new Date(new Date().setFullYear(new Date().getFullYear() - 25))}
                                 captionLayout="dropdown-buttons"
                                 fromYear={new Date().getFullYear() - 80}
                                 toYear={new Date().getFullYear() - 10}
                                 disabled={(date) =>
-                                  date > new Date() || date < new Date("1900-01-01")
+                                  date > new Date(new Date().setFullYear(new Date().getFullYear() - 10)) || date < new Date(new Date().setFullYear(new Date().getFullYear() - 80))
                                 }
                                 initialFocus
                               />
