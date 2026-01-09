@@ -77,6 +77,12 @@ export default function AppHeader() {
                 <span>Patient Portal</span>
             </DropdownMenuItem>
         )}
+        {userData?.role === 'doctor' && (
+            <DropdownMenuItem onClick={() => router.push('/doctor-portal')}>
+                <LayoutDashboard className="mr-2 h-4 w-4" />
+                <span>Doctor Portal</span>
+            </DropdownMenuItem>
+        )}
         <DropdownMenuItem onClick={handleProfileClick}>
           <UserIcon className="mr-2 h-4 w-4" />
           <span>Profile</span>
