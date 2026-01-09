@@ -1,23 +1,30 @@
 
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import DoctorCard from '@/components/doctor-card';
 import { specialties } from '@/lib/data';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search } from 'lucide-react';
+import { Search, MapPin, Loader2, X } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import type { Doctor } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+
+// A list of major cities in Pakistan for the dropdown.
+const locations = ["Islamabad", "Rawalpindi", "Lahore", "Karachi", "Peshawar"];
 
 export default function FindADoctorPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('all');
+  const [selectedLocation, setSelectedLocation] = useState<string>('all');
+  const [isLocating, setIsLocating] = useState(false);
+  const [showLocationBanner, setShowLocationBanner] = useState(true);
   const firestore = useFirestore();
 
   const doctorsQuery = useMemoFirebase(() => {
@@ -27,14 +34,44 @@ export default function FindADoctorPage() {
 
   const { data: doctors, isLoading: isLoadingDoctors, error } = useCollection<Doctor>(doctorsQuery);
 
+  const handleLocationClick = () => {
+    setIsLocating(true);
+    setShowLocationBanner(false);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+            // Using a reverse geocoding service to get city from coordinates.
+            // NOTE: This is a free, public API. For production, a paid, robust service is recommended.
+            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
+            const data = await response.json();
+            const city = data.address.city || data.address.town || data.address.village;
+            if (city && locations.includes(city)) {
+                 setSelectedLocation(city);
+            }
+        } catch (error) {
+            console.error("Error fetching city:", error);
+        } finally {
+            setIsLocating(false);
+        }
+      },
+      (error) => {
+        console.error("Geolocation error:", error);
+        setIsLocating(false);
+      },
+      { enableHighAccuracy: true }
+    );
+  };
+
+
   const filteredDoctors = useMemo(() => {
     if (!doctors) return [];
     return doctors.filter(doctor => {
       const nameMatch = `${doctor.firstName} ${doctor.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
       const specialtyMatch = selectedSpecialty === 'all' || doctor.specialty === selectedSpecialty;
-      return nameMatch && specialtyMatch;
+      const locationMatch = selectedLocation === 'all' || doctor.location === selectedLocation;
+      return nameMatch && specialtyMatch && locationMatch;
     });
-  }, [doctors, searchTerm, selectedSpecialty]);
+  }, [doctors, searchTerm, selectedSpecialty, selectedLocation]);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -46,9 +83,26 @@ export default function FindADoctorPage() {
             Search our directory of verified healthcare professionals to find the right one for you.
           </p>
 
+        {showLocationBanner && (
+             <div className="mt-8 max-w-4xl mx-auto bg-primary/10 border border-primary/20 rounded-lg p-4 flex items-center justify-between">
+                <div className='flex items-center'>
+                    <MapPin className="h-6 w-6 text-primary mr-3" />
+                    <p className="text-sm font-medium text-primary-dark">Enable location services to find doctors near you.</p>
+                </div>
+                <div>
+                    <Button size="sm" onClick={handleLocationClick} disabled={isLocating}>
+                        {isLocating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enable"}
+                    </Button>
+                     <Button size="sm" variant="ghost" onClick={() => setShowLocationBanner(false)} className="ml-2">
+                        <X className="h-4 w-4" />
+                    </Button>
+                </div>
+            </div>
+        )}
+
           <div className="mt-8 p-4 bg-card rounded-lg shadow-md max-w-4xl mx-auto">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="relative">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="relative md:col-span-1">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
                 <Input
                   placeholder="Search by doctor's name..."
@@ -66,6 +120,19 @@ export default function FindADoctorPage() {
                   {specialties.map(specialty => (
                     <SelectItem key={specialty} value={specialty}>
                       {specialty}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+               <Select onValueChange={setSelectedLocation} value={selectedLocation}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Filter by location" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Locations</SelectItem>
+                   {locations.map(loc => (
+                    <SelectItem key={loc} value={loc}>
+                      {loc}
                     </SelectItem>
                   ))}
                 </SelectContent>
