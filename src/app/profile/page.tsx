@@ -15,6 +15,7 @@ import { Loader2 } from 'lucide-react';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import { Separator } from '@/components/ui/separator';
+import { Label } from '@/components/ui/label';
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(6, 'Current password is required.'),
