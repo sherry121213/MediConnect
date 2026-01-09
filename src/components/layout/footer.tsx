@@ -29,8 +29,8 @@ export default function AppFooter() {
             <ul className="mt-4 space-y-3 text-sm">
               <li><Link href="/find-a-doctor" className="text-gray-400 hover:text-accent">Find a Doctor</Link></li>
               <li><Link href="/appointments" className="text-gray-400 hover:text-accent">Appointments</Link></li>
-              <li><Link href="/contact" className="text-gray-400 hover:text-accent">Contact Us</Link></li>
-              <li><Link href="#" className="text-gray-400 hover:text-accent">About Us</Link></li>
+              <li><Link href="/about" className="text-gray-400 hover:text-accent">About Us</Link></li>
+              <li><Link href="/about#contact" className="text-gray-400 hover:text-accent">Contact Us</Link></li>
             </ul>
           </div>
           
