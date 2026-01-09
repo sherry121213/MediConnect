@@ -1,4 +1,4 @@
-export type Specialty = 'Psychiatrist' | 'Cardiologist' | 'General Physician' | 'Gynecologist';
+export type Specialty = 'Psychiatrist' | 'Cardiologist' | 'General Physician' | 'Gynecologist' | 'Dermatology' | 'Orthopedics';
 
 export interface Doctor {
   id: string;
@@ -7,7 +7,7 @@ export interface Doctor {
   lastName: string;
   email: string;
   phone?: string;
-  specialty?: string;
+  specialty?: Specialty | string;
   location?: string;
   rating?: number;
   reviews?: number;

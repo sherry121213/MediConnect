@@ -193,40 +193,32 @@ export default function ProfilePage() {
               <CardTitle>Personal Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-                <div className="flex items-center gap-6">
-                  <div className="relative group">
-                    <Avatar className="h-24 w-24">
-                        <AvatarImage src={photoPreview || undefined} alt={userData?.displayName || 'User'} />
-                        <AvatarFallback>{userData?.email?.[0].toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                     <label htmlFor="photo-upload" className="absolute inset-0 bg-black/50 flex items-center justify-center text-white opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer rounded-full">
-                       <Upload className="h-6 w-6" />
-                       <Input id="photo-upload" type="file" className="hidden" accept="image/*" onChange={handlePhotoChange} />
-                    </label>
-                  </div>
+                <div className="flex items-start justify-between gap-6">
                   <div className="flex-grow">
-                     <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>First Name</Label>
-                        <p className="font-medium">{userData?.firstName}</p>
-                      </div>
-                      <div>
-                        <Label>Last Name</Label>
-                        <p className="font-medium">{userData?.lastName}</p>
-                      </div>
+                    <p className="text-sm text-muted-foreground capitalize">{userData?.role}</p>
+                    <h2 className="text-3xl font-bold font-headline">{userData?.firstName} {userData?.lastName}</h2>
+                    <p className="text-muted-foreground">{user.email}</p>
+                    <div className="mt-4">
+                        <label htmlFor="photo-upload-button" className="cursor-pointer">
+                            <Button variant="outline" asChild>
+                                <span>
+                                    <Upload className="mr-2 h-4 w-4" />
+                                    Change Picture
+                                </span>
+                            </Button>
+                            <Input id="photo-upload-button" type="file" className="hidden" accept="image/*" onChange={handlePhotoChange} />
+                        </label>
                     </div>
-                     <div>
-                      <Label>Email</Label>
-                      <p className="font-medium">{user.email}</p>
-                    </div>
-                     <div>
-                      <Label>Role</Label>
-                      <p className="font-medium capitalize">{userData?.role}</p>
-                    </div>
+                  </div>
+                  <div className="flex-shrink-0">
+                    <Avatar className="h-28 w-28">
+                        <AvatarImage src={photoPreview || undefined} alt={userData?.displayName || 'User'} />
+                        <AvatarFallback className="text-3xl">{userData?.email?.[0].toUpperCase()}</AvatarFallback>
+                    </Avatar>
                   </div>
                 </div>
                  {photoFile && (
-                    <div className="flex items-center justify-end gap-2">
+                    <div className="flex items-center justify-end gap-2 border-t pt-4">
                       <Button variant="ghost" onClick={() => { setPhotoFile(null); setPhotoPreview(userData?.photoURL || null); }}>Cancel</Button>
                       <Button onClick={handlePhotoUpload} disabled={isUploading}>
                         {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
