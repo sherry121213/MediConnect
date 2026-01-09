@@ -43,9 +43,19 @@ export default function AppHeader() {
   
   const handleProfileClick = () => {
     if (userData?.role === 'doctor') {
-      router.push('/doctor-portal/profile');
+      if(userData?.profileComplete) {
+         router.push('/doctor-portal');
+      } else {
+         router.push('/doctor-portal/profile');
+      }
     } else if (userData?.role === 'patient') {
-      router.push('/patient-portal/profile');
+        if(userData?.profileComplete) {
+            router.push('/patient-portal');
+        } else {
+           router.push('/patient-portal/profile');
+        }
+    } else if (userData?.role === 'admin') {
+        router.push('/admin');
     }
   }
 
@@ -146,7 +156,10 @@ export default function AppHeader() {
             </nav>
             <div className="mt-8 flex flex-col gap-2">
                {isUserLoading ? null : userData ? (
-                <Button variant="outline" onClick={() => {handleLogout(); setMobileMenuOpen(false);}}>Log Out</Button>
+                <div className="space-y-2">
+                  <Button variant="outline" className="w-full" onClick={() => {handleProfileClick(); setMobileMenuOpen(false);}}>My Profile</Button>
+                  <Button variant="outline" className="w-full" onClick={() => {handleLogout(); setMobileMenuOpen(false);}}>Log Out</Button>
+                </div>
                ) : (
                 <>
                   <Button variant="ghost" asChild>
