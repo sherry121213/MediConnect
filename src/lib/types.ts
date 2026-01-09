@@ -14,6 +14,7 @@ export interface Doctor {
   isVerified?: boolean; // Keep for static data
   verified: boolean; // For Firestore data
   profileImageId?: string;
+  photoURL?: string;
   bio?: string;
   medicalSchool?: string;
   degree?: string;
@@ -33,6 +34,7 @@ export interface Patient {
     phone?: string;
     dateOfBirth?: string;
     address?: string;
+    photoURL?: string;
     role: 'patient' | 'doctor' | 'admin';
     profileComplete?: boolean;
     createdAt: string;

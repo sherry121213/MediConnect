@@ -41,6 +41,11 @@
           "type": "string",
           "description": "User's address."
         },
+        "photoURL": {
+          "type": "string",
+          "description": "URL of the user's profile picture.",
+          "format": "uri"
+        },
         "createdAt": {
           "type": "string",
           "description": "Timestamp of when the user record was created.",
@@ -111,6 +116,11 @@
         "verified": {
           "type": "boolean",
           "description": "Indicates if the doctor's profile has been verified by an admin."
+        },
+        "photoURL": {
+          "type": "string",
+          "description": "URL of the doctor's profile picture.",
+          "format": "uri"
         },
         "createdAt": {
           "type": "string",
