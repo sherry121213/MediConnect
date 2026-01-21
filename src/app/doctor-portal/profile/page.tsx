@@ -16,7 +16,6 @@ import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 
 const profileSchema = z.object({
   specialty: z.string().min(2, 'Specialty is required.'),
@@ -25,7 +24,7 @@ const profileSchema = z.object({
   degree: z.string().min(2, 'Degree is required.'),
   contact: z.string().min(10, 'Please enter a valid contact number.'),
   location: z.string().min(3, 'Clinic location is required.'),
-  degreeUrl: z.string().url({ message: "Please provide a valid URL." }).optional().or(z.literal('')),
+  degreeUrl: z.string().optional(),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -36,6 +35,7 @@ export default function DoctorProfilePage() {
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
   const [pageTitle, setPageTitle] = useState('Complete Your Professional Profile');
   const [pageDescription, setPageDescription] = useState('Please provide your details to get your profile verified by our team.');
 
@@ -80,6 +80,36 @@ export default function DoctorProfilePage() {
       fetchDoctorProfile();
     }
   }, [user, firestore, form]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, field: any) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 1024 * 1024) { // 1MB limit
+        toast({
+          variant: 'destructive',
+          title: 'File is too large',
+          description: 'Please upload a file smaller than 1MB to avoid errors.',
+        });
+        e.target.value = '';
+        return;
+      }
+      setIsUploading(true);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        field.onChange(reader.result as string);
+        setIsUploading(false);
+      };
+      reader.onerror = () => {
+        setIsUploading(false);
+        toast({
+          variant: 'destructive',
+          title: 'Error reading file',
+          description: 'Could not process the selected file. Please try again.',
+        });
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   const onSubmit = async (values: ProfileFormValues) => {
     if (!user || !firestore) {
@@ -240,58 +270,64 @@ export default function DoctorProfilePage() {
                     />
                  </div>
                  
-                 <FormField
+                <FormField
                   control={form.control}
                   name="degreeUrl"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Degree/Certificate URL</FormLabel>
-                      <Dialog>
-                        <DialogTrigger asChild>
-                          <Button type="button" variant="outline" className="w-full justify-start font-normal text-left h-auto min-h-10">
-                            {field.value ? (
-                              <span className="truncate">{field.value}</span>
-                            ) : (
-                              <span className="text-muted-foreground">Click to add document link</span>
-                            )}
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Upload Document</DialogTitle>
-                            <DialogDescription>
-                              To add your document, please upload it to a service like Google Drive or Dropbox and paste the public shareable link below.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <FormControl>
-                            <Input placeholder="https://example.com/degree.pdf" {...field} />
-                          </FormControl>
-                          <DialogFooter>
-                            <DialogClose asChild>
-                              <Button type="button">Done</Button>
-                            </DialogClose>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
+                      <FormLabel>Degree/Certificate</FormLabel>
+                      <FormControl>
+                        <Input 
+                            type="file" 
+                            accept="image/*,.pdf"
+                            onChange={(e) => handleFileChange(e, field)}
+                            disabled={isUploading || isSubmitting}
+                            className="file:text-primary file:font-medium"
+                        />
+                      </FormControl>
                       <FormDescription>
-                        A public link to your uploaded degree or certificate (PDF or image).
+                        Upload your degree document. Max file size: 1MB.
                       </FormDescription>
+                       {isUploading && (
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              <span>Processing file...</span>
+                          </div>
+                      )}
                       <FormMessage />
                     </FormItem>
                   )}
                 />
                 
-                {watchedDegreeUrl && (
+                {watchedDegreeUrl && !isUploading && (
                     <div className="mt-4">
-                        <p className="font-medium text-sm mb-2">Image Preview:</p>
-                        <div className="relative w-full max-w-sm h-64 border rounded-md overflow-hidden">
-                           <Image src={watchedDegreeUrl} alt="Degree preview" fill style={{objectFit:"contain"}} />
-                        </div>
+                        <p className="font-medium text-sm mb-2">Document Preview:</p>
+                        {watchedDegreeUrl.startsWith('data:image') ? (
+                             <div className="relative w-full max-w-sm h-64 border rounded-md overflow-hidden">
+                               <Image src={watchedDegreeUrl} alt="Degree preview" fill style={{objectFit:"contain"}} />
+                            </div>
+                        ) : watchedDegreeUrl.startsWith('data:application/pdf') ? (
+                            <div className="p-4 border rounded-md bg-muted/50 text-center">
+                                <p className="text-sm font-medium">PDF Document Selected</p>
+                                <p className="text-xs text-muted-foreground mb-2">Preview not available in browser.</p>
+                                <Button asChild size="sm" variant="outline">
+                                    <a href={watchedDegreeUrl} target="_blank" rel="noopener noreferrer">View PDF in new tab</a>
+                                </Button>
+                            </div>
+                        ) : watchedDegreeUrl.startsWith('https://') ? (
+                           <div className="relative w-full max-w-sm h-64 border rounded-md overflow-hidden">
+                               <Image src={watchedDegreeUrl} alt="Degree preview" fill style={{objectFit:"contain"}} />
+                            </div>
+                        ) : (
+                             <div className="p-4 border rounded-md bg-destructive/10 text-center">
+                                <p className="text-sm font-medium text-destructive">Unsupported file or link</p>
+                             </div>
+                        )}
                     </div>
                 )}
 
-                <Button type="submit" className="w-full" disabled={isSubmitting}>
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                <Button type="submit" className="w-full" disabled={isSubmitting || isUploading}>
+                  {(isSubmitting || isUploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Save and Continue
                 </Button>
               </form>

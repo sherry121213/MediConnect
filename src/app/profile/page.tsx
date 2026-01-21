@@ -18,7 +18,6 @@ import AppFooter from '@/components/layout/footer';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(6, 'Current password is required.'),
@@ -34,7 +33,6 @@ export default function ProfilePage() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [photoUrlInput, setPhotoUrlInput] = useState('');
 
   const form = useForm<ChangePasswordFormValues>({
     resolver: zodResolver(changePasswordSchema),
@@ -44,47 +42,47 @@ export default function ProfilePage() {
     },
   });
   
-  useEffect(() => {
-    if (userData?.photoURL) {
-      setPhotoUrlInput(userData.photoURL);
+  const handlePictureChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user || !firestore || !e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+
+    if (file.size > 512 * 1024) { // 512KB limit for profile pictures
+        toast({
+            variant: 'destructive',
+            title: 'Image is too large',
+            description: 'Please upload an image smaller than 512KB.',
+        });
+        return;
     }
-  }, [userData]);
-
-
-  const handleSavePhotoUrl = async () => {
-    if (!user || !firestore) return;
+    
     setIsUploading(true);
 
-    try {
-      // Basic validation to check if it's a URL.
-      if (photoUrlInput) {
-        new URL(photoUrlInput);
-      }
-      
-      await updateProfile(user, { photoURL: photoUrlInput });
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+        const dataUrl = reader.result as string;
+        try {
+            await updateProfile(user, { photoURL: dataUrl });
+            
+            const collectionName = userData?.role === 'doctor' ? 'doctors' : 'patients';
+            const userDocRef = doc(firestore, collectionName, user.uid);
+            await setDoc(userDocRef, { photoURL: dataUrl }, { merge: true });
 
-      const collectionName = userData?.role === 'doctor' ? 'doctors' : 'patients';
-      const userDocRef = doc(firestore, collectionName, user.uid);
-      await setDoc(userDocRef, { photoURL: photoUrlInput }, { merge: true });
-
-      toast({
-        title: 'Profile Picture Updated',
-        description: 'Your new photo has been saved.',
-      });
-    } catch (error) {
-      let description = 'Could not save your new profile picture.';
-      if (error instanceof TypeError) {
-        description = 'Please enter a valid URL.';
-      }
-      toast({
-        variant: 'destructive',
-        title: 'Update Failed',
-        description,
-      });
-      console.error("Error updating photo URL:", error);
-    } finally {
-      setIsUploading(false);
-    }
+            toast({
+                title: 'Profile Picture Updated',
+                description: 'Your new photo has been saved.',
+            });
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Update Failed',
+                description: 'Could not save your new profile picture.',
+            });
+            console.error("Error updating photo URL:", error);
+        } finally {
+            setIsUploading(false);
+        }
+    };
+    reader.readAsDataURL(file);
   };
 
 
@@ -164,9 +162,6 @@ export default function ProfilePage() {
     )
   }
 
-  const originalPhotoUrl = userData?.photoURL || '';
-  const hasChanged = photoUrlInput !== originalPhotoUrl;
-
   return (
     <div className="flex flex-col min-h-screen">
       <AppHeader />
@@ -178,7 +173,7 @@ export default function ProfilePage() {
             <CardHeader>
               <CardTitle>Personal Information</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent>
                 <div className="flex flex-col sm:flex-row items-start justify-between gap-6">
                   <div className="flex-grow space-y-4">
                     <div>
@@ -196,50 +191,26 @@ export default function ProfilePage() {
                   </div>
                   <div className="flex-shrink-0 flex flex-col items-center gap-4 w-full sm:w-auto">
                     <Avatar className="h-28 w-28">
-                        <AvatarImage src={photoUrlInput || undefined} alt={userData?.displayName || 'User'} />
+                        <AvatarImage src={userData?.photoURL || user?.photoURL || undefined} alt={userData?.displayName || 'User'} />
                         <AvatarFallback className="text-3xl">{userData?.email?.[0].toUpperCase() ?? "U"}</AvatarFallback>
                     </Avatar>
-                     <Dialog>
-                        <DialogTrigger asChild>
-                          <Button type="button" variant="outline">
-                            {photoUrlInput ? 'Change Picture' : 'Add Picture'}
-                          </Button>
-                        </DialogTrigger>
-                        <DialogContent>
-                          <DialogHeader>
-                            <DialogTitle>Update Profile Picture</DialogTitle>
-                            <DialogDescription>
-                              To update your photo, upload it to a service like Google Photos or Imgur and paste the public link below.
-                            </DialogDescription>
-                          </DialogHeader>
-                          <div className="space-y-2">
-                            <Label htmlFor="photo-url-input-dialog">Photo URL</Label>
-                            <Input
-                              id="photo-url-input-dialog"
-                              type="text"
-                              value={photoUrlInput}
-                              onChange={(e) => setPhotoUrlInput(e.target.value)}
-                              placeholder="https://example.com/photo.png"
-                            />
-                          </div>
-                          <DialogFooter>
-                            <DialogClose asChild>
-                              <Button type="button">Done</Button>
-                            </DialogClose>
-                          </DialogFooter>
-                        </DialogContent>
-                      </Dialog>
+                     <div className='relative'>
+                        <Button asChild variant="outline" size="sm">
+                          <label htmlFor="picture-upload" className="cursor-pointer">
+                            {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>) : "Change Picture"}
+                          </label>
+                        </Button>
+                        <Input
+                          id="picture-upload"
+                          type="file"
+                          accept="image/*"
+                          onChange={handlePictureChange}
+                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                          disabled={isUploading}
+                        />
+                      </div>
                   </div>
                 </div>
-                 {hasChanged && (
-                    <div className="flex items-center justify-end gap-2 border-t pt-4">
-                      <Button variant="ghost" onClick={() => setPhotoUrlInput(originalPhotoUrl)}>Cancel</Button>
-                      <Button onClick={handleSavePhotoUrl} disabled={isUploading}>
-                        {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Save Picture
-                      </Button>
-                    </div>
-                  )}
             </CardContent>
           </Card>
 
