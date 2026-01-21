@@ -9,13 +9,16 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, AtSign, BriefcaseMedical, Calendar, GraduationCap, Loader2, MapPin, Phone, Star, UserCheck } from 'lucide-react';
+import { ArrowLeft, AtSign, BriefcaseMedical, Calendar, CheckCircle, GraduationCap, Loader2, MapPin, Phone, Star, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import { useToast } from '@/hooks/use-toast';
+import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export default function DoctorProfilePage() {
     const params = useParams();
     const firestore = useFirestore();
+    const { toast } = useToast();
     const doctorId = params.id as string;
 
     const doctorDocRef = useMemoFirebase(() => {
@@ -24,6 +27,16 @@ export default function DoctorProfilePage() {
     }, [firestore, doctorId]);
 
     const { data: doctor, isLoading, error } = useDoc<Doctor>(doctorDocRef);
+
+    const handleVerifyDoctor = () => {
+        if (!firestore || !doctorId || !doctor) return;
+        const doctorDocRef = doc(firestore, 'doctors', doctorId);
+        updateDocumentNonBlocking(doctorDocRef, { verified: true, updatedAt: new Date().toISOString() });
+        toast({
+            title: "Doctor Verified!",
+            description: `Dr. ${doctor.firstName} ${doctor.lastName}'s profile has been verified.`,
+        });
+    };
 
     if (isLoading) {
         return (
@@ -88,9 +101,17 @@ export default function DoctorProfilePage() {
                             </div>
                         </div>
                     </div>
-                    <Badge variant={doctor.verified ? 'secondary' : 'destructive'} className={`mt-4 md:mt-0 ${doctor.verified ? 'bg-green-100 text-green-800' : ''}`}>
-                        {doctor.verified ? 'Verified' : 'Pending Verification'}
-                    </Badge>
+                    <div className="flex flex-col items-end gap-2">
+                        <Badge variant={doctor.verified ? 'secondary' : 'destructive'} className={`mt-4 md:mt-0 ${doctor.verified ? 'bg-green-100 text-green-800' : ''}`}>
+                            {doctor.verified ? 'Verified' : 'Pending Verification'}
+                        </Badge>
+                        {!doctor.verified && (
+                            <Button onClick={handleVerifyDoctor}>
+                                <CheckCircle className="mr-2 h-4 w-4" />
+                                Verify Doctor
+                            </Button>
+                        )}
+                    </div>
                 </CardHeader>
                 <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                     <div className="flex items-center gap-3">

@@ -1,8 +1,15 @@
 "use client"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
-import { BookOpen, Stethoscope, UserPlus } from "lucide-react";
+import { BookOpen, Stethoscope, UserPlus, UserCheck } from "lucide-react";
 import { useEffect, useState } from "react";
+import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, where } from "firebase/firestore";
+import type { Doctor } from "@/lib/types";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
+
 
 const generateMonthlyBookings = () => [
   { name: "Jan", total: Math.floor(Math.random() * 200) + 50 },
@@ -29,6 +36,14 @@ const topSpecialties = [
 
 export default function AdminDashboardPage() {
   const [monthlyBookings, setMonthlyBookings] = useState<any[]>([]);
+  const firestore = useFirestore();
+
+  const pendingDoctorsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'doctors'), where('verified', '==', false));
+  }, [firestore]);
+
+  const { data: pendingDoctors, isLoading: isLoadingPending } = useCollection<Doctor>(pendingDoctorsQuery);
 
   useEffect(() => {
     setMonthlyBookings(generateMonthlyBookings());
@@ -114,6 +129,41 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+       <Card>
+        <CardHeader>
+            <CardTitle>Pending Doctor Verifications</CardTitle>
+            <p className="text-sm text-muted-foreground">Review and approve new doctor profiles to allow them portal access.</p>
+        </CardHeader>
+        <CardContent>
+            {isLoadingPending && (
+                <div className="space-y-4">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-12 w-full" />
+                </div>
+            )}
+            {!isLoadingPending && pendingDoctors && pendingDoctors.length > 0 ? (
+                <div className="space-y-4">
+                    {pendingDoctors.map(doctor => (
+                        <div key={doctor.id} className="flex items-center justify-between p-2 rounded-md border">
+                            <div>
+                                <p className="font-medium">{doctor.firstName} {doctor.lastName}</p>
+                                <p className="text-sm text-muted-foreground">{doctor.email}</p>
+                            </div>
+                            <Button asChild variant="outline" size="sm">
+                                <Link href={`/admin/doctors/${doctor.id}`}>
+                                    <UserCheck className="mr-2 h-4 w-4" />
+                                    Review Profile
+                                </Link>
+                            </Button>
+                        </div>
+                    ))}
+                </div>
+            ) : !isLoadingPending && (
+                <p className="text-sm text-muted-foreground text-center py-8">No pending verifications.</p>
+            )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
