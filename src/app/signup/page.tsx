@@ -1,7 +1,7 @@
 'use client';
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import AppHeader from "@/components/layout/header";
 import AppFooter from "@/components/layout/footer";
 import { Button } from "@/components/ui/button";
@@ -13,7 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { useAuth, useFirestore } from "@/firebase";
+import { useAuth, useFirestore, useUserData } from "@/firebase";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
@@ -42,6 +42,7 @@ export default function SignupPage() {
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
+  const { user, userData, isUserLoading } = useUserData();
   
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
@@ -53,6 +54,22 @@ export default function SignupPage() {
       role: 'patient',
     },
   });
+
+  // Redirect if user is already logged in
+  useEffect(() => {
+    if (!isUserLoading && user && userData) {
+      if (userData.role === 'admin') {
+        router.replace('/admin');
+      } else if (userData.role === 'doctor') {
+        router.replace('/doctor-portal');
+      } else if (userData.role === 'patient') {
+        router.replace('/patient-portal');
+      } else {
+        router.replace('/'); // Fallback to home
+      }
+    }
+  }, [user, userData, isUserLoading, router]);
+
 
   async function onSubmit(values: SignupFormValues) {
     const { firstName, lastName, email, password, role } = values;
@@ -189,6 +206,17 @@ export default function SignupPage() {
         setLoading(false);
     }
   };
+
+  // Show loading screen while checking auth status or if user is logged in
+  if (isUserLoading || user) {
+     return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading...</span>
+      </div>
+    );
+  }
+
 
   return (
     <div className="flex flex-col min-h-screen">

@@ -6,8 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useState } from "react";
-import { useAuth, useFirestore } from "@/firebase";
+import { useState, useEffect } from "react";
+import { useAuth, useFirestore, useUserData } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
@@ -33,6 +33,23 @@ export default function LoginPage() {
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
+  const { user, userData, isUserLoading } = useUserData();
+
+  // Redirect if user is already logged in
+  useEffect(() => {
+    if (!isUserLoading && user && userData) {
+      if (userData.role === 'admin') {
+        router.replace('/admin');
+      } else if (userData.role === 'doctor') {
+        router.replace('/doctor-portal');
+      } else if (userData.role === 'patient') {
+        router.replace('/patient-portal');
+      } else {
+        router.replace('/'); // Fallback to home
+      }
+    }
+  }, [user, userData, isUserLoading, router]);
+
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,7 +64,6 @@ export default function LoginPage() {
       const userDocSnap = await getDoc(userDocRef);
 
       if (!userDocSnap.exists()) {
-        // This should not happen in a normal flow.
         toast({
           variant: "destructive",
           title: "Login Failed",
@@ -58,21 +74,19 @@ export default function LoginPage() {
         return;
       }
       
-      const userData = userDocSnap.data();
+      const loginUserData = userDocSnap.data();
 
-      if (userData.role === 'doctor') {
-        // The doctor-portal layout handles routing to profile, pending, or dashboard.
+      if (loginUserData.role === 'doctor') {
         router.push('/doctor-portal');
-      } else if (userData.role === 'admin') {
+      } else if (loginUserData.role === 'admin') {
         router.push('/admin');
-      } else if (userData.role === 'patient') {
-        if (userData.profileComplete) {
+      } else if (loginUserData.role === 'patient') {
+        if (loginUserData.profileComplete) {
           router.push('/patient-portal');
         } else {
           router.push('/patient-portal/profile');
         }
       } else {
-        // Fallback for unknown role
          toast({
             variant: "destructive",
             title: "Login Failed",
@@ -124,6 +138,16 @@ export default function LoginPage() {
       setLoading(false);
     }
   };
+  
+  // Show loading screen while checking auth status or if user is logged in
+  if (isUserLoading || user) {
+     return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+        <span className="ml-2">Loading...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
