@@ -125,7 +125,7 @@ export default function DoctorProfilePage() {
                 description: 'Your profile is now under review. You will be notified once it is approved.',
                 duration: 5000,
             });
-            router.push('/');
+            router.push('/doctor-portal');
         } else {
             toast({
                 title: 'Profile Updated!',
@@ -253,36 +253,58 @@ export default function DoctorProfilePage() {
                     <FormItem>
                       <FormLabel>Degree/Certificate</FormLabel>
                       <FormControl>
-                        <Dialog>
-                          <DialogTrigger asChild>
-                            <Button variant="outline" className="w-full">
-                              Upload Document
-                            </Button>
-                          </DialogTrigger>
-                          <DialogContent>
-                            <DialogHeader>
-                              <DialogTitle>Upload Instructions</DialogTitle>
-                              <DialogDescription>
-                                Please upload your document to a file hosting service like Google Drive or Dropbox, and paste the public share link below.
-                              </DialogDescription>
-                            </DialogHeader>
-                            <Input
-                              placeholder="https://example.com/your-document-link"
-                              onChange={field.onChange}
-                              value={field.value}
-                            />
-                            <DialogFooter>
-                              <DialogClose asChild>
-                                <Button>Done</Button>
-                              </DialogClose>
-                            </DialogFooter>
-                          </DialogContent>
-                        </Dialog>
+                         <div className="flex items-center gap-4">
+                           <div className='relative'>
+                              <Button asChild variant="outline">
+                                <label htmlFor="degree-upload" className="cursor-pointer">
+                                  {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>) : "Upload Document"}
+                                </label>
+                              </Button>
+                              <Input
+                                id="degree-upload"
+                                type="file"
+                                accept="image/*,application/pdf"
+                                onChange={(e) => {
+                                    if (!e.target.files || e.target.files.length === 0) return;
+                                    const file = e.target.files[0];
+                                     if (file.size > 1024 * 1024) { // 1MB limit
+                                          toast({
+                                              variant: 'destructive',
+                                              title: 'File is too large',
+                                              description: "The application's stability depends on files being smaller than 1MB.",
+                                          });
+                                          e.target.value = '';
+                                          return;
+                                      }
+                                    setIsUploading(true);
+                                    const reader = new FileReader();
+                                    reader.onloadend = () => {
+                                        form.setValue('degreeUrl', reader.result as string);
+                                        setIsUploading(false);
+                                    };
+                                    reader.readAsDataURL(file);
+                                }}
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                disabled={isUploading}
+                              />
+                            </div>
+                            {form.getValues('degreeUrl') && (
+                                <div className="text-sm text-muted-foreground">
+                                    {form.getValues('degreeUrl')?.startsWith('data:image') ? 'Image ready for upload.' : 'PDF ready for upload.'}
+                                </div>
+                            )}
+                        </div>
                       </FormControl>
                       <FormMessage />
+                       {form.getValues('degreeUrl') && form.getValues('degreeUrl')?.startsWith('data:image') && (
+                          <div className="relative w-48 h-32 border rounded-md overflow-hidden mt-2">
+                            <Image src={form.getValues('degreeUrl')!} alt="Degree preview" fill style={{objectFit: "contain"}} />
+                          </div>
+                      )}
                     </FormItem>
                   )}
                 />
+
 
                 <Button type="submit" className="w-full" disabled={isSubmitting || isUploading}>
                   {(isSubmitting || isUploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

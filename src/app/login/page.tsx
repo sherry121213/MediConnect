@@ -47,12 +47,9 @@ export default function LoginPage() {
       const doctorDocSnap = await getDoc(doctorDocRef);
 
       if (doctorDocSnap.exists()) {
-        const doctorData = doctorDocSnap.data();
-        if (doctorData.profileComplete) {
-          router.push('/doctor-portal');
-        } else {
-          router.push('/doctor-portal/profile');
-        }
+        // The doctor-portal layout will handle routing to the correct page 
+        // (dashboard, profile, or pending verification)
+        router.push('/doctor-portal');
       } else {
         // User is not a doctor, check if they are a patient or admin
         const patientDocRef = doc(firestore, 'patients', user.uid);
