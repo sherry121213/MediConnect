@@ -1,7 +1,5 @@
 'use client';
 
-import AppHeader from "@/components/layout/header";
-import AppFooter from "@/components/layout/footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar, Video, MessageSquare, PlusCircle } from "lucide-react";
@@ -97,46 +95,42 @@ export default function DoctorPortalPage() {
     );
 
     return (
-        <div className="flex flex-col min-h-screen">
-            <AppHeader />
-            <main className="flex-grow bg-secondary/30 py-12">
-                <div className="container mx-auto px-4">
-                    <div className="mb-8">
-                        <h1 className="text-3xl font-bold font-headline">Doctor Portal</h1>
-                        <p className="text-muted-foreground">Welcome back, {userData?.displayName || 'Doctor'}!</p>
-                    </div>
-
-                    {upcomingAppointments.length === 0 && recentAppointments.length === 0 ? (
-                         <Card className="text-center py-24">
-                            <CardContent>
-                                <h3 className="text-2xl font-medium font-headline">No Appointments Yet</h3>
-                                <p className="text-muted-foreground mt-2 max-w-md mx-auto">Your dashboard is currently empty. As soon as a patient books a consultation with you, it will appear here.</p>
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        <div className="space-y-8">
-                            {upcomingAppointments.length > 0 && (
-                                <div>
-                                    <h2 className="text-2xl font-bold font-headline mb-4">Upcoming Appointments</h2>
-                                    <div className="space-y-4">
-                                        {upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
-                                    </div>
-                                </div>
-                            )}
-
-                           {recentAppointments.length > 0 && (
-                                <div>
-                                    <h2 className="text-2xl font-bold font-headline mb-4">Recent Activity</h2>
-                                    <div className="space-y-4">
-                                        {recentAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
-                                    </div>
-                                </div>
-                           )}
-                        </div>
-                    )}
+        <main className="flex-grow bg-secondary/30 py-12">
+            <div className="container mx-auto px-4">
+                <div className="mb-8">
+                    <h1 className="text-3xl font-bold font-headline">Doctor Portal</h1>
+                    <p className="text-muted-foreground">Welcome back, {userData?.displayName || 'Doctor'}!</p>
                 </div>
-            </main>
-            <AppFooter />
-        </div>
+
+                {upcomingAppointments.length === 0 && recentAppointments.length === 0 ? (
+                     <Card className="text-center py-24">
+                        <CardContent>
+                            <h3 className="text-2xl font-medium font-headline">No Appointments Yet</h3>
+                            <p className="text-muted-foreground mt-2 max-w-md mx-auto">Your dashboard is currently empty. As soon as a patient books a consultation with you, it will appear here.</p>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <div className="space-y-8">
+                        {upcomingAppointments.length > 0 && (
+                            <div>
+                                <h2 className="text-2xl font-bold font-headline mb-4">Upcoming Appointments</h2>
+                                <div className="space-y-4">
+                                    {upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
+                                </div>
+                            </div>
+                        )}
+
+                       {recentAppointments.length > 0 && (
+                            <div>
+                                <h2 className="text-2xl font-bold font-headline mb-4">Recent Activity</h2>
+                                <div className="space-y-4">
+                                    {recentAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
+                                </div>
+                            </div>
+                       )}
+                    </div>
+                )}
+            </div>
+        </main>
     )
 }

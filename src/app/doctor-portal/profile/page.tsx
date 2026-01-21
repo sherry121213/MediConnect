@@ -12,8 +12,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDes
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
-import AppHeader from '@/components/layout/header';
-import AppFooter from '@/components/layout/footer';
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
@@ -89,7 +87,7 @@ export default function DoctorProfilePage() {
         toast({
           variant: 'destructive',
           title: 'File is too large',
-          description: "The application's stability depends on files being smaller than 1MB.",
+          description: "Please upload a file smaller than 1MB. For larger files, please contact support.",
         });
         e.target.value = '';
         return;
@@ -125,7 +123,7 @@ export default function DoctorProfilePage() {
 
     try {
         const doctorDocRef = doc(firestore, 'doctors', user.uid);
-        const docSnap = await getDoc(doctorDocRef); // Check for profile completion beforehand
+        const docSnap = await getDoc(doctorDocRef);
         const isCompletingProfile = !docSnap.data()?.profileComplete;
 
         const dataToSet = {
@@ -156,7 +154,6 @@ export default function DoctorProfilePage() {
             });
         }
     } catch (error) {
-        // This will only catch the error from getDoc, not setDocumentNonBlocking
         toast({
             variant: "destructive",
             title: "Uh oh! Something went wrong.",
@@ -176,8 +173,6 @@ export default function DoctorProfilePage() {
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <AppHeader />
       <main className="flex-grow flex items-center justify-center bg-secondary/30 py-12">
         <Card className="w-full max-w-3xl">
           <CardHeader>
@@ -287,9 +282,6 @@ export default function DoctorProfilePage() {
                             className="file:text-primary file:font-medium"
                         />
                       </FormControl>
-                      <FormDescription>
-                        Upload your degree document.
-                      </FormDescription>
                        {isUploading && (
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -337,7 +329,5 @@ export default function DoctorProfilePage() {
           </CardContent>
         </Card>
       </main>
-      <AppFooter />
-    </div>
   );
 }
