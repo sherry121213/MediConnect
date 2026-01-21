@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useFirestore, useUser } from '@/firebase';
-import { doc, setDoc, getDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
@@ -16,6 +16,7 @@ import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 const profileSchema = z.object({
   specialty: z.string().min(2, 'Specialty is required.'),
@@ -88,7 +89,7 @@ export default function DoctorProfilePage() {
         toast({
           variant: 'destructive',
           title: 'File is too large',
-          description: 'The selected file exceeds the maximum upload size.',
+          description: "The application's stability depends on files being smaller than 1MB.",
         });
         e.target.value = '';
         return;
@@ -123,43 +124,44 @@ export default function DoctorProfilePage() {
     setIsSubmitting(true);
 
     try {
-      const doctorDocRef = doc(firestore, 'doctors', user.uid);
-      
-      const isCompletingProfile = !((await getDoc(doctorDocRef)).data()?.profileComplete);
+        const doctorDocRef = doc(firestore, 'doctors', user.uid);
+        const docSnap = await getDoc(doctorDocRef); // Check for profile completion beforehand
+        const isCompletingProfile = !docSnap.data()?.profileComplete;
 
-      await setDoc(doctorDocRef, {
-        specialty: values.specialty,
-        experience: values.experience,
-        medicalSchool: values.medicalSchool,
-        degree: values.degree,
-        phone: values.contact,
-        location: values.location,
-        degreeUrl: values.degreeUrl,
-        profileComplete: true, 
-        updatedAt: new Date().toISOString(),
-      }, { merge: true });
+        const dataToSet = {
+            specialty: values.specialty,
+            experience: values.experience,
+            medicalSchool: values.medicalSchool,
+            degree: values.degree,
+            phone: values.contact,
+            location: values.location,
+            degreeUrl: values.degreeUrl,
+            profileComplete: true,
+            updatedAt: new Date().toISOString(),
+        };
 
-      if(isCompletingProfile) {
-        toast({
-          title: 'Profile Submitted!',
-          description: 'Your profile is now under review. You will be notified once it is approved.',
-          duration: 5000,
-        });
-        router.push('/');
-      } else {
-         toast({
-          title: 'Profile Updated!',
-          description: 'Your professional information has been successfully updated.',
-        });
-      }
+        setDocumentNonBlocking(doctorDocRef, dataToSet, { merge: true });
 
+        if (isCompletingProfile) {
+            toast({
+                title: 'Profile Submitted!',
+                description: 'Your profile is now under review. You will be notified once it is approved.',
+                duration: 5000,
+            });
+            router.push('/');
+        } else {
+            toast({
+                title: 'Profile Updated!',
+                description: 'Your professional information has been successfully updated.',
+            });
+        }
     } catch (error) {
-      console.error('Error updating profile:', error);
-      toast({
-        variant: 'destructive',
-        title: 'Uh oh!',
-        description: 'Could not update your profile. Please try again.',
-      });
+        // This will only catch the error from getDoc, not setDocumentNonBlocking
+        toast({
+            variant: "destructive",
+            title: "Uh oh! Something went wrong.",
+            description: "Could not load existing profile data. Please try again."
+        });
     } finally {
         setIsSubmitting(false);
     }

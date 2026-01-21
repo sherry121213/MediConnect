@@ -20,7 +20,8 @@ import { Badge } from "@/components/ui/badge";
 import { MoreHorizontal, PlusCircle } from "lucide-react";
 import Image from "next/image";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, addDoc, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, doc } from "firebase/firestore";
+import { addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import type { Doctor } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PlaceHolderImages as placeholderImages } from "@/lib/placeholder-images";
@@ -97,76 +98,49 @@ export default function AdminDoctorsPage() {
             return;
         }
 
-        try {
-            const newDoctorData: Omit<Doctor, 'id'> = {
-                firstName: values.firstName,
-                lastName: values.lastName,
-                email: values.email,
-                specialty: values.specialty,
-                location: values.location,
-                verified: false,
-                rating: 0,
-                reviews: 0,
-                profileImageId: 'doctor' + (Math.floor(Math.random() * 8) + 1),
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-            };
+        const newDoctorData: Omit<Doctor, 'id'> = {
+            firstName: values.firstName,
+            lastName: values.lastName,
+            email: values.email,
+            specialty: values.specialty,
+            location: values.location,
+            verified: false,
+            rating: 0,
+            reviews: 0,
+            profileImageId: 'doctor' + (Math.floor(Math.random() * 8) + 1),
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+        };
 
-            const doctorsCollectionRef = collection(firestore, 'doctors');
-            await addDoc(doctorsCollectionRef, newDoctorData);
+        const doctorsCollectionRef = collection(firestore, 'doctors');
+        addDocumentNonBlocking(doctorsCollectionRef, newDoctorData);
 
-            toast({
-                title: "Doctor Added",
-                description: `Dr. ${values.firstName} ${values.lastName} has been successfully added.`,
-            });
-            form.reset();
-            setIsDialogOpen(false);
-        } catch (error) {
-            console.error("Error adding document: ", error);
-            toast({
-                variant: "destructive",
-                title: "Uh oh! Something went wrong.",
-                description: "There was a problem with your request.",
-            });
-        }
+        toast({
+            title: "Doctor Added",
+            description: `Dr. ${values.firstName} ${values.lastName} has been successfully added.`,
+        });
+        form.reset();
+        setIsDialogOpen(false);
     }
 
     const handleVerifyDoctor = async (doctorId: string) => {
         if (!firestore) return;
         const doctorDocRef = doc(firestore, 'doctors', doctorId);
-        try {
-            await updateDoc(doctorDocRef, { verified: true, updatedAt: new Date().toISOString() });
-            toast({
-                title: "Doctor Verified",
-                description: "The doctor has been verified and can now access their portal.",
-            });
-        } catch (error) {
-            console.error("Error verifying doctor:", error);
-             toast({
-                variant: "destructive",
-                title: "Verification Failed",
-                description: "Could not update the doctor's status.",
-            });
-        }
+        updateDocumentNonBlocking(doctorDocRef, { verified: true, updatedAt: new Date().toISOString() });
+        toast({
+            title: "Doctor Verified",
+            description: "The doctor has been verified and can now access their portal.",
+        });
     }
 
     const handleDeleteDoctor = async (doctorId: string) => {
         if (!firestore) return;
         const doctorDocRef = doc(firestore, 'doctors', doctorId);
-        try {
-            await deleteDoc(doctorDocRef);
-            toast({
-                title: "Doctor Deleted",
-                description: "The doctor's profile has been successfully deleted.",
-            });
-        } catch (error) {
-            console.error("Error deleting doctor:", error);
-            toast({
-                variant: "destructive",
-                title: "Deletion Failed",
-                description: "Could not delete the doctor's profile.",
-            });
-        }
+        deleteDocumentNonBlocking(doctorDocRef);
+        toast({
+            title: "Doctor Deleted",
+            description: "The doctor's profile has been successfully deleted.",
+        });
     };
 
     return (

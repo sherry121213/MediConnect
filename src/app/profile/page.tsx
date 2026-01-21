@@ -6,7 +6,8 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useAuth, useUserData, useFirestore } from '@/firebase';
 import { updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail, updateProfile } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -42,16 +43,17 @@ export default function ProfilePage() {
     },
   });
   
-  const handlePictureChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!user || !firestore || !e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
 
-    if (file.size > 512 * 1024) { // 512KB limit for profile pictures
+    if (file.size > 1024 * 1024) { // 1MB limit
         toast({
             variant: 'destructive',
-            title: 'Image is too large',
-            description: 'The selected image exceeds the maximum upload size.',
+            title: 'File is too large',
+            description: "The application's stability depends on files being smaller than 1MB.",
         });
+        e.target.value = ''; // Clear the file input
         return;
     }
     
@@ -60,27 +62,31 @@ export default function ProfilePage() {
     const reader = new FileReader();
     reader.onloadend = async () => {
         const dataUrl = reader.result as string;
+        
         try {
-            await updateProfile(user, { photoURL: dataUrl });
-            
-            const collectionName = userData?.role === 'doctor' ? 'doctors' : 'patients';
-            const userDocRef = doc(firestore, collectionName, user.uid);
-            await setDoc(userDocRef, { photoURL: dataUrl }, { merge: true });
-
-            toast({
-                title: 'Profile Picture Updated',
-                description: 'Your new photo has been saved.',
-            });
-        } catch (error) {
-            toast({
-                variant: 'destructive',
-                title: 'Update Failed',
-                description: 'Could not save your new profile picture.',
-            });
-            console.error("Error updating photo URL:", error);
-        } finally {
-            setIsUploading(false);
+          await updateProfile(user, { photoURL: dataUrl });
+        } catch (authError) {
+           toast({
+              variant: 'destructive',
+              title: 'Auth Update Failed',
+              description: 'Could not update your profile picture in the authentication system.',
+          });
+          console.error("Error updating auth profile photo URL:", authError);
+          setIsUploading(false);
+          return;
         }
+        
+        const collectionName = userData?.role === 'doctor' ? 'doctors' : 'patients';
+        const userDocRef = doc(firestore, collectionName, user.uid);
+        
+        setDocumentNonBlocking(userDocRef, { photoURL: dataUrl }, { merge: true });
+
+        toast({
+            title: 'Profile Picture Updated',
+            description: 'Your new photo has been saved.',
+        });
+        
+        setIsUploading(false);
     };
     reader.readAsDataURL(file);
   };

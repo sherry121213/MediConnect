@@ -22,6 +22,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Textarea } from '@/components/ui/textarea';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 const profileSchema = z.object({
   firstName: z.string().min(2, 'First name is required.'),
@@ -94,14 +95,15 @@ export default function PatientProfilePage() {
     setIsSubmitting(true);
 
     try {
-      const isCompletingProfile = !((await getDoc(doc(firestore, 'patients', user.uid))).data()?.profileComplete);
+      const patientDocRef = doc(firestore, 'patients', user.uid);
+      const docSnap = await getDoc(patientDocRef);
+      const isCompletingProfile = !docSnap.data()?.profileComplete;
 
       await updateProfile(user, {
         displayName: `${values.firstName} ${values.lastName}`,
       });
 
-      const patientDocRef = doc(firestore, 'patients', user.uid);
-      await setDoc(patientDocRef, {
+      const dataToSet = {
         firstName: values.firstName,
         lastName: values.lastName,
         phone: values.phone,
@@ -109,7 +111,9 @@ export default function PatientProfilePage() {
         address: values.address,
         profileComplete: true,
         updatedAt: new Date().toISOString(),
-      }, { merge: true });
+      };
+      
+      setDocumentNonBlocking(patientDocRef, dataToSet, { merge: true });
 
       if (isCompletingProfile) {
         toast({

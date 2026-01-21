@@ -19,8 +19,9 @@ import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
-import { setDoc, doc } from 'firebase/firestore';
+import { doc } from 'firebase/firestore';
 import { useFirestore } from "@/firebase";
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 
 export default function SignupPage() {
@@ -50,9 +51,7 @@ export default function SignupPage() {
           displayName: 'Admin User'
         });
 
-        // Create admin user document in 'patients' collection for role lookup
-        const adminDocRef = doc(firestore, 'patients', newUser.uid);
-        await setDoc(adminDocRef, {
+        const adminDocData = {
           id: newUser.uid,
           firstName: 'Admin',
           lastName: 'User',
@@ -61,14 +60,17 @@ export default function SignupPage() {
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
           profileComplete: true,
-        });
+        };
+
+        const adminDocRef = doc(firestore, 'patients', newUser.uid);
+        setDocumentNonBlocking(adminDocRef, adminDocData);
 
         toast({
           title: 'Admin Account Created',
           description: 'Redirecting to the admin dashboard.',
         });
         router.push('/admin');
-        return; // Exit function after handling admin
+        return;
       } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
             toast({
@@ -109,8 +111,7 @@ export default function SignupPage() {
       if (role === 'doctor') {
         const isPreverifiedDoctor = email === 'doc1@gmail.com';
 
-        const doctorDocRef = doc(firestore, 'doctors', newUser.uid);
-        await setDoc(doctorDocRef, {
+        const doctorData = {
           ...baseUserData,
           verified: isPreverifiedDoctor,
           profileComplete: isPreverifiedDoctor,
@@ -124,11 +125,12 @@ export default function SignupPage() {
               location: 'Islamabad',
               degreeUrl: '',
           })
-        });
+        };
+        const doctorDocRef = doc(firestore, 'doctors', newUser.uid);
+        setDocumentNonBlocking(doctorDocRef, doctorData);
 
-        // Also create a record in 'patients' for role lookup
         const patientDocRef = doc(firestore, 'patients', newUser.uid);
-        await setDoc(patientDocRef, {...baseUserData, role: 'doctor' });
+        setDocumentNonBlocking(patientDocRef, {...baseUserData, role: 'doctor' });
         
         if (isPreverifiedDoctor) {
             router.push('/doctor-portal');
@@ -137,8 +139,9 @@ export default function SignupPage() {
         }
 
       } else { // Patient role
+        const patientData = {...baseUserData, role: 'patient', profileComplete: false };
         const patientDocRef = doc(firestore, 'patients', newUser.uid);
-        await setDoc(patientDocRef, {...baseUserData, role: 'patient', profileComplete: false });
+        setDocumentNonBlocking(patientDocRef, patientData);
         router.push('/patient-portal/profile');
       }
 

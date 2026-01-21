@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useFirestore } from '@/firebase';
-import { collection, addDoc } from 'firebase/firestore';
+import { collection } from 'firebase/firestore';
 import { useToast } from '@/hooks/use-toast';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
@@ -18,6 +18,7 @@ import { Loader2, Mail, Phone, Users, Shield, Heart, Quote } from 'lucide-react'
 import Image from 'next/image';
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from '@/components/ui/carousel';
 import Autoplay from 'embla-carousel-autoplay';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 const contactFormSchema = z.object({
   name: z.string().min(2, { message: 'Name must be at least 2 characters.' }),
@@ -29,8 +30,8 @@ type ContactFormValues = z.infer<typeof contactFormSchema>;
 
 const teamMembers = [
     { name: "Dr. Arshad", role: "CEO & Founder", image: "https://images.unsplash.com/photo-1590086782792-42dd2350140d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw0fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjQ2NzYxNTh8MA&ixlibrb-4.1.0&q=80&w=1080", hint: "male ceo portrait" },
-    { name: "Dr. Sana", role: "Chief Medical Officer", image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjQ2NzYxNTh8MA&ixlib-rb-4.1.0&q=80&w=1080", hint: "female doctor portrait" },
-    { name: "Mr. Bilal", role: "Chief Technology Officer", image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjQ2NzYxNTh8MA&ixlib-rb-4.1.0&q=80&w=1080", hint: "male engineer portrait" },
+    { name: "Dr. Sana", role: "Chief Medical Officer", image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHwzfHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjQ2NzYxNTh8MA&ixlibrb-4.1.0&q=80&w=1080", hint: "female doctor portrait" },
+    { name: "Mr. Bilal", role: "Chief Technology Officer", image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?crop=entropy&cs=tinysrgb&fit=max&fm=jpg&ixid=M3w3NDE5ODJ8MHwxfHNlYXJjaHw3fHxwZXJzb24lMjBwb3J0cmFpdHxlbnwwfHx8fDE3NjQ2NzYxNTh8MA&ixlibrb-4.1.0&q=80&w=1080", hint: "male engineer portrait" },
 ];
 
 const milestones = [
@@ -58,16 +59,12 @@ export default function AboutUsPage() {
       toast({ variant: 'destructive', title: 'Error', description: 'Could not connect to the database.' });
       return;
     }
-
-    try {
-      const contactsCollection = collection(firestore, 'contacts');
-      await addDoc(contactsCollection, { ...values, submittedAt: new Date().toISOString() });
-      toast({ title: 'Message Sent!', description: "Thank you for reaching out. We'll be in touch soon." });
-      form.reset();
-    } catch (error) {
-      console.error('Error submitting contact form: ', error);
-      toast({ variant: 'destructive', title: 'Uh oh!', description: 'There was a problem sending your message.' });
-    }
+    
+    const contactsCollection = collection(firestore, 'contacts');
+    addDocumentNonBlocking(contactsCollection, { ...values, submittedAt: new Date().toISOString() });
+    
+    toast({ title: 'Message Sent!', description: "Thank you for reaching out. We'll be in touch soon." });
+    form.reset();
   };
 
   return (
