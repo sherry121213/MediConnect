@@ -17,10 +17,10 @@ service cloud.firestore {
       allow create: if request.auth.uid == userId;
     }
 
-    // Doctors collection: all users can read. Doctors can update their own profile.
+    // Doctors collection: all users can read. Doctors can create and update their own profile.
     match /doctors/{doctorId} {
       allow read: if true;
-      allow update: if request.auth.uid == doctorId;
+      allow create, update: if request.auth.uid == doctorId;
       // Admin write access (create/delete) is handled by the global admin rule.
     }
     
