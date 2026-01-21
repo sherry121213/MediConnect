@@ -18,6 +18,7 @@ import AppFooter from '@/components/layout/footer';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(6, 'Current password is required.'),
@@ -196,18 +197,38 @@ export default function ProfilePage() {
                   <div className="flex-shrink-0 flex flex-col items-center gap-4 w-full sm:w-auto">
                     <Avatar className="h-28 w-28">
                         <AvatarImage src={photoUrlInput || undefined} alt={userData?.displayName || 'User'} />
-                        <AvatarFallback className="text-3xl">{userData?.email?.[0].toUpperCase()}</AvatarFallback>
+                        <AvatarFallback className="text-3xl">{userData?.email?.[0].toUpperCase() ?? "U"}</AvatarFallback>
                     </Avatar>
-                    <div className="w-full space-y-2">
-                        <Label htmlFor="photo-url-input">Photo URL</Label>
-                        <Input 
-                            id="photo-url-input"
-                            type="text"
-                            value={photoUrlInput}
-                            onChange={(e) => setPhotoUrlInput(e.target.value)}
-                            placeholder="https://example.com/photo.png"
-                        />
-                    </div>
+                     <Dialog>
+                        <DialogTrigger asChild>
+                          <Button type="button" variant="outline">
+                            {photoUrlInput ? 'Change Picture' : 'Add Picture'}
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Update Profile Picture</DialogTitle>
+                            <DialogDescription>
+                              To update your photo, upload it to a service like Google Photos or Imgur and paste the public link below.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <div className="space-y-2">
+                            <Label htmlFor="photo-url-input-dialog">Photo URL</Label>
+                            <Input
+                              id="photo-url-input-dialog"
+                              type="text"
+                              value={photoUrlInput}
+                              onChange={(e) => setPhotoUrlInput(e.target.value)}
+                              placeholder="https://example.com/photo.png"
+                            />
+                          </div>
+                          <DialogFooter>
+                            <DialogClose asChild>
+                              <Button type="button">Done</Button>
+                            </DialogClose>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
                   </div>
                 </div>
                  {hasChanged && (

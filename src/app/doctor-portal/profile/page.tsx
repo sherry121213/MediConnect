@@ -16,6 +16,7 @@ import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogClose } from '@/components/ui/dialog';
 
 const profileSchema = z.object({
   specialty: z.string().min(2, 'Specialty is required.'),
@@ -240,21 +241,45 @@ export default function DoctorProfilePage() {
                  </div>
                  
                  <FormField
-                    control={form.control}
-                    name="degreeUrl"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Degree/Certificate URL</FormLabel>
-                        <FormControl>
-                          <Input placeholder="https://example.com/degree.jpg" {...field} />
-                        </FormControl>
-                        <FormDescription>
-                          Upload your document to a file hosting service and paste the public link here.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  control={form.control}
+                  name="degreeUrl"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Degree/Certificate URL</FormLabel>
+                      <Dialog>
+                        <DialogTrigger asChild>
+                          <Button type="button" variant="outline" className="w-full justify-start font-normal text-left h-auto min-h-10">
+                            {field.value ? (
+                              <span className="truncate">{field.value}</span>
+                            ) : (
+                              <span className="text-muted-foreground">Click to add document link</span>
+                            )}
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent>
+                          <DialogHeader>
+                            <DialogTitle>Upload Document</DialogTitle>
+                            <DialogDescription>
+                              To add your document, please upload it to a service like Google Drive or Dropbox and paste the public shareable link below.
+                            </DialogDescription>
+                          </DialogHeader>
+                          <FormControl>
+                            <Input placeholder="https://example.com/degree.pdf" {...field} />
+                          </FormControl>
+                          <DialogFooter>
+                            <DialogClose asChild>
+                              <Button type="button">Done</Button>
+                            </DialogClose>
+                          </DialogFooter>
+                        </DialogContent>
+                      </Dialog>
+                      <FormDescription>
+                        A public link to your uploaded degree or certificate (PDF or image).
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 
                 {watchedDegreeUrl && (
                     <div className="mt-4">
