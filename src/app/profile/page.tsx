@@ -12,7 +12,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, Upload } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import { Separator } from '@/components/ui/separator';
@@ -33,8 +33,7 @@ export default function ProfilePage() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
-  const [photoFile, setPhotoFile] = useState<File | null>(null);
+  const [photoUrlInput, setPhotoUrlInput] = useState('');
 
   const form = useForm<ChangePasswordFormValues>({
     resolver: zodResolver(changePasswordSchema),
@@ -46,65 +45,47 @@ export default function ProfilePage() {
   
   useEffect(() => {
     if (userData?.photoURL) {
-      setPhotoPreview(userData.photoURL);
+      setPhotoUrlInput(userData.photoURL);
     }
   }, [userData]);
 
 
-  const handlePhotoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setPhotoFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotoPreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+  const handleSavePhotoUrl = async () => {
+    if (!user || !firestore) return;
+    setIsUploading(true);
+
+    try {
+      // Basic validation to check if it's a URL.
+      if (photoUrlInput) {
+        new URL(photoUrlInput);
+      }
+      
+      await updateProfile(user, { photoURL: photoUrlInput });
+
+      const collectionName = userData?.role === 'doctor' ? 'doctors' : 'patients';
+      const userDocRef = doc(firestore, collectionName, user.uid);
+      await setDoc(userDocRef, { photoURL: photoUrlInput }, { merge: true });
+
+      toast({
+        title: 'Profile Picture Updated',
+        description: 'Your new photo has been saved.',
+      });
+    } catch (error) {
+      let description = 'Could not save your new profile picture.';
+      if (error instanceof TypeError) {
+        description = 'Please enter a valid URL.';
+      }
+      toast({
+        variant: 'destructive',
+        title: 'Update Failed',
+        description,
+      });
+      console.error("Error updating photo URL:", error);
+    } finally {
+      setIsUploading(false);
     }
   };
 
-  const handlePhotoUpload = async () => {
-    if (!user || !firestore || !photoFile) return;
-    setIsUploading(true);
-    
-    // In a real app, you would upload the file to a storage service (like Firebase Storage)
-    // and get a URL. For this demo, we'll simulate this by converting the image to a base64 Data URL.
-    const reader = new FileReader();
-    reader.readAsDataURL(photoFile);
-    reader.onload = async () => {
-      const dataUrl = reader.result as string;
-      
-      try {
-        // Update Firebase Auth profile
-        await updateProfile(user, { photoURL: dataUrl });
-
-        // Update Firestore document
-        const collectionName = userData?.role === 'doctor' ? 'doctors' : 'patients';
-        const userDocRef = doc(firestore, collectionName, user.uid);
-        await setDoc(userDocRef, { photoURL: dataUrl }, { merge: true });
-
-        toast({
-          title: 'Profile Picture Updated',
-          description: 'Your new photo has been saved.',
-        });
-        setPhotoFile(null); // Clear the file after upload
-      } catch (error) {
-         toast({
-          variant: 'destructive',
-          title: 'Upload Failed',
-          description: 'Could not save your new profile picture.',
-        });
-        console.error("Error uploading photo:", error);
-      } finally {
-        setIsUploading(false);
-      }
-    };
-     reader.onerror = (error) => {
-      console.error("Error reading file:", error);
-      toast({ variant: 'destructive', title: 'Error', description: 'Could not read file.' });
-      setIsUploading(false);
-    };
-  };
 
   const onChangePassword = async (values: ChangePasswordFormValues) => {
     if (!user) return;
@@ -182,6 +163,9 @@ export default function ProfilePage() {
     )
   }
 
+  const originalPhotoUrl = userData?.photoURL || '';
+  const hasChanged = photoUrlInput !== originalPhotoUrl;
+
   return (
     <div className="flex flex-col min-h-screen">
       <AppHeader />
@@ -194,7 +178,7 @@ export default function ProfilePage() {
               <CardTitle>Personal Information</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
-                <div className="flex items-start justify-between gap-6">
+                <div className="flex flex-col sm:flex-row items-start justify-between gap-6">
                   <div className="flex-grow space-y-4">
                     <div>
                       <Label>First Name</Label>
@@ -209,26 +193,27 @@ export default function ProfilePage() {
                       <p className="font-medium">{user.email}</p>
                     </div>
                   </div>
-                  <div className="flex-shrink-0 flex flex-col items-center gap-2">
+                  <div className="flex-shrink-0 flex flex-col items-center gap-4 w-full sm:w-auto">
                     <Avatar className="h-28 w-28">
-                        <AvatarImage src={photoPreview || undefined} alt={userData?.displayName || 'User'} />
+                        <AvatarImage src={photoUrlInput || undefined} alt={userData?.displayName || 'User'} />
                         <AvatarFallback className="text-3xl">{userData?.email?.[0].toUpperCase()}</AvatarFallback>
                     </Avatar>
-                     <label htmlFor="photo-upload-button" className="cursor-pointer">
-                        <Button variant="outline" size="sm" asChild>
-                            <span>
-                                <Upload className="mr-2 h-4 w-4" />
-                                Change
-                            </span>
-                        </Button>
-                        <Input id="photo-upload-button" type="file" className="hidden" accept="image/*" onChange={handlePhotoChange} />
-                    </label>
+                    <div className="w-full space-y-2">
+                        <Label htmlFor="photo-url-input">Photo URL</Label>
+                        <Input 
+                            id="photo-url-input"
+                            type="text"
+                            value={photoUrlInput}
+                            onChange={(e) => setPhotoUrlInput(e.target.value)}
+                            placeholder="https://example.com/photo.png"
+                        />
+                    </div>
                   </div>
                 </div>
-                 {photoFile && (
+                 {hasChanged && (
                     <div className="flex items-center justify-end gap-2 border-t pt-4">
-                      <Button variant="ghost" onClick={() => { setPhotoFile(null); setPhotoPreview(userData?.photoURL || null); }}>Cancel</Button>
-                      <Button onClick={handlePhotoUpload} disabled={isUploading}>
+                      <Button variant="ghost" onClick={() => setPhotoUrlInput(originalPhotoUrl)}>Cancel</Button>
+                      <Button onClick={handleSavePhotoUrl} disabled={isUploading}>
                         {isUploading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                         Save Picture
                       </Button>

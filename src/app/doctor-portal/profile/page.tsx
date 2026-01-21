@@ -8,10 +8,10 @@ import { doc, setDoc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, Upload } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import { useState, useEffect } from 'react';
@@ -24,7 +24,7 @@ const profileSchema = z.object({
   degree: z.string().min(2, 'Degree is required.'),
   contact: z.string().min(10, 'Please enter a valid contact number.'),
   location: z.string().min(3, 'Clinic location is required.'),
-  degreeFile: z.any().optional(),
+  degreeUrl: z.string().url({ message: "Please provide a valid URL." }).optional().or(z.literal('')),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -34,7 +34,6 @@ export default function DoctorProfilePage() {
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
-  const [degreePreview, setDegreePreview] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pageTitle, setPageTitle] = useState('Complete Your Professional Profile');
   const [pageDescription, setPageDescription] = useState('Please provide your details to get your profile verified by our team.');
@@ -49,8 +48,11 @@ export default function DoctorProfilePage() {
       degree: '',
       contact: '',
       location: '',
+      degreeUrl: '',
     },
   });
+
+  const watchedDegreeUrl = form.watch('degreeUrl');
 
   useEffect(() => {
     if (user && firestore) {
@@ -66,11 +68,9 @@ export default function DoctorProfilePage() {
             degree: data.degree || '',
             contact: data.phone || '',
             location: data.location || '',
+            degreeUrl: data.degreeUrl || '',
           });
-          if (data.degreeUrl) {
-            setDegreePreview(data.degreeUrl);
-          }
-           if (data.profileComplete) {
+          if (data.profileComplete) {
             setPageTitle("Edit Your Professional Profile");
             setPageDescription("Keep your professional information up to date.");
           }
@@ -79,21 +79,6 @@ export default function DoctorProfilePage() {
       fetchDoctorProfile();
     }
   }, [user, firestore, form]);
-
-
-  const handleDegreeFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setDegreePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setDegreePreview(null);
-    }
-  };
-
 
   const onSubmit = async (values: ProfileFormValues) => {
     if (!user || !firestore) {
@@ -109,8 +94,6 @@ export default function DoctorProfilePage() {
     try {
       const doctorDocRef = doc(firestore, 'doctors', user.uid);
       
-      let degreeUrl = degreePreview || ''; 
-
       const isCompletingProfile = !((await getDoc(doctorDocRef)).data()?.profileComplete);
 
       await setDoc(doctorDocRef, {
@@ -120,7 +103,7 @@ export default function DoctorProfilePage() {
         degree: values.degree,
         phone: values.contact,
         location: values.location,
-        degreeUrl: degreeUrl,
+        degreeUrl: values.degreeUrl,
         profileComplete: true, 
         updatedAt: new Date().toISOString(),
       }, { merge: true });
@@ -258,34 +241,26 @@ export default function DoctorProfilePage() {
                  
                  <FormField
                     control={form.control}
-                    name="degreeFile"
+                    name="degreeUrl"
                     render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Upload Degree/Certificate</FormLabel>
+                      <FormItem>
+                        <FormLabel>Degree/Certificate URL</FormLabel>
                         <FormControl>
-                            <div className="relative border-2 border-dashed border-muted-foreground/50 rounded-lg p-6 flex flex-col items-center justify-center text-center">
-                                <Upload className="h-10 w-10 text-muted-foreground mb-2" />
-                                <p className="text-muted-foreground text-sm mb-2">Drag & drop your file here or click to browse</p>
-                                <Input 
-                                  type="file" 
-                                  className="absolute top-0 left-0 w-full h-full opacity-0 cursor-pointer"
-                                  accept="image/*"
-                                  onChange={(e) => {
-                                      field.onChange(e.target.files);
-                                      handleDegreeFileChange(e);
-                                  }}
-                                />
-                            </div>
+                          <Input placeholder="https://example.com/degree.jpg" {...field} />
                         </FormControl>
+                        <FormDescription>
+                          Upload your document to a file hosting service and paste the public link here.
+                        </FormDescription>
                         <FormMessage />
-                        </FormItem>
+                      </FormItem>
                     )}
-                />
-                {degreePreview && (
+                  />
+                
+                {watchedDegreeUrl && (
                     <div className="mt-4">
                         <p className="font-medium text-sm mb-2">Image Preview:</p>
                         <div className="relative w-full max-w-sm h-64 border rounded-md overflow-hidden">
-                           <Image src={degreePreview} alt="Degree preview" fill objectFit="contain" />
+                           <Image src={watchedDegreeUrl} alt="Degree preview" fill style={{objectFit:"contain"}} />
                         </div>
                     </div>
                 )}
