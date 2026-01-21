@@ -146,12 +146,19 @@ export default function SignupPage() {
       }
 
     } catch (error: any) {
-        console.error("Signup Error:", error);
         if (error.code === 'auth/email-already-in-use') {
             toast({
               variant: "destructive",
               title: "Email Already Registered",
-              description: "This email is already in use. Please log in instead.",
+              description: (
+                <span>
+                  This email is already in use. Please{' '}
+                  <Link href="/login" className="underline font-bold">
+                    log in
+                  </Link>{' '}
+                  instead.
+                </span>
+              ),
             });
         } else {
             toast({
