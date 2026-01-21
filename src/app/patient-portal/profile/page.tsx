@@ -28,7 +28,7 @@ const profileSchema = z.object({
   firstName: z.string().min(2, 'First name is required.'),
   lastName: z.string().min(2, 'Last name is required.'),
   email: z.string().email('Please enter a valid email.').optional(),
-  phone: z.string().min(10, 'Please enter a valid phone number.'),
+  phone: z.string().min(10, 'Please enter a valid phone number.').max(11, 'Phone number cannot exceed 11 digits.'),
   dateOfBirth: z.date({
     required_error: 'A date of birth is required.',
   }),

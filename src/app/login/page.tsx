@@ -47,18 +47,7 @@ export default function LoginPage() {
       const doctorDocSnap = await getDoc(doctorDocRef);
 
       if (doctorDocSnap.exists()) {
-        // User is a doctor
         const doctorData = doctorDocSnap.data();
-        if (doctorData.verified === false) {
-          toast({
-            title: "Pending Approval",
-            description: "Your profile is under review. You'll be notified once it's approved.",
-            duration: 5000,
-          });
-          auth.signOut();
-          setLoading(false);
-          return;
-        }
         if (doctorData.profileComplete) {
           router.push('/doctor-portal');
         } else {
