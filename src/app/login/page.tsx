@@ -42,39 +42,43 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // Check if user is a doctor first
-      const doctorDocRef = doc(firestore, 'doctors', user.uid);
-      const doctorDocSnap = await getDoc(doctorDocRef);
+      // The 'patients' collection contains a document for every user with their role.
+      const userDocRef = doc(firestore, 'patients', user.uid);
+      const userDocSnap = await getDoc(userDocRef);
 
-      if (doctorDocSnap.exists()) {
-        // The doctor-portal layout will handle routing to the correct page 
-        // (dashboard, profile, or pending verification)
+      if (!userDocSnap.exists()) {
+        // This should not happen in a normal flow.
+        toast({
+          variant: "destructive",
+          title: "Login Failed",
+          description: "User profile not found. Please contact support.",
+        });
+        auth.signOut();
+        setLoading(false);
+        return;
+      }
+      
+      const userData = userDocSnap.data();
+
+      if (userData.role === 'doctor') {
+        // The doctor-portal layout handles routing to profile, pending, or dashboard.
         router.push('/doctor-portal');
-      } else {
-        // User is not a doctor, check if they are a patient or admin
-        const patientDocRef = doc(firestore, 'patients', user.uid);
-        const patientDocSnap = await getDoc(patientDocRef);
-
-        if (patientDocSnap.exists()) {
-          const patientData = patientDocSnap.data();
-          if (patientData.role === 'admin') {
-            router.push('/admin');
-          } else { // It's a patient
-            if (patientData.profileComplete) {
-              router.push('/patient-portal');
-            } else {
-              router.push('/patient-portal/profile');
-            }
-          }
+      } else if (userData.role === 'admin') {
+        router.push('/admin');
+      } else if (userData.role === 'patient') {
+        if (userData.profileComplete) {
+          router.push('/patient-portal');
         } else {
-          // Fallback if no document found (should not happen in normal flow)
-          toast({
+          router.push('/patient-portal/profile');
+        }
+      } else {
+        // Fallback for unknown role
+         toast({
             variant: "destructive",
             title: "Login Failed",
-            description: "User profile not found. Please contact support.",
+            description: "Invalid user role found. Please contact support.",
           });
-          auth.signOut();
-        }
+        auth.signOut();
       }
 
     } catch (error: any) {
