@@ -330,7 +330,7 @@ export default function AdminDoctorsPage() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        {!doctor.verified && <DropdownMenuItem onClick={() => handleVerifyDoctor(doctor.id)}>Verify</DropdownMenuItem>}
+                        {doctor.verified === false && <DropdownMenuItem onClick={() => handleVerifyDoctor(doctor.id)}>Verify</DropdownMenuItem>}
                         <DropdownMenuItem asChild>
                            <Link href={`/admin/doctors/${doctor.id}`}>View Profile</Link>
                         </DropdownMenuItem>
