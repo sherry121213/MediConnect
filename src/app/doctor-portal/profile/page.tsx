@@ -88,7 +88,7 @@ export default function DoctorProfilePage() {
         toast({
           variant: 'destructive',
           title: 'File is too large',
-          description: 'Please upload a file smaller than 1MB to avoid errors.',
+          description: 'The selected file exceeds the maximum upload size.',
         });
         e.target.value = '';
         return;
@@ -286,7 +286,7 @@ export default function DoctorProfilePage() {
                         />
                       </FormControl>
                       <FormDescription>
-                        Upload your degree document. Max file size: 1MB.
+                        Upload your degree document.
                       </FormDescription>
                        {isUploading && (
                           <div className="flex items-center gap-2 text-sm text-muted-foreground">
