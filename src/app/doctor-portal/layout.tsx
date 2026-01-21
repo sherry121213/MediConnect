@@ -18,10 +18,28 @@ export default function DoctorPortalLayout({
   const pathname = usePathname();
 
   useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.replace('/login');
+    if (isUserLoading) {
+      return; // Don't do anything while loading
     }
-  }, [isUserLoading, user, router]);
+    if (!user) {
+      router.replace('/login');
+      return;
+    }
+    if (userData) {
+      if (userData.role !== 'doctor') {
+        router.replace('/');
+        return;
+      }
+      
+      const isProfilePage = pathname === '/doctor-portal/profile';
+      const isVerified = userData.verified === true;
+      const isProfileComplete = userData.profileComplete === true;
+
+      if (!isVerified && !isProfileComplete && !isProfilePage) {
+        router.replace('/doctor-portal/profile');
+      }
+    }
+  }, [isUserLoading, user, userData, pathname, router]);
 
   if (isUserLoading) {
     return (
@@ -41,8 +59,11 @@ export default function DoctorPortalLayout({
   }
   
   if (userData.role !== 'doctor') {
-    router.replace('/');
-    return null;
+      return (
+         <div className="flex h-screen w-full items-center justify-center">
+            <p>Redirecting...</p>
+        </div>
+      );
   }
   
   const isProfilePage = pathname === '/doctor-portal/profile';
@@ -54,7 +75,6 @@ export default function DoctorPortalLayout({
   }
   
   if (!isVerified && !isProfileComplete && !isProfilePage) {
-      router.replace('/doctor-portal/profile');
       return (
          <div className="flex h-screen w-full items-center justify-center">
             <Loader2 className="h-8 w-8 animate-spin" />
