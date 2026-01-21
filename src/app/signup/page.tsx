@@ -13,31 +13,49 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useAuth } from "@/firebase";
+import { useAuth, useFirestore } from "@/firebase";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import { doc } from 'firebase/firestore';
-import { useFirestore } from "@/firebase";
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { z } from 'zod';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+
+const signupSchema = z.object({
+  firstName: z.string().min(2, { message: 'First name must be at least 2 characters.' }).regex(/^[^\d]*$/, { message: "First name cannot contain numbers." }),
+  lastName: z.string().min(2, { message: 'Last name must be at least 2 characters.' }).regex(/^[^\d]*$/, { message: "Last name cannot contain numbers." }),
+  email: z.string().email({ message: 'Please enter a valid email address.' }),
+  password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
+  role: z.enum(['patient', 'doctor']),
+});
+
+type SignupFormValues = z.infer<typeof signupSchema>;
 
 
 export default function SignupPage() {
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [role, setRole] = useState('patient');
   const [loading, setLoading] = useState(false);
   const auth = useAuth();
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
+  
+  const form = useForm<SignupFormValues>({
+    resolver: zodResolver(signupSchema),
+    defaultValues: {
+      firstName: '',
+      lastName: '',
+      email: '',
+      password: '',
+      role: 'patient',
+    },
+  });
 
-  const handleSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
+  async function onSubmit(values: SignupFormValues) {
+    const { firstName, lastName, email, password, role } = values;
     if (!auth || !firestore) return;
     setLoading(true);
     
@@ -167,6 +185,7 @@ export default function SignupPage() {
               description: error.message || "Could not create account. Please try again.",
             });
         }
+    } finally {
         setLoading(false);
     }
   };
@@ -183,53 +202,99 @@ export default function SignupPage() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <form onSubmit={handleSignUp}>
-              <div className="grid gap-4">
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="first-name">First name</Label>
-                    <Input id="first-name" placeholder="Max" required value={firstName} onChange={e => setFirstName(e.target.value)} disabled={loading} />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="last-name">Last name</Label>
-                    <Input id="last-name" placeholder="Robinson" required value={lastName} onChange={e => setLastName(e.target.value)} disabled={loading} />
-                  </div>
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="m@example.com"
-                    required
-                    value={email}
-                    onChange={e => setEmail(e.target.value)}
-                    disabled={loading}
+                  <FormField
+                    control={form.control}
+                    name="firstName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>First Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Max" {...field} disabled={loading} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="lastName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Last Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Robinson" {...field} disabled={loading} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
                 </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="password">Password</Label>
-                  <Input id="password" type="password" value={password} onChange={e => setPassword(e.target.value)} required disabled={loading} />
-                </div>
-                <div className="grid gap-2">
-                  <Label>I am a...</Label>
-                  <RadioGroup defaultValue="patient" onValueChange={setRole} className="flex gap-4">
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="patient" id="role-patient" />
-                      <Label htmlFor="role-patient">Patient</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <RadioGroupItem value="doctor" id="role-doctor" />
-                      <Label htmlFor="role-doctor">Doctor</Label>
-                    </div>
-                  </RadioGroup>
-                </div>
+                 <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="m@example.com" {...field} disabled={loading} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="password"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Password</FormLabel>
+                      <FormControl>
+                        <Input type="password" {...field} disabled={loading} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="role"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormLabel>I am a...</FormLabel>
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          className="flex gap-4"
+                          disabled={loading}
+                        >
+                          <FormItem className="flex items-center space-x-2">
+                            <FormControl>
+                              <RadioGroupItem value="patient" id="role-patient" />
+                            </FormControl>
+                            <FormLabel htmlFor="role-patient" className="font-normal">Patient</FormLabel>
+                          </FormItem>
+                          <FormItem className="flex items-center space-x-2">
+                            <FormControl>
+                              <RadioGroupItem value="doctor" id="role-doctor" />
+                            </FormControl>
+                            <FormLabel htmlFor="role-doctor" className="font-normal">Doctor</FormLabel>
+                          </FormItem>
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
                 <Button type="submit" className="w-full" disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Create an account
                 </Button>
-              </div>
-            </form>
+              </form>
+            </Form>
             <div className="mt-4 text-center text-sm">
               Already have an account?{" "}
               <Link href="/login" className="underline">
