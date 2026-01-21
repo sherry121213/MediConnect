@@ -45,56 +45,61 @@ export default function AppHeader() {
     router.push('/profile');
   }
 
-  const UserMenu = () => (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-          <Avatar className="h-8 w-8">
-             <AvatarImage src={userData?.photoURL || user?.photoURL || undefined} alt={userData?.displayName || 'User'} />
-             <AvatarFallback>{userData?.email?.[0].toUpperCase()}</AvatarFallback>
-          </Avatar>
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent className="w-56" align="end" forceMount>
-        <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium leading-none">{userData?.displayName || `${userData?.firstName} ${userData?.lastName}` || 'User'}</p>
-            <p className="text-xs leading-none text-muted-foreground">
-              {userData?.email}
-            </p>
-          </div>
-        </DropdownMenuLabel>
-        <DropdownMenuSeparator />
-        {userData?.role === 'admin' && (
-          <DropdownMenuItem onClick={() => router.push('/admin')}>
-            <Shield className="mr-2 h-4 w-4" />
-            <span>Admin Portal</span>
+  const UserMenu = () => {
+    const displayName = [userData?.firstName, userData?.lastName].filter(Boolean).join(' ') || userData?.displayName || user?.displayName || 'User';
+    const displayEmail = userData?.email || user?.email;
+
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="ghost" className="relative h-8 w-8 rounded-full">
+            <Avatar className="h-8 w-8">
+               <AvatarImage src={userData?.photoURL || user?.photoURL || undefined} alt={displayName} />
+               <AvatarFallback>{displayEmail?.[0].toUpperCase() ?? 'U'}</AvatarFallback>
+            </Avatar>
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent className="w-56" align="end" forceMount>
+          <DropdownMenuLabel className="font-normal">
+            <div className="flex flex-col space-y-1">
+              <p className="text-sm font-medium leading-none">{displayName}</p>
+              <p className="text-xs leading-none text-muted-foreground">
+                {displayEmail}
+              </p>
+            </div>
+          </DropdownMenuLabel>
+          <DropdownMenuSeparator />
+          {userData?.role === 'admin' && (
+            <DropdownMenuItem onClick={() => router.push('/admin')}>
+              <Shield className="mr-2 h-4 w-4" />
+              <span>Admin Portal</span>
+            </DropdownMenuItem>
+          )}
+          {userData?.role === 'patient' && (
+              <DropdownMenuItem onClick={() => router.push('/patient-portal')}>
+                  <LayoutDashboard className="mr-2 h-4 w-4" />
+                  <span>Patient Portal</span>
+              </DropdownMenuItem>
+          )}
+          {userData?.role === 'doctor' && (
+              <DropdownMenuItem onClick={() => router.push('/doctor-portal')}>
+                  <LayoutDashboard className="mr-2 h-4 w-4" />
+                  <span>Doctor Portal</span>
+              </DropdownMenuItem>
+          )}
+          <DropdownMenuItem onClick={handleProfileClick}>
+            <UserIcon className="mr-2 h-4 w-4" />
+            <span>Profile</span>
           </DropdownMenuItem>
-        )}
-        {userData?.role === 'patient' && (
-            <DropdownMenuItem onClick={() => router.push('/patient-portal')}>
-                <LayoutDashboard className="mr-2 h-4 w-4" />
-                <span>Patient Portal</span>
-            </DropdownMenuItem>
-        )}
-        {userData?.role === 'doctor' && (
-            <DropdownMenuItem onClick={() => router.push('/doctor-portal')}>
-                <LayoutDashboard className="mr-2 h-4 w-4" />
-                <span>Doctor Portal</span>
-            </DropdownMenuItem>
-        )}
-        <DropdownMenuItem onClick={handleProfileClick}>
-          <UserIcon className="mr-2 h-4 w-4" />
-          <span>Profile</span>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleLogout}>
-          <LogOut className="mr-2 h-4 w-4" />
-          <span>Log out</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
-  );
+          <DropdownMenuSeparator />
+          <DropdownMenuItem onClick={handleLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            <span>Log out</span>
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  };
 
 
   return (
