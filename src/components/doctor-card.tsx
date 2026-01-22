@@ -1,3 +1,4 @@
+'use client';
 
 import Image from 'next/image';
 import type { Doctor } from '@/lib/types';
@@ -8,6 +9,9 @@ import { Button } from '@/components/ui/button';
 import { Star, MapPin, ShieldCheck, Video } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { useUser } from '@/firebase';
+import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 interface DoctorCardProps {
   doctor: Doctor;
@@ -15,8 +19,26 @@ interface DoctorCardProps {
 }
 
 export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardProps) {
+  const { user } = useUser();
+  const { toast } = useToast();
+  const router = useRouter();
   const doctorImage = placeholderImages.find(p => p.id === doctor.profileImageId);
   const name = doctor.name || `${doctor.firstName} ${doctor.lastName}`;
+
+  const handleBookAppointment = () => {
+    if (user) {
+      // User is logged in, navigate to booking flow or portal.
+      // For this app, we'll redirect to the patient portal.
+      router.push('/patient-portal');
+    } else {
+      // User is not logged in, show toast and redirect to login.
+      toast({
+        title: 'Login Required',
+        description: 'Please log in to book an appointment.',
+      });
+      router.push('/login');
+    }
+  };
 
   if (variant === 'compact') {
      return (
@@ -86,8 +108,8 @@ export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardPr
         </div>
       </CardContent>
       <CardFooter className="p-4 pt-0">
-        <Button className="w-full" asChild>
-            <Link href="#">Book Appointment</Link>
+        <Button className="w-full" onClick={handleBookAppointment}>
+            Book Appointment
         </Button>
       </CardFooter>
     </Card>
