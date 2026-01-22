@@ -41,4 +41,14 @@ export interface Patient {
     updatedAt: string;
 }
 
-    
+export interface Appointment {
+  id: string;
+  patientId: string;
+  doctorId: string;
+  appointmentDateTime: string;
+  appointmentType: string;
+  status: 'scheduled' | 'completed' | 'cancelled';
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+}

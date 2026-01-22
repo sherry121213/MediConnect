@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, MessageSquare, PlusCircle } from "lucide-react";
+import { Calendar, Video, MessageSquare, Loader2 } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import {
@@ -15,27 +15,52 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useUserData } from "@/firebase";
-
-const currentYear = new Date().getFullYear();
-
-const demoUpcomingAppointments = [
-    { id: 1, patient: "Ali Khan", date: `${currentYear}-08-15`, time: "10:00 AM", type: "Video Call", status: "Upcoming", patientImage: "https://picsum.photos/seed/p1/100/100" },
-    { id: 2, patient: "Sana Ahmed", date: `${currentYear}-08-15`, time: "11:30 AM", type: "Chat", status: "Upcoming", patientImage: "https://picsum.photos/seed/p2/100/100" },
-]
-
-const demoRecentAppointments = [
-    { id: 3, patient: "Zoya Farooq", date: `${currentYear}-07-20`, time: "02:30 PM", type: "Chat", status: "Completed", patientImage: "https://picsum.photos/seed/p3/100/100" },
-    { id: 4, patient: "Usman Sharif", date: `${currentYear}-06-10`, time: "11:00 AM", type: "Video Call", status: "Completed", patientImage: "https://picsum.photos/seed/p4/100/100" },
-]
+import { useUserData, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, where } from "firebase/firestore";
+import type { Appointment, Patient } from "@/lib/types";
+import { useMemo } from "react";
 
 export default function DoctorPortalPage() {
-    const { userData } = useUserData();
+    const { user, userData, isUserLoading } = useUserData();
+    const firestore = useFirestore();
 
-    const isDemoDoctor = userData?.email === 'doc1@gmail.com';
+    const appointmentsQuery = useMemoFirebase(() => {
+        if (!firestore || !user) return null;
+        return query(collection(firestore, 'appointments'), where('doctorId', '==', user.uid));
+    }, [firestore, user]);
+    const { data: appointments, isLoading: isLoadingAppointments, error: appointmentsError } = useCollection<Appointment>(appointmentsQuery);
 
-    const upcomingAppointments = isDemoDoctor ? demoUpcomingAppointments : [];
-    const recentAppointments = isDemoDoctor ? demoRecentAppointments : [];
+    const patientsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        // Fetch all documents from the patients collection
+        return collection(firestore, 'patients');
+    }, [firestore]);
+    const { data: patients, isLoading: isLoadingPatients, error: patientsError } = useCollection<Patient>(patientsQuery);
+    
+    const now = new Date();
+
+    const upcomingAppointments = useMemo(() => {
+        if (!appointments || !patients) return [];
+        return appointments
+            .filter(apt => new Date(apt.appointmentDateTime) >= now)
+            .map(apt => ({
+                ...apt,
+                patient: patients.find(p => p.id === apt.patientId)
+            }))
+            .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
+    }, [appointments, patients]);
+
+    const recentAppointments = useMemo(() => {
+        if (!appointments || !patients) return [];
+        return appointments
+            .filter(apt => new Date(apt.appointmentDateTime) < now)
+            .map(apt => ({
+                ...apt,
+                patient: patients.find(p => p.id === apt.patientId)
+            }))
+            .sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime());
+    }, [appointments, patients]);
+
 
     const JoinCallDialog = ({ apt }: { apt: any }) => (
         <AlertDialog>
@@ -46,7 +71,7 @@ export default function DoctorPortalPage() {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Choose Consultation Method</AlertDialogTitle>
                     <AlertDialogDescription>
-                        How would you like to connect with {apt.patient}?
+                        How would you like to connect with {apt.patient?.firstName || 'the patient'}?
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-4">
@@ -70,39 +95,54 @@ export default function DoctorPortalPage() {
         </AlertDialog>
     );
 
-    const AppointmentCard = ({ apt }: { apt: any }) => (
-        <Card className="grid grid-cols-1 md:grid-cols-4 items-center gap-4">
-            <CardHeader className="flex flex-row items-center gap-4 md:col-span-2">
-                <Avatar className="h-12 w-12">
-                    <AvatarImage src={apt.patientImage} alt={apt.patient} />
-                    <AvatarFallback>{apt.patient.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <div>
-                    <CardTitle>{apt.patient}</CardTitle>
+    const AppointmentCard = ({ apt }: { apt: any }) => {
+        if (!apt.patient) {
+            return <Card className="p-4 text-muted-foreground">Loading patient details...</Card>;
+        }
+
+        const patientName = `${apt.patient.firstName} ${apt.patient.lastName}`;
+        const patientImage = apt.patient.photoURL;
+        const patientFallback = patientName.charAt(0);
+        const appointmentDate = new Date(apt.appointmentDateTime);
+
+        return (
+            <Card className="grid grid-cols-1 md:grid-cols-4 items-center gap-4">
+                <CardHeader className="flex flex-row items-center gap-4 md:col-span-2">
+                    <Avatar className="h-12 w-12">
+                        <AvatarImage src={patientImage} alt={patientName} />
+                        <AvatarFallback>{patientFallback}</AvatarFallback>
+                    </Avatar>
+                    <div>
+                        <CardTitle>{patientName}</CardTitle>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-6 pt-0 md:pt-6">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                        <Calendar className="w-4 h-4" />
+                        <span>{appointmentDate.toLocaleDateString()} at {appointmentDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                    </div>
+                </CardContent>
+                <div className="p-6 pt-0 md:pt-6 text-right">
+                    {apt.status === "scheduled" && <JoinCallDialog apt={apt} />}
+                    {apt.status === "completed" && <Button variant="outline" asChild><Link href="#">View Notes</Link></Button>}
                 </div>
-            </CardHeader>
-            <CardContent className="p-6 pt-0 md:pt-6">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="w-4 h-4" />
-                    <span>{apt.date} at {apt.time}</span>
-                </div>
-            </CardContent>
-            <div className="p-6 pt-0 md:pt-6 text-right">
-                {apt.status === "Upcoming" && <JoinCallDialog apt={apt} />}
-                {apt.status === "Completed" && <Button variant="outline" asChild><Link href="#">View Notes</Link></Button>}
-            </div>
-        </Card>
-    );
+            </Card>
+        );
+    }
 
     return (
         <main className="flex-grow bg-secondary/30 py-12">
             <div className="container mx-auto px-4">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold font-headline">Doctor Portal</h1>
-                    <p className="text-muted-foreground">Welcome back, {userData?.displayName || 'Doctor'}!</p>
+                    <p className="text-muted-foreground">Welcome back, Dr. {userData?.lastName || 'Doctor'}!</p>
                 </div>
 
-                {upcomingAppointments.length === 0 && recentAppointments.length === 0 ? (
+                 {isUserLoading || isLoadingAppointments || isLoadingPatients ? (
+                    <div className="flex justify-center py-24">
+                        <Loader2 className="h-8 w-8 animate-spin" />
+                    </div>
+                ) : appointments && appointments.length === 0 ? (
                      <Card className="text-center py-24">
                         <CardContent>
                             <h3 className="text-2xl font-medium font-headline">No Appointments Yet</h3>
@@ -128,6 +168,9 @@ export default function DoctorPortalPage() {
                                 </div>
                             </div>
                        )}
+
+                        {appointmentsError && <p className="text-destructive text-center">Error loading appointments: {appointmentsError.message}</p>}
+                        {patientsError && <p className="text-destructive text-center">Error loading patient data: {patientsError.message}</p>}
                     </div>
                 )}
             </div>

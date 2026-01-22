@@ -19,6 +19,18 @@ import { getNext7Days, timeSlots } from '@/lib/time';
 import { cn } from '@/lib/utils';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
+import {
+    AlertDialog,
+    AlertDialogAction,
+    AlertDialogCancel,
+    AlertDialogContent,
+    AlertDialogDescription,
+    AlertDialogFooter,
+    AlertDialogHeader,
+    AlertDialogTitle,
+    AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+
 
 export default function DoctorDetailPage() {
     const params = useParams();
@@ -39,7 +51,7 @@ export default function DoctorDetailPage() {
 
     const { data: doctor, isLoading, error } = useDoc<Doctor>(doctorDocRef);
 
-    const handleBookAppointment = () => {
+    const handleConfirmBooking = () => {
         if (isUserLoading) return; // Wait until user status is confirmed
 
         if (!user) {
@@ -240,15 +252,39 @@ export default function DoctorDetailPage() {
                                         </div>
                                      </div>
                                      
-                                     <Button 
-                                        className="w-full mt-8" 
-                                        size="lg"
-                                        onClick={handleBookAppointment}
-                                        disabled={!selectedTime || isBooking}
-                                    >
-                                        {isBooking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Clock className="mr-2 h-4 w-4" />}
-                                        Book Appointment
-                                     </Button>
+                                    <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                            <Button 
+                                                className="w-full mt-8" 
+                                                size="lg"
+                                                disabled={!selectedTime || isBooking || isUserLoading}
+                                            >
+                                                <Clock className="mr-2 h-4 w-4" />
+                                                Book Appointment
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Complete Your Booking</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    To confirm your appointment, please transfer the consultation fee to the account details below. Your appointment will be scheduled upon payment.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                            <div className="py-4 space-y-2 text-sm">
+                                                <p><strong>Bank:</strong> Faysal Bank</p>
+                                                <p><strong>Account Title:</strong> Mediconnect Pvt. Ltd.</p>
+                                                <p><strong>Account Number:</strong> 0123-4567890123</p>
+                                                <p><strong>Consultation Fee:</strong> PKR 1,500</p>
+                                            </div>
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel disabled={isBooking}>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={handleConfirmBooking} disabled={isBooking}>
+                                                    {isBooking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                                    I've Paid, Confirm Booking
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
 
                                 </CardContent>
                             </Card>
