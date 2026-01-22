@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -15,6 +14,7 @@ import type { Doctor } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 // A list of major cities in Pakistan for the dropdown.
 const locations = ["Islamabad", "Rawalpindi", "Lahore", "Karachi", "Peshawar"];
@@ -26,6 +26,7 @@ export default function FindADoctorPage() {
   const [isLocating, setIsLocating] = useState(false);
   const [showLocationBanner, setShowLocationBanner] = useState(true);
   const firestore = useFirestore();
+  const { toast } = useToast();
 
   const doctorsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -47,15 +48,30 @@ export default function FindADoctorPage() {
             const city = data.address.city || data.address.town || data.address.village;
             if (city && locations.includes(city)) {
                  setSelectedLocation(city);
+            } else {
+                toast({
+                    title: "Location Not Supported",
+                    description: "We couldn't automatically detect you in a supported city. Please select one manually.",
+                });
             }
         } catch (error) {
             console.error("Error fetching city:", error);
+            toast({
+                variant: "destructive",
+                title: "Could Not Determine Location",
+                description: "There was an issue fetching your city. Please select one manually.",
+            });
         } finally {
             setIsLocating(false);
         }
       },
-      (error) => {
-        console.error("Geolocation error:", error);
+      (geoError) => {
+        console.error("Geolocation error:", geoError);
+        toast({
+            variant: "destructive",
+            title: "Location Access Denied",
+            description: "Please enable it in your browser settings or search manually.",
+        });
         setIsLocating(false);
       },
       { enableHighAccuracy: true }
