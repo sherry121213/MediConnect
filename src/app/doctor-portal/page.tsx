@@ -129,13 +129,6 @@ export default function DoctorPortalPage() {
             .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
     }, [appointments]);
 
-    const recentAppointments = useMemo(() => {
-        if (!appointments) return [];
-        return appointments
-            .filter(apt => new Date(apt.appointmentDateTime) < now)
-            .sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime());
-    }, [appointments]);
-
 
     return (
         <main className="flex-grow bg-secondary/30 py-12">
@@ -149,32 +142,21 @@ export default function DoctorPortalPage() {
                     <div className="flex justify-center py-24">
                         <Loader2 className="h-8 w-8 animate-spin" />
                     </div>
-                ) : appointments && appointments.length === 0 ? (
+                ) : upcomingAppointments.length === 0 ? (
                      <Card className="text-center py-24">
                         <CardContent>
-                            <h3 className="text-2xl font-medium font-headline">No Appointments Yet</h3>
+                            <h3 className="text-2xl font-medium font-headline">No Upcoming Appointments</h3>
                             <p className="text-muted-foreground mt-2 max-w-md mx-auto">Your dashboard is currently empty. As soon as a patient books a consultation with you, it will appear here.</p>
                         </CardContent>
                     </Card>
                 ) : (
                     <div className="space-y-8">
-                        {upcomingAppointments.length > 0 && (
-                            <div>
-                                <h2 className="text-2xl font-bold font-headline mb-4">Upcoming Appointments</h2>
-                                <div className="space-y-4">
-                                    {upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
-                                </div>
+                        <div>
+                            <h2 className="text-2xl font-bold font-headline mb-4">Upcoming Appointments</h2>
+                            <div className="space-y-4">
+                                {upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
                             </div>
-                        )}
-
-                       {recentAppointments.length > 0 && (
-                            <div>
-                                <h2 className="text-2xl font-bold font-headline mb-4">Recent Activity</h2>
-                                <div className="space-y-4">
-                                    {recentAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
-                                </div>
-                            </div>
-                       )}
+                        </div>
 
                         {appointmentsError && <p className="text-destructive text-center">Error loading appointments: {appointmentsError.message}</p>}
                     </div>
