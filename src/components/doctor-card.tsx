@@ -7,7 +7,9 @@ import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Star, MapPin, ShieldCheck } from 'lucide-react';
-import Link from 'next/link';
+import { useUser } from '@/firebase';
+import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 interface DoctorCardProps {
   doctor: Doctor;
@@ -18,6 +20,24 @@ export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardPr
   const doctorImage = placeholderImages.find(p => p.id === doctor.profileImageId);
   const name = doctor.name || `${doctor.firstName} ${doctor.lastName}`;
   const doctorProfileLink = `/find-a-doctor/${doctor.id}`;
+
+  const { user, isUserLoading } = useUser();
+  const { toast } = useToast();
+  const router = useRouter();
+
+  const handleBookAppointment = () => {
+    if (isUserLoading) return;
+    
+    if (!user) {
+        toast({
+            title: 'Login Required',
+            description: 'Please log in to book an appointment.',
+        });
+        router.push('/login');
+    } else {
+        router.push(doctorProfileLink);
+    }
+  };
 
   if (variant === 'compact') {
      return (
@@ -44,8 +64,8 @@ export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardPr
                 </div>
             </CardContent>
             <CardFooter className="p-3 pt-0">
-                <Button size="sm" className="w-full bg-accent hover:bg-accent/90 text-white" asChild>
-                    <Link href={doctorProfileLink}>View Profile</Link>
+                <Button size="sm" className="w-full bg-accent hover:bg-accent/90 text-white" onClick={handleBookAppointment}>
+                    Book Appointment
                 </Button>
             </CardFooter>
         </Card>
@@ -87,8 +107,8 @@ export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardPr
         </div>
       </CardContent>
       <CardFooter className="p-4 pt-0">
-        <Button className="w-full" asChild>
-            <Link href={doctorProfileLink}>Book Appointment</Link>
+        <Button className="w-full" onClick={handleBookAppointment}>
+            Book Appointment
         </Button>
       </CardFooter>
     </Card>

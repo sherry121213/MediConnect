@@ -20,6 +20,7 @@ import { collection, query, where, doc } from "firebase/firestore";
 import type { Appointment, Patient } from "@/lib/types";
 import { useMemo } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 
 // This component fetches its own patient data, preventing a 'list' query on the whole collection.
 const AppointmentCard = ({ apt }: { apt: Appointment }) => {
@@ -67,6 +68,18 @@ const AppointmentCard = ({ apt }: { apt: Appointment }) => {
         </AlertDialog>
     );
 
+    const getPaymentStatusBadge = (status?: string) => {
+        switch (status) {
+        case 'approved':
+            return <Badge className="bg-green-100 text-green-800">Paid</Badge>;
+        case 'rejected':
+            return <Badge variant="destructive">Rejected</Badge>;
+        case 'pending':
+        default:
+            return <Badge className="bg-amber-100 text-amber-800">Pending</Badge>;
+        }
+    };
+
     if (isLoadingPatient) {
         return (
             <Card className="grid grid-cols-1 md:grid-cols-4 items-center gap-4 p-4">
@@ -86,7 +99,7 @@ const AppointmentCard = ({ apt }: { apt: Appointment }) => {
     const patientFallback = patientName.charAt(0);
 
     return (
-        <Card className="grid grid-cols-1 md:grid-cols-4 items-center gap-4">
+        <Card className="grid grid-cols-1 md:grid-cols-5 items-center gap-4">
             <CardHeader className="flex flex-row items-center gap-4 md:col-span-2">
                 <Avatar className="h-12 w-12">
                     <AvatarImage src={patientImage} alt={patientName} />
@@ -96,13 +109,23 @@ const AppointmentCard = ({ apt }: { apt: Appointment }) => {
                     <CardTitle>{patientName}</CardTitle>
                 </div>
             </CardHeader>
-            <CardContent className="p-6 pt-0 md:pt-6">
+            <CardContent className="p-6 pt-0 md:pt-6 md:col-span-2">
                 <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Calendar className="w-4 h-4" />
                     <span>{appointmentDate.toLocaleDateString()} at {appointmentDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                 </div>
+                 <div className="mt-2">
+                    {getPaymentStatusBadge(apt.paymentStatus)}
+                </div>
             </CardContent>
-            <div className="p-6 pt-0 md:pt-6 text-right">
+            <div className="p-6 pt-0 md:pt-6 text-right flex items-center justify-end gap-2">
+                 {apt.paymentReceiptUrl && (
+                    <Button variant="outline" size="sm" asChild>
+                        <Link href={apt.paymentReceiptUrl} target="_blank" rel="noopener noreferrer">
+                            View Receipt
+                        </Link>
+                    </Button>
+                 )}
                 {apt.status === "scheduled" && <JoinCallDialog patientName={patientName} />}
                 {apt.status === "completed" && <Button variant="outline" asChild><Link href="#">View Notes</Link></Button>}
             </div>

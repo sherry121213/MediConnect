@@ -112,6 +112,7 @@ export default function DoctorDetailPage() {
             updatedAt: new Date().toISOString(),
             amount: 1500,
             paymentReceiptUrl: paymentReceipt,
+            paymentStatus: 'pending',
         };
         
         const appointmentsCollection = collection(firestore, 'appointments');
