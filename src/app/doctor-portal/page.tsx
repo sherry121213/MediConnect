@@ -34,6 +34,7 @@ const AppointmentCard = ({ apt }: { apt: Appointment }) => {
     const { data: patient, isLoading: isLoadingPatient } = useDoc<Patient>(patientDocRef);
     
     const appointmentDate = new Date(apt.appointmentDateTime);
+    const isPast = appointmentDate < new Date();
 
     const JoinCallDialog = ({ patientName }: { patientName: string | undefined }) => (
         <AlertDialog>
@@ -126,8 +127,8 @@ const AppointmentCard = ({ apt }: { apt: Appointment }) => {
                         </Link>
                     </Button>
                  )}
-                {apt.status === "scheduled" && <JoinCallDialog patientName={patientName} />}
-                {apt.status === "completed" && <Button variant="outline" asChild><Link href="#">View Notes</Link></Button>}
+                {!isPast && apt.status === "scheduled" && <JoinCallDialog patientName={patientName} />}
+                {(isPast || apt.status === "completed") && <Button variant="outline" asChild><Link href="#">View Notes</Link></Button>}
             </div>
         </Card>
     );
@@ -152,6 +153,13 @@ export default function DoctorPortalPage() {
             .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
     }, [appointments]);
 
+    const pastAppointments = useMemo(() => {
+        if (!appointments) return [];
+        return appointments
+            .filter(apt => new Date(apt.appointmentDateTime) < now)
+            .sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime());
+    }, [appointments]);
+
 
     return (
         <main className="flex-grow bg-secondary/30 py-12">
@@ -165,21 +173,38 @@ export default function DoctorPortalPage() {
                     <div className="flex justify-center py-24">
                         <Loader2 className="h-8 w-8 animate-spin" />
                     </div>
-                ) : upcomingAppointments.length === 0 ? (
+                ) : (appointments && appointments.length === 0) ? (
                      <Card className="text-center py-24">
                         <CardContent>
-                            <h3 className="text-2xl font-medium font-headline">No Upcoming Appointments</h3>
+                            <h3 className="text-2xl font-medium font-headline">No Appointments Yet</h3>
                             <p className="text-muted-foreground mt-2 max-w-md mx-auto">Your dashboard is currently empty. As soon as a patient books a consultation with you, it will appear here.</p>
                         </CardContent>
                     </Card>
                 ) : (
                     <div className="space-y-8">
-                        <div>
+                        <section>
                             <h2 className="text-2xl font-bold font-headline mb-4">Upcoming Appointments</h2>
-                            <div className="space-y-4">
-                                {upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
-                            </div>
-                        </div>
+                            {upcomingAppointments.length > 0 ? (
+                                <div className="space-y-4">
+                                    {upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
+                                </div>
+                            ) : (
+                                <Card className="text-center py-12">
+                                    <CardContent className="p-0">
+                                        <p className="text-muted-foreground">You have no scheduled appointments at this time.</p>
+                                    </CardContent>
+                                </Card>
+                            )}
+                        </section>
+                        
+                        {pastAppointments.length > 0 && (
+                            <section>
+                                <h2 className="text-2xl font-bold font-headline mb-4">Past Appointments</h2>
+                                <div className="space-y-4">
+                                    {pastAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
+                                </div>
+                            </section>
+                        )}
 
                         {appointmentsError && <p className="text-destructive text-center">Error loading appointments: {appointmentsError.message}</p>}
                     </div>
