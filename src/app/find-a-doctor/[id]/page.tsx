@@ -30,6 +30,8 @@ import {
     AlertDialogTitle,
     AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 
 
 export default function DoctorDetailPage() {
@@ -43,6 +45,8 @@ export default function DoctorDetailPage() {
     const [selectedDate, setSelectedDate] = useState(getNext7Days()[0].date);
     const [selectedTime, setSelectedTime] = useState<string | null>(null);
     const [isBooking, setIsBooking] = useState(false);
+    const [paymentReceipt, setPaymentReceipt] = useState<string | null>(null);
+    const [isUploading, setIsUploading] = useState(false);
 
     const doctorDocRef = useMemoFirebase(() => {
         if (!firestore || !doctorId) return null;
@@ -58,6 +62,7 @@ export default function DoctorDetailPage() {
             toast({
                 title: "Login Required",
                 description: "Please log in to book an appointment.",
+                duration: 5000,
             });
             router.push('/login');
             return;
@@ -68,6 +73,15 @@ export default function DoctorDetailPage() {
                 variant: 'destructive',
                 title: 'Booking Error',
                 description: 'Please select a date and time.',
+            });
+            return;
+        }
+
+        if (!paymentReceipt) {
+            toast({
+                variant: 'destructive',
+                title: 'Receipt Required',
+                description: 'Please upload your payment receipt to proceed.',
             });
             return;
         }
@@ -96,6 +110,8 @@ export default function DoctorDetailPage() {
             status: 'scheduled',
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
+            amount: 1500,
+            paymentReceiptUrl: paymentReceipt,
         };
         
         const appointmentsCollection = collection(firestore, 'appointments');
@@ -267,7 +283,7 @@ export default function DoctorDetailPage() {
                                             <AlertDialogHeader>
                                                 <AlertDialogTitle>Complete Your Booking</AlertDialogTitle>
                                                 <AlertDialogDescription>
-                                                    To confirm your appointment, please transfer the consultation fee to the account details below. Your appointment will be scheduled upon payment.
+                                                    To confirm your appointment, please transfer the consultation fee to the account details below and upload a screenshot of your receipt.
                                                 </AlertDialogDescription>
                                             </AlertDialogHeader>
                                             <div className="py-4 space-y-2 text-sm">
@@ -276,9 +292,54 @@ export default function DoctorDetailPage() {
                                                 <p><strong>Account Number:</strong> 0123-4567890123</p>
                                                 <p><strong>Consultation Fee:</strong> PKR 1,500</p>
                                             </div>
+                                             <div className="space-y-2">
+                                                <Label htmlFor="receipt-upload">Upload Payment Receipt</Label>
+                                                 <div className="relative">
+                                                    <Button asChild variant="outline" size="sm" className="w-full">
+                                                        <label htmlFor="receipt-upload" className="cursor-pointer text-center w-full">
+                                                            {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>) : (paymentReceipt ? 'Change Receipt' : 'Choose File')}
+                                                        </label>
+                                                    </Button>
+                                                    <Input
+                                                        id="receipt-upload"
+                                                        type="file"
+                                                        accept="image/*"
+                                                        onChange={(e) => {
+                                                            if (!e.target.files || e.target.files.length === 0) return;
+                                                            const file = e.target.files[0];
+                                                            if (file.size > 1024 * 1024) { // 1MB limit
+                                                                toast({
+                                                                    variant: 'destructive',
+                                                                    title: 'File is too large',
+                                                                    description: "The application's stability depends on files being smaller than 1MB.",
+                                                                });
+                                                                e.target.value = '';
+                                                                return;
+                                                            }
+                                                            setIsUploading(true);
+                                                            setPaymentReceipt(null);
+                                                            const reader = new FileReader();
+                                                            reader.onloadend = () => {
+                                                                setPaymentReceipt(reader.result as string);
+                                                                setIsUploading(false);
+                                                                toast({
+                                                                    title: 'Receipt Ready',
+                                                                    description: 'Your receipt has been selected.',
+                                                                })
+                                                            };
+                                                            reader.readAsDataURL(file);
+                                                        }}
+                                                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                                        disabled={isUploading}
+                                                    />
+                                                </div>
+                                                {paymentReceipt && !isUploading && (
+                                                    <p className="text-sm text-green-600 font-medium text-center">Receipt selected successfully.</p>
+                                                )}
+                                            </div>
                                             <AlertDialogFooter>
-                                                <AlertDialogCancel disabled={isBooking}>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={handleConfirmBooking} disabled={isBooking}>
+                                                <AlertDialogCancel disabled={isBooking || isUploading}>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={handleConfirmBooking} disabled={isBooking || isUploading || !paymentReceipt}>
                                                     {isBooking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                                                     I've Paid, Confirm Booking
                                                 </AlertDialogAction>

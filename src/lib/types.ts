@@ -51,4 +51,6 @@ export interface Appointment {
   notes?: string;
   createdAt: string;
   updatedAt: string;
+  amount?: number;
+  paymentReceiptUrl?: string;
 }

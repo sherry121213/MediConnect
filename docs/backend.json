@@ -177,6 +177,15 @@
           "type": "string",
           "description": "Additional notes or information about the appointment."
         },
+        "amount": {
+          "type": "number",
+          "description": "The amount paid for the appointment."
+        },
+        "paymentReceiptUrl": {
+          "type": "string",
+          "description": "URL or Data URI of the uploaded payment receipt image.",
+          "format": "uri"
+        },
         "createdAt": {
           "type": "string",
           "description": "Timestamp of when the appointment record was created.",
