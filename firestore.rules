@@ -11,10 +11,14 @@ service cloud.firestore {
       allow read, write: if get(/databases/$(database)/documents/patients/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Patients collection: users can only access their own document.
-    match /patients/{userId} {
-      allow read, update: if request.auth.uid == userId;
-      allow create: if request.auth.uid == userId;
+    // Patients collection
+    match /patients/{patientId} {
+      allow create: if request.auth.uid == patientId;
+      // A user can update their own document.
+      allow update: if request.auth.uid == patientId;
+      // A user can get their own doc, and a doctor can get any patient's doc.
+      allow get: if request.auth.uid == patientId || get(/databases/$(database)/documents/patients/$(request.auth.uid)).data.role == 'doctor';
+      // list is implicitly denied for non-admins due to lack of a rule. Admins are covered globally.
     }
 
     // Doctors collection: all users can read. Doctors can create and update their own profile.

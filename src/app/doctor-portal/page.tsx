@@ -15,54 +15,26 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useUserData, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where } from "firebase/firestore";
+import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
+import { collection, query, where, doc } from "firebase/firestore";
 import type { Appointment, Patient } from "@/lib/types";
 import { useMemo } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
 
-export default function DoctorPortalPage() {
-    const { user, userData, isUserLoading } = useUserData();
+// This component fetches its own patient data, preventing a 'list' query on the whole collection.
+const AppointmentCard = ({ apt }: { apt: Appointment }) => {
     const firestore = useFirestore();
 
-    const appointmentsQuery = useMemoFirebase(() => {
-        if (!firestore || !user) return null;
-        return query(collection(firestore, 'appointments'), where('doctorId', '==', user.uid));
-    }, [firestore, user]);
-    const { data: appointments, isLoading: isLoadingAppointments, error: appointmentsError } = useCollection<Appointment>(appointmentsQuery);
-
-    const patientsQuery = useMemoFirebase(() => {
+    const patientDocRef = useMemoFirebase(() => {
         if (!firestore) return null;
-        // Fetch all documents from the patients collection
-        return collection(firestore, 'patients');
-    }, [firestore]);
-    const { data: patients, isLoading: isLoadingPatients, error: patientsError } = useCollection<Patient>(patientsQuery);
+        return doc(firestore, 'patients', apt.patientId);
+    }, [firestore, apt.patientId]);
+
+    const { data: patient, isLoading: isLoadingPatient } = useDoc<Patient>(patientDocRef);
     
-    const now = new Date();
+    const appointmentDate = new Date(apt.appointmentDateTime);
 
-    const upcomingAppointments = useMemo(() => {
-        if (!appointments || !patients) return [];
-        return appointments
-            .filter(apt => new Date(apt.appointmentDateTime) >= now)
-            .map(apt => ({
-                ...apt,
-                patient: patients.find(p => p.id === apt.patientId)
-            }))
-            .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
-    }, [appointments, patients]);
-
-    const recentAppointments = useMemo(() => {
-        if (!appointments || !patients) return [];
-        return appointments
-            .filter(apt => new Date(apt.appointmentDateTime) < now)
-            .map(apt => ({
-                ...apt,
-                patient: patients.find(p => p.id === apt.patientId)
-            }))
-            .sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime());
-    }, [appointments, patients]);
-
-
-    const JoinCallDialog = ({ apt }: { apt: any }) => (
+    const JoinCallDialog = ({ patientName }: { patientName: string | undefined }) => (
         <AlertDialog>
             <AlertDialogTrigger asChild>
                 <Button>Join</Button>
@@ -71,7 +43,7 @@ export default function DoctorPortalPage() {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Choose Consultation Method</AlertDialogTitle>
                     <AlertDialogDescription>
-                        How would you like to connect with {apt.patient?.firstName || 'the patient'}?
+                        How would you like to connect with {patientName || 'the patient'}?
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-4">
@@ -95,40 +67,75 @@ export default function DoctorPortalPage() {
         </AlertDialog>
     );
 
-    const AppointmentCard = ({ apt }: { apt: any }) => {
-        if (!apt.patient) {
-            return <Card className="p-4 text-muted-foreground">Loading patient details...</Card>;
-        }
-
-        const patientName = `${apt.patient.firstName} ${apt.patient.lastName}`;
-        const patientImage = apt.patient.photoURL;
-        const patientFallback = patientName.charAt(0);
-        const appointmentDate = new Date(apt.appointmentDateTime);
-
+    if (isLoadingPatient) {
         return (
-            <Card className="grid grid-cols-1 md:grid-cols-4 items-center gap-4">
-                <CardHeader className="flex flex-row items-center gap-4 md:col-span-2">
-                    <Avatar className="h-12 w-12">
-                        <AvatarImage src={patientImage} alt={patientName} />
-                        <AvatarFallback>{patientFallback}</AvatarFallback>
-                    </Avatar>
-                    <div>
-                        <CardTitle>{patientName}</CardTitle>
-                    </div>
-                </CardHeader>
-                <CardContent className="p-6 pt-0 md:pt-6">
-                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                        <Calendar className="w-4 h-4" />
-                        <span>{appointmentDate.toLocaleDateString()} at {appointmentDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                </CardContent>
-                <div className="p-6 pt-0 md:pt-6 text-right">
-                    {apt.status === "scheduled" && <JoinCallDialog apt={apt} />}
-                    {apt.status === "completed" && <Button variant="outline" asChild><Link href="#">View Notes</Link></Button>}
+            <Card className="grid grid-cols-1 md:grid-cols-4 items-center gap-4 p-4">
+                <div className="flex flex-row items-center gap-4 md:col-span-2">
+                    <Skeleton className="h-12 w-12 rounded-full" />
+                    <Skeleton className="h-6 w-24" />
+                </div>
+                <div className="md:col-span-2">
+                    <Skeleton className="h-6 w-48" />
                 </div>
             </Card>
-        );
+        )
     }
+
+    const patientName = patient ? `${patient.firstName} ${patient.lastName}` : 'Unknown Patient';
+    const patientImage = patient?.photoURL;
+    const patientFallback = patientName.charAt(0);
+
+    return (
+        <Card className="grid grid-cols-1 md:grid-cols-4 items-center gap-4">
+            <CardHeader className="flex flex-row items-center gap-4 md:col-span-2">
+                <Avatar className="h-12 w-12">
+                    <AvatarImage src={patientImage} alt={patientName} />
+                    <AvatarFallback>{patientFallback}</AvatarFallback>
+                </Avatar>
+                <div>
+                    <CardTitle>{patientName}</CardTitle>
+                </div>
+            </CardHeader>
+            <CardContent className="p-6 pt-0 md:pt-6">
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="w-4 h-4" />
+                    <span>{appointmentDate.toLocaleDateString()} at {appointmentDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                </div>
+            </CardContent>
+            <div className="p-6 pt-0 md:pt-6 text-right">
+                {apt.status === "scheduled" && <JoinCallDialog patientName={patientName} />}
+                {apt.status === "completed" && <Button variant="outline" asChild><Link href="#">View Notes</Link></Button>}
+            </div>
+        </Card>
+    );
+}
+
+export default function DoctorPortalPage() {
+    const { user, userData, isUserLoading } = useUserData();
+    const firestore = useFirestore();
+
+    const appointmentsQuery = useMemoFirebase(() => {
+        if (!firestore || !user) return null;
+        return query(collection(firestore, 'appointments'), where('doctorId', '==', user.uid));
+    }, [firestore, user]);
+    const { data: appointments, isLoading: isLoadingAppointments, error: appointmentsError } = useCollection<Appointment>(appointmentsQuery);
+    
+    const now = new Date();
+
+    const upcomingAppointments = useMemo(() => {
+        if (!appointments) return [];
+        return appointments
+            .filter(apt => new Date(apt.appointmentDateTime) >= now)
+            .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
+    }, [appointments]);
+
+    const recentAppointments = useMemo(() => {
+        if (!appointments) return [];
+        return appointments
+            .filter(apt => new Date(apt.appointmentDateTime) < now)
+            .sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime());
+    }, [appointments]);
+
 
     return (
         <main className="flex-grow bg-secondary/30 py-12">
@@ -138,7 +145,7 @@ export default function DoctorPortalPage() {
                     <p className="text-muted-foreground">Welcome back, Dr. {userData?.lastName || 'Doctor'}!</p>
                 </div>
 
-                 {isUserLoading || isLoadingAppointments || isLoadingPatients ? (
+                 {isUserLoading || isLoadingAppointments ? (
                     <div className="flex justify-center py-24">
                         <Loader2 className="h-8 w-8 animate-spin" />
                     </div>
@@ -170,7 +177,6 @@ export default function DoctorPortalPage() {
                        )}
 
                         {appointmentsError && <p className="text-destructive text-center">Error loading appointments: {appointmentsError.message}</p>}
-                        {patientsError && <p className="text-destructive text-center">Error loading patient data: {patientsError.message}</p>}
                     </div>
                 )}
             </div>
