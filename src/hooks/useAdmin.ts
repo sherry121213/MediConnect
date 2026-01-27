@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useUser, useFirestore } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 /**
  * Hook to determine if the current user has admin privileges.
@@ -32,9 +34,8 @@ export function useAdmin() {
 
     // User is available, now check their role in Firestore.
     const checkAdminRole = async () => {
+      const userDocRef = doc(firestore, 'patients', user.uid);
       try {
-        // The user's role is stored in the 'patients' collection.
-        const userDocRef = doc(firestore, 'patients', user.uid);
         const userDoc = await getDoc(userDocRef);
 
         if (userDoc.exists() && userDoc.data().role === 'admin') {
@@ -42,9 +43,14 @@ export function useAdmin() {
         } else {
           setIsAdmin(false);
         }
+        setError(null);
       } catch (err: any) {
-        console.error("Error fetching user role from Firestore:", err);
-        setError(err);
+        const contextualError = new FirestorePermissionError({
+            operation: 'get',
+            path: userDocRef.path,
+        });
+        errorEmitter.emit('permission-error', contextualError);
+        setError(contextualError);
         setIsAdmin(false);
       } finally {
         setIsLoading(false);

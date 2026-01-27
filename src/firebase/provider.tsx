@@ -2,9 +2,11 @@
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, doc, getDoc, DocumentData } from 'firebase/firestore';
+import { Firestore, doc, getDoc, DocumentData, DocumentReference } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
-import { FirebaseErrorListener } from '@/components/FirebaseErrorListener'
+import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 interface FirebaseProviderProps {
   children: ReactNode;
@@ -92,21 +94,38 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       auth,
       async (firebaseUser) => { // Auth state determined
         if (firebaseUser) {
-           // First, check the 'doctors' collection
-          let userDocRef = doc(firestore, 'doctors', firebaseUser.uid);
-          let userDocSnap = await getDoc(userDocRef);
+          let userDocRef: DocumentReference | undefined;
+          try {
+            // First, try to fetch from 'doctors'
+            userDocRef = doc(firestore, 'doctors', firebaseUser.uid);
+            let userDocSnap = await getDoc(userDocRef);
 
-          if (!userDocSnap.exists()) {
-            // If not found in 'doctors', check the 'patients' collection
-            userDocRef = doc(firestore, 'patients', firebaseUser.uid);
-            userDocSnap = await getDoc(userDocRef);
-          }
+            if (!userDocSnap.exists()) {
+              // If not a doctor, fetch from 'patients'
+              userDocRef = doc(firestore, 'patients', firebaseUser.uid);
+              userDocSnap = await getDoc(userDocRef);
+            }
 
-          if (userDocSnap.exists()) {
-            setUserAuthState({ user: firebaseUser, userData: userDocSnap.data(), isUserLoading: false, userError: null });
-          } else {
-             // This case might happen if the Firestore doc isn't created yet or during sign-out
-            setUserAuthState({ user: firebaseUser, userData: null, isUserLoading: false, userError: null });
+            if (userDocSnap.exists()) {
+              setUserAuthState({ user: firebaseUser, userData: userDocSnap.data(), isUserLoading: false, userError: null });
+            } else {
+              setUserAuthState({ user: firebaseUser, userData: null, isUserLoading: false, userError: null });
+            }
+          } catch (error: any) {
+            // If any getDoc fails, it will be caught here.
+            // We assume the last attempted ref is the one that failed, which is stored in userDocRef.
+            if (userDocRef) {
+                const contextualError = new FirestorePermissionError({
+                    operation: 'get',
+                    path: userDocRef.path,
+                });
+                errorEmitter.emit('permission-error', contextualError);
+                setUserAuthState({ user: firebaseUser, userData: null, isUserLoading: false, userError: contextualError });
+            } else {
+                // This case should be rare, but handle it.
+                console.error("FirebaseProvider: Error fetching user document:", error);
+                setUserAuthState({ user: firebaseUser, userData: null, isUserLoading: false, userError: error });
+            }
           }
         } else {
           // No user is logged in
@@ -119,7 +138,7 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
       }
     );
     return () => unsubscribe(); // Cleanup
-  }, [auth, firestore]); // Depends on the auth instance
+  }, [auth, firestore]);
 
   // Memoize the context value
   const contextValue = useMemo((): FirebaseContextState => {
