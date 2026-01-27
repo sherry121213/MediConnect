@@ -34,7 +34,7 @@ export default function DoctorProfilePage() {
         updateDocumentNonBlocking(doctorDocRef, { verified: true, updatedAt: new Date().toISOString() });
         toast({
             title: "Doctor Verified!",
-            description: `Dr. ${doctor.firstName} ${doctor.lastName}'s profile has been verified.`,
+            description: `Dr. ${doctor.firstName}'s profile has been verified.`,
         });
     };
 

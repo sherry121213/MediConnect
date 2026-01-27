@@ -75,7 +75,7 @@ export default function PatientPortalPage() {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Choose Consultation Method</AlertDialogTitle>
                     <AlertDialogDescription>
-                        How would you like to connect with Dr. {apt.doctor.firstName} {apt.doctor.lastName}?
+                        How would you like to connect with Dr. {apt.doctor.firstName}?
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-4">
@@ -121,7 +121,7 @@ export default function PatientPortalPage() {
                             />
                         )}
                         <div>
-                            <p className="font-bold">Dr. {apt.doctor.firstName} {apt.doctor.lastName}</p>
+                            <p className="font-bold">Dr. {apt.doctor.firstName}</p>
                             <p className="text-sm text-muted-foreground">{apt.doctor.specialty}</p>
                         </div>
                     </div>

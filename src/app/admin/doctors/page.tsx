@@ -117,7 +117,7 @@ export default function AdminDoctorsPage() {
 
         toast({
             title: "Doctor Added",
-            description: `Dr. ${values.firstName} ${values.lastName} has been successfully added.`,
+            description: `Dr. ${values.firstName} has been successfully added.`,
         });
         form.reset();
         setIsDialogOpen(false);

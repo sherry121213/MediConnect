@@ -183,7 +183,7 @@ export default function DoctorPortalPage() {
             <div className="container mx-auto px-4">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold font-headline">Doctor Portal</h1>
-                    <p className="text-muted-foreground">Welcome back, Dr. {userData?.lastName || 'Doctor'}!</p>
+                    <p className="text-muted-foreground">Welcome back, Dr. {userData?.firstName || 'Doctor'}!</p>
                 </div>
 
                  {isUserLoading || isLoadingAppointments ? (

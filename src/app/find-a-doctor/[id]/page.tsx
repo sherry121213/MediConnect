@@ -120,7 +120,7 @@ export default function DoctorDetailPage() {
         
         toast({
             title: "Appointment Booked!",
-            description: `Your appointment with Dr. ${doctor.firstName} ${doctor.lastName} is confirmed.`,
+            description: `Your appointment with Dr. ${doctor.firstName} is confirmed.`,
         });
 
         setIsBooking(false);
@@ -201,7 +201,7 @@ export default function DoctorDetailPage() {
                                         />
                                     ) : <Skeleton className="h-32 w-32 rounded-full" />}
                                     <div className="pt-4">
-                                        <CardTitle className="text-2xl font-headline">Dr. {doctor.firstName} {doctor.lastName}</CardTitle>
+                                        <CardTitle className="text-2xl font-headline">Dr. {doctor.firstName}</CardTitle>
                                         <CardDescription className="text-md text-primary mt-1">{doctor.specialty}</CardDescription>
                                         <div className="flex items-center justify-center gap-4 mt-2 text-sm text-muted-foreground">
                                             <div className="flex items-center gap-1.5">

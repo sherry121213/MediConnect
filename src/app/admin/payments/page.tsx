@@ -57,7 +57,7 @@ export default function AdminPaymentsPage() {
           return {
               ...apt,
               patientName: patient ? `${patient.firstName} ${patient.lastName}` : 'N/A',
-              doctorName: doctor ? `Dr. ${doctor.firstName} ${doctor.lastName}` : 'N/A',
+              doctorName: doctor ? `Dr. ${doctor.firstName}` : 'N/A',
           }
       }).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [appointments, patients, doctors]);

@@ -68,7 +68,7 @@ export default function AppointmentDetailsPage() {
                                 {doctorImage && (
                                     <Image
                                         src={doctorImage.imageUrl}
-                                        alt={doctor.name}
+                                        alt={doctor.name!}
                                         width={96}
                                         height={96}
                                         className="rounded-full border-4 border-background"
@@ -76,7 +76,7 @@ export default function AppointmentDetailsPage() {
                                     />
                                 )}
                             </div>
-                            <CardTitle className="text-3xl font-headline">{doctor.name}</CardTitle>
+                            <CardTitle className="text-3xl font-headline">Dr. {doctor.name!.split(' ')[1]}</CardTitle>
                             <CardDescription className="text-lg text-primary">{doctor.specialty}</CardDescription>
                         </CardHeader>
                         <CardContent className="p-8 space-y-6">
