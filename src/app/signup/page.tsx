@@ -128,6 +128,8 @@ const preverifiedDoctors: Record<string, any> = {
     }
 };
 
+const adminEmails = ['admin@mediconnect.com', 'falakali1470@gmail.com'];
+
 export default function SignupPage() {
   const [loading, setLoading] = useState(false);
   const auth = useAuth();
@@ -168,20 +170,25 @@ export default function SignupPage() {
     if (!auth || !firestore) return;
     setLoading(true);
     
-    // Special handling for pre-configured admin user
-    if (email === 'admin@mediconnect.com') {
+    // Special handling for pre-configured admin users
+    if (adminEmails.includes(email)) {
       try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const newUser = userCredential.user;
 
+        const displayName = email === 'admin@mediconnect.com' ? 'Admin User' : 'Falak Ali';
+        const adminFirstName = email === 'admin@mediconnect.com' ? 'Admin' : 'Falak';
+        const adminLastName = email === 'admin@mediconnect.com' ? 'User' : 'Ali';
+
+
         await updateProfile(newUser, {
-          displayName: 'Admin User'
+          displayName: displayName
         });
 
         const adminDocData = {
           id: newUser.uid,
-          firstName: 'Admin',
-          lastName: 'User',
+          firstName: adminFirstName,
+          lastName: adminLastName,
           email: newUser.email,
           role: 'admin',
           createdAt: new Date().toISOString(),

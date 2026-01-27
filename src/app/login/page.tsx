@@ -38,6 +38,8 @@ const preverifiedDoctors: Record<string, any> = {
     'doc10@gmail.com': {}
 };
 
+const adminEmails = ['admin@mediconnect.com', 'falakali1470@gmail.com'];
+
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -53,7 +55,7 @@ export default function LoginPage() {
   useEffect(() => {
     if (!isUserLoading && user && userData) {
        const isPreverifiedDoctor = preverifiedDoctors.hasOwnProperty(user.email || '');
-       if (!user.emailVerified && user.email !== 'admin@mediconnect.com' && !isPreverifiedDoctor) {
+       if (!user.emailVerified && !adminEmails.includes(user.email || '') && !isPreverifiedDoctor) {
          // If they are logged in but not verified, we sign them out so they stay on the login page.
          signOut(auth);
          return;
@@ -81,7 +83,7 @@ export default function LoginPage() {
       const user = userCredential.user;
       const isPreverifiedDoctor = preverifiedDoctors.hasOwnProperty(email);
 
-      if (!user.emailVerified && user.email !== 'admin@mediconnect.com' && !isPreverifiedDoctor) {
+      if (!user.emailVerified && !adminEmails.includes(user.email || '') && !isPreverifiedDoctor) {
         await signOut(auth);
         toast({
           variant: "destructive",
@@ -94,7 +96,7 @@ export default function LoginPage() {
       }
 
       // OPTIMIZATION: Redirect immediately after successful login to improve user experience.
-      if (user.email === 'admin@mediconnect.com') {
+      if (adminEmails.includes(user.email || '')) {
         router.replace('/admin');
         return;
       }
