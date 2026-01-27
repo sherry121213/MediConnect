@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
 import { useAuth, useFirestore, useUserData } from "@/firebase";
 import { useRouter } from "next/navigation";
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
@@ -35,9 +35,15 @@ export default function LoginPage() {
   const { toast } = useToast();
   const { user, userData, isUserLoading } = useUserData();
 
-  // Redirect if user is already logged in
+  // Redirect if user is already logged in and verified
   useEffect(() => {
     if (!isUserLoading && user && userData) {
+       if (!user.emailVerified && user.email !== 'admin@mediconnect.com') {
+         // If they are logged in but not verified, we sign them out so they stay on the login page.
+         signOut(auth);
+         return;
+      }
+
       if (userData.role === 'admin') {
         router.replace('/admin');
       } else if (userData.role === 'doctor') {
@@ -48,7 +54,7 @@ export default function LoginPage() {
         router.replace('/'); // Fallback to home
       }
     }
-  }, [user, userData, isUserLoading, router]);
+  }, [user, userData, isUserLoading, router, auth]);
 
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -59,41 +65,20 @@ export default function LoginPage() {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
-      // The 'patients' collection contains a document for every user with their role.
-      const userDocRef = doc(firestore, 'patients', user.uid);
-      const userDocSnap = await getDoc(userDocRef);
-
-      if (!userDocSnap.exists()) {
+      if (!user.emailVerified && user.email !== 'admin@mediconnect.com') {
+        await signOut(auth);
         toast({
           variant: "destructive",
-          title: "Login Failed",
-          description: "User profile not found. Please contact support.",
+          title: "Email Not Verified",
+          description: "Please verify your email address before logging in. A verification link was sent to you on signup.",
+          duration: 10000,
         });
-        auth.signOut();
         setLoading(false);
         return;
       }
-      
-      const loginUserData = userDocSnap.data();
 
-      if (loginUserData.role === 'doctor') {
-        router.push('/doctor-portal');
-      } else if (loginUserData.role === 'admin') {
-        router.push('/admin');
-      } else if (loginUserData.role === 'patient') {
-        if (loginUserData.profileComplete) {
-          router.push('/patient-portal');
-        } else {
-          router.push('/patient-portal/profile');
-        }
-      } else {
-         toast({
-            variant: "destructive",
-            title: "Login Failed",
-            description: "Invalid user role found. Please contact support.",
-          });
-        auth.signOut();
-      }
+      // The onAuthStateChanged listener and the useEffect hook will handle the redirect
+      // after the state is updated.
 
     } catch (error: any) {
       console.error("Login Error:", error);
@@ -139,8 +124,8 @@ export default function LoginPage() {
     }
   };
   
-  // Show loading screen while checking auth status or if user is logged in
-  if (isUserLoading || user) {
+  // Show loading screen while checking auth status or if user is logged in AND verified
+  if (isUserLoading || (user && user.emailVerified)) {
      return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />

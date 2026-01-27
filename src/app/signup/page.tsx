@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuth, useFirestore, useUserData } from "@/firebase";
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
+import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification, signOut } from "firebase/auth";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
@@ -130,6 +130,8 @@ export default function SignupPage() {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const newUser = userCredential.user;
 
+      await sendEmailVerification(newUser);
+
       await updateProfile(newUser, {
           displayName: `${firstName} ${lastName}`
       });
@@ -167,18 +169,14 @@ export default function SignupPage() {
         const patientDocRef = doc(firestore, 'patients', newUser.uid);
         setDocumentNonBlocking(patientDocRef, {...baseUserData, role: 'doctor' });
         
-        if (isPreverifiedDoctor) {
-            router.push('/doctor-portal');
-        } else {
-           router.push('/doctor-portal/profile');
-        }
-
       } else { // Patient role
         const patientData = {...baseUserData, role: 'patient', profileComplete: false };
         const patientDocRef = doc(firestore, 'patients', newUser.uid);
         setDocumentNonBlocking(patientDocRef, patientData);
-        router.push('/patient-portal/profile');
       }
+      
+      await signOut(auth);
+      router.push('/verify-email');
 
     } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
