@@ -14,7 +14,7 @@ import { PlaceHolderImages } from "@/lib/placeholder-images";
 const currentYear = new Date().getFullYear();
 
 const pastAppointments = [
-    { id: 2, doctorId: '2', date: `${currentYear}-07-20`, time: "02:30 PM", type: "Chat", summary: "Discussed skin rash and prescribed a topical cream. Follow-up in 2 weeks if no improvement." },
+    { id: 2, doctorId: '7', date: `${currentYear}-07-20`, time: "02:30 PM", type: "Chat", summary: "Discussed skin rash and prescribed a topical cream. Follow-up in 2 weeks if no improvement." },
     { id: 3, doctorId: '6', date: `${currentYear}-06-10`, time: "11:00 AM", type: "Video Call", summary: "Annual physical check-up. All vitals are normal. Discussed diet and exercise improvements." },
 ];
 

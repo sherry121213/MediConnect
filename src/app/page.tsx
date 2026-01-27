@@ -2,7 +2,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
 import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import { ArrowRight, Briefcase, Heart, Brain, Clock, FileText, User, Lock, Video, Calendar, ShieldCheck, Siren, Activity } from "lucide-react";
@@ -10,7 +10,10 @@ import DoctorCard from "@/components/doctor-card";
 import AppHeader from "@/components/layout/header";
 import AppFooter from "@/components/layout/footer";
 import { PlaceHolderImages as placeholderImages } from "@/lib/placeholder-images";
-import { doctors } from "@/lib/data";
+import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
+import { collection, query, where, limit } from "firebase/firestore";
+import type { Doctor } from "@/lib/types";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const services = [
   { icon: Briefcase, title: "Mediconnect Corporate Care", description: "Corporate wellness programs designed to keep your workforce healthy and productive." },
@@ -76,8 +79,36 @@ const features = [
     },
   ];
 
+const CompactDoctorCardSkeleton = () => (
+    <div className="p-1">
+        <Card className="flex flex-col h-full overflow-hidden border-gray-200/80">
+            <CardHeader className="p-0">
+                <Skeleton className="h-40 w-full" />
+            </CardHeader>
+            <CardContent className="p-3 text-center flex-grow space-y-2 mt-2">
+                <Skeleton className="h-5 w-3/4 mx-auto" />
+                <Skeleton className="h-4 w-1/2 mx-auto" />
+                <Skeleton className="h-4 w-1/4 mx-auto" />
+            </CardContent>
+            <CardFooter className="p-3 pt-0">
+                <Skeleton className="h-9 w-full" />
+            </CardFooter>
+        </Card>
+    </div>
+);
+
 export default function Home() {
   const heroImage = placeholderImages.find(p => p.id === 'hero-v2');
+
+  const firestore = useFirestore();
+
+  const doctorsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'doctors'), where('verified', '==', true), limit(8));
+  }, [firestore]);
+
+  const { data: doctors, isLoading: isLoadingDoctors } = useCollection<Doctor>(doctorsQuery);
+
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -185,13 +216,20 @@ export default function Home() {
                 <h2 className="text-3xl font-bold font-headline">Meet Our Healthcare professionals</h2>
                 <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">Consult with our team of qualified and verified doctors.</p>
             </div>
+            {isLoadingDoctors ? (
+               <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
+                    {Array.from({ length: 4 }).map((_, i) => (
+                        <CompactDoctorCardSkeleton key={i} />
+                    ))}
+                </div>
+            ) : (
             <Carousel
-              opts={{ align: "start", loop: true, }}
+              opts={{ align: "start", loop: doctors && doctors.length > 3 }}
               plugins={[ Autoplay({ delay: 3000, stopOnInteraction: true, }), ]}
               className="mt-12"
             >
               <CarouselContent>
-                {doctors.map(doctor => (
+                {doctors && doctors.map(doctor => (
                   <CarouselItem key={doctor.id} className="sm:basis-1/2 md:basis-1/3 lg:basis-1/4">
                     <div className="p-1">
                       <DoctorCard doctor={doctor} variant="compact" />
@@ -200,6 +238,7 @@ export default function Home() {
                 ))}
               </CarouselContent>
             </Carousel>
+            )}
           </div>
         </section>
 
