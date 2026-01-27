@@ -202,7 +202,7 @@ export default function SignupPage() {
         if (error.code === 'auth/email-already-in-use') {
             toast({
               title: "Admin Account Exists",
-              description: "Please log in with the admin credentials.",
+              description: "Please log in, or use the 'Forgot your password?' link on the login page to reset it.",
             });
             router.push('/login');
         } else {
