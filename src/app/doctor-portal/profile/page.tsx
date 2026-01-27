@@ -120,11 +120,6 @@ export default function DoctorProfilePage() {
         setDocumentNonBlocking(doctorDocRef, dataToSet, { merge: true });
 
         if (isCompletingProfile) {
-            toast({
-                title: 'Profile Submitted!',
-                description: 'Your profile is now under review. You will be notified once it is approved.',
-                duration: 5000,
-            });
             router.push('/doctor-portal');
         } else {
             toast({
