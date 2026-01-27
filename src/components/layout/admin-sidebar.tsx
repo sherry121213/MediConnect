@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
   Sidebar,
   SidebarHeader,
@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useAuth, useUserData } from '@/firebase';
+import { signOut } from 'firebase/auth';
 
 const adminNavItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
@@ -31,6 +33,21 @@ const adminNavItems = [
 
 export default function AdminSidebar() {
   const pathname = usePathname();
+  const { user, userData } = useUserData();
+  const auth = useAuth();
+  const router = useRouter();
+
+  const handleLogout = () => {
+    if (auth) {
+      signOut(auth).then(() => {
+        router.push('/');
+      });
+    }
+  };
+  
+  const displayName = [userData?.firstName, userData?.lastName].filter(Boolean).join(' ') || 'Admin';
+  const displayEmail = user?.email || '';
+  const fallback = displayName.split(' ').map(n => n[0]).join('');
 
   return (
     <Sidebar collapsible="icon" variant="sidebar">
@@ -60,22 +77,20 @@ export default function AdminSidebar() {
           <SidebarMenuItem>
             <div className="flex items-center gap-2 p-2">
               <Avatar className="h-9 w-9">
-                 <AvatarImage src="https://picsum.photos/seed/admin/100/100" />
-                 <AvatarFallback>AD</AvatarFallback>
+                 <AvatarImage src={user?.photoURL || `https://picsum.photos/seed/${user?.uid}/100/100`} />
+                 <AvatarFallback>{fallback || "A"}</AvatarFallback>
               </Avatar>
               <div className="group-data-[collapsible=icon]:hidden">
-                <p className="text-sm font-semibold">Admin User</p>
-                <p className="text-xs text-muted-foreground">admin@mediconnect.com</p>
+                <p className="text-sm font-semibold">{displayName}</p>
+                <p className="text-xs text-muted-foreground">{displayEmail}</p>
               </div>
             </div>
           </SidebarMenuItem>
           <SidebarMenuItem>
-            <Link href="/">
-              <SidebarMenuButton>
+             <SidebarMenuButton onClick={handleLogout}>
                 <LogOut />
                 <span>Logout</span>
               </SidebarMenuButton>
-            </Link>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarFooter>
