@@ -49,7 +49,7 @@ export default function LoginPage() {
   const { toast } = useToast();
   const { user, userData, isUserLoading } = useUserData();
 
-  // Redirect if user is already logged in and verified
+  // Redirect if user is already logged in
   useEffect(() => {
     if (!isUserLoading && user && userData) {
        const isPreverifiedDoctor = preverifiedDoctors.hasOwnProperty(user.email || '');
@@ -93,8 +93,30 @@ export default function LoginPage() {
         return;
       }
 
-      // The onAuthStateChanged listener and the useEffect hook will handle the redirect
-      // after the state is updated.
+      // OPTIMIZATION: Redirect immediately after successful login to improve user experience.
+      if (user.email === 'admin@mediconnect.com') {
+        router.replace('/admin');
+        return;
+      }
+      
+      const collectionName = isPreverifiedDoctor ? 'doctors' : 'patients';
+      const userDocRef = doc(firestore, collectionName, user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+
+      if (userDocSnap.exists()) {
+        const role = userDocSnap.data().role;
+        if (role === 'doctor') {
+          router.replace('/doctor-portal');
+          return;
+        }
+        if (role === 'patient') {
+          router.replace('/patient-portal');
+          return;
+        }
+      }
+      
+      // Fallback for any other case
+      router.replace('/');
 
     } catch (error: any) {
       console.error("Login Error:", error);
@@ -107,8 +129,7 @@ export default function LoginPage() {
         title: "Login Failed",
         description: description,
       });
-    } finally {
-        setLoading(false);
+      setLoading(false); // Only set loading false on error, as success causes a redirect.
     }
   };
   
@@ -140,8 +161,9 @@ export default function LoginPage() {
     }
   };
   
-  // Show loading screen while checking auth status or if user is logged in AND verified
-  if (isUserLoading || (user && (user.emailVerified || preverifiedDoctors.hasOwnProperty(user.email || '')))) {
+  // Show a loading screen while the initial auth check is running, or if a user is
+  // already logged in (in which case the useEffect will redirect them).
+  if (isUserLoading || user) {
      return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
