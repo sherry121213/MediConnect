@@ -6,7 +6,8 @@ import AppFooter from "./footer";
 import { useAuth } from "@/firebase";
 import { signOut } from "firebase/auth";
 import { useRouter } from "next/navigation";
-import { Clock } from "lucide-react";
+import { Clock, Edit } from "lucide-react";
+import Link from "next/link";
 
 export default function DoctorPendingVerification() {
   const auth = useAuth();
@@ -33,11 +34,19 @@ export default function DoctorPendingVerification() {
                 </CardHeader>
                 <CardTitle className="text-2xl font-bold font-headline">Verification Pending</CardTitle>
                 <p className="text-muted-foreground mt-2">
-                    Your profile has been submitted and is currently under review by our administration team. You will be notified by email once your account is verified.
+                    Your profile has been submitted and is currently under review by our administration team. You will be notified by email once your account is verified. You can still edit your profile while you wait.
                 </p>
-                <Button variant="outline" onClick={handleLogout} className="mt-6 w-full">
-                    Log Out and Return Home
-                </Button>
+                <div className="mt-6 flex flex-col gap-2">
+                    <Button asChild>
+                        <Link href="/doctor-portal/profile">
+                            <Edit className="mr-2 h-4 w-4" />
+                            Edit Your Profile
+                        </Link>
+                    </Button>
+                    <Button variant="outline" onClick={handleLogout} className="w-full">
+                        Log Out and Return Home
+                    </Button>
+                </div>
             </Card>
         </div>
       </main>
