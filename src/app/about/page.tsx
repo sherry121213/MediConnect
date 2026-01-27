@@ -72,18 +72,18 @@ export default function AboutUsPage() {
       <AppHeader />
       <main className="flex-grow">
         {/* Hero Section */}
-        <section className="bg-primary/5 text-center py-20">
+        <section className="bg-primary/5 text-center py-16 md:py-20">
             <div className="container">
-                <h1 className="text-5xl font-bold font-headline text-primary">About Mediconnect</h1>
-                <p className="mt-4 text-xl text-muted-foreground max-w-3xl mx-auto">We are on a mission to democratize healthcare, making quality medical advice accessible and affordable for everyone in Pakistan.</p>
+                <h1 className="text-4xl md:text-5xl font-bold font-headline text-primary">About Mediconnect</h1>
+                <p className="mt-4 text-lg md:text-xl text-muted-foreground max-w-3xl mx-auto">We are on a mission to democratize healthcare, making quality medical advice accessible and affordable for everyone in Pakistan.</p>
             </div>
         </section>
 
         {/* Our Values Section */}
-        <section className="py-20">
+        <section className="py-16 md:py-20">
             <div className="container">
                 <div className="text-center mb-12">
-                    <h2 className="text-4xl font-bold font-headline">Our Core Values</h2>
+                    <h2 className="text-3xl md:text-4xl font-bold font-headline">Our Core Values</h2>
                     <p className="text-muted-foreground mt-2">The principles that guide our work every day.</p>
                 </div>
                 <div className="grid md:grid-cols-3 gap-8 text-center">
@@ -107,10 +107,10 @@ export default function AboutUsPage() {
         </section>
 
          {/* Our Journey Section (Slider) */}
-        <section className="py-20 bg-secondary/30">
+        <section className="py-16 md:py-20 bg-secondary/30">
             <div className="container">
                 <div className="text-center mb-12">
-                    <h2 className="text-4xl font-bold font-headline">Our Journey</h2>
+                    <h2 className="text-3xl md:text-4xl font-bold font-headline">Our Journey</h2>
                 </div>
                 <Carousel
                     opts={{ align: "start", loop: true, }}
@@ -141,10 +141,10 @@ export default function AboutUsPage() {
 
 
         {/* Leadership Team Section */}
-        <section className="py-20">
+        <section className="py-16 md:py-20">
             <div className="container">
                 <div className="text-center mb-12">
-                    <h2 className="text-4xl font-bold font-headline">Meet Our Leaders</h2>
+                    <h2 className="text-3xl md:text-4xl font-bold font-headline">Meet Our Leaders</h2>
                     <p className="text-muted-foreground mt-2">The minds behind our mission.</p>
                 </div>
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -164,14 +164,14 @@ export default function AboutUsPage() {
         </section>
         
         {/* Contact Us Section */}
-        <section id="contact" className="py-20 bg-primary/5">
+        <section id="contact" className="py-16 md:py-20 bg-primary/5">
           <div className="container">
             <div className="text-center mb-12">
-              <h2 className="text-4xl font-bold font-headline">Get in Touch</h2>
+              <h2 className="text-3xl md:text-4xl font-bold font-headline">Get in Touch</h2>
               <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">Have a question or want to partner with us? We'd love to hear from you.</p>
             </div>
              <Card className="max-w-2xl mx-auto">
-              <CardContent className="p-8">
+              <CardContent className="p-6 md:p-8">
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                     <FormField

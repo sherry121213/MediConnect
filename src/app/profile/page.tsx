@@ -155,7 +155,7 @@ export default function ProfilePage() {
     return (
         <div className="flex flex-col min-h-screen">
             <AppHeader />
-             <main className="flex-grow flex items-center justify-center bg-secondary/30">
+             <main className="flex-grow flex items-center justify-center bg-secondary/30 p-4">
                  <Card>
                     <CardHeader>
                         <CardTitle>Access Denied</CardTitle>
@@ -180,8 +180,8 @@ export default function ProfilePage() {
               <CardTitle>Personal Information</CardTitle>
             </CardHeader>
             <CardContent>
-                <div className="flex flex-col sm:flex-row items-start justify-between gap-6">
-                  <div className="flex-grow space-y-4">
+                <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6">
+                  <div className="flex-grow space-y-4 text-center sm:text-left">
                     <div>
                       <Label>First Name</Label>
                       <p className="font-medium">{userData?.firstName}</p>
@@ -263,12 +263,12 @@ export default function ProfilePage() {
                 </form>
               </Form>
               <Separator className="my-6" />
-               <div className="flex items-center justify-between">
+               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                     <h4 className="font-medium">Forgot your password?</h4>
                     <p className="text-sm text-muted-foreground">Send a password reset link to your email.</p>
                 </div>
-                <Button variant="outline" onClick={onForgotPassword}>
+                <Button variant="outline" onClick={onForgotPassword} className="w-full sm:w-auto">
                     Send Reset Link
                 </Button>
               </div>

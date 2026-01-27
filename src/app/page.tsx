@@ -118,7 +118,7 @@ export default function Home() {
         <section className="bg-white">
           <div className="container mx-auto px-4 py-16 md:py-24">
             <div className="grid md:grid-cols-2 gap-12 items-center">
-              <div>
+              <div className="order-2 md:order-1">
                 <h1 className="text-4xl md:text-5xl font-bold font-headline leading-tight">Connect to an online doctor within <span className="text-primary">60 seconds</span></h1>
                 <p className="mt-4 text-lg text-muted-foreground">
                   Consult with qualified and verified doctors from the comfort of your home. Get instant medical advice, prescriptions, and manage your health seamlessly.
@@ -131,7 +131,7 @@ export default function Home() {
                   </Button>
                 </div>
               </div>
-              <div className="relative aspect-video rounded-lg overflow-hidden shadow-2xl">
+              <div className="relative aspect-[4/3] md:aspect-video rounded-lg overflow-hidden shadow-2xl order-1 md:order-2">
                  {heroImage && (
                     <Image
                         src={heroImage.imageUrl}

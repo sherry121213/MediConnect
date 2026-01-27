@@ -109,9 +109,9 @@ export default function AdminPaymentsPage() {
             <TableRow>
               <TableHead>Patient</TableHead>
               <TableHead>Doctor</TableHead>
-              <TableHead>Amount</TableHead>
-              <TableHead>Date</TableHead>
-              <TableHead>Apt. Status</TableHead>
+              <TableHead className="hidden lg:table-cell">Amount</TableHead>
+              <TableHead className="hidden md:table-cell">Date</TableHead>
+              <TableHead className="hidden lg:table-cell">Apt. Status</TableHead>
               <TableHead>Payment Status</TableHead>
               <TableHead className="text-center">Receipt</TableHead>
               <TableHead className="text-right">Actions</TableHead>
@@ -120,11 +120,11 @@ export default function AdminPaymentsPage() {
           <TableBody>
             {isLoading && Array.from({length: 5}).map((_, i) => (
                 <TableRow key={i}>
-                    <TableCell><Skeleton className="h-6 w-32"/></TableCell>
-                    <TableCell><Skeleton className="h-6 w-32"/></TableCell>
                     <TableCell><Skeleton className="h-6 w-24"/></TableCell>
                     <TableCell><Skeleton className="h-6 w-24"/></TableCell>
-                    <TableCell><Skeleton className="h-6 w-20"/></TableCell>
+                    <TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-24"/></TableCell>
+                    <TableCell className="hidden md:table-cell"><Skeleton className="h-6 w-24"/></TableCell>
+                    <TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-20"/></TableCell>
                     <TableCell><Skeleton className="h-6 w-20"/></TableCell>
                     <TableCell className="text-center"><Skeleton className="h-8 w-8 mx-auto"/></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto"/></TableCell>
@@ -134,9 +134,9 @@ export default function AdminPaymentsPage() {
               <TableRow key={payment.id}>
                 <TableCell>{payment.patientName}</TableCell>
                 <TableCell>{payment.doctorName}</TableCell>
-                <TableCell>PKR {payment.amount?.toLocaleString() || '1,500'}</TableCell>
-                <TableCell>{new Date(payment.createdAt).toLocaleDateString()}</TableCell>
-                <TableCell>{getStatusBadge(payment.status)}</TableCell>
+                <TableCell className="hidden lg:table-cell">PKR {payment.amount?.toLocaleString() || '1,500'}</TableCell>
+                <TableCell className="hidden md:table-cell">{new Date(payment.createdAt).toLocaleDateString()}</TableCell>
+                <TableCell className="hidden lg:table-cell">{getStatusBadge(payment.status)}</TableCell>
                 <TableCell>{getPaymentStatusBadge(payment.paymentStatus)}</TableCell>
                  <TableCell className="text-center">
                     {payment.paymentReceiptUrl ? (

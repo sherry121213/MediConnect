@@ -151,7 +151,7 @@ export default function PatientProfilePage() {
   return (
     <div className="flex flex-col min-h-screen">
       <AppHeader />
-      <main className="flex-grow flex items-center justify-center bg-secondary/30 py-12">
+      <main className="flex-grow flex items-center justify-center bg-secondary/30 py-12 px-4">
         <Card className="w-full max-w-2xl">
           <CardHeader>
             <CardTitle>{pageTitle}</CardTitle>

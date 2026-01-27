@@ -145,12 +145,12 @@ export default function AdminDashboardPage() {
             {!isLoadingPending && pendingDoctors && pendingDoctors.length > 0 ? (
                 <div className="space-y-4">
                     {pendingDoctors.map(doctor => (
-                        <div key={doctor.id} className="flex items-center justify-between p-2 rounded-md border">
+                        <div key={doctor.id} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-md border gap-3">
                             <div>
                                 <p className="font-medium">{doctor.firstName} {doctor.lastName}</p>
                                 <p className="text-sm text-muted-foreground">{doctor.email}</p>
                             </div>
-                            <Button asChild variant="outline" size="sm">
+                            <Button asChild variant="outline" size="sm" className="w-full sm:w-auto">
                                 <Link href={`/admin/doctors/${doctor.id}`}>
                                     <UserCheck className="mr-2 h-4 w-4" />
                                     Review Profile

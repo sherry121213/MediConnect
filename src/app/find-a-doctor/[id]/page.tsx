@@ -228,20 +228,22 @@ export default function DoctorDetailPage() {
                                 <CardContent>
                                     <div className="mb-6">
                                         <h4 className="font-semibold mb-3 text-md">Date</h4>
-                                        <div className="grid grid-cols-4 md:grid-cols-7 gap-2">
-                                            {availableDates.map(day => (
-                                                <button 
-                                                    key={day.date.toISOString()}
-                                                    onClick={() => { setSelectedDate(day.date); setSelectedTime(null); }}
-                                                    className={cn(
-                                                        "p-2 rounded-lg border text-center transition-colors",
-                                                        selectedDate.toDateString() === day.date.toDateString() ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted'
-                                                    )}
-                                                >
-                                                    <p className="text-sm font-medium">{day.dayName}</p>
-                                                    <p className="text-2xl font-bold">{day.dayNumber}</p>
-                                                </button>
-                                            ))}
+                                        <div className="relative">
+                                            <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
+                                                {availableDates.map(day => (
+                                                    <button 
+                                                        key={day.date.toISOString()}
+                                                        onClick={() => { setSelectedDate(day.date); setSelectedTime(null); }}
+                                                        className={cn(
+                                                            "p-2 rounded-lg border text-center transition-colors shrink-0 w-20",
+                                                            selectedDate.toDateString() === day.date.toDateString() ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted'
+                                                        )}
+                                                    >
+                                                        <p className="text-sm font-medium">{day.dayName}</p>
+                                                        <p className="text-2xl font-bold">{day.dayNumber}</p>
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
                                     </div>
                                      <div className="mb-6">

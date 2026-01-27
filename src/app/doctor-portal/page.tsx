@@ -83,14 +83,25 @@ const AppointmentCard = ({ apt }: { apt: Appointment }) => {
 
     if (isLoadingPatient) {
         return (
-            <Card className="grid grid-cols-1 md:grid-cols-4 items-center gap-4 p-4">
-                <div className="flex flex-row items-center gap-4 md:col-span-2">
-                    <Skeleton className="h-12 w-12 rounded-full" />
-                    <Skeleton className="h-6 w-24" />
-                </div>
-                <div className="md:col-span-2">
-                    <Skeleton className="h-6 w-48" />
-                </div>
+             <Card>
+                <CardContent className="p-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                        <div className="flex items-center gap-4 flex-1">
+                            <Skeleton className="h-12 w-12 rounded-full" />
+                            <div className="space-y-2">
+                                <Skeleton className="h-4 w-24" />
+                                <Skeleton className="h-4 w-16" />
+                            </div>
+                        </div>
+                        <div className="flex-1">
+                             <Skeleton className="h-4 w-40" />
+                        </div>
+                        <div className="flex gap-2">
+                            <Skeleton className="h-9 w-24" />
+                            <Skeleton className="h-9 w-20" />
+                        </div>
+                    </div>
+                </CardContent>
             </Card>
         )
     }
@@ -100,36 +111,42 @@ const AppointmentCard = ({ apt }: { apt: Appointment }) => {
     const patientFallback = patientName.charAt(0);
 
     return (
-        <Card className="grid grid-cols-1 md:grid-cols-5 items-center gap-4">
-            <CardHeader className="flex flex-row items-center gap-4 md:col-span-2">
-                <Avatar className="h-12 w-12">
-                    <AvatarImage src={patientImage} alt={patientName} />
-                    <AvatarFallback>{patientFallback}</AvatarFallback>
-                </Avatar>
-                <div>
-                    <CardTitle>{patientName}</CardTitle>
-                </div>
-            </CardHeader>
-            <CardContent className="p-6 pt-0 md:pt-6 md:col-span-2">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="w-4 h-4" />
-                    <span>{appointmentDate.toLocaleDateString()} at {appointmentDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                </div>
-                 <div className="mt-2">
-                    {getPaymentStatusBadge(apt.paymentStatus)}
+        <Card>
+            <CardContent className="p-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div className="flex items-center gap-4 flex-1">
+                        <Avatar className="h-12 w-12">
+                            <AvatarImage src={patientImage} alt={patientName} />
+                            <AvatarFallback>{patientFallback}</AvatarFallback>
+                        </Avatar>
+                        <div>
+                            <p className="font-bold">{patientName}</p>
+                            <div className="mt-1">
+                                {getPaymentStatusBadge(apt.paymentStatus)}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="text-sm text-muted-foreground">
+                        <div className="flex items-center gap-2">
+                            <Calendar className="w-4 h-4" />
+                            <span>{appointmentDate.toLocaleDateString()} at {appointmentDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-4 sm:pt-0">
+                         {apt.paymentReceiptUrl && (
+                            <Button variant="outline" size="sm" asChild>
+                                <Link href={apt.paymentReceiptUrl} target="_blank" rel="noopener noreferrer">
+                                    View Receipt
+                                </Link>
+                            </Button>
+                         )}
+                        {!isPast && apt.status === "scheduled" && <JoinCallDialog patientName={patientName} />}
+                        {(isPast || apt.status === "completed") && <Button variant="outline" size="sm" asChild><Link href="#">View Notes</Link></Button>}
+                    </div>
                 </div>
             </CardContent>
-            <div className="p-6 pt-0 md:pt-6 text-right flex items-center justify-end gap-2">
-                 {apt.paymentReceiptUrl && (
-                    <Button variant="outline" size="sm" asChild>
-                        <Link href={apt.paymentReceiptUrl} target="_blank" rel="noopener noreferrer">
-                            View Receipt
-                        </Link>
-                    </Button>
-                 )}
-                {!isPast && apt.status === "scheduled" && <JoinCallDialog patientName={patientName} />}
-                {(isPast || apt.status === "completed") && <Button variant="outline" asChild><Link href="#">View Notes</Link></Button>}
-            </div>
         </Card>
     );
 }

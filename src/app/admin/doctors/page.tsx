@@ -253,7 +253,7 @@ export default function AdminDoctorsPage() {
                 <TableHead>Doctor</TableHead>
                 <TableHead>Specialty</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead>Location</TableHead>
+                <TableHead className="hidden md:table-cell">Location</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
             </TableHeader>
@@ -263,7 +263,7 @@ export default function AdminDoctorsPage() {
                         <TableCell><Skeleton className="h-10 w-48"/></TableCell>
                         <TableCell><Skeleton className="h-6 w-24"/></TableCell>
                         <TableCell><Skeleton className="h-6 w-20"/></TableCell>
-                        <TableCell><Skeleton className="h-6 w-24"/></TableCell>
+                        <TableCell className="hidden md:table-cell"><Skeleton className="h-6 w-24"/></TableCell>
                         <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto"/></TableCell>
                     </TableRow>
                 ))}
@@ -284,7 +284,7 @@ export default function AdminDoctorsPage() {
                                 data-ai-hint={doctorImage.imageHint}
                             />
                         )}
-                        {name}
+                        <span className="truncate">{name}</span>
                     </div>
                     </TableCell>
                     <TableCell>{doctor.specialty}</TableCell>
@@ -293,7 +293,7 @@ export default function AdminDoctorsPage() {
                         {doctor.verified ? "Verified" : "Pending"}
                     </Badge>
                     </TableCell>
-                    <TableCell>{doctor.location}</TableCell>
+                    <TableCell className="hidden md:table-cell">{doctor.location}</TableCell>
                     <TableCell className="text-right">
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>

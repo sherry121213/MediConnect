@@ -81,16 +81,23 @@ export default function DoctorProfilePage() {
                             alt={`${doctor.firstName} ${doctor.lastName}`}
                             width={128}
                             height={128}
-                            className="rounded-full border-4 border-background object-cover"
+                            className="rounded-full border-4 border-background object-cover shrink-0"
                             data-ai-hint={doctorImage.imageHint}
                         />
                     ) : (
-                        <Skeleton className="h-32 w-32 rounded-full" />
+                        <Skeleton className="h-32 w-32 rounded-full shrink-0" />
                     )}
-                    <div className="flex-grow pt-4">
-                        <CardTitle className="text-3xl font-headline">{doctor.firstName} {doctor.lastName}</CardTitle>
-                        <CardDescription className="text-lg text-primary mt-1">{doctor.specialty}</CardDescription>
-                        <div className="flex items-center gap-4 mt-2 text-sm text-muted-foreground">
+                    <div className="flex-grow pt-0 md:pt-4 w-full">
+                        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                                <CardTitle className="text-3xl font-headline">{doctor.firstName} {doctor.lastName}</CardTitle>
+                                <CardDescription className="text-lg text-primary mt-1">{doctor.specialty}</CardDescription>
+                            </div>
+                             <Badge variant={doctor.verified ? 'secondary' : 'destructive'} className={`mt-2 sm:mt-0 ${doctor.verified ? 'bg-green-100 text-green-800' : ''}`}>
+                                {doctor.verified ? 'Verified' : 'Pending Verification'}
+                            </Badge>
+                        </div>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4 mt-2 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1.5">
                                 <MapPin className="h-4 w-4" />
                                 {doctor.location || 'N/A'}
@@ -101,17 +108,14 @@ export default function DoctorProfilePage() {
                             </div>
                         </div>
                     </div>
-                    <div className="flex flex-col items-end gap-2">
-                        <Badge variant={doctor.verified ? 'secondary' : 'destructive'} className={`mt-4 md:mt-0 ${doctor.verified ? 'bg-green-100 text-green-800' : ''}`}>
-                            {doctor.verified ? 'Verified' : 'Pending Verification'}
-                        </Badge>
-                        {!doctor.verified && (
-                            <Button onClick={handleVerifyDoctor}>
+                     {!doctor.verified && (
+                        <div className="w-full md:w-auto shrink-0">
+                            <Button onClick={handleVerifyDoctor} className="w-full">
                                 <CheckCircle className="mr-2 h-4 w-4" />
                                 Verify Doctor
                             </Button>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </CardHeader>
                 <CardContent className="p-6 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                     <div className="flex items-center gap-3">
