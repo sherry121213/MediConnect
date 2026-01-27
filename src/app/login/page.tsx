@@ -25,6 +25,20 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
+const preverifiedDoctors: Record<string, any> = {
+    'doc1@gmail.com': {},
+    'doc2@gmail.com': {},
+    'doc3@gmail.com': {},
+    'doc4@gmail.com': {},
+    'doc5@gmail.com': {},
+    'doc6@gmail.com': {},
+    'doc7@gmail.com': {},
+    'doc8@gmail.com': {},
+    'doc9@gmail.com': {},
+    'doc10@gmail.com': {}
+};
+
+
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -38,7 +52,8 @@ export default function LoginPage() {
   // Redirect if user is already logged in and verified
   useEffect(() => {
     if (!isUserLoading && user && userData) {
-       if (!user.emailVerified && user.email !== 'admin@mediconnect.com') {
+       const isPreverifiedDoctor = preverifiedDoctors.hasOwnProperty(user.email || '');
+       if (!user.emailVerified && user.email !== 'admin@mediconnect.com' && !isPreverifiedDoctor) {
          // If they are logged in but not verified, we sign them out so they stay on the login page.
          signOut(auth);
          return;
@@ -64,8 +79,9 @@ export default function LoginPage() {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
+      const isPreverifiedDoctor = preverifiedDoctors.hasOwnProperty(email);
 
-      if (!user.emailVerified && user.email !== 'admin@mediconnect.com') {
+      if (!user.emailVerified && user.email !== 'admin@mediconnect.com' && !isPreverifiedDoctor) {
         await signOut(auth);
         toast({
           variant: "destructive",
@@ -125,7 +141,7 @@ export default function LoginPage() {
   };
   
   // Show loading screen while checking auth status or if user is logged in AND verified
-  if (isUserLoading || (user && user.emailVerified)) {
+  if (isUserLoading || (user && (user.emailVerified || preverifiedDoctors.hasOwnProperty(user.email || '')))) {
      return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
