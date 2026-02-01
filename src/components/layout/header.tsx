@@ -112,20 +112,22 @@ export default function AppHeader() {
         </div>
         
         {/* Desktop Navigation */}
-        <nav className="hidden md:flex gap-8">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={cn(
-                'text-base font-medium transition-colors hover:text-accent',
-                pathname === link.href ? 'text-primary' : 'text-foreground'
-              )}
-            >
-              {link.label}
-            </Link>
-          ))}
-        </nav>
+        {userData?.role !== 'doctor' && (
+            <nav className="hidden md:flex gap-8">
+            {navLinks.map((link) => (
+                <Link
+                key={link.href}
+                href={link.href}
+                className={cn(
+                    'text-base font-medium transition-colors hover:text-accent',
+                    pathname === link.href ? 'text-primary' : 'text-foreground'
+                )}
+                >
+                {link.label}
+                </Link>
+            ))}
+            </nav>
+        )}
 
         <div className="hidden md:flex items-center gap-2">
           {isUserLoading ? null : user ? (
@@ -156,21 +158,23 @@ export default function AppHeader() {
                     <Link href="/patient-portal" className="font-semibold text-muted-foreground" onClick={() => setMobileMenuOpen(false)}>Patient Portal</Link>
                 </div>
             )}
-            <nav className="flex flex-col gap-6 text-lg font-medium mt-12">
-              {navLinks.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={cn(
-                    'transition-colors hover:text-accent',
-                    pathname === link.href ? 'text-primary' : 'text-foreground'
-                  )}
-                >
-                  {link.label}
-                </Link>
-              ))}
-            </nav>
+            {userData?.role !== 'doctor' && (
+                <nav className="flex flex-col gap-6 text-lg font-medium mt-12">
+                {navLinks.map((link) => (
+                    <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={cn(
+                        'transition-colors hover:text-accent',
+                        pathname === link.href ? 'text-primary' : 'text-foreground'
+                    )}
+                    >
+                    {link.label}
+                    </Link>
+                ))}
+                </nav>
+            )}
             <div className="mt-8 flex flex-col gap-2">
                {isUserLoading ? null : user ? (
                 <div className="space-y-2">
