@@ -135,14 +135,14 @@ const AppointmentCard = ({ apt }: { apt: Appointment }) => {
                     </div>
 
                     <div className="flex items-center justify-end gap-2 pt-4 sm:pt-0">
-                         {apt.paymentReceiptUrl && (
+                        {!isPast && apt.status === "scheduled" && <JoinCallDialog patientName={patientName} />}
+                        {apt.paymentReceiptUrl && (
                             <Button variant="outline" size="sm" asChild>
                                 <Link href={apt.paymentReceiptUrl} target="_blank" rel="noopener noreferrer">
                                     View Receipt
                                 </Link>
                             </Button>
-                         )}
-                        {!isPast && apt.status === "scheduled" && <JoinCallDialog patientName={patientName} />}
+                        )}
                         {(isPast || apt.status === "completed") && <Button variant="outline" size="sm" asChild><Link href="#">View Notes</Link></Button>}
                     </div>
                 </div>
