@@ -153,11 +153,6 @@ export default function AppHeader() {
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="w-[300px] sm:w-[400px]">
-             {userData?.role === 'patient' && (
-                <div className="mb-6">
-                    <Link href="/patient-portal" className="font-semibold text-muted-foreground" onClick={() => setMobileMenuOpen(false)}>Patient Portal</Link>
-                </div>
-            )}
             {userData?.role !== 'doctor' && (
                 <nav className="flex flex-col gap-6 text-lg font-medium mt-12">
                 {navLinks.map((link) => (
@@ -179,6 +174,8 @@ export default function AppHeader() {
                {isUserLoading ? null : user ? (
                 <div className="space-y-2">
                   {userData?.role === 'admin' && <Button variant="outline" className="w-full" onClick={() => {router.push('/admin'); setMobileMenuOpen(false);}}>Admin Portal</Button>}
+                  {userData?.role === 'doctor' && <Button variant="outline" className="w-full" onClick={() => {router.push('/doctor-portal'); setMobileMenuOpen(false);}}>Doctor Portal</Button>}
+                  {userData?.role === 'patient' && <Button variant="outline" className="w-full" onClick={() => {router.push('/patient-portal'); setMobileMenuOpen(false);}}>Patient Portal</Button>}
                   <Button variant="outline" className="w-full" onClick={() => {handleProfileClick(); setMobileMenuOpen(false);}}>My Profile</Button>
                   <Button variant="outline" className="w-full" onClick={() => {handleLogout(); setMobileMenuOpen(false);}}>Log Out</Button>
                 </div>
