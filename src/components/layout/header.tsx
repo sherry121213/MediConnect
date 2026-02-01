@@ -40,10 +40,6 @@ export default function AppHeader() {
       });
     }
   };
-  
-  const handleProfileClick = () => {
-    router.push('/profile');
-  }
 
   const UserMenu = () => {
     const displayName = [userData?.firstName, userData?.lastName].filter(Boolean).join(' ') || userData?.displayName || user?.displayName || 'User';
@@ -69,28 +65,46 @@ export default function AppHeader() {
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator />
-          {userData?.role === 'admin' && (
-            <DropdownMenuItem onClick={() => router.push('/admin')}>
-              <Shield className="mr-2 h-4 w-4" />
-              <span>Admin Portal</span>
-            </DropdownMenuItem>
-          )}
-          {userData?.role === 'patient' && (
-              <DropdownMenuItem onClick={() => router.push('/patient-portal')}>
-                  <LayoutDashboard className="mr-2 h-4 w-4" />
-                  <span>Patient Portal</span>
-              </DropdownMenuItem>
-          )}
+          
           {userData?.role === 'doctor' && (
+            <>
               <DropdownMenuItem onClick={() => router.push('/doctor-portal')}>
                   <LayoutDashboard className="mr-2 h-4 w-4" />
                   <span>Doctor Portal</span>
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/doctor-portal/profile')}>
+                <UserIcon className="mr-2 h-4 w-4" />
+                <span>Profile</span>
+              </DropdownMenuItem>
+            </>
           )}
-          <DropdownMenuItem onClick={handleProfileClick}>
-            <UserIcon className="mr-2 h-4 w-4" />
-            <span>Profile</span>
-          </DropdownMenuItem>
+
+          {userData?.role === 'patient' && (
+            <>
+                <DropdownMenuItem onClick={() => router.push('/patient-portal')}>
+                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                    <span>Patient Portal</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => router.push('/patient-portal/profile')}>
+                  <UserIcon className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+                </DropdownMenuItem>
+            </>
+          )}
+          
+          {userData?.role === 'admin' && (
+            <>
+              <DropdownMenuItem onClick={() => router.push('/admin')}>
+                <Shield className="mr-2 h-4 w-4" />
+                <span>Admin Portal</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/profile')}>
+                  <UserIcon className="mr-2 h-4 w-4" />
+                  <span>Profile</span>
+              </DropdownMenuItem>
+            </>
+          )}
+
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />
@@ -173,10 +187,24 @@ export default function AppHeader() {
             <div className="mt-8 flex flex-col gap-2">
                {isUserLoading ? null : user ? (
                 <div className="space-y-2">
-                  {userData?.role === 'admin' && <Button variant="outline" className="w-full" onClick={() => {router.push('/admin'); setMobileMenuOpen(false);}}>Admin Portal</Button>}
-                  {userData?.role === 'doctor' && <Button variant="outline" className="w-full" onClick={() => {router.push('/doctor-portal'); setMobileMenuOpen(false);}}>Doctor Portal</Button>}
-                  {userData?.role === 'patient' && <Button variant="outline" className="w-full" onClick={() => {router.push('/patient-portal'); setMobileMenuOpen(false);}}>Patient Portal</Button>}
-                  <Button variant="outline" className="w-full" onClick={() => {handleProfileClick(); setMobileMenuOpen(false);}}>My Profile</Button>
+                  {userData?.role === 'admin' && (
+                    <>
+                      <Button variant="outline" className="w-full" onClick={() => {router.push('/admin'); setMobileMenuOpen(false);}}>Admin Portal</Button>
+                      <Button variant="outline" className="w-full" onClick={() => {router.push('/profile'); setMobileMenuOpen(false);}}>My Profile</Button>
+                    </>
+                  )}
+                  {userData?.role === 'doctor' && (
+                     <>
+                      <Button variant="outline" className="w-full" onClick={() => {router.push('/doctor-portal'); setMobileMenuOpen(false);}}>Doctor Portal</Button>
+                      <Button variant="outline" className="w-full" onClick={() => {router.push('/doctor-portal/profile'); setMobileMenuOpen(false);}}>My Profile</Button>
+                     </>
+                  )}
+                  {userData?.role === 'patient' && (
+                    <>
+                      <Button variant="outline" className="w-full" onClick={() => {router.push('/patient-portal'); setMobileMenuOpen(false);}}>Patient Portal</Button>
+                      <Button variant="outline" className="w-full" onClick={() => {router.push('/patient-portal/profile'); setMobileMenuOpen(false);}}>My Profile</Button>
+                    </>
+                  )}
                   <Button variant="outline" className="w-full" onClick={() => {handleLogout(); setMobileMenuOpen(false);}}>Log Out</Button>
                 </div>
                ) : (
