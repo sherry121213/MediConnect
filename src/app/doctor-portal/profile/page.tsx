@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useFirestore, useUser } from '@/firebase';
+import { useFirestore, useUserData } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -25,6 +25,8 @@ import {
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { updateProfile } from 'firebase/auth';
 
 const profileSchema = z.object({
   specialty: z.string().min(2, 'Specialty is required.'),
@@ -39,7 +41,7 @@ const profileSchema = z.object({
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
 export default function DoctorProfilePage() {
-  const { user, isUserLoading } = useUser();
+  const { user, userData, isUserLoading } = useUserData();
   const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
@@ -87,6 +89,56 @@ export default function DoctorProfilePage() {
       fetchDoctorProfile();
     }
   }, [user, firestore, form]);
+  
+  const handlePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!user || !firestore || !e.target.files || e.target.files.length === 0) return;
+    const file = e.target.files[0];
+
+    if (file.size > 1024 * 1024) { // 1MB limit
+        toast({
+            variant: 'destructive',
+            title: 'File is too large',
+            description: "The application's stability depends on files being smaller than 1MB.",
+        });
+        e.target.value = ''; // Clear the file input
+        return;
+    }
+    
+    setIsUploading(true);
+
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+        const dataUrl = reader.result as string;
+        
+        try {
+          await updateProfile(user, { photoURL: dataUrl });
+        } catch (authError) {
+           toast({
+              variant: 'destructive',
+              title: 'Auth Update Failed',
+              description: 'Could not update your profile picture in the authentication system.',
+          });
+          console.error("Error updating auth profile photo URL:", authError);
+          setIsUploading(false);
+          return;
+        }
+        
+        const doctorDocRef = doc(firestore, 'doctors', user.uid);
+        setDocumentNonBlocking(doctorDocRef, { photoURL: dataUrl }, { merge: true });
+
+        // Also update the patients collection document for consistency
+        const patientDocRef = doc(firestore, 'patients', user.uid);
+        setDocumentNonBlocking(patientDocRef, { photoURL: dataUrl }, { merge: true });
+
+        toast({
+            title: 'Profile Picture Updated',
+            description: 'Your new photo has been saved.',
+        });
+        
+        setIsUploading(false);
+    };
+    reader.readAsDataURL(file);
+  };
 
 
   const onSubmit = async (values: ProfileFormValues) => {
@@ -105,6 +157,10 @@ export default function DoctorProfilePage() {
         const docSnap = await getDoc(doctorDocRef);
         const isCompletingProfile = !docSnap.data()?.profileComplete;
 
+        await updateProfile(user, {
+            displayName: `${docSnap.data()?.firstName} ${docSnap.data()?.lastName}`,
+        });
+
         const dataToSet = {
             specialty: values.specialty,
             experience: values.experience,
@@ -118,6 +174,13 @@ export default function DoctorProfilePage() {
         };
 
         setDocumentNonBlocking(doctorDocRef, dataToSet, { merge: true });
+
+        const patientDocRef = doc(firestore, 'patients', user.uid);
+        const patientDataToSet = {
+            updatedAt: new Date().toISOString(),
+            profileComplete: true,
+        };
+        setDocumentNonBlocking(patientDocRef, patientDataToSet, { merge: true });
 
         if (isCompletingProfile) {
             router.push('/doctor-portal');
@@ -154,6 +217,27 @@ export default function DoctorProfilePage() {
             <CardDescription>{pageDescription}</CardDescription>
           </CardHeader>
           <CardContent>
+            <div className="flex flex-col items-center gap-4 mb-8">
+                <Avatar className="h-28 w-28">
+                    <AvatarImage src={userData?.photoURL || user?.photoURL || undefined} alt={userData?.displayName || 'User'} />
+                    <AvatarFallback className="text-3xl">{userData?.email?.[0].toUpperCase() ?? "U"}</AvatarFallback>
+                </Avatar>
+                <div className='relative'>
+                    <Button asChild variant="outline" size="sm">
+                        <label htmlFor="picture-upload" className="cursor-pointer">
+                        {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>) : "Change Picture"}
+                        </label>
+                    </Button>
+                    <Input
+                        id="picture-upload"
+                        type="file"
+                        accept="image/*"
+                        onChange={handlePictureChange}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                        disabled={isUploading}
+                    />
+                </div>
+            </div>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                  <div className="grid md:grid-cols-2 gap-6">
