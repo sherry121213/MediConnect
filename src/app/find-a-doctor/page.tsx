@@ -27,6 +27,8 @@ export default function FindADoctorPage() {
   const [showLocationBanner, setShowLocationBanner] = useState(true);
   const firestore = useFirestore();
   const { toast } = useToast();
+  const [currentPage, setCurrentPage] = useState(1);
+  const doctorsPerPage = 8;
 
   const doctorsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
@@ -88,6 +90,18 @@ export default function FindADoctorPage() {
       return nameMatch && specialtyMatch && locationMatch;
     });
   }, [doctors, searchTerm, selectedSpecialty, selectedLocation]);
+  
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, selectedSpecialty, selectedLocation]);
+
+  const pageCount = Math.ceil(filteredDoctors.length / doctorsPerPage);
+  const paginatedDoctors = useMemo(() => {
+      return filteredDoctors.slice(
+        (currentPage - 1) * doctorsPerPage,
+        currentPage * doctorsPerPage
+      );
+  }, [filteredDoctors, currentPage, doctorsPerPage]);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -173,7 +187,7 @@ export default function FindADoctorPage() {
                 </Card>
             ))}
             {!isLoadingDoctors && filteredDoctors.length > 0 ? (
-              filteredDoctors.map(doctor => (
+              paginatedDoctors.map(doctor => (
                 <DoctorCard key={doctor.id} doctor={doctor} />
               ))
             ) : null}
@@ -190,6 +204,19 @@ export default function FindADoctorPage() {
                 </div>
             )}
           </div>
+          {pageCount > 1 && (
+            <div className="mt-12 flex justify-center items-center gap-4">
+                <Button onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1}>
+                    Previous
+                </Button>
+                <span className="text-muted-foreground">
+                    Page {currentPage} of {pageCount}
+                </span>
+                <Button onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage === pageCount}>
+                    Next
+                </Button>
+            </div>
+          )}
         </div>
       </main>
       <AppFooter />
