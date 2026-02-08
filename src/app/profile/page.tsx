@@ -1,13 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useAuth, useUserData, useFirestore } from '@/firebase';
-import { updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail, updateProfile } from 'firebase/auth';
-import { doc } from 'firebase/firestore';
-import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useAuth, useUserData } from '@/firebase';
+import { updatePassword, EmailAuthProvider, reauthenticateWithCredential, sendPasswordResetEmail } from 'firebase/auth';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -18,7 +16,6 @@ import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import { Separator } from '@/components/ui/separator';
 import { Label } from '@/components/ui/label';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const changePasswordSchema = z.object({
   currentPassword: z.string().min(6, 'Current password is required.'),
@@ -30,10 +27,8 @@ type ChangePasswordFormValues = z.infer<typeof changePasswordSchema>;
 export default function ProfilePage() {
   const { user, userData, isUserLoading } = useUserData();
   const auth = useAuth();
-  const firestore = useFirestore();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
 
   const form = useForm<ChangePasswordFormValues>({
     resolver: zodResolver(changePasswordSchema),
@@ -42,55 +37,6 @@ export default function ProfilePage() {
       newPassword: '',
     },
   });
-  
-  const handlePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!user || !firestore || !e.target.files || e.target.files.length === 0) return;
-    const file = e.target.files[0];
-
-    if (file.size > 1024 * 1024) { // 1MB limit
-        toast({
-            variant: 'destructive',
-            title: 'File is too large',
-            description: "The application's stability depends on files being smaller than 1MB.",
-        });
-        e.target.value = ''; // Clear the file input
-        return;
-    }
-    
-    setIsUploading(true);
-
-    const reader = new FileReader();
-    reader.onloadend = async () => {
-        const dataUrl = reader.result as string;
-        
-        try {
-          await updateProfile(user, { photoURL: dataUrl });
-        } catch (authError) {
-           toast({
-              variant: 'destructive',
-              title: 'Auth Update Failed',
-              description: 'Could not update your profile picture in the authentication system.',
-          });
-          console.error("Error updating auth profile photo URL:", authError);
-          setIsUploading(false);
-          return;
-        }
-        
-        const collectionName = userData?.role === 'doctor' ? 'doctors' : 'patients';
-        const userDocRef = doc(firestore, collectionName, user.uid);
-        
-        setDocumentNonBlocking(userDocRef, { photoURL: dataUrl }, { merge: true });
-
-        toast({
-            title: 'Profile Picture Updated',
-            description: 'Your new photo has been saved.',
-        });
-        
-        setIsUploading(false);
-    };
-    reader.readAsDataURL(file);
-  };
-
 
   const onChangePassword = async (values: ChangePasswordFormValues) => {
     if (!user) return;
@@ -178,44 +124,22 @@ export default function ProfilePage() {
           <Card>
             <CardHeader>
               <CardTitle>Personal Information</CardTitle>
+              <CardDescription>This information is managed from your specific portal profile page.</CardDescription>
             </CardHeader>
             <CardContent>
-                <div className="flex flex-col sm:flex-row items-center sm:items-start justify-between gap-6">
-                  <div className="flex-grow space-y-4 text-center sm:text-left">
+                <div className="space-y-4">
                     <div>
-                      <Label>First Name</Label>
-                      <p className="font-medium">{userData?.firstName}</p>
+                        <Label>First Name</Label>
+                        <p className="font-medium text-muted-foreground">{userData?.firstName || 'Not set'}</p>
                     </div>
-                     <div>
-                      <Label>Last Name</Label>
-                      <p className="font-medium">{userData?.lastName}</p>
+                    <div>
+                        <Label>Last Name</Label>
+                        <p className="font-medium text-muted-foreground">{userData?.lastName || 'Not set'}</p>
                     </div>
-                     <div>
-                      <Label>Email</Label>
-                      <p className="font-medium">{user.email}</p>
+                    <div>
+                        <Label>Email</Label>
+                        <p className="font-medium">{user.email}</p>
                     </div>
-                  </div>
-                  <div className="flex-shrink-0 flex flex-col items-center gap-4 w-full sm:w-auto">
-                    <Avatar className="h-28 w-28">
-                        <AvatarImage src={userData?.photoURL || user?.photoURL || undefined} alt={userData?.displayName || 'User'} />
-                        <AvatarFallback className="text-3xl">{userData?.email?.[0].toUpperCase() ?? "U"}</AvatarFallback>
-                    </Avatar>
-                     <div className='relative'>
-                        <Button asChild variant="outline" size="sm">
-                          <label htmlFor="picture-upload" className="cursor-pointer">
-                            {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>) : "Change Picture"}
-                          </label>
-                        </Button>
-                        <Input
-                          id="picture-upload"
-                          type="file"
-                          accept="image/*"
-                          onChange={handlePictureChange}
-                          className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                          disabled={isUploading}
-                        />
-                      </div>
-                  </div>
                 </div>
             </CardContent>
           </Card>
