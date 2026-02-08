@@ -173,9 +173,13 @@
           "type": "string",
           "description": "Status of the appointment (e.g., scheduled, completed, cancelled)."
         },
-        "notes": {
+        "diagnosis": {
           "type": "string",
-          "description": "Additional notes or information about the appointment."
+          "description": "The diagnosis provided by the doctor."
+        },
+        "prescription": {
+          "type": "string",
+          "description": "The prescription details provided by the doctor."
         },
         "amount": {
           "type": "number",

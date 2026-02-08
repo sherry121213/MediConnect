@@ -48,7 +48,8 @@ export interface Appointment {
   appointmentDateTime: string;
   appointmentType: string;
   status: 'scheduled' | 'completed' | 'cancelled';
-  notes?: string;
+  diagnosis?: string;
+  prescription?: string;
   createdAt: string;
   updatedAt: string;
   amount?: number;

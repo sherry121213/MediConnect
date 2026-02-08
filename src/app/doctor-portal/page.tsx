@@ -18,12 +18,105 @@ import {
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
 import { collection, query, where, doc } from "firebase/firestore";
 import type { Appointment, Patient } from "@/lib/types";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { useToast } from "@/hooks/use-toast";
+
+
+const notesSchema = z.object({
+  diagnosis: z.string().min(3, "Diagnosis is required."),
+  prescription: z.string().min(10, "Prescription details are required."),
+});
+type NotesFormValues = z.infer<typeof notesSchema>;
+
+function AddNotesDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment | null }) {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    const form = useForm<NotesFormValues>({
+        resolver: zodResolver(notesSchema),
+        defaultValues: { diagnosis: '', prescription: '' }
+    });
+
+    useEffect(() => {
+        if (appointment) {
+            form.reset({
+                diagnosis: appointment.diagnosis || '',
+                prescription: appointment.prescription || '',
+            });
+        }
+    }, [appointment, form]);
+
+    if (!appointment) return null;
+
+    const onSubmit = (values: NotesFormValues) => {
+        if (!firestore) return;
+        const appointmentRef = doc(firestore, 'appointments', appointment.id);
+        updateDocumentNonBlocking(appointmentRef, { ...values, status: 'completed' });
+        toast({ title: "Notes Saved", description: "The appointment notes have been updated." });
+        onOpenChange(false);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Add Consultation Notes</DialogTitle>
+                    <DialogDescription>
+                        Add diagnosis and prescription for the appointment on {new Date(appointment.appointmentDateTime).toLocaleDateString()}.
+                    </DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                        <FormField
+                            control={form.control}
+                            name="diagnosis"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Diagnosis</FormLabel>
+                                    <FormControl>
+                                        <Input placeholder="e.g., Viral Infection" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <FormField
+                            control={form.control}
+                            name="prescription"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Prescription & Advice</FormLabel>
+                                    <FormControl>
+                                        <Textarea placeholder="e.g., Paracetamol 500mg, twice a day for 3 days..." rows={5} {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <DialogFooter>
+                            <DialogClose asChild><Button type="button" variant="secondary">Cancel</Button></DialogClose>
+                            <Button type="submit" disabled={form.formState.isSubmitting}>
+                                {form.formState.isSubmitting ? "Saving..." : "Save Notes"}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 // This component fetches its own patient data, preventing a 'list' query on the whole collection.
-const AppointmentCard = ({ apt }: { apt: Appointment }) => {
+const AppointmentCard = ({ apt, onAddNotes }: { apt: Appointment, onAddNotes: () => void }) => {
     const firestore = useFirestore();
 
     const patientDocRef = useMemoFirebase(() => {
@@ -143,7 +236,7 @@ const AppointmentCard = ({ apt }: { apt: Appointment }) => {
                                 </Link>
                             </Button>
                         )}
-                        {(isPast || apt.status === "completed") && <Button variant="outline" size="sm" asChild><Link href="#">View Notes</Link></Button>}
+                        {(isPast || apt.status === "completed") && <Button variant="outline" size="sm" onClick={onAddNotes}>Add/View Notes</Button>}
                     </div>
                 </div>
             </CardContent>
@@ -154,6 +247,8 @@ const AppointmentCard = ({ apt }: { apt: Appointment }) => {
 export default function DoctorPortalPage() {
     const { user, userData, isUserLoading } = useUserData();
     const firestore = useFirestore();
+    const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+    const [isNotesDialogOpen, setIsNotesDialogOpen] = useState(false);
 
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
@@ -177,6 +272,10 @@ export default function DoctorPortalPage() {
             .sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime());
     }, [appointments]);
 
+    const handleAddNotes = (apt: Appointment) => {
+        setSelectedAppointment(apt);
+        setIsNotesDialogOpen(true);
+    }
 
     return (
         <main className="flex-grow bg-secondary/30 py-12">
@@ -203,7 +302,7 @@ export default function DoctorPortalPage() {
                             <h2 className="text-2xl font-bold font-headline mb-4">Upcoming Appointments</h2>
                             {upcomingAppointments.length > 0 ? (
                                 <div className="space-y-4">
-                                    {upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
+                                    {upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} onAddNotes={() => handleAddNotes(apt)} />)}
                                 </div>
                             ) : (
                                 <Card className="text-center py-12">
@@ -218,7 +317,7 @@ export default function DoctorPortalPage() {
                             <section>
                                 <h2 className="text-2xl font-bold font-headline mb-4">Past Appointments</h2>
                                 <div className="space-y-4">
-                                    {pastAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} />)}
+                                    {pastAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} onAddNotes={() => handleAddNotes(apt)} />)}
                                 </div>
                             </section>
                         )}
@@ -226,6 +325,11 @@ export default function DoctorPortalPage() {
                         {appointmentsError && <p className="text-destructive text-center">Error loading appointments: {appointmentsError.message}</p>}
                     </div>
                 )}
+                 <AddNotesDialog 
+                    isOpen={isNotesDialogOpen}
+                    onOpenChange={setIsNotesDialogOpen}
+                    appointment={selectedAppointment}
+                />
             </div>
         </main>
     )
