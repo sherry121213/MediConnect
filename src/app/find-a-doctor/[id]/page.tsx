@@ -337,15 +337,6 @@ export default function DoctorDetailPage() {
                                                         onChange={(e) => {
                                                             if (!e.target.files || e.target.files.length === 0) return;
                                                             const file = e.target.files[0];
-                                                            if (file.size > 1024 * 1024) { // 1MB limit
-                                                                toast({
-                                                                    variant: 'destructive',
-                                                                    title: 'File is too large',
-                                                                    description: "The application's stability depends on files being smaller than 1MB.",
-                                                                });
-                                                                e.target.value = '';
-                                                                return;
-                                                            }
                                                             setIsUploading(true);
                                                             setPaymentReceipt(null);
                                                             const reader = new FileReader();
