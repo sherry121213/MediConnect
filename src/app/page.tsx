@@ -80,21 +80,19 @@ const features = [
   ];
 
 const CompactDoctorCardSkeleton = () => (
-    <div className="p-1">
-        <Card className="flex flex-col h-full overflow-hidden border-gray-200/80">
-            <CardHeader className="p-0">
-                <Skeleton className="h-40 w-full" />
-            </CardHeader>
-            <CardContent className="p-3 text-center flex-grow space-y-2 mt-2">
-                <Skeleton className="h-5 w-3/4 mx-auto" />
-                <Skeleton className="h-4 w-1/2 mx-auto" />
-                <Skeleton className="h-4 w-1/4 mx-auto" />
-            </CardContent>
-            <CardFooter className="p-3 pt-0">
-                <Skeleton className="h-9 w-full" />
-            </CardFooter>
-        </Card>
-    </div>
+    <Card className="flex flex-col h-full overflow-hidden border-gray-200/80">
+        <CardHeader className="p-0">
+            <Skeleton className="h-40 w-full" />
+        </CardHeader>
+        <CardContent className="p-3 text-center flex-grow space-y-2 mt-2">
+            <Skeleton className="h-5 w-3/4 mx-auto" />
+            <Skeleton className="h-4 w-1/2 mx-auto" />
+            <Skeleton className="h-4 w-1/4 mx-auto" />
+        </CardContent>
+        <CardFooter className="p-3 pt-0">
+            <Skeleton className="h-9 w-full" />
+        </CardFooter>
+    </Card>
 );
 
 export default function Home() {
@@ -216,29 +214,19 @@ export default function Home() {
                 <h2 className="text-3xl font-bold font-headline">Meet Our Healthcare professionals</h2>
                 <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">Consult with our team of qualified and verified doctors.</p>
             </div>
-            {isLoadingDoctors ? (
-               <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
-                    {Array.from({ length: 4 }).map((_, i) => (
-                        <CompactDoctorCardSkeleton key={i} />
-                    ))}
-                </div>
-            ) : (
-            <Carousel
-              opts={{ align: "start", loop: doctors && doctors.length > 3 }}
-              plugins={[ Autoplay({ delay: 3000, stopOnInteraction: true, }), ]}
-              className="mt-12"
-            >
-              <CarouselContent>
-                {doctors && doctors.map(doctor => (
-                  <CarouselItem key={doctor.id} className="sm:basis-1/2 md:basis-1/3 lg:basis-1/4">
-                    <div className="p-1">
-                      <DoctorCard doctor={doctor} variant="compact" />
-                    </div>
-                  </CarouselItem>
+            <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                {isLoadingDoctors && Array.from({ length: 8 }).map((_, i) => (
+                    <CompactDoctorCardSkeleton key={i} />
                 ))}
-              </CarouselContent>
-            </Carousel>
-            )}
+                {doctors && doctors.map(doctor => (
+                    <DoctorCard key={doctor.id} doctor={doctor} variant="compact" />
+                ))}
+            </div>
+            <div className="text-center mt-12">
+                <Button asChild>
+                    <Link href="/find-a-doctor">View All Doctors <ArrowRight className="ml-2 h-4 w-4" /></Link>
+                </Button>
+            </div>
           </div>
         </section>
 
