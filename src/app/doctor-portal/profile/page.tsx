@@ -27,6 +27,7 @@ import {
 } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { updateProfile } from 'firebase/auth';
+import ImageCropperDialog from '@/components/ImageCropperDialog';
 
 const profileSchema = z.object({
   specialty: z.string().min(2, 'Specialty is required.'),
@@ -49,6 +50,7 @@ export default function DoctorProfilePage() {
   const [isUploading, setIsUploading] = useState(false);
   const [pageTitle, setPageTitle] = useState('Complete Your Professional Profile');
   const [pageDescription, setPageDescription] = useState('Please provide your details to get your profile verified by our team.');
+  const [cropperImage, setCropperImage] = useState<string | null>(null);
 
 
   const form = useForm<ProfileFormValues>({
@@ -91,33 +93,37 @@ export default function DoctorProfilePage() {
   }, [user, firestore, form]);
   
   const handlePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!user || !firestore || !e.target.files || e.target.files.length === 0) return;
-    const file = e.target.files[0];
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.addEventListener('load', () => {
+        setCropperImage(reader.result as string);
+      });
+      reader.readAsDataURL(file);
+      e.target.value = ''; // Reset input to allow re-selecting the same file
+    }
+  };
 
+  const handleSaveCroppedImage = (croppedImage: string) => {
+    if (!user || !firestore) return;
+    
     setIsUploading(true);
+    setCropperImage(null);
 
-    const reader = new FileReader();
-    reader.onloadend = () => {
-        const dataUrl = reader.result as string;
-        
-        // Storing large data URLs in Firebase Auth photoURL is not supported due to size limits.
-        // We will only store it in Firestore.
-        
-        const doctorDocRef = doc(firestore, 'doctors', user.uid);
-        setDocumentNonBlocking(doctorDocRef, { photoURL: dataUrl }, { merge: true });
+    const doctorDocRef = doc(firestore, 'doctors', user.uid);
+    setDocumentNonBlocking(doctorDocRef, { photoURL: croppedImage }, { merge: true });
 
-        // Also update the patients collection document for consistency
-        const patientDocRef = doc(firestore, 'patients', user.uid);
-        setDocumentNonBlocking(patientDocRef, { photoURL: dataUrl }, { merge: true });
+    const patientDocRef = doc(firestore, 'patients', user.uid);
+    setDocumentNonBlocking(patientDocRef, { photoURL: croppedImage }, { merge: true });
 
-        toast({
-            title: 'Profile Picture Updated',
-            description: 'Your new photo has been saved.',
-        });
-        
+    toast({
+        title: 'Profile Picture Updated',
+        description: 'Your new photo is being saved.',
+    });
+
+    setTimeout(() => {
         setIsUploading(false);
-    };
-    reader.readAsDataURL(file);
+    }, 2000); 
   };
 
 
@@ -205,7 +211,7 @@ export default function DoctorProfilePage() {
                 <div className='relative'>
                     <Button asChild variant="outline" size="sm">
                         <label htmlFor="picture-upload" className="cursor-pointer">
-                        {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>) : "Change Picture"}
+                        {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>) : "Change Picture"}
                         </label>
                     </Button>
                     <Input
@@ -364,6 +370,12 @@ export default function DoctorProfilePage() {
             </Form>
           </CardContent>
         </Card>
+         <ImageCropperDialog
+          isOpen={!!cropperImage}
+          onOpenChange={(isOpen) => !isOpen && setCropperImage(null)}
+          imageSrc={cropperImage}
+          onSave={handleSaveCroppedImage}
+        />
       </main>
   );
 }
