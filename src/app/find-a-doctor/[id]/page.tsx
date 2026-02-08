@@ -174,6 +174,31 @@ export default function DoctorDetailPage() {
     const doctorImage = placeholderImages.find(p => p.id === doctor.profileImageId);
     const availableDates = getNext7Days();
 
+    const now = new Date();
+    const isToday = selectedDate.toDateString() === now.toDateString();
+
+    const isTimeSlotPast = (time: string) => {
+        if (!isToday) {
+            return false;
+        }
+        
+        const [timePart, ampm] = time.split(' ');
+        const [hours, minutes] = timePart.split(':');
+        let numericHours = parseInt(hours);
+        
+        if (ampm === 'PM' && numericHours !== 12) {
+            numericHours += 12;
+        }
+        if (ampm === 'AM' && numericHours === 12) { // Handle 12 AM (midnight)
+            numericHours = 0;
+        }
+
+        const timeSlotDateTime = new Date(selectedDate);
+        timeSlotDateTime.setHours(numericHours, parseInt(minutes), 0, 0);
+
+        return timeSlotDateTime < now;
+    };
+
     return (
         <div className="flex flex-col min-h-screen">
             <AppHeader />
@@ -254,6 +279,7 @@ export default function DoctorDetailPage() {
                                                     key={time}
                                                     variant={selectedTime === time ? 'default' : 'outline'}
                                                     onClick={() => setSelectedTime(time)}
+                                                    disabled={isTimeSlotPast(time)}
                                                 >{time}</Button>
                                             ))}
                                         </div>
@@ -266,6 +292,7 @@ export default function DoctorDetailPage() {
                                                     key={time}
                                                     variant={selectedTime === time ? 'default' : 'outline'}
                                                     onClick={() => setSelectedTime(time)}
+                                                    disabled={isTimeSlotPast(time)}
                                                 >{time}</Button>
                                             ))}
                                         </div>
