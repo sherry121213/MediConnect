@@ -87,32 +87,26 @@ export default function PatientProfilePage() {
   }, [user, firestore, form]);
 
   const handlePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!user || !firestore || !e.target.files || !e.target.files.length === 0) return;
+    if (!user || !firestore || !e.target.files || e.target.files.length === 0) return;
     const file = e.target.files[0];
 
     setIsUploading(true);
 
     const reader = new FileReader();
-    reader.onloadend = async () => {
+    reader.onloadend = () => {
         const dataUrl = reader.result as string;
         
-        try {
-          await updateProfile(user, { photoURL: dataUrl });
-        } catch (authError) {
-           toast({
-              variant: 'destructive',
-              title: 'Auth Update Failed',
-              description: 'Could not update your profile picture in the authentication system.',
-          });
-          console.error("Error updating auth profile photo URL:", authError);
-          setIsUploading(false);
-          return;
+        // Storing large data URLs in Firebase Auth photoURL is not supported due to size limits.
+        // We will only store it in Firestore.
+        
+        const patientDocRef = doc(firestore, 'patients', user.uid);
+        setDocumentNonBlocking(patientDocRef, { photoURL: dataUrl }, { merge: true });
+
+        // If the user is a doctor, also update their doctor profile for consistency.
+        if (userData?.role === 'doctor') {
+            const doctorDocRef = doc(firestore, 'doctors', user.uid);
+            setDocumentNonBlocking(doctorDocRef, { photoURL: dataUrl }, { merge: true });
         }
-        
-        const collectionName = userData?.role === 'doctor' ? 'doctors' : 'patients';
-        const userDocRef = doc(firestore, collectionName, user.uid);
-        
-        setDocumentNonBlocking(userDocRef, { photoURL: dataUrl }, { merge: true });
 
         toast({
             title: 'Profile Picture Updated',
