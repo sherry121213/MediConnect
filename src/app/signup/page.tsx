@@ -24,6 +24,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { preverifiedDoctors, adminEmails } from "@/lib/auth-config";
 
 const signupSchema = z.object({
   firstName: z.string().min(2, { message: 'First name must be at least 2 characters.' }).regex(/^[^\d]*$/, { message: "First name cannot contain numbers." }),
@@ -34,101 +35,6 @@ const signupSchema = z.object({
 });
 
 type SignupFormValues = z.infer<typeof signupSchema>;
-
-const preverifiedDoctors: Record<string, any> = {
-    'doc1@gmail.com': {
-        specialty: 'Cardiology',
-        experience: 15,
-        medicalSchool: 'King Edward Medical University',
-        degree: 'MBBS, FCPS',
-        phone: '0300-1234567',
-        location: 'Islamabad',
-        degreeUrl: '',
-    },
-    'doc2@gmail.com': {
-        specialty: 'Dermatology',
-        experience: 8,
-        medicalSchool: 'Aga Khan University',
-        degree: 'MBBS, MCPS',
-        phone: '0301-2345678',
-        location: 'Karachi',
-        degreeUrl: '',
-    },
-    'doc3@gmail.com': {
-        specialty: 'General Physician',
-        experience: 12,
-        medicalSchool: 'Dow University of Health Sciences',
-        degree: 'MBBS',
-        phone: '0302-3456789',
-        location: 'Lahore',
-        degreeUrl: '',
-    },
-    'doc4@gmail.com': {
-        specialty: 'Gynecologist',
-        experience: 10,
-        medicalSchool: 'Fatima Jinnah Medical University',
-        degree: 'MBBS, FCPS',
-        phone: '0303-4567890',
-        location: 'Lahore',
-        degreeUrl: '',
-    },
-    'doc5@gmail.com': {
-        specialty: 'Orthopedics',
-        experience: 7,
-        medicalSchool: 'Services Institute of Medical Sciences',
-        degree: 'MBBS',
-        phone: '0304-5678901',
-        location: 'Peshawar',
-        degreeUrl: '',
-    },
-    'doc6@gmail.com': {
-        specialty: 'Psychiatrist',
-        experience: 9,
-        medicalSchool: 'Rawalpindi Medical University',
-        degree: 'MBBS, FCPS (Psychiatry)',
-        phone: '0305-6789012',
-        location: 'Rawalpindi',
-        degreeUrl: '',
-    },
-    'doc7@gmail.com': {
-        specialty: 'Cardiology',
-        experience: 20,
-        medicalSchool: 'National University of Medical Sciences',
-        degree: 'MBBS, MRCP',
-        phone: '0306-7890123',
-        location: 'Islamabad',
-        degreeUrl: '',
-    },
-    'doc8@gmail.com': {
-        specialty: 'General Physician',
-        experience: 5,
-        medicalSchool: 'Shifa College of Medicine',
-        degree: 'MBBS',
-        phone: '0307-8901234',
-        location: 'Islamabad',
-        degreeUrl: '',
-    },
-    'doc9@gmail.com': {
-        specialty: 'Dermatology',
-        experience: 11,
-        medicalSchool: 'Ziauddin University',
-        degree: 'MBBS, FCPS',
-        phone: '0308-9012345',
-        location: 'Karachi',
-        degreeUrl: '',
-    },
-    'doc10@gmail.com': {
-        specialty: 'Gynecologist',
-        experience: 14,
-        medicalSchool: 'Allama Iqbal Medical College',
-        degree: 'MBBS, MRCOG',
-        phone: '0309-0123456',
-        location: 'Lahore',
-        degreeUrl: '',
-    }
-};
-
-const adminEmails = ['admin@mediconnect.com', 'falakali1470@gmail.com'];
 
 export default function SignupPage() {
   const [loading, setLoading] = useState(false);

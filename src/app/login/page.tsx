@@ -24,21 +24,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-
-const preverifiedDoctors: Record<string, any> = {
-    'doc1@gmail.com': {},
-    'doc2@gmail.com': {},
-    'doc3@gmail.com': {},
-    'doc4@gmail.com': {},
-    'doc5@gmail.com': {},
-    'doc6@gmail.com': {},
-    'doc7@gmail.com': {},
-    'doc8@gmail.com': {},
-    'doc9@gmail.com': {},
-    'doc10@gmail.com': {}
-};
-
-const adminEmails = ['admin@mediconnect.com', 'falakali1470@gmail.com'];
+import { preverifiedDoctors, adminEmails } from "@/lib/auth-config";
 
 
 export default function LoginPage() {
