@@ -2,7 +2,7 @@
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, doc, getDoc, DocumentData, DocumentReference } from 'firebase/firestore';
+import { Firestore, doc, getDoc, DocumentData, DocumentReference, onSnapshot } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
 import { errorEmitter } from '@/firebase/error-emitter';
@@ -91,54 +91,46 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
     setUserAuthState({ user: null, userData: null, isUserLoading: true, userError: null }); // Reset on auth instance change
 
-    const unsubscribe = onAuthStateChanged(
+    let docUnsubscribe: (() => void) | null = null;
+
+    const authUnsubscribe = onAuthStateChanged(
       auth,
-      async (firebaseUser) => { // Auth state determined
+      (firebaseUser) => {
+        // Clean up previous doc listener
+        if (docUnsubscribe) {
+          docUnsubscribe();
+          docUnsubscribe = null;
+        }
+
         if (firebaseUser) {
-          // Handle unverified users to prevent permission errors.
-          // If a user's email isn't verified, and they are not a special case (admin/pre-verified doctor),
-          // their login/signup flow will sign them out immediately. This causes a race condition where
-          // we try to fetch their Firestore document with a now-null authentication context, triggering an error.
-          // By checking here, we avoid the unnecessary (and failing) Firestore read.
           const isSpecialUser = adminEmails.includes(firebaseUser.email || '') || preverifiedDoctors.hasOwnProperty(firebaseUser.email || '');
           if (!firebaseUser.emailVerified && !isSpecialUser) {
               setUserAuthState({ user: null, userData: null, isUserLoading: false, userError: null });
-              return; // Do not proceed to fetch data for this user.
+              return;
           }
           
-          let userDocRef: DocumentReference | undefined;
-          try {
-            // First, try to fetch from 'doctors'
-            userDocRef = doc(firestore, 'doctors', firebaseUser.uid);
-            let userDocSnap = await getDoc(userDocRef);
-
-            if (!userDocSnap.exists()) {
-              // If not a doctor, fetch from 'patients'
-              userDocRef = doc(firestore, 'patients', firebaseUser.uid);
-              userDocSnap = await getDoc(userDocRef);
+          // All users, regardless of role, have a document in the 'patients' collection
+          // which acts as the central user record. We will listen to this for real-time updates.
+          const userDocRef = doc(firestore, 'patients', firebaseUser.uid);
+          
+          docUnsubscribe = onSnapshot(userDocRef, 
+            (docSnap) => {
+              if (docSnap.exists()) {
+                setUserAuthState({ user: firebaseUser, userData: docSnap.data(), isUserLoading: false, userError: null });
+              } else {
+                // This can happen during the signup process before the doc is created.
+                setUserAuthState({ user: firebaseUser, userData: null, isUserLoading: false, userError: null });
+              }
+            },
+            (error) => {
+              const contextualError = new FirestorePermissionError({
+                  operation: 'get',
+                  path: userDocRef.path,
+              });
+              errorEmitter.emit('permission-error', contextualError);
+              setUserAuthState({ user: firebaseUser, userData: null, isUserLoading: false, userError: contextualError });
             }
-
-            if (userDocSnap.exists()) {
-              setUserAuthState({ user: firebaseUser, userData: userDocSnap.data(), isUserLoading: false, userError: null });
-            } else {
-              setUserAuthState({ user: firebaseUser, userData: null, isUserLoading: false, userError: null });
-            }
-          } catch (error: any) {
-            // If any getDoc fails, it will be caught here.
-            // We assume the last attempted ref is the one that failed, which is stored in userDocRef.
-            if (userDocRef) {
-                const contextualError = new FirestorePermissionError({
-                    operation: 'get',
-                    path: userDocRef.path,
-                });
-                errorEmitter.emit('permission-error', contextualError);
-                setUserAuthState({ user: firebaseUser, userData: null, isUserLoading: false, userError: contextualError });
-            } else {
-                // This case should be rare, but handle it.
-                console.error("FirebaseProvider: Error fetching user document:", error);
-                setUserAuthState({ user: firebaseUser, userData: null, isUserLoading: false, userError: error });
-            }
-          }
+          );
         } else {
           // No user is logged in
           setUserAuthState({ user: null, userData: null, isUserLoading: false, userError: null });
@@ -149,7 +141,13 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         setUserAuthState({ user: null, userData: null, isUserLoading: false, userError: error });
       }
     );
-    return () => unsubscribe(); // Cleanup
+
+    return () => {
+      authUnsubscribe();
+      if (docUnsubscribe) {
+        docUnsubscribe();
+      }
+    };
   }, [auth, firestore]);
 
   // Memoize the context value
