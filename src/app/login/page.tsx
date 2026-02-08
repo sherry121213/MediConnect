@@ -74,7 +74,7 @@ export default function LoginPage() {
         toast({
           variant: "destructive",
           title: "Email Not Verified",
-          description: "Please verify your email address before logging in. A verification link was sent to you on signup.",
+          description: "Your email is not yet verified. Please check your inbox for the verification link that was sent when you first signed up.",
           duration: 10000,
         });
         setLoading(false);
