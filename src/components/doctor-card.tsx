@@ -10,6 +10,7 @@ import { Star, MapPin, ShieldCheck } from 'lucide-react';
 import { useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
+import { Avatar, AvatarFallback } from './ui/avatar';
 
 interface DoctorCardProps {
   doctor: Doctor;
@@ -17,9 +18,13 @@ interface DoctorCardProps {
 }
 
 export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardProps) {
-  const doctorImage = placeholderImages.find(p => p.id === doctor.profileImageId);
+  const staticDoctorImage = placeholderImages.find(p => p.id === doctor.profileImageId);
+  const imageSrc = doctor.photoURL || staticDoctorImage?.imageUrl;
+  const imageHint = staticDoctorImage?.imageHint || 'doctor portrait';
   const name = doctor.name || `${doctor.firstName} ${doctor.lastName}`;
   const doctorProfileLink = `/find-a-doctor/${doctor.id}`;
+  const nameFallback = (doctor.firstName?.[0] || '') + (doctor.lastName?.[0] || '');
+
 
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
@@ -44,14 +49,20 @@ export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardPr
         <Card className="flex flex-col h-full overflow-hidden transition-all duration-300 hover:shadow-xl group border-gray-200/80">
             <CardHeader className="p-0">
                 <div className="relative h-40 w-full">
-                {doctorImage && (
+                {imageSrc ? (
                     <Image
-                    src={doctorImage.imageUrl}
+                    src={imageSrc}
                     alt={name}
                     fill
                     className="object-cover"
-                    data-ai-hint={doctorImage.imageHint}
+                    data-ai-hint={imageHint}
                     />
+                ) : (
+                    <div className="h-40 w-full bg-secondary flex items-center justify-center">
+                        <Avatar className="h-24 w-24">
+                            <AvatarFallback className="text-3xl">{nameFallback}</AvatarFallback>
+                        </Avatar>
+                    </div>
                 )}
                 </div>
             </CardHeader>
@@ -76,14 +87,20 @@ export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardPr
     <Card className="flex flex-col h-full overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
       <CardHeader className="p-0">
         <div className="relative h-48 w-full">
-          {doctorImage && (
+          {imageSrc ? (
             <Image
-              src={doctorImage.imageUrl}
+              src={imageSrc}
               alt={name}
               fill
               className="object-cover"
-              data-ai-hint={doctorImage.imageHint}
+              data-ai-hint={imageHint}
             />
+          ) : (
+             <div className="h-48 w-full bg-secondary flex items-center justify-center">
+                <Avatar className="h-32 w-32">
+                    <AvatarFallback className="text-5xl">{nameFallback}</AvatarFallback>
+                </Avatar>
+            </div>
           )}
           {doctor.verified && (
             <Badge variant="secondary" className="absolute top-2 right-2 bg-green-100 text-green-800 border-green-300">
