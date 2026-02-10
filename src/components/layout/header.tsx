@@ -5,7 +5,14 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Menu, LogOut, User as UserIcon, Shield, LayoutDashboard } from 'lucide-react';
 import Logo from '@/components/logo';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { useState } from 'react';
 import { useAuth, useUserData } from '@/firebase';
@@ -167,6 +174,12 @@ export default function AppHeader() {
             </Button>
           </SheetTrigger>
           <SheetContent side="right" className="w-[300px] sm:w-[400px]">
+            <SheetHeader className="sr-only">
+              <SheetTitle>Mobile Menu</SheetTitle>
+              <SheetDescription>
+                A list of navigation links for the site.
+              </SheetDescription>
+            </SheetHeader>
             {userData?.role !== 'doctor' && (
                 <nav className="flex flex-col gap-6 text-lg font-medium mt-12">
                 {navLinks.map((link) => (
