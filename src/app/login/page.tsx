@@ -7,10 +7,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
-import { useAuth, useFirestore, useUserData } from "@/firebase";
+import { useAuth, useUserData } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import {
@@ -32,7 +31,6 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const auth = useAuth();
-  const firestore = useFirestore();
   const router = useRouter();
   const { toast } = useToast();
   const { user, userData, isUserLoading } = useUserData();
@@ -62,7 +60,7 @@ export default function LoginPage() {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!auth || !firestore) return;
+    if (!auth) return;
     setLoading(true);
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
@@ -80,31 +78,11 @@ export default function LoginPage() {
         setLoading(false);
         return;
       }
-
-      // OPTIMIZATION: Redirect immediately after successful login to improve user experience.
-      if (adminEmails.includes(user.email || '')) {
-        router.replace('/admin');
-        return;
-      }
       
-      // All user roles are stored in the 'patients' collection document.
-      const userDocRef = doc(firestore, 'patients', user.uid);
-      const userDocSnap = await getDoc(userDocRef);
-
-      if (userDocSnap.exists()) {
-        const role = userDocSnap.data().role;
-        if (role === 'doctor') {
-          router.replace('/doctor-portal');
-          return;
-        }
-        if (role === 'patient') {
-          router.replace('/patient-portal');
-          return;
-        }
-      }
-      
-      // Fallback for any other case
-      router.replace('/');
+      // On successful and verified login, do not redirect.
+      // The `useEffect` hook is the single source of truth for redirection and
+      // will handle it once the user and userData state is updated.
+      // The loading spinner will persist until the redirect occurs.
 
     } catch (error: any) {
       console.error("Login Error:", error);
@@ -117,7 +95,7 @@ export default function LoginPage() {
         title: "Login Failed",
         description: description,
       });
-      setLoading(false); // Only set loading false on error, as success causes a redirect.
+      setLoading(false);
     }
   };
   
