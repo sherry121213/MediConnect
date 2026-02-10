@@ -43,7 +43,7 @@ export default function LoginPage() {
        const isPreverifiedDoctor = preverifiedDoctors.hasOwnProperty(user.email || '');
        if (!user.emailVerified && !adminEmails.includes(user.email || '') && !isPreverifiedDoctor) {
          // If they are logged in but not verified, we sign them out so they stay on the login page.
-         signOut(auth);
+         if (auth) signOut(auth);
          return;
       }
 
@@ -87,8 +87,8 @@ export default function LoginPage() {
         return;
       }
       
-      const collectionName = isPreverifiedDoctor ? 'doctors' : 'patients';
-      const userDocRef = doc(firestore, collectionName, user.uid);
+      // All user roles are stored in the 'patients' collection document.
+      const userDocRef = doc(firestore, 'patients', user.uid);
       const userDocSnap = await getDoc(userDocRef);
 
       if (userDocSnap.exists()) {
