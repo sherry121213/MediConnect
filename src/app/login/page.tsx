@@ -29,7 +29,9 @@ import { preverifiedDoctors, adminEmails } from "@/lib/auth-config";
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [resetEmail, setResetEmail] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isResetDialogOpen, setIsResetDialogOpen] = useState(false);
   const auth = useAuth();
   const router = useRouter();
   const { toast } = useToast();
@@ -38,13 +40,6 @@ export default function LoginPage() {
   // Redirect if user is already logged in
   useEffect(() => {
     if (!isUserLoading && user && userData) {
-       const isPreverifiedDoctor = preverifiedDoctors.hasOwnProperty(user.email || '');
-       if (!user.emailVerified && !adminEmails.includes(user.email || '') && !isPreverifiedDoctor) {
-         // If they are logged in but not verified, we sign them out so they stay on the login page.
-         if (auth) signOut(auth);
-         return;
-      }
-
       if (userData.role === 'admin') {
         router.replace('/admin');
       } else if (userData.role === 'doctor') {
@@ -55,7 +50,7 @@ export default function LoginPage() {
         router.replace('/'); // Fallback to home
       }
     }
-  }, [user, userData, isUserLoading, router, auth]);
+  }, [user, userData, isUserLoading, router]);
 
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -101,7 +96,7 @@ export default function LoginPage() {
   
   const handlePasswordReset = async () => {
     if (!auth) return;
-    if (!email) {
+    if (!resetEmail) {
       toast({
         variant: "destructive",
         title: "Email Required",
@@ -111,16 +106,24 @@ export default function LoginPage() {
     }
     setLoading(true);
     try {
-      await sendPasswordResetEmail(auth, email);
+      await sendPasswordResetEmail(auth, resetEmail);
       toast({
         title: "Password Reset Email Sent",
-        description: "Check your inbox for a link to reset your password.",
+        description: `Check your inbox at ${resetEmail} for a link to reset your password.`,
       });
+      setIsResetDialogOpen(false);
+      setResetEmail('');
     } catch (error: any) {
+       let description = "Could not send password reset email. Please try again.";
+      if(error.code === 'auth/invalid-email') {
+        description = "The email address is not valid.";
+      } else if (error.code === 'auth/user-not-found') {
+        description = "No user found with this email address.";
+      }
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Could not send password reset email. Please try again.",
+        description: description,
       });
     } finally {
       setLoading(false);
@@ -165,22 +168,48 @@ export default function LoginPage() {
                 <div className="grid gap-2">
                   <div className="flex items-center">
                     <Label htmlFor="password">Password</Label>
-                     <AlertDialog>
+                     <AlertDialog open={isResetDialogOpen} onOpenChange={(open) => {
+                         setIsResetDialogOpen(open);
+                         if (!open) setResetEmail(''); // Clear on close
+                     }}>
                       <AlertDialogTrigger asChild>
-                        <Button variant="link" type="button" className="ml-auto inline-block text-sm p-0 h-auto">
+                        <Button 
+                          variant="link" 
+                          type="button" 
+                          className="ml-auto inline-block text-sm p-0 h-auto"
+                          onClick={() => {
+                            setResetEmail(email); // Pre-fill with login email
+                            setIsResetDialogOpen(true);
+                          }}
+                        >
                             Forgot your password?
                         </Button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
                         <AlertDialogHeader>
-                          <AlertDialogTitle>Reset Password?</AlertDialogTitle>
+                          <AlertDialogTitle>Reset Password</AlertDialogTitle>
                           <AlertDialogDescription>
-                            We will send a password reset link to <strong>{email || 'the email you entered'}</strong>. Are you sure you want to continue?
+                            Enter your email address below and we'll send you a link to reset your password.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
+                        <div className="grid gap-2 py-4">
+                          <Label htmlFor="reset-email" className="sr-only">Email Address</Label>
+                          <Input
+                            id="reset-email"
+                            type="email"
+                            placeholder="m@example.com"
+                            required
+                            value={resetEmail}
+                            onChange={(e) => setResetEmail(e.target.value)}
+                            disabled={loading}
+                          />
+                        </div>
                         <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction onClick={handlePasswordReset}>Continue</AlertDialogAction>
+                          <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={handlePasswordReset} disabled={loading || !resetEmail}>
+                            {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Send Reset Link
+                          </AlertDialogAction>
                         </AlertDialogFooter>
                       </AlertDialogContent>
                     </AlertDialog>
