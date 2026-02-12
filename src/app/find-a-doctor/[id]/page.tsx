@@ -9,9 +9,20 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, Biohazard, BriefcaseMedical, CalendarDays, Clock, GraduationCap, Heart, Loader2, MapPin, Star, UserCheck, Brain } from 'lucide-react';
+import { ArrowLeft, BriefcaseMedical, CalendarDays, Clock, GraduationCap, Heart, Loader2, MapPin, Star, UserCheck, Brain } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useState } from 'react';
@@ -65,7 +76,7 @@ export default function DoctorDetailPage() {
             });
             return;
         }
-
+        
         if (!paymentReceipt) {
             toast({
                 variant: 'destructive',
@@ -74,7 +85,7 @@ export default function DoctorDetailPage() {
             });
             return;
         }
-        
+
         setIsBooking(true);
 
         const appointmentDateTime = new Date(selectedDate);
@@ -115,19 +126,6 @@ export default function DoctorDetailPage() {
         setIsBooking(false);
         router.push('/patient-portal');
     };
-
-    const getSpecialtyIcon = (specialty?: string) => {
-        switch (specialty) {
-            case 'Cardiology':
-                return <Heart className="mr-2 h-4 w-4" />;
-            case 'Psychiatrist':
-                return <Brain className="mr-2 h-4 w-4" />;
-            case 'General Physician':
-                 return <BriefcaseMedical className="mr-2 h-4 w-4" />;
-            default:
-                return <Biohazard className="mr-2 h-4 w-4" />;
-        }
-    }
     
     if (isLoading || isUserLoading) {
         return (
@@ -237,69 +235,69 @@ export default function DoctorDetailPage() {
                         <div className="lg:col-span-2">
                              <Card>
                                 <CardHeader>
-                                    <CardTitle className="flex items-center"><CalendarDays className="mr-2 h-6 w-6 text-primary"/> Select a Date and Time</CardTitle>
+                                    <CardTitle className="flex items-center"><CalendarDays className="mr-2 h-6 w-6 text-primary"/> Book an Appointment</CardTitle>
                                 </CardHeader>
                                 <CardContent>
-                                    <div className="mb-6">
-                                        <h4 className="font-semibold mb-3 text-md">Date</h4>
-                                        <div className="relative">
-                                            <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
-                                                {availableDates.map(day => (
-                                                    <button 
-                                                        key={day.date.toISOString()}
-                                                        onClick={() => { setSelectedDate(day.date); setSelectedTime(null); }}
-                                                        className={cn(
-                                                            "p-2 rounded-lg border text-center transition-colors shrink-0 w-20",
-                                                            selectedDate.toDateString() === day.date.toDateString() ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted'
-                                                        )}
-                                                    >
-                                                        <p className="text-sm font-medium">{day.dayName}</p>
-                                                        <p className="text-2xl font-bold">{day.dayNumber}</p>
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </div>
+                                    <h4 className="font-semibold mb-3">Step 1: Select a Date</h4>
+                                    <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
+                                        {availableDates.map(day => (
+                                            <button 
+                                                key={day.date.toISOString()}
+                                                onClick={() => { setSelectedDate(day.date); setSelectedTime(null); }}
+                                                className={cn(
+                                                    "p-2 rounded-lg border text-center transition-colors shrink-0 w-20",
+                                                    selectedDate.toDateString() === day.date.toDateString() ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted'
+                                                )}
+                                            >
+                                                <p className="text-sm font-medium">{day.dayName}</p>
+                                                <p className="text-2xl font-bold">{day.dayNumber}</p>
+                                            </button>
+                                        ))}
                                     </div>
-                                     <div className="mb-6">
-                                        <h4 className="font-semibold mb-3 text-md">Time <span className='text-sm text-muted-foreground'>(Morning)</span></h4>
-                                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                                            {timeSlots.morning.map(time => (
-                                                <Button 
-                                                    key={time}
-                                                    variant={selectedTime === time ? 'default' : 'outline'}
-                                                    onClick={() => setSelectedTime(time)}
-                                                    disabled={isTimeSlotPast(time)}
-                                                >{time}</Button>
-                                            ))}
-                                        </div>
+                                     <h4 className="font-semibold mb-3 mt-6">Step 2: Select a Time</h4>
+                                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                                         {timeSlots.morning.map(time => (
+                                            <Button 
+                                                key={time}
+                                                variant={selectedTime === time ? 'default' : 'outline'}
+                                                onClick={() => setSelectedTime(time)}
+                                                disabled={isTimeSlotPast(time)}
+                                            >{time}</Button>
+                                        ))}
+                                         {timeSlots.afternoon.map(time => (
+                                            <Button 
+                                                key={time}
+                                                variant={selectedTime === time ? 'default' : 'outline'}
+                                                onClick={() => setSelectedTime(time)}
+                                                disabled={isTimeSlotPast(time)}
+                                            >{time}</Button>
+                                        ))}
                                      </div>
-                                     <div>
-                                        <h4 className="font-semibold mb-3 text-md">Time <span className='text-sm text-muted-foreground'>(Afternoon)</span></h4>
-                                        <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                                             {timeSlots.afternoon.map(time => (
-                                                <Button 
-                                                    key={time}
-                                                    variant={selectedTime === time ? 'default' : 'outline'}
-                                                    onClick={() => setSelectedTime(time)}
-                                                    disabled={isTimeSlotPast(time)}
-                                                >{time}</Button>
-                                            ))}
-                                        </div>
-                                     </div>
-                                     
-                                    {selectedTime && (
-                                        <div className="mt-8 pt-6 border-t">
-                                            <CardTitle className="mb-2 text-xl">Step 3: Confirm Payment</CardTitle>
-                                            <CardDescription>
-                                                To confirm your appointment, please transfer the consultation fee to the account details below and upload a screenshot of your receipt.
-                                            </CardDescription>
-                                            <div className="my-4 space-y-2 rounded-md border bg-muted/30 p-4 text-sm">
+                                     <AlertDialog>
+                                        <AlertDialogTrigger asChild>
+                                             <Button 
+                                                className="w-full mt-8" 
+                                                size="lg"
+                                                disabled={!selectedTime || isBooking || isUserLoading}
+                                            >
+                                                {isBooking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Clock className="mr-2 h-4 w-4" />}
+                                                Confirm & Book Appointment
+                                            </Button>
+                                        </AlertDialogTrigger>
+                                        <AlertDialogContent>
+                                            <AlertDialogHeader>
+                                                <AlertDialogTitle>Confirm Payment</AlertDialogTitle>
+                                                <AlertDialogDescription>
+                                                    To confirm your appointment, please transfer the consultation fee to the account details below and upload a screenshot of your receipt.
+                                                </AlertDialogDescription>
+                                            </AlertDialogHeader>
+                                             <div className="my-4 space-y-2 rounded-md border bg-muted/30 p-4 text-sm">
                                                 <p><strong>Bank:</strong> Faysal Bank</p>
                                                 <p><strong>Account Title:</strong> Mediconnect Pvt. Ltd.</p>
                                                 <p><strong>Account Number:</strong> 0123-4567890123</p>
                                                 <p><strong>Consultation Fee:</strong> PKR 1,500</p>
                                             </div>
-                                            <div className="space-y-2">
+                                             <div className="space-y-2">
                                                 <Label htmlFor="receipt-upload">Upload Payment Receipt</Label>
                                                 <div className="relative">
                                                     <Button asChild variant="outline" size="sm" className="w-full">
@@ -335,19 +333,15 @@ export default function DoctorDetailPage() {
                                                     <p className="text-sm text-green-600 font-medium text-center mt-2">Receipt selected successfully.</p>
                                                 )}
                                             </div>
-                                        </div>
-                                    )}
-
-                                     <Button 
-                                        className="w-full mt-8" 
-                                        size="lg"
-                                        onClick={handleConfirmBooking}
-                                        disabled={!selectedTime || !paymentReceipt || isBooking || isUserLoading || isUploading}
-                                    >
-                                        {isBooking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Clock className="mr-2 h-4 w-4" />}
-                                        Confirm & Book Appointment
-                                    </Button>
-
+                                            <AlertDialogFooter>
+                                                <AlertDialogCancel disabled={isBooking}>Cancel</AlertDialogCancel>
+                                                <AlertDialogAction onClick={handleConfirmBooking} disabled={isBooking || isUploading || !paymentReceipt}>
+                                                     {isBooking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                                    Pay & Confirm
+                                                </AlertDialogAction>
+                                            </AlertDialogFooter>
+                                        </AlertDialogContent>
+                                    </AlertDialog>
                                 </CardContent>
                             </Card>
                         </div>
