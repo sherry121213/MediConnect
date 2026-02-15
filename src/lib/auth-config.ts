@@ -1,6 +1,6 @@
 
 export const preverifiedDoctors: Record<string, any> = {
-    'doc1@gmail.com': {
+    'doc1@mediconnect.com': {
         specialty: 'Cardiology',
         experience: 15,
         medicalSchool: 'King Edward Medical University',
@@ -9,7 +9,7 @@ export const preverifiedDoctors: Record<string, any> = {
         location: 'Islamabad',
         degreeUrl: '',
     },
-    'doc2@gmail.com': {
+    'doc2@mediconnect.com': {
         specialty: 'Dermatology',
         experience: 8,
         medicalSchool: 'Aga Khan University',
@@ -18,7 +18,7 @@ export const preverifiedDoctors: Record<string, any> = {
         location: 'Karachi',
         degreeUrl: '',
     },
-    'doc3@gmail.com': {
+    'doc3@mediconnect.com': {
         specialty: 'General Physician',
         experience: 12,
         medicalSchool: 'Dow University of Health Sciences',
@@ -27,7 +27,7 @@ export const preverifiedDoctors: Record<string, any> = {
         location: 'Lahore',
         degreeUrl: '',
     },
-    'doc4@gmail.com': {
+    'doc4@mediconnect.com': {
         specialty: 'Gynecologist',
         experience: 10,
         medicalSchool: 'Fatima Jinnah Medical University',
@@ -36,7 +36,7 @@ export const preverifiedDoctors: Record<string, any> = {
         location: 'Lahore',
         degreeUrl: '',
     },
-    'doc5@gmail.com': {
+    'doc5@mediconnect.com': {
         specialty: 'Orthopedics',
         experience: 7,
         medicalSchool: 'Services Institute of Medical Sciences',
@@ -45,7 +45,7 @@ export const preverifiedDoctors: Record<string, any> = {
         location: 'Peshawar',
         degreeUrl: '',
     },
-    'doc6@gmail.com': {
+    'doc6@mediconnect.com': {
         specialty: 'Psychiatrist',
         experience: 9,
         medicalSchool: 'Rawalpindi Medical University',
@@ -54,7 +54,7 @@ export const preverifiedDoctors: Record<string, any> = {
         location: 'Rawalpindi',
         degreeUrl: '',
     },
-    'doc7@gmail.com': {
+    'doc7@mediconnect.com': {
         specialty: 'Cardiology',
         experience: 20,
         medicalSchool: 'National University of Medical Sciences',
@@ -63,7 +63,7 @@ export const preverifiedDoctors: Record<string, any> = {
         location: 'Islamabad',
         degreeUrl: '',
     },
-    'doc8@gmail.com': {
+    'doc8@mediconnect.com': {
         specialty: 'General Physician',
         experience: 5,
         medicalSchool: 'Shifa College of Medicine',
@@ -72,7 +72,7 @@ export const preverifiedDoctors: Record<string, any> = {
         location: 'Islamabad',
         degreeUrl: '',
     },
-    'doc9@gmail.com': {
+    'doc9@mediconnect.com': {
         specialty: 'Dermatology',
         experience: 11,
         medicalSchool: 'Ziauddin University',
@@ -81,7 +81,7 @@ export const preverifiedDoctors: Record<string, any> = {
         location: 'Karachi',
         degreeUrl: '',
     },
-    'doc10@gmail.com': {
+    'doc10@mediconnect.com': {
         specialty: 'Gynecologist',
         experience: 14,
         medicalSchool: 'Allama Iqbal Medical College',

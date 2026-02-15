@@ -7,7 +7,7 @@ import { IdleTimeoutProvider } from '@/components/IdleTimeoutProvider';
 
 export const metadata: Metadata = {
   title: 'Mediconnect',
-  description: 'AI-powered telemedicine platform',
+  description: 'Your health partner.',
 };
 
 export default function RootLayout({
