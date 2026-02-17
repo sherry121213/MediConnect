@@ -91,16 +91,17 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
     setUserAuthState({ user: null, userData: null, isUserLoading: true, userError: null }); // Reset on auth instance change
 
-    let docUnsubscribe: (() => void) | null = null;
+    let patientDocUnsubscribe: (() => void) | null = null;
+    let doctorDocUnsubscribe: (() => void) | null = null;
 
     const authUnsubscribe = onAuthStateChanged(
       auth,
       (firebaseUser) => {
-        // Clean up previous doc listener
-        if (docUnsubscribe) {
-          docUnsubscribe();
-          docUnsubscribe = null;
-        }
+        // Clean up previous doc listeners
+        if (patientDocUnsubscribe) patientDocUnsubscribe();
+        if (doctorDocUnsubscribe) doctorDocUnsubscribe();
+        patientDocUnsubscribe = null;
+        doctorDocUnsubscribe = null;
 
         if (firebaseUser) {
           const isSpecialUser = adminEmails.includes(firebaseUser.email || '') || preverifiedDoctors.hasOwnProperty(firebaseUser.email || '');
@@ -109,24 +110,36 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
               return;
           }
           
-          // All users, regardless of role, have a document in the 'patients' collection
-          // which acts as the central user record. We will listen to this for real-time updates.
-          const userDocRef = doc(firestore, 'patients', firebaseUser.uid);
+          const patientDocRef = doc(firestore, 'patients', firebaseUser.uid);
           
-          docUnsubscribe = onSnapshot(userDocRef, 
-            (docSnap) => {
-              if (docSnap.exists()) {
-                setUserAuthState({ user: firebaseUser, userData: docSnap.data(), isUserLoading: false, userError: null });
+          patientDocUnsubscribe = onSnapshot(patientDocRef, 
+            (patientSnap) => {
+              const patientData = patientSnap.exists() ? patientSnap.data() : null;
+
+              if (patientData && patientData.role === 'doctor') {
+                const doctorDocRef = doc(firestore, 'doctors', firebaseUser.uid);
+                doctorDocUnsubscribe = onSnapshot(doctorDocRef, 
+                  (doctorSnap) => {
+                    const doctorData = doctorSnap.exists() ? doctorSnap.data() : {};
+                    // Merge patient and doctor data, with doctor data taking precedence for overlapping fields
+                    const mergedData = { ...patientData, ...doctorData };
+                    setUserAuthState({ user: firebaseUser, userData: mergedData, isUserLoading: false, userError: null });
+                  },
+                  (error) => {
+                    // Handle error for doctor doc
+                    const contextualError = new FirestorePermissionError({ operation: 'get', path: doctorDocRef.path });
+                    errorEmitter.emit('permission-error', contextualError);
+                    setUserAuthState({ user: firebaseUser, userData: patientData, isUserLoading: false, userError: contextualError });
+                  }
+                );
               } else {
-                // This can happen during the signup process before the doc is created.
-                setUserAuthState({ user: firebaseUser, userData: null, isUserLoading: false, userError: null });
+                // User is not a doctor, or patient doc doesn't exist yet
+                setUserAuthState({ user: firebaseUser, userData: patientData, isUserLoading: false, userError: null });
               }
             },
             (error) => {
-              const contextualError = new FirestorePermissionError({
-                  operation: 'get',
-                  path: userDocRef.path,
-              });
+              // Handle error for patient doc
+              const contextualError = new FirestorePermissionError({ operation: 'get', path: patientDocRef.path });
               errorEmitter.emit('permission-error', contextualError);
               setUserAuthState({ user: firebaseUser, userData: null, isUserLoading: false, userError: contextualError });
             }
@@ -144,9 +157,8 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
     return () => {
       authUnsubscribe();
-      if (docUnsubscribe) {
-        docUnsubscribe();
-      }
+      if (patientDocUnsubscribe) patientDocUnsubscribe();
+      if (doctorDocUnsubscribe) doctorDocUnsubscribe();
     };
   }, [auth, firestore]);
 
