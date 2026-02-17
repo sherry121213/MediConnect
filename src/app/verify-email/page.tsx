@@ -24,10 +24,10 @@ export default function VerifyEmailPage() {
           </CardHeader>
           <CardContent className="pt-6">
             <p className="text-sm text-muted-foreground mb-6">
-              Didn't receive the email? Check your spam folder or wait a few minutes. Once verified, you can log in to your account.
+              Once you've verified your email, click the button below to log in and continue to your portal.
             </p>
             <Button asChild className="w-full">
-              <Link href="/login">Go to Login</Link>
+              <Link href="/login">Proceed to Login</Link>
             </Button>
           </CardContent>
         </Card>

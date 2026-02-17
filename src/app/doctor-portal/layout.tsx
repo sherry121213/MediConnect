@@ -30,6 +30,15 @@ export default function DoctorPortalLayout({
         router.replace('/');
         return;
       }
+      
+      const isProfilePage = pathname === '/doctor-portal/profile';
+      const isProfileComplete = !!userData.profileComplete;
+
+      // If profile is not complete, and we are not on the profile page, redirect there.
+      if (!isProfileComplete && !isProfilePage) {
+        router.replace('/doctor-portal/profile');
+        return;
+      }
     }
   }, [isUserLoading, user, userData, pathname, router]);
 
@@ -42,7 +51,7 @@ export default function DoctorPortalLayout({
     );
   }
 
-  // If user is loading or doesn't exist, show a generic loading/redirecting message.
+  // If user is loading or doesn't exist, or no userData yet, show a generic loading/redirecting message.
   if (!user || !userData) {
     return (
         <div className="flex h-screen w-full items-center justify-center">
@@ -62,6 +71,17 @@ export default function DoctorPortalLayout({
   
   const isProfilePage = pathname === '/doctor-portal/profile';
   const isProfileComplete = !!userData.profileComplete;
+
+  // While the useEffect is running the redirect, show a loading state.
+  if (!isProfileComplete && !isProfilePage) {
+      return (
+          <div className="flex h-screen w-full items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin" />
+              <span className="ml-2">Redirecting to complete your profile...</span>
+          </div>
+      );
+  }
+  
   const isVerified = !!userData.verified;
   
   // If the profile is complete but not verified, show the pending page (unless they are on their profile page).
