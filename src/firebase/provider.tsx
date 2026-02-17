@@ -104,12 +104,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
         doctorDocUnsubscribe = null;
 
         if (firebaseUser) {
-          const isSpecialUser = adminEmails.includes(firebaseUser.email || '') || preverifiedDoctors.hasOwnProperty(firebaseUser.email || '');
-          if (!firebaseUser.emailVerified && !isSpecialUser) {
-              setUserAuthState({ user: null, userData: null, isUserLoading: false, userError: null });
-              return;
-          }
-          
           const patientDocRef = doc(firestore, 'patients', firebaseUser.uid);
           
           patientDocUnsubscribe = onSnapshot(patientDocRef, 

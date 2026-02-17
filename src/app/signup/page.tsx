@@ -14,7 +14,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { useAuth, useFirestore, useUserData } from "@/firebase";
-import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification, signOut } from "firebase/auth";
+import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from "firebase/auth";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
@@ -76,8 +76,11 @@ export default function SignupPage() {
     if (!auth || !firestore) return;
     setLoading(true);
     
+    const lowercasedEmail = email.toLowerCase();
+    const adminEmailsLower = adminEmails.map(e => e.toLowerCase());
+
     // Special handling for pre-configured admin users
-    if (adminEmails.includes(email)) {
+    if (adminEmailsLower.includes(lowercasedEmail)) {
       try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const newUser = userCredential.user;
@@ -151,7 +154,8 @@ export default function SignupPage() {
       }
       
       if (role === 'doctor') {
-        const preverifiedData = preverifiedDoctors[email];
+        const preverifiedKey = Object.keys(preverifiedDoctors).find(k => k.toLowerCase() === lowercasedEmail);
+        const preverifiedData = preverifiedKey ? preverifiedDoctors[preverifiedKey] : null;
 
         const doctorData = {
           ...baseUserData,
@@ -172,7 +176,7 @@ export default function SignupPage() {
         setDocumentNonBlocking(doctorDocRef, doctorData);
 
         const patientDocRef = doc(firestore, 'patients', newUser.uid);
-        setDocumentNonBlocking(patientDocRef, {...baseUserData, role: 'doctor' });
+        setDocumentNonBlocking(patientDocRef, {...baseUserData, role: 'doctor', profileComplete: !!preverifiedData });
         
       } else { // Patient role
         const patientData = {...baseUserData, role: 'patient', profileComplete: false };
@@ -180,8 +184,16 @@ export default function SignupPage() {
         setDocumentNonBlocking(patientDocRef, patientData);
       }
       
-      await signOut(auth);
-      router.push('/verify-email');
+      toast({
+        title: "Account Created!",
+        description: "A verification link has been sent to your email. Please check your inbox to continue.",
+      });
+
+      if (role === 'doctor') {
+        router.push('/doctor-portal');
+      } else {
+        router.push('/patient-portal');
+      }
 
     } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {

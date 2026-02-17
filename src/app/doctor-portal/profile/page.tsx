@@ -8,26 +8,18 @@ import { doc, getDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-  DialogFooter,
-  DialogClose,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { updateProfile } from 'firebase/auth';
+import { updateProfile, sendEmailVerification } from 'firebase/auth';
 import ImageCropperDialog from '@/components/ImageCropperDialog';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 const profileSchema = z.object({
   specialty: z.string().min(2, 'Specialty is required.'),
@@ -51,7 +43,7 @@ export default function DoctorProfilePage() {
   const [pageTitle, setPageTitle] = useState('Complete Your Professional Profile');
   const [pageDescription, setPageDescription] = useState('Please provide your details to get your profile verified by our team.');
   const [cropperImage, setCropperImage] = useState<string | null>(null);
-
+  const [isResending, setIsResending] = useState(false);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -65,6 +57,8 @@ export default function DoctorProfilePage() {
       degreeUrl: '',
     },
   });
+  
+  const isEmailVerified = !!user?.emailVerified;
 
   useEffect(() => {
     if (user && firestore) {
@@ -124,6 +118,27 @@ export default function DoctorProfilePage() {
     setTimeout(() => {
         setIsUploading(false);
     }, 2000); 
+  };
+
+
+  const handleResendVerification = async () => {
+    if (!user) return;
+    setIsResending(true);
+    try {
+      await sendEmailVerification(user);
+      toast({
+        title: "Verification Email Sent",
+        description: "A new verification link has been sent to your email address.",
+      });
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to send verification email. Please try again later.'
+      });
+    } finally {
+      setIsResending(false);
+    }
   };
 
 
@@ -203,6 +218,23 @@ export default function DoctorProfilePage() {
             <CardDescription>{pageDescription}</CardDescription>
           </CardHeader>
           <CardContent>
+             {!isEmailVerified && (
+                <Alert variant="destructive" className="mb-6">
+                    <AlertTitle>Verify Your Email Address</AlertTitle>
+                    <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                        <span>You must verify your email to complete your profile.</span>
+                        <Button 
+                            variant="link" 
+                            onClick={handleResendVerification} 
+                            disabled={isResending}
+                            className="p-0 h-auto mt-2 sm:mt-0"
+                        >
+                            {isResending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Resend Verification Link
+                        </Button>
+                    </AlertDescription>
+                </Alert>
+            )}
             <div className="flex flex-col items-center gap-4 mb-8">
                 <Avatar className="h-28 w-28">
                     <AvatarImage src={userData?.photoURL || user?.photoURL || undefined} alt={userData?.displayName || 'User'} />
@@ -362,7 +394,7 @@ export default function DoctorProfilePage() {
                 />
 
 
-                <Button type="submit" className="w-full" disabled={isSubmitting || isUploading}>
+                <Button type="submit" className="w-full" disabled={isSubmitting || isUploading || !isEmailVerified}>
                   {(isSubmitting || isUploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Save and Continue
                 </Button>

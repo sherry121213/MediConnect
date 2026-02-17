@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label";
 import { useState, useEffect } from "react";
 import { useAuth, useUserData } from "@/firebase";
 import { useRouter } from "next/navigation";
-import { signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from "firebase/auth";
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth";
 import { useToast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 import {
@@ -23,7 +23,6 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { preverifiedDoctors, adminEmails } from "@/lib/auth-config";
 
 
 export default function LoginPage() {
@@ -58,23 +57,8 @@ export default function LoginPage() {
     if (!auth) return;
     setLoading(true);
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      const isPreverifiedDoctor = preverifiedDoctors.hasOwnProperty(email);
-
-      if (!user.emailVerified && !adminEmails.includes(user.email || '') && !isPreverifiedDoctor) {
-        await signOut(auth);
-        toast({
-          variant: "destructive",
-          title: "Email Not Verified",
-          description: "Your email is not yet verified. Please check your inbox for the verification link that was sent when you first signed up.",
-          duration: 10000,
-        });
-        setLoading(false);
-        return;
-      }
-      
-      // On successful and verified login, do not redirect.
+      await signInWithEmailAndPassword(auth, email, password);
+      // On successful login, do not redirect.
       // The `useEffect` hook is the single source of truth for redirection and
       // will handle it once the user and userData state is updated.
       // The loading spinner will persist until the redirect occurs.
