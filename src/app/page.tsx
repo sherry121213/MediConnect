@@ -102,7 +102,7 @@ export default function Home() {
 
   const doctorsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'doctors'), where('verified', '==', true), limit(8));
+    return query(collection(firestore, 'doctors'), where('verified', '==', true), where('profileComplete', '==', true), limit(8));
   }, [firestore]);
 
   const { data: doctors, isLoading: isLoadingDoctors } = useCollection<Doctor>(doctorsQuery);

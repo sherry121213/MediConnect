@@ -32,7 +32,7 @@ export default function FindADoctorPage() {
 
   const doctorsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'doctors'), where('verified', '==', true));
+    return query(collection(firestore, 'doctors'), where('verified', '==', true), where('profileComplete', '==', true));
   }, [firestore]);
 
   const { data: doctors, isLoading: isLoadingDoctors, error } = useCollection<Doctor>(doctorsQuery);
