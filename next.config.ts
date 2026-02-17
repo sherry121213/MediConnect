@@ -1,10 +1,8 @@
 import type {NextConfig} from 'next';
 
-const nextConfig: NextConfig = {
+const nextConfig = {
   /* config options here */
-  devIndicators: {
-    buildActivity: false,
-  },
+  devIndicators: false,
   typescript: {
     ignoreBuildErrors: true,
   },
