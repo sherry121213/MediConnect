@@ -1,3 +1,4 @@
+
 "use client"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from "recharts";
@@ -43,7 +44,9 @@ export default function AdminDashboardPage() {
   // Stat calculations
   const totalRevenue = useMemo(() => {
     if (!appointments) return 0;
-    return appointments.reduce((sum, apt) => sum + (apt.amount || 1500), 0);
+    return appointments
+      .filter(apt => apt.paymentStatus === 'approved')
+      .reduce((sum, apt) => sum + (apt.amount || 1500), 0);
   }, [appointments]);
 
   const totalBookings = appointments?.length || 0;
