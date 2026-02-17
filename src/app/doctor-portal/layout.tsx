@@ -61,8 +61,8 @@ export default function DoctorPortalLayout({
   }
   
   const isProfilePage = pathname === '/doctor-portal/profile';
-  const isProfileComplete = userData.profileComplete === true;
-  const isVerified = userData.verified === true;
+  const isProfileComplete = !!userData.profileComplete;
+  const isVerified = !!userData.verified;
   
   // If the profile is complete but not verified, show the pending page (unless they are on their profile page).
   if (isProfileComplete && !isVerified && !isProfilePage) {
