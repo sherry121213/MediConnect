@@ -19,6 +19,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { updateProfile, sendEmailVerification } from 'firebase/auth';
 import ImageCropperDialog from '@/components/ImageCropperDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Progress } from '@/components/ui/progress';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
@@ -34,6 +35,61 @@ const profileSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
+/**
+ * Utility to compress images using Canvas before upload.
+ */
+async function compressImage(file: File): Promise<Blob | File> {
+  if (!file.type.startsWith('image/') || file.type.includes('gif')) {
+    return file;
+  }
+
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.readAsDataURL(file);
+    reader.onload = (event) => {
+      const img = new Image();
+      img.src = event.target?.result as string;
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        const MAX_WIDTH = 1200;
+        const MAX_HEIGHT = 1200;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > MAX_WIDTH) {
+            height *= MAX_WIDTH / width;
+            width = MAX_WIDTH;
+          }
+        } else {
+          if (height > MAX_HEIGHT) {
+            width *= MAX_HEIGHT / height;
+            height = MAX_HEIGHT;
+          }
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        ctx?.drawImage(img, 0, 0, width, height);
+
+        canvas.toBlob(
+          (blob) => {
+            if (blob) {
+              // Convert to a File object to preserve original name
+              resolve(new File([blob], file.name, { type: 'image/jpeg' }));
+            } else {
+              resolve(file);
+            }
+          },
+          'image/jpeg',
+          0.7 // Compression quality (70%)
+        );
+      };
+    };
+  });
+}
+
 export default function DoctorProfilePage() {
   const { user, userData, isUserLoading } = useUserData();
   const firestore = useFirestore();
@@ -42,6 +98,7 @@ export default function DoctorProfilePage() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [overallProgress, setOverallProgress] = useState(0);
   const [pageTitle, setPageTitle] = useState('Complete Your Professional Profile');
   const [pageDescription, setPageDescription] = useState('Please provide your details to get your profile verified by our team.');
   const [cropperImage, setCropperImage] = useState<string | null>(null);
@@ -232,35 +289,58 @@ export default function DoctorProfilePage() {
     }
     
     setIsSubmitting(true);
+    setOverallProgress(0);
 
     try {
-        // Parallelize uploads using Promise.all() for maximum speed
-        const uploadPromises = uploadQueue.map(async (item) => {
-            if (item.status === 'done') return null;
+        const batchSize = uploadQueue.length > 3 ? 2 : uploadQueue.length;
+        const totalToUpload = uploadQueue.length;
+        let completedCount = 0;
+        const newUrls: string[] = [];
 
-            setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'uploading' } : q));
-
-            const uniqueName = `${Date.now()}_${Math.floor(Math.random() * 1000)}_${item.file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-            const fileRef = ref(storage, `doctors/${user.uid}/documents/${uniqueName}`);
+        // Batch processing to prevent network freezing
+        for (let i = 0; i < uploadQueue.length; i += batchSize) {
+            const batch = uploadQueue.slice(i, i + batchSize);
             
-            try {
-              await uploadBytes(fileRef, item.file);
-              const url = await getDownloadURL(fileRef);
-              setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'done' } : q));
-              return url;
-            } catch (err) {
-              console.error(`Failed to upload ${item.file.name}`, err);
-              throw err;
-            }
-        });
+            const batchPromises = batch.map(async (item) => {
+                if (item.status === 'done') return null;
 
-        const newUrlsResult = await Promise.all(uploadPromises);
-        const newUrls = newUrlsResult.filter((url): url is string => url !== null);
+                setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'uploading' } : q));
+
+                // Client-side image compression
+                let fileToUpload: Blob | File = item.file;
+                if (item.file.type.startsWith('image/')) {
+                    try {
+                        fileToUpload = await compressImage(item.file);
+                    } catch (err) {
+                        console.warn(`Compression failed for ${item.file.name}, using original.`, err);
+                    }
+                }
+
+                const uniqueName = `${Date.now()}_${Math.floor(Math.random() * 1000)}_${item.file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+                const fileRef = ref(storage, `doctors/${user.uid}/documents/${uniqueName}`);
+                
+                try {
+                  await uploadBytes(fileRef, fileToUpload);
+                  const url = await getDownloadURL(fileRef);
+                  
+                  completedCount++;
+                  setOverallProgress(Math.round((completedCount / totalToUpload) * 100));
+                  setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'done' } : q));
+                  
+                  return url;
+                } catch (err) {
+                  console.error(`Failed to upload ${item.file.name}`, err);
+                  throw err;
+                }
+            });
+
+            const batchResults = await Promise.all(batchPromises);
+            newUrls.push(...batchResults.filter((u): u is string => u !== null));
+        }
+
         const finalDocs = [...existingDocs, ...newUrls];
-
         const isCompletingProfile = !userData?.profileComplete;
         
-        // Update Firebase Auth profile if display name is missing
         if (!user.displayName) {
             const firstName = userData?.firstName || 'Doctor';
             const lastName = userData?.lastName || '';
@@ -281,7 +361,6 @@ export default function DoctorProfilePage() {
             updatedAt: new Date().toISOString(),
         };
 
-        // Single efficient update calls
         const doctorDocRef = doc(firestore, 'doctors', user.uid);
         setDocumentNonBlocking(doctorDocRef, dataToSet, { merge: true });
 
@@ -290,6 +369,7 @@ export default function DoctorProfilePage() {
 
         setUploadQueue([]); 
         setExistingDocs(finalDocs);
+        setOverallProgress(100);
 
         if (isCompletingProfile) {
             router.push('/doctor-portal');
@@ -354,33 +434,33 @@ export default function DoctorProfilePage() {
                         {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>) : "Change Picture"}
                         </label>
                     </Button>
-                    <Input id="picture-upload" type="file" accept="image/*" onChange={handlePictureChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isUploading} />
+                    <Input id="picture-upload" type="file" accept="image/*" onChange={handlePictureChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isUploading || isSubmitting} />
                 </div>
             </div>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                  <div className="grid md:grid-cols-2 gap-6">
                     <FormField control={form.control} name="specialty" render={({ field }) => (
-                        <FormItem><FormLabel>Specialty</FormLabel><FormControl><Input placeholder="e.g., Cardiology" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Specialty</FormLabel><FormControl><Input placeholder="e.g., Cardiology" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
                     )} />
                      <FormField control={form.control} name="experience" render={({ field }) => (
-                        <FormItem><FormLabel>Years of Experience</FormLabel><FormControl><Input type="number" placeholder="e.g., 5" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Years of Experience</FormLabel><FormControl><Input type="number" placeholder="e.g., 5" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
                 <div className="grid md:grid-cols-2 gap-6">
                     <FormField control={form.control} name="medicalSchool" render={({ field }) => (
-                        <FormItem><FormLabel>Medical School / University</FormLabel><FormControl><Input placeholder="e.g., King Edward Medical University" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Medical School / University</FormLabel><FormControl><Input placeholder="e.g., King Edward Medical University" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="degree" render={({ field }) => (
-                        <FormItem><FormLabel>Degree(s)</FormLabel><FormControl><Input placeholder="e.g., MBBS, FCPS" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Degree(s)</FormLabel><FormControl><Input placeholder="e.g., MBBS, FCPS" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
                  <div className="grid md:grid-cols-2 gap-6">
                     <FormField control={form.control} name="contact" render={({ field }) => (
-                        <FormItem><FormLabel>Contact Number</FormLabel><FormControl><Input placeholder="e.g., 0300-1234567" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Contact Number</FormLabel><FormControl><Input placeholder="e.g., 0300-1234567" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={form.control} name="location" render={({ field }) => (
-                        <FormItem><FormLabel>Clinic Location</FormLabel><FormControl><Input placeholder="e.g., Blue Area, Islamabad" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Clinic Location</FormLabel><FormControl><Input placeholder="e.g., Blue Area, Islamabad" {...field} disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
                     )} />
                  </div>
                  
@@ -398,7 +478,7 @@ export default function DoctorProfilePage() {
                                     <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
                                         <a href={url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3 w-3" /></a>
                                     </Button>
-                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeExistingDoc(url)}>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeExistingDoc(url)} disabled={isSubmitting}>
                                         <X className="h-3 w-3" />
                                     </Button>
                                 </div>
@@ -423,28 +503,44 @@ export default function DoctorProfilePage() {
                         </div>
                     )}
 
-                    <div className="relative">
-                        <Button type="button" variant="outline" className="w-full border-dashed" asChild>
-                            <label htmlFor="multi-doc-upload" className="cursor-pointer flex items-center justify-center gap-2">
-                                <Plus className="h-4 w-4" /> Add More Documents
-                            </label>
-                        </Button>
-                        <Input 
-                            id="multi-doc-upload" 
-                            type="file" 
-                            multiple 
-                            accept=".pdf,.jpg,.jpeg,.png" 
-                            onChange={handleFileSelection} 
-                            className="absolute inset-0 opacity-0 cursor-pointer" 
-                            disabled={isSubmitting}
-                        />
-                    </div>
+                    {!isSubmitting && (
+                        <div className="relative">
+                            <Button type="button" variant="outline" className="w-full border-dashed" asChild>
+                                <label htmlFor="multi-doc-upload" className="cursor-pointer flex items-center justify-center gap-2">
+                                    <Plus className="h-4 w-4" /> Add More Documents
+                                </label>
+                            </Button>
+                            <Input 
+                                id="multi-doc-upload" 
+                                type="file" 
+                                multiple 
+                                accept=".pdf,.jpg,.jpeg,.png" 
+                                onChange={handleFileSelection} 
+                                className="absolute inset-0 opacity-0 cursor-pointer" 
+                                disabled={isSubmitting}
+                            />
+                        </div>
+                    )}
                     <p className="text-[10px] text-muted-foreground">Allowed formats: PDF, JPG, PNG. Maximum size per file: 5MB.</p>
                 </div>
 
+                {isSubmitting && uploadQueue.length > 0 && (
+                    <div className="space-y-2">
+                        <div className="flex justify-between text-xs font-medium">
+                            <span>Processing Documents...</span>
+                            <span>{overallProgress}%</span>
+                        </div>
+                        <Progress value={overallProgress} className="h-2" />
+                    </div>
+                )}
+
                 <Button type="submit" className="w-full" disabled={isSubmitting || isUploading || !isEmailVerified}>
-                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Save and Continue
+                  {isSubmitting ? (
+                    <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {uploadQueue.length > 0 ? `Saving... ${overallProgress}%` : "Saving..."}
+                    </>
+                  ) : "Save and Continue"}
                 </Button>
               </form>
             </Form>
