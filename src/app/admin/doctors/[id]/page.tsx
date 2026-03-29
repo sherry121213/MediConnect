@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, AtSign, BriefcaseMedical, Calendar, CheckCircle, GraduationCap, Loader2, MapPin, Phone, Star, UserCheck } from 'lucide-react';
+import { ArrowLeft, AtSign, BriefcaseMedical, Calendar, CheckCircle, GraduationCap, Loader2, MapPin, Phone, Star, UserCheck, FileText, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
@@ -75,7 +75,16 @@ export default function DoctorProfilePage() {
             </Button>
             <Card className="max-w-4xl mx-auto">
                 <CardHeader className="flex flex-col md:flex-row items-start gap-6 bg-muted/30 p-6">
-                    {doctorImage ? (
+                    {doctor.photoURL ? (
+                        <div className="relative h-32 w-32 shrink-0">
+                            <Image
+                                src={doctor.photoURL}
+                                alt={`${doctor.firstName}`}
+                                fill
+                                className="rounded-full border-4 border-background object-cover"
+                            />
+                        </div>
+                    ) : doctorImage ? (
                         <Image
                             src={doctorImage.imageUrl}
                             alt={`${doctor.firstName} ${doctor.lastName}`}
@@ -146,14 +155,42 @@ export default function DoctorProfilePage() {
                         <Calendar className="h-5 w-5 text-muted-foreground" />
                         <span className="text-sm">Member since: {new Date(doctor.createdAt || '').toLocaleDateString()}</span>
                     </div>
-                    <div className="md:col-span-2">
-                        <h4 className="font-semibold mb-2">Degree/Certificate</h4>
-                        {doctor.degreeUrl ? (
-                             <div className="relative w-full max-w-md h-64 border rounded-md overflow-hidden">
-                                <Image src={doctor.degreeUrl} alt="Degree preview" fill style={{objectFit: "contain"}} />
+                    
+                    <div className="md:col-span-2 mt-4">
+                        <h4 className="font-semibold mb-4 flex items-center gap-2 border-b pb-2">
+                            <FileText className="h-5 w-5 text-primary" /> Professional Documents
+                        </h4>
+                        
+                        {doctor.documents && doctor.documents.length > 0 ? (
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                {doctor.documents.map((url, idx) => {
+                                    const isImage = url.includes('.jpg') || url.includes('.png') || url.includes('.jpeg') || url.includes('image');
+                                    return (
+                                        <Card key={idx} className="overflow-hidden border-muted">
+                                            <div className="relative aspect-video bg-muted/20 flex items-center justify-center">
+                                                {isImage ? (
+                                                    <Image src={url} alt={`Doc ${idx + 1}`} fill className="object-cover" />
+                                                ) : (
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <FileText className="h-10 w-10 text-muted-foreground" />
+                                                        <span className="text-xs text-muted-foreground">PDF Document</span>
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <CardContent className="p-3 flex justify-between items-center">
+                                                <span className="text-xs font-medium">Document {idx + 1}</span>
+                                                <Button size="sm" variant="outline" className="h-8 text-[10px]" asChild>
+                                                    <a href={url} target="_blank" rel="noopener noreferrer">
+                                                        View Full <ExternalLink className="ml-1 h-3 w-3" />
+                                                    </a>
+                                                </Button>
+                                            </CardContent>
+                                        </Card>
+                                    );
+                                })}
                             </div>
                         ) : (
-                            <p className="text-sm text-muted-foreground">No degree image has been uploaded.</p>
+                            <p className="text-sm text-muted-foreground py-4 text-center border rounded-md bg-muted/5">No professional documents uploaded.</p>
                         )}
                     </div>
                 </CardContent>

@@ -100,10 +100,13 @@
           "type": "number",
           "description": "Doctor's years of professional experience."
         },
-        "degreeUrl": {
-          "type": "string",
-          "description": "URL to the uploaded image of the doctor's degree.",
-          "format": "uri"
+        "documents": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uri"
+          },
+          "description": "List of URLs to uploaded professional documents/degrees."
         },
         "location": {
           "type": "string",
@@ -329,6 +332,6 @@
         }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to support Mediconnect's core features with role-based access. To ensure security, scalability, and debuggability, the structure adheres to the principles of Authorization Independence, Structural Segregation, and Access Modeling.\\n\\n**Authorization Independence:**\\n\\n*   For appointments, the `patientId` and `doctorId` are stored directly within the appointment document. This allows security rules to validate that only the patient, the doctor, or an admin can access it, without needing to perform `get()` operations to check parent documents.\\n\\n**Structural Segregation:**\\n\\n*   User account data (`/patients`), professional doctor profiles (`/doctors`), appointments (`/appointments`), and contact submissions (`/contacts`) are stored in separate collections, reflecting their distinct security requirements and access patterns. This segregation simplifies security rules and avoids complex conditional logic within a single collection.\\n\\n**Access Modeling:**\\n\\n*   **User-Owned Data (Patient/User Profiles):** User data is stored in the top-level `/patients` collection, with access restricted to the user themselves or an admin.\\n*   **Admin-Managed Data (Doctor Profiles):** Doctor profiles are in `/doctors`, readable by all signed-in users but writeable only by admins.\\n*   **Shared Data (Appointments):** Appointments are in a top-level collection to allow for querying. Access is limited to the two participants (patient and doctor) or an admin.\\n*   **Public Write, Private Read (Contacts):** The `/contacts` collection allows any user (even unauthenticated) to submit a message, but only admins can read the submissions to maintain privacy."
+    "reasoning": "The Firestore data structure is designed to support Mediconnect's core features with role-based access."
   }
 }

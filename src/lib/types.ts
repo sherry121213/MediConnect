@@ -19,7 +19,7 @@ export interface Doctor {
   medicalSchool?: string;
   degree?: string;
   experience?: number;
-  degreeUrl?: string;
+  documents?: string[]; // Array of URLs for professional documents
   profileComplete?: boolean;
   createdAt?: string;
   updatedAt?: string;

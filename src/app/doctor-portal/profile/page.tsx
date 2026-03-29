@@ -3,19 +3,18 @@
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useFirestore, useUserData } from '@/firebase';
+import { useFirestore, useUserData, useStorage } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, FileText, X, Plus, ExternalLink } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import Image from 'next/image';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { updateProfile, sendEmailVerification } from 'firebase/auth';
 import ImageCropperDialog from '@/components/ImageCropperDialog';
@@ -28,7 +27,7 @@ const profileSchema = z.object({
   degree: z.string().min(2, 'Degree is required.'),
   contact: z.string().min(10, 'Please enter a valid contact number.').max(11, 'Contact number cannot exceed 11 digits.'),
   location: z.string().min(3, 'Clinic location is required.'),
-  degreeUrl: z.string().optional(),
+  documents: z.array(z.string()).default([]),
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
@@ -36,6 +35,7 @@ type ProfileFormValues = z.infer<typeof profileSchema>;
 export default function DoctorProfilePage() {
   const { user, userData, isUserLoading } = useUserData();
   const firestore = useFirestore();
+  const storage = useStorage();
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,6 +44,10 @@ export default function DoctorProfilePage() {
   const [pageDescription, setPageDescription] = useState('Please provide your details to get your profile verified by our team.');
   const [cropperImage, setCropperImage] = useState<string | null>(null);
   const [isResending, setIsResending] = useState(false);
+  
+  // Track existing documents and new files being uploaded
+  const [existingDocs, setExistingDocs] = useState<string[]>([]);
+  const [uploadQueue, setUploadQueue] = useState<{ file: File; id: string; status: 'pending' | 'uploading' | 'done' }[]>([]);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -54,7 +58,7 @@ export default function DoctorProfilePage() {
       degree: '',
       contact: '',
       location: '',
-      degreeUrl: '',
+      documents: [],
     },
   });
   
@@ -74,8 +78,9 @@ export default function DoctorProfilePage() {
             degree: data.degree || '',
             contact: data.phone || '',
             location: data.location || '',
-            degreeUrl: data.degreeUrl || '',
+            documents: data.documents || [],
           });
+          setExistingDocs(data.documents || []);
           if (data.profileComplete) {
             setPageTitle("Edit Your Professional Profile");
             setPageDescription("Keep your professional information up to date.");
@@ -94,7 +99,7 @@ export default function DoctorProfilePage() {
         setCropperImage(reader.result as string);
       });
       reader.readAsDataURL(file);
-      e.target.value = ''; // Reset input to allow re-selecting the same file
+      e.target.value = ''; 
     }
   };
 
@@ -120,6 +125,39 @@ export default function DoctorProfilePage() {
     }, 2000); 
   };
 
+  const handleFileSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const files = Array.from(e.target.files);
+    
+    // Filter allowed types: PDF, JPG, PNG
+    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
+    const validFiles = files.filter(file => allowedTypes.includes(file.type));
+    
+    if (validFiles.length < files.length) {
+        toast({
+            variant: 'destructive',
+            title: 'Invalid Files Detected',
+            description: 'Only PDF, JPG, and PNG files are allowed.',
+        });
+    }
+
+    const newEntries = validFiles.map(file => ({
+        file,
+        id: Math.random().toString(36).substr(2, 9),
+        status: 'pending' as const
+    }));
+
+    setUploadQueue(prev => [...prev, ...newEntries]);
+    e.target.value = ''; // Reset input
+  };
+
+  const removeFileFromQueue = (id: string) => {
+    setUploadQueue(prev => prev.filter(item => item.id !== id));
+  };
+
+  const removeExistingDoc = (url: string) => {
+    setExistingDocs(prev => prev.filter(d => d !== url));
+  };
 
   const handleResendVerification = async () => {
     if (!user) return;
@@ -141,19 +179,41 @@ export default function DoctorProfilePage() {
     }
   };
 
-
   const onSubmit = async (values: ProfileFormValues) => {
-    if (!user || !firestore) {
-      toast({
-        variant: 'destructive',
-        title: 'Error',
-        description: 'You must be logged in to update your profile.',
-      });
+    if (!user || !firestore || !storage) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Database connection error.' });
       return;
     }
+    
     setIsSubmitting(true);
 
     try {
+        // 1. Upload new files from the queue
+        const newUrls: string[] = [];
+        const updatedQueue = [...uploadQueue];
+
+        for (let i = 0; i < updatedQueue.length; i++) {
+            const item = updatedQueue[i];
+            if (item.status === 'done') continue;
+
+            // Mark as uploading
+            setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'uploading' } : q));
+
+            const uniqueName = `${Date.now()}_${Math.floor(Math.random() * 1000)}_${item.file.name}`;
+            const fileRef = ref(storage, `doctors/${user.uid}/documents/${uniqueName}`);
+            
+            await uploadBytes(fileRef, item.file);
+            const url = await getDownloadURL(fileRef);
+            newUrls.push(url);
+
+            // Mark as done
+            setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'done' } : q));
+        }
+
+        // 2. Prepare final documents array
+        const finalDocs = [...existingDocs, ...newUrls];
+
+        // 3. Update Firestore
         const doctorDocRef = doc(firestore, 'doctors', user.uid);
         const docSnap = await getDoc(doctorDocRef);
         const isCompletingProfile = !docSnap.data()?.profileComplete;
@@ -169,7 +229,7 @@ export default function DoctorProfilePage() {
             degree: values.degree,
             phone: values.contact,
             location: values.location,
-            degreeUrl: values.degreeUrl,
+            documents: finalDocs,
             profileComplete: true,
             updatedAt: new Date().toISOString(),
         };
@@ -177,26 +237,19 @@ export default function DoctorProfilePage() {
         setDocumentNonBlocking(doctorDocRef, dataToSet, { merge: true });
 
         const patientDocRef = doc(firestore, 'patients', user.uid);
-        const patientDataToSet = {
-            updatedAt: new Date().toISOString(),
-            profileComplete: true,
-        };
-        setDocumentNonBlocking(patientDocRef, patientDataToSet, { merge: true });
+        setDocumentNonBlocking(patientDocRef, { updatedAt: new Date().toISOString(), profileComplete: true }, { merge: true });
+
+        setUploadQueue([]); // Clear queue on success
+        setExistingDocs(finalDocs);
 
         if (isCompletingProfile) {
             router.push('/doctor-portal');
         } else {
-            toast({
-                title: 'Profile Updated!',
-                description: 'Your professional information has been successfully updated.',
-            });
+            toast({ title: 'Profile Updated!', description: 'Your information has been successfully updated.' });
         }
     } catch (error) {
-        toast({
-            variant: "destructive",
-            title: "Uh oh! Something went wrong.",
-            description: "Could not load existing profile data. Please try again."
-        });
+        console.error(error);
+        toast({ variant: "destructive", title: "Update Failed", description: "Something went wrong while saving your profile." });
     } finally {
         setIsSubmitting(false);
     }
@@ -223,12 +276,7 @@ export default function DoctorProfilePage() {
                     <AlertTitle>Verify Your Email Address</AlertTitle>
                     <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                         <span>You must verify your email to complete your profile.</span>
-                        <Button 
-                            variant="link" 
-                            onClick={handleResendVerification} 
-                            disabled={isResending}
-                            className="p-0 h-auto mt-2 sm:mt-0"
-                        >
+                        <Button variant="link" onClick={handleResendVerification} disabled={isResending} className="p-0 h-auto mt-2 sm:mt-0">
                             {isResending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                             Resend Verification Link
                         </Button>
@@ -246,156 +294,100 @@ export default function DoctorProfilePage() {
                         {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>) : "Change Picture"}
                         </label>
                     </Button>
-                    <Input
-                        id="picture-upload"
-                        type="file"
-                        accept="image/*"
-                        onChange={handlePictureChange}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                        disabled={isUploading}
-                    />
+                    <Input id="picture-upload" type="file" accept="image/*" onChange={handlePictureChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isUploading} />
                 </div>
             </div>
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                  <div className="grid md:grid-cols-2 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="specialty"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Specialty</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., Cardiology" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                     <FormField
-                      control={form.control}
-                      name="experience"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Years of Experience</FormLabel>
-                          <FormControl>
-                            <Input type="number" placeholder="e.g., 5" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <FormField control={form.control} name="specialty" render={({ field }) => (
+                        <FormItem><FormLabel>Specialty</FormLabel><FormControl><Input placeholder="e.g., Cardiology" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                     <FormField control={form.control} name="experience" render={({ field }) => (
+                        <FormItem><FormLabel>Years of Experience</FormLabel><FormControl><Input type="number" placeholder="e.g., 5" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
                 </div>
                 <div className="grid md:grid-cols-2 gap-6">
-                    <FormField
-                      control={form.control}
-                      name="medicalSchool"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Medical School / University</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., King Edward Medical University" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="degree"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Degree(s)</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., MBBS, FCPS" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <FormField control={form.control} name="medicalSchool" render={({ field }) => (
+                        <FormItem><FormLabel>Medical School / University</FormLabel><FormControl><Input placeholder="e.g., King Edward Medical University" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="degree" render={({ field }) => (
+                        <FormItem><FormLabel>Degree(s)</FormLabel><FormControl><Input placeholder="e.g., MBBS, FCPS" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
                 </div>
                  <div className="grid md:grid-cols-2 gap-6">
-                    <FormField
-                        control={form.control}
-                        name="contact"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Contact Number</FormLabel>
-                            <FormControl>
-                              <Input placeholder="e.g., 0300-1234567" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    <FormField
-                      control={form.control}
-                      name="location"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Clinic Location</FormLabel>
-                          <FormControl>
-                            <Input placeholder="e.g., Blue Area, Islamabad" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                    <FormField control={form.control} name="contact" render={({ field }) => (
+                        <FormItem><FormLabel>Contact Number</FormLabel><FormControl><Input placeholder="e.g., 0300-1234567" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={form.control} name="location" render={({ field }) => (
+                        <FormItem><FormLabel>Clinic Location</FormLabel><FormControl><Input placeholder="e.g., Blue Area, Islamabad" {...field} /></FormControl><FormMessage /></FormItem>
+                    )} />
                  </div>
                  
-                <FormField
-                  control={form.control}
-                  name="degreeUrl"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Degree/Certificate</FormLabel>
-                      <FormControl>
-                         <div className="flex items-center gap-4">
-                           <div className='relative'>
-                              <Button asChild variant="outline">
-                                <label htmlFor="degree-upload" className="cursor-pointer">
-                                  {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>) : "Upload Document"}
-                                </label>
-                              </Button>
-                              <Input
-                                id="degree-upload"
-                                type="file"
-                                accept="image/*,application/pdf"
-                                onChange={(e) => {
-                                    if (!e.target.files || e.target.files.length === 0) return;
-                                    const file = e.target.files[0];
-                                    setIsUploading(true);
-                                    const reader = new FileReader();
-                                    reader.onloadend = () => {
-                                        form.setValue('degreeUrl', reader.result as string);
-                                        setIsUploading(false);
-                                    };
-                                    reader.readAsDataURL(file);
-                                }}
-                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                                disabled={isUploading}
-                              />
-                            </div>
-                            {form.getValues('degreeUrl') && (
-                                <div className="text-sm text-muted-foreground">
-                                    {form.getValues('degreeUrl')?.startsWith('data:image') ? 'Image ready for upload.' : 'PDF ready for upload.'}
+                {/* Multi-Document Upload Section */}
+                <div className="space-y-4">
+                    <FormLabel>Professional Documents (Degrees, Certificates)</FormLabel>
+                    
+                    {/* Existing Documents List */}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        {existingDocs.map((url, idx) => (
+                            <div key={idx} className="flex items-center justify-between p-3 border rounded-md bg-muted/20">
+                                <div className="flex items-center gap-2 overflow-hidden">
+                                    <FileText className="h-4 w-4 text-primary shrink-0" />
+                                    <span className="text-xs truncate">Document {idx + 1}</span>
                                 </div>
-                            )}
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                       {form.getValues('degreeUrl') && form.getValues('degreeUrl')?.startsWith('data:image') && (
-                          <div className="relative w-48 h-32 border rounded-md overflow-hidden mt-2">
-                            <Image src={form.getValues('degreeUrl')!} alt="Degree preview" fill style={{objectFit: "contain"}} />
-                          </div>
-                      )}
-                    </FormItem>
-                  )}
-                />
+                                <div className="flex items-center gap-1">
+                                    <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+                                        <a href={url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3 w-3" /></a>
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeExistingDoc(url)}>
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
 
+                    {/* Upload Queue List */}
+                    {uploadQueue.length > 0 && (
+                        <div className="space-y-2">
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Ready to upload:</p>
+                            {uploadQueue.map((item) => (
+                                <div key={item.id} className="flex items-center justify-between p-2 border border-dashed rounded-md">
+                                    <div className="flex items-center gap-2 overflow-hidden">
+                                        {item.status === 'uploading' ? <Loader2 className="h-3 w-3 animate-spin text-primary" /> : <FileText className="h-3 w-3 text-muted-foreground" />}
+                                        <span className="text-xs truncate">{item.file.name}</span>
+                                    </div>
+                                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeFileFromQueue(item.id)} disabled={isSubmitting}>
+                                        <X className="h-3 w-3" />
+                                    </Button>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
+                    {/* Add More Button */}
+                    <div className="relative">
+                        <Button type="button" variant="outline" className="w-full border-dashed" asChild>
+                            <label htmlFor="multi-doc-upload" className="cursor-pointer flex items-center justify-center gap-2">
+                                <Plus className="h-4 w-4" /> Add More Documents
+                            </label>
+                        </Button>
+                        <Input 
+                            id="multi-doc-upload" 
+                            type="file" 
+                            multiple 
+                            accept=".pdf,.jpg,.jpeg,.png" 
+                            onChange={handleFileSelection} 
+                            className="absolute inset-0 opacity-0 cursor-pointer" 
+                            disabled={isSubmitting}
+                        />
+                    </div>
+                    <p className="text-[10px] text-muted-foreground">Allowed formats: PDF, JPG, PNG. Maximum size per file: 5MB.</p>
+                </div>
 
                 <Button type="submit" className="w-full" disabled={isSubmitting || isUploading || !isEmailVerified}>
-                  {(isSubmitting || isUploading) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   Save and Continue
                 </Button>
               </form>
