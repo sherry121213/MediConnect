@@ -45,9 +45,8 @@ export default function DoctorProfilePage() {
   const [cropperImage, setCropperImage] = useState<string | null>(null);
   const [isResending, setIsResending] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  const [, setTick] = useState(0); // Used to force re-render
+  const [, setTick] = useState(0); 
   
-  // Track existing documents and new files being uploaded
   const [existingDocs, setExistingDocs] = useState<string[]>([]);
   const [uploadQueue, setUploadQueue] = useState<{ file: File; id: string; status: 'pending' | 'uploading' | 'done' }[]>([]);
 
@@ -189,7 +188,7 @@ export default function DoctorProfilePage() {
     setIsRefreshing(true);
     try {
       await user.reload();
-      setTick(t => t + 1); // Force re-render to check emailVerified property
+      setTick(t => t + 1); 
       if (user.emailVerified) {
         toast({
           title: "Email Verified",
@@ -221,12 +220,9 @@ export default function DoctorProfilePage() {
     setIsSubmitting(true);
 
     try {
-        const newUrls: string[] = [];
-        const updatedQueue = [...uploadQueue];
-
-        for (let i = 0; i < updatedQueue.length; i++) {
-            const item = updatedQueue[i];
-            if (item.status === 'done') continue;
+        // 1. Parallelize uploads for much faster performance
+        const uploadPromises = uploadQueue.map(async (item) => {
+            if (item.status === 'done') return null;
 
             setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'uploading' } : q));
 
@@ -236,28 +232,29 @@ export default function DoctorProfilePage() {
             try {
               await uploadBytes(fileRef, item.file);
               const url = await getDownloadURL(fileRef);
-              newUrls.push(url);
-              
               setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'done' } : q));
-            } catch (uploadError: any) {
-              console.error("File upload failed:", uploadError);
-              throw new Error(`Failed to upload ${item.file.name}: ${uploadError.message}`);
+              return url;
+            } catch (err) {
+              console.error(`Failed to upload ${item.file.name}`, err);
+              throw err;
             }
-        }
+        });
 
+        const newUrlsResult = await Promise.all(uploadPromises);
+        const newUrls = newUrlsResult.filter((url): url is string => url !== null);
         const finalDocs = [...existingDocs, ...newUrls];
 
-        const doctorDocRef = doc(firestore, 'doctors', user.uid);
-        const docSnap = await getDoc(doctorDocRef);
-        const doctorDataFromDb = docSnap.data();
-        const isCompletingProfile = !doctorDataFromDb?.profileComplete;
-
-        const firstName = doctorDataFromDb?.firstName || user.displayName?.split(' ')[0] || 'Doctor';
-        const lastName = doctorDataFromDb?.lastName || user.displayName?.split(' ')[1] || '';
+        // 2. Use existing userData to avoid extra database fetch
+        const isCompletingProfile = !userData?.profileComplete;
         
-        await updateProfile(user, {
-            displayName: `${firstName} ${lastName}`.trim(),
-        });
+        // Update Firebase Auth profile if display name is missing
+        if (!user.displayName) {
+            const firstName = userData?.firstName || 'Doctor';
+            const lastName = userData?.lastName || '';
+            await updateProfile(user, {
+                displayName: `${firstName} ${lastName}`.trim(),
+            });
+        }
 
         const dataToSet = {
             specialty: values.specialty,
@@ -271,6 +268,7 @@ export default function DoctorProfilePage() {
             updatedAt: new Date().toISOString(),
         };
 
+        const doctorDocRef = doc(firestore, 'doctors', user.uid);
         setDocumentNonBlocking(doctorDocRef, dataToSet, { merge: true });
 
         const patientDocRef = doc(firestore, 'patients', user.uid);
@@ -289,7 +287,7 @@ export default function DoctorProfilePage() {
         toast({ 
           variant: "destructive", 
           title: "Update Failed", 
-          description: error.message || "Something went wrong while saving your profile." 
+          description: "Something went wrong while saving your profile. Please check your internet connection." 
         });
     } finally {
         setIsSubmitting(false);
