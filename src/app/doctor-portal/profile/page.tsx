@@ -12,7 +12,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, FileText, X, Plus, ExternalLink } from 'lucide-react';
+import { Loader2, FileText, X, Plus, ExternalLink, RefreshCw } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -44,6 +44,8 @@ export default function DoctorProfilePage() {
   const [pageDescription, setPageDescription] = useState('Please provide your details to get your profile verified by our team.');
   const [cropperImage, setCropperImage] = useState<string | null>(null);
   const [isResending, setIsResending] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [, setTick] = useState(0); // Used to force re-render
   
   // Track existing documents and new files being uploaded
   const [existingDocs, setExistingDocs] = useState<string[]>([]);
@@ -133,7 +135,6 @@ export default function DoctorProfilePage() {
     if (!e.target.files) return;
     const files = Array.from(e.target.files);
     
-    // Filter allowed types: PDF, JPG, PNG
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
     const validFiles = files.filter(file => allowedTypes.includes(file.type));
     
@@ -152,7 +153,7 @@ export default function DoctorProfilePage() {
     }));
 
     setUploadQueue(prev => [...prev, ...newEntries]);
-    e.target.value = ''; // Reset input
+    e.target.value = ''; 
   };
 
   const removeFileFromQueue = (id: string) => {
@@ -183,6 +184,34 @@ export default function DoctorProfilePage() {
     }
   };
 
+  const handleRefreshStatus = async () => {
+    if (!user) return;
+    setIsRefreshing(true);
+    try {
+      await user.reload();
+      setTick(t => t + 1); // Force re-render to check emailVerified property
+      if (user.emailVerified) {
+        toast({
+          title: "Email Verified",
+          description: "Thank you! Your email has been verified.",
+        });
+      } else {
+        toast({
+          title: "Still Not Verified",
+          description: "Please check your inbox and click the verification link before refreshing.",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to refresh account status. Please try logging in again.'
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   const onSubmit = async (values: ProfileFormValues) => {
     if (!user || !firestore || !storage) {
       toast({ variant: 'destructive', title: 'Error', description: 'Database connection error.' });
@@ -192,7 +221,6 @@ export default function DoctorProfilePage() {
     setIsSubmitting(true);
 
     try {
-        // 1. Upload new files from the queue
         const newUrls: string[] = [];
         const updatedQueue = [...uploadQueue];
 
@@ -200,7 +228,6 @@ export default function DoctorProfilePage() {
             const item = updatedQueue[i];
             if (item.status === 'done') continue;
 
-            // Mark as uploading in UI
             setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'uploading' } : q));
 
             const uniqueName = `${Date.now()}_${Math.floor(Math.random() * 1000)}_${item.file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
@@ -211,7 +238,6 @@ export default function DoctorProfilePage() {
               const url = await getDownloadURL(fileRef);
               newUrls.push(url);
               
-              // Mark as done
               setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'done' } : q));
             } catch (uploadError: any) {
               console.error("File upload failed:", uploadError);
@@ -219,16 +245,13 @@ export default function DoctorProfilePage() {
             }
         }
 
-        // 2. Prepare final documents array
         const finalDocs = [...existingDocs, ...newUrls];
 
-        // 3. Update Firestore
         const doctorDocRef = doc(firestore, 'doctors', user.uid);
         const docSnap = await getDoc(doctorDocRef);
         const doctorDataFromDb = docSnap.data();
         const isCompletingProfile = !doctorDataFromDb?.profileComplete;
 
-        // Safely update Auth profile with names from DB or current profile
         const firstName = doctorDataFromDb?.firstName || user.displayName?.split(' ')[0] || 'Doctor';
         const lastName = doctorDataFromDb?.lastName || user.displayName?.split(' ')[1] || '';
         
@@ -253,7 +276,7 @@ export default function DoctorProfilePage() {
         const patientDocRef = doc(firestore, 'patients', user.uid);
         setDocumentNonBlocking(patientDocRef, { updatedAt: new Date().toISOString(), profileComplete: true }, { merge: true });
 
-        setUploadQueue([]); // Clear queue on success
+        setUploadQueue([]); 
         setExistingDocs(finalDocs);
 
         if (isCompletingProfile) {
@@ -294,10 +317,17 @@ export default function DoctorProfilePage() {
                     <AlertTitle>Verify Your Email Address</AlertTitle>
                     <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                         <span>You must verify your email to complete your profile.</span>
-                        <Button variant="link" onClick={handleResendVerification} disabled={isResending} className="p-0 h-auto mt-2 sm:mt-0">
-                            {isResending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Resend Verification Link
-                        </Button>
+                        <div className="flex items-center gap-2 mt-2 sm:mt-0">
+                            <Button variant="link" onClick={handleResendVerification} disabled={isResending} className="p-0 h-auto">
+                                {isResending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Resend Link
+                            </Button>
+                            <span className="text-muted-foreground text-xs">|</span>
+                            <Button variant="link" onClick={handleRefreshStatus} disabled={isRefreshing} className="p-0 h-auto font-bold text-accent">
+                                {isRefreshing ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                                Refresh Status
+                            </Button>
+                        </div>
                     </AlertDescription>
                 </Alert>
             )}
@@ -342,11 +372,9 @@ export default function DoctorProfilePage() {
                     )} />
                  </div>
                  
-                {/* Multi-Document Upload Section */}
                 <div className="space-y-4">
                     <FormLabel>Professional Documents (Degrees, Certificates)</FormLabel>
                     
-                    {/* Existing Documents List */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {existingDocs.map((url, idx) => (
                             <div key={idx} className="flex items-center justify-between p-3 border rounded-md bg-muted/20">
@@ -366,7 +394,6 @@ export default function DoctorProfilePage() {
                         ))}
                     </div>
 
-                    {/* Upload Queue List */}
                     {uploadQueue.length > 0 && (
                         <div className="space-y-2">
                             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Ready to upload:</p>
@@ -384,7 +411,6 @@ export default function DoctorProfilePage() {
                         </div>
                     )}
 
-                    {/* Add More Button */}
                     <div className="relative">
                         <Button type="button" variant="outline" className="w-full border-dashed" asChild>
                             <label htmlFor="multi-doc-upload" className="cursor-pointer flex items-center justify-center gap-2">

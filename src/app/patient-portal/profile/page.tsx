@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2 } from 'lucide-react';
+import { Loader2, RefreshCw } from 'lucide-react';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import { useEffect, useState } from 'react';
@@ -52,6 +52,8 @@ export default function PatientProfilePage() {
   const [pageDescription, setPageDescription] = useState("We need a few more details to set up your account.");
   const [cropperImage, setCropperImage] = useState<string | null>(null);
   const [isResending, setIsResending] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [, setTick] = useState(0);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -100,7 +102,7 @@ export default function PatientProfilePage() {
         setCropperImage(reader.result as string);
       });
       reader.readAsDataURL(file);
-      e.target.value = ''; // Reset input to allow re-selecting the same file
+      e.target.value = ''; 
     }
   };
 
@@ -146,6 +148,34 @@ export default function PatientProfilePage() {
       } finally {
           setIsResending(false);
       }
+  };
+
+  const handleRefreshStatus = async () => {
+    if (!user) return;
+    setIsRefreshing(true);
+    try {
+      await user.reload();
+      setTick(t => t + 1); 
+      if (user.emailVerified) {
+        toast({
+          title: "Email Verified",
+          description: "Your email has been successfully verified.",
+        });
+      } else {
+        toast({
+          title: "Still Not Verified",
+          description: "Please check your inbox and click the verification link before refreshing.",
+        });
+      }
+    } catch (error) {
+      toast({
+        variant: 'destructive',
+        title: 'Error',
+        description: 'Failed to refresh account status.'
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
 
@@ -229,15 +259,22 @@ export default function PatientProfilePage() {
                     <AlertTitle>Verify Your Email Address</AlertTitle>
                     <AlertDescription className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
                         <span>You must verify your email to submit your profile.</span>
-                        <Button 
-                            variant="link" 
-                            onClick={handleResendVerification} 
-                            disabled={isResending}
-                            className="p-0 h-auto mt-2 sm:mt-0"
-                        >
-                            {isResending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Resend Verification Link
-                        </Button>
+                        <div className="flex items-center gap-2 mt-2 sm:mt-0">
+                            <Button 
+                                variant="link" 
+                                onClick={handleResendVerification} 
+                                disabled={isResending}
+                                className="p-0 h-auto"
+                            >
+                                {isResending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Resend Link
+                            </Button>
+                            <span className="text-muted-foreground text-xs">|</span>
+                            <Button variant="link" onClick={handleRefreshStatus} disabled={isRefreshing} className="p-0 h-auto font-bold text-accent">
+                                {isRefreshing ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                                Refresh Status
+                            </Button>
+                        </div>
                     </AlertDescription>
                 </Alert>
             )}
