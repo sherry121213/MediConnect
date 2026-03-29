@@ -20,6 +20,8 @@ import { updateProfile, sendEmailVerification } from 'firebase/auth';
 import ImageCropperDialog from '@/components/ImageCropperDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
+const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
 const profileSchema = z.object({
   specialty: z.string().min(2, 'Specialty is required.'),
   experience: z.coerce.number().min(0, 'Experience must be a positive number.'),
@@ -135,13 +137,25 @@ export default function DoctorProfilePage() {
     const files = Array.from(e.target.files);
     
     const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
-    const validFiles = files.filter(file => allowedTypes.includes(file.type));
+    const validFiles = files.filter(file => {
+        const isTypeValid = allowedTypes.includes(file.type);
+        const isSizeValid = file.size <= MAX_FILE_SIZE;
+        return isTypeValid && isSizeValid;
+    });
     
     if (validFiles.length < files.length) {
+        const tooLarge = files.some(f => f.size > MAX_FILE_SIZE);
+        const invalidType = files.some(f => !allowedTypes.includes(f.type));
+        
+        let description = 'Some files were rejected.';
+        if (tooLarge && invalidType) description = 'Files must be PDF/JPG/PNG and under 5MB.';
+        else if (tooLarge) description = 'Files must be under 5MB.';
+        else if (invalidType) description = 'Only PDF, JPG, and PNG files are allowed.';
+
         toast({
             variant: 'destructive',
-            title: 'Invalid Files Detected',
-            description: 'Only PDF, JPG, and PNG files are allowed.',
+            title: 'Files Rejected',
+            description,
         });
     }
 
@@ -220,7 +234,7 @@ export default function DoctorProfilePage() {
     setIsSubmitting(true);
 
     try {
-        // 1. Parallelize uploads for much faster performance
+        // Parallelize uploads using Promise.all() for maximum speed
         const uploadPromises = uploadQueue.map(async (item) => {
             if (item.status === 'done') return null;
 
@@ -244,7 +258,6 @@ export default function DoctorProfilePage() {
         const newUrls = newUrlsResult.filter((url): url is string => url !== null);
         const finalDocs = [...existingDocs, ...newUrls];
 
-        // 2. Use existing userData to avoid extra database fetch
         const isCompletingProfile = !userData?.profileComplete;
         
         // Update Firebase Auth profile if display name is missing
@@ -268,6 +281,7 @@ export default function DoctorProfilePage() {
             updatedAt: new Date().toISOString(),
         };
 
+        // Single efficient update calls
         const doctorDocRef = doc(firestore, 'doctors', user.uid);
         setDocumentNonBlocking(doctorDocRef, dataToSet, { merge: true });
 
