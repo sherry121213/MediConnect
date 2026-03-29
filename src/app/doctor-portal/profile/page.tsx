@@ -67,24 +67,28 @@ export default function DoctorProfilePage() {
   useEffect(() => {
     if (user && firestore) {
       const fetchDoctorProfile = async () => {
-        const doctorDocRef = doc(firestore, 'doctors', user.uid);
-        const docSnap = await getDoc(doctorDocRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          form.reset({
-            specialty: data.specialty || '',
-            experience: data.experience || 0,
-            medicalSchool: data.medicalSchool || '',
-            degree: data.degree || '',
-            contact: data.phone || '',
-            location: data.location || '',
-            documents: data.documents || [],
-          });
-          setExistingDocs(data.documents || []);
-          if (data.profileComplete) {
-            setPageTitle("Edit Your Professional Profile");
-            setPageDescription("Keep your professional information up to date.");
+        try {
+          const doctorDocRef = doc(firestore, 'doctors', user.uid);
+          const docSnap = await getDoc(doctorDocRef);
+          if (docSnap.exists()) {
+            const data = docSnap.data();
+            form.reset({
+              specialty: data.specialty || '',
+              experience: data.experience || 0,
+              medicalSchool: data.medicalSchool || '',
+              degree: data.degree || '',
+              contact: data.phone || '',
+              location: data.location || '',
+              documents: data.documents || [],
+            });
+            setExistingDocs(data.documents || []);
+            if (data.profileComplete) {
+              setPageTitle("Edit Your Professional Profile");
+              setPageDescription("Keep your professional information up to date.");
+            }
           }
+        } catch (error) {
+          console.error("Error fetching doctor profile:", error);
         }
       };
       fetchDoctorProfile();
@@ -196,18 +200,23 @@ export default function DoctorProfilePage() {
             const item = updatedQueue[i];
             if (item.status === 'done') continue;
 
-            // Mark as uploading
+            // Mark as uploading in UI
             setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'uploading' } : q));
 
-            const uniqueName = `${Date.now()}_${Math.floor(Math.random() * 1000)}_${item.file.name}`;
+            const uniqueName = `${Date.now()}_${Math.floor(Math.random() * 1000)}_${item.file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
             const fileRef = ref(storage, `doctors/${user.uid}/documents/${uniqueName}`);
             
-            await uploadBytes(fileRef, item.file);
-            const url = await getDownloadURL(fileRef);
-            newUrls.push(url);
-
-            // Mark as done
-            setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'done' } : q));
+            try {
+              await uploadBytes(fileRef, item.file);
+              const url = await getDownloadURL(fileRef);
+              newUrls.push(url);
+              
+              // Mark as done
+              setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'done' } : q));
+            } catch (uploadError: any) {
+              console.error("File upload failed:", uploadError);
+              throw new Error(`Failed to upload ${item.file.name}: ${uploadError.message}`);
+            }
         }
 
         // 2. Prepare final documents array
@@ -216,10 +225,15 @@ export default function DoctorProfilePage() {
         // 3. Update Firestore
         const doctorDocRef = doc(firestore, 'doctors', user.uid);
         const docSnap = await getDoc(doctorDocRef);
-        const isCompletingProfile = !docSnap.data()?.profileComplete;
+        const doctorDataFromDb = docSnap.data();
+        const isCompletingProfile = !doctorDataFromDb?.profileComplete;
 
+        // Safely update Auth profile with names from DB or current profile
+        const firstName = doctorDataFromDb?.firstName || user.displayName?.split(' ')[0] || 'Doctor';
+        const lastName = doctorDataFromDb?.lastName || user.displayName?.split(' ')[1] || '';
+        
         await updateProfile(user, {
-            displayName: `${docSnap.data()?.firstName} ${docSnap.data()?.lastName}`,
+            displayName: `${firstName} ${lastName}`.trim(),
         });
 
         const dataToSet = {
@@ -247,9 +261,13 @@ export default function DoctorProfilePage() {
         } else {
             toast({ title: 'Profile Updated!', description: 'Your information has been successfully updated.' });
         }
-    } catch (error) {
-        console.error(error);
-        toast({ variant: "destructive", title: "Update Failed", description: "Something went wrong while saving your profile." });
+    } catch (error: any) {
+        console.error("Submission error:", error);
+        toast({ 
+          variant: "destructive", 
+          title: "Update Failed", 
+          description: error.message || "Something went wrong while saving your profile." 
+        });
     } finally {
         setIsSubmitting(false);
     }
