@@ -1,3 +1,4 @@
+
 'use client';
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -161,6 +162,7 @@ export default function SignupPage() {
           ...baseUserData,
           verified: !!preverifiedData,
           profileComplete: !!preverifiedData,
+          isActive: true, // New doctors are active by default
           role: 'doctor',
           ...(preverifiedData && {
               specialty: preverifiedData.specialty,
@@ -169,7 +171,7 @@ export default function SignupPage() {
               degree: preverifiedData.degree,
               phone: preverifiedData.phone,
               location: preverifiedData.location,
-              degreeUrl: preverifiedData.degreeUrl,
+              documents: preverifiedData.degreeUrl ? [preverifiedData.degreeUrl] : [],
           })
         };
         const doctorDocRef = doc(firestore, 'doctors', newUser.uid);

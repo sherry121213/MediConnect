@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -32,7 +33,13 @@ export default function FindADoctorPage() {
 
   const doctorsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'doctors'), where('verified', '==', true), where('profileComplete', '==', true));
+    // Only show doctors who are verified, have a complete profile, AND are active.
+    return query(
+        collection(firestore, 'doctors'), 
+        where('verified', '==', true), 
+        where('profileComplete', '==', true),
+        where('isActive', '==', true)
+    );
   }, [firestore]);
 
   const { data: doctors, isLoading: isLoadingDoctors, error } = useCollection<Doctor>(doctorsQuery);
@@ -43,8 +50,6 @@ export default function FindADoctorPage() {
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         try {
-            // Using a reverse geocoding service to get city from coordinates.
-            // NOTE: This is a free, public API. For production, a paid, robust service is recommended.
             const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
             const data = await response.json();
             const city = data.address.city || data.address.town || data.address.village;

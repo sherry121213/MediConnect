@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -17,11 +18,11 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MoreHorizontal, PlusCircle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, UserX, UserCheck } from "lucide-react";
 import Image from "next/image";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
-import { addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import type { Doctor } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PlaceHolderImages as placeholderImages } from "@/lib/placeholder-images";
@@ -105,6 +106,7 @@ export default function AdminDoctorsPage() {
             specialty: values.specialty,
             location: values.location,
             verified: false,
+            isActive: true, // Default to active
             rating: 0,
             reviews: 0,
             profileImageId: 'doctor' + (Math.floor(Math.random() * 8) + 1),
@@ -133,13 +135,14 @@ export default function AdminDoctorsPage() {
         });
     }
 
-    const handleDeleteDoctor = async (doctorId: string) => {
+    const handleToggleDoctorStatus = async (doctorId: string, currentStatus: boolean) => {
         if (!firestore) return;
         const doctorDocRef = doc(firestore, 'doctors', doctorId);
-        deleteDocumentNonBlocking(doctorDocRef);
+        const nextStatus = !currentStatus;
+        updateDocumentNonBlocking(doctorDocRef, { isActive: nextStatus, updatedAt: new Date().toISOString() });
         toast({
-            title: "Doctor Deleted",
-            description: "The doctor's profile has been successfully deleted.",
+            title: nextStatus ? "Doctor Enabled" : "Doctor Disabled",
+            description: `The doctor's account has been ${nextStatus ? "enabled" : "disabled"}.`,
         });
     };
 
@@ -270,8 +273,10 @@ export default function AdminDoctorsPage() {
                 {doctors && doctors.map((doctor: Doctor) => {
                 const doctorImage = placeholderImages.find(p => p.id === doctor.profileImageId);
                 const name = `${doctor.firstName} ${doctor.lastName}`;
+                const isActive = doctor.isActive !== false; // Handle undefined as active
+
                 return (
-                <TableRow key={doctor.id}>
+                <TableRow key={doctor.id} className={!isActive ? "opacity-60 bg-muted/30" : ""}>
                     <TableCell className="font-medium">
                     <div className="flex items-center gap-3">
                         {doctorImage && (
@@ -289,9 +294,16 @@ export default function AdminDoctorsPage() {
                     </TableCell>
                     <TableCell>{doctor.specialty}</TableCell>
                     <TableCell>
-                    <Badge variant={doctor.verified ? "secondary" : "destructive"} className={doctor.verified ? "bg-green-100 text-green-800" : ""}>
-                        {doctor.verified ? "Verified" : "Pending"}
-                    </Badge>
+                        <div className="flex flex-col gap-1">
+                            <Badge variant={doctor.verified ? "secondary" : "destructive"} className={doctor.verified ? "bg-green-100 text-green-800" : ""}>
+                                {doctor.verified ? "Verified" : "Pending"}
+                            </Badge>
+                            {!isActive && (
+                                <Badge variant="outline" className="border-destructive text-destructive">
+                                    Disabled
+                                </Badge>
+                            )}
+                        </div>
                     </TableCell>
                     <TableCell className="hidden md:table-cell">{doctor.location}</TableCell>
                     <TableCell className="text-right">
@@ -308,25 +320,30 @@ export default function AdminDoctorsPage() {
                         <DropdownMenuItem asChild>
                            <Link href={`/admin/doctors/${doctor.id}`}>View Profile</Link>
                         </DropdownMenuItem>
+                        
                         <AlertDialogTrigger asChild>
-                            <DropdownMenuItem className="text-destructive" onSelect={(e) => e.preventDefault()}>
-                                Delete
+                            <DropdownMenuItem className={isActive ? "text-destructive" : "text-primary"} onSelect={(e) => e.preventDefault()}>
+                                {isActive ? "Disable Account" : "Enable Account"}
                             </DropdownMenuItem>
                         </AlertDialogTrigger>
                         </DropdownMenuContent>
                     </DropdownMenu>
                     <AlertDialogContent>
                         <AlertDialogHeader>
-                            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                            <AlertDialogTitle>{isActive ? "Disable Doctor Account?" : "Enable Doctor Account?"}</AlertDialogTitle>
                             <AlertDialogDescription>
-                                This action cannot be undone. This will permanently delete the doctor's account
-                                and remove their data from our servers.
+                                {isActive 
+                                    ? "Disabling this account will prevent the doctor from logging in, accessing their portal, and being visible to patients."
+                                    : "Enabling this account will restore access for the doctor and make them visible to patients again."}
                             </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => handleDeleteDoctor(doctor.id)} className="bg-destructive hover:bg-destructive/90">
-                                Delete
+                            <AlertDialogAction 
+                                onClick={() => handleToggleDoctorStatus(doctor.id, isActive)} 
+                                className={isActive ? "bg-destructive hover:bg-destructive/90" : "bg-primary hover:bg-primary/90"}
+                            >
+                                {isActive ? "Disable" : "Enable"}
                             </AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>

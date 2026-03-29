@@ -1,3 +1,4 @@
+
 'use client';
 import Image from "next/image";
 import Link from "next/link";
@@ -102,7 +103,14 @@ export default function Home() {
 
   const doctorsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'doctors'), where('verified', '==', true), where('profileComplete', '==', true), limit(8));
+    // Only show active and verified doctors on homepage
+    return query(
+        collection(firestore, 'doctors'), 
+        where('verified', '==', true), 
+        where('profileComplete', '==', true), 
+        where('isActive', '==', true),
+        limit(8)
+    );
   }, [firestore]);
 
   const { data: doctors, isLoading: isLoadingDoctors } = useCollection<Doctor>(doctorsQuery);

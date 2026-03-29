@@ -1,3 +1,4 @@
+
 export type Specialty = 'Psychiatrist' | 'Cardiologist' | 'General Physician' | 'Gynecologist' | 'Dermatology' | 'Orthopedics';
 
 export interface Doctor {
@@ -13,6 +14,7 @@ export interface Doctor {
   reviews?: number;
   isVerified?: boolean; // Keep for static data
   verified: boolean; // For Firestore data
+  isActive?: boolean; // New field for disabling/enabling accounts
   profileImageId?: string;
   photoURL?: string;
   bio?: string;

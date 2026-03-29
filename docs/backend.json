@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Patient": {
@@ -119,6 +120,10 @@
         "verified": {
           "type": "boolean",
           "description": "Indicates if the doctor's profile has been verified by an admin."
+        },
+        "isActive": {
+          "type": "boolean",
+          "description": "Indicates if the doctor's account is active and visible to patients."
         },
         "photoURL": {
           "type": "string",
