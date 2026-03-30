@@ -2,6 +2,8 @@
 @tailwind components;
 @tailwind utilities;
 
+@import 'react-big-calendar/lib/css/react-big-calendar.css';
+
 @layer base {
   :root {
     --background: 220 20% 98%;
@@ -99,4 +101,41 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Custom styles for React Big Calendar */
+.rbc-calendar {
+  @apply bg-card text-card-foreground border-none font-body;
+}
+
+.rbc-header {
+  @apply py-3 font-bold border-b border-border text-muted-foreground uppercase text-xs tracking-wider;
+}
+
+.rbc-month-view, .rbc-time-view {
+  @apply border border-border rounded-lg overflow-hidden;
+}
+
+.rbc-day-bg {
+  @apply border-l border-border;
+}
+
+.rbc-today {
+  @apply bg-primary/5 !important;
+}
+
+.rbc-event {
+  @apply rounded-md border-none px-2 py-1 text-xs font-medium !important;
+}
+
+.rbc-off-range-bg {
+  @apply bg-muted/30 !important;
+}
+
+.rbc-toolbar button {
+  @apply bg-background border border-border text-foreground hover:bg-muted transition-colors rounded-md px-3 py-1 text-sm font-medium !important;
+}
+
+.rbc-toolbar button.rbc-active {
+  @apply bg-primary text-primary-foreground border-primary !important;
 }
