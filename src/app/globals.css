@@ -1,8 +1,8 @@
+@import 'react-big-calendar/lib/css/react-big-calendar.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import 'react-big-calendar/lib/css/react-big-calendar.css';
 
 @layer base {
   :root {
@@ -126,6 +126,10 @@
 
 .rbc-event {
   @apply rounded-md border-none px-2 py-1 text-xs font-medium !important;
+}
+
+.rbc-event-content {
+  @apply text-white !important;
 }
 
 .rbc-off-range-bg {
