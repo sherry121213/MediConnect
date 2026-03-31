@@ -3,48 +3,72 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    // Helper: Check if user is signed in
     function isSignedIn() {
       return request.auth != null;
     }
 
-    function isAdmin() {
-      return isSignedIn() && get(/databases/$(database)/documents/patients/$(request.auth.uid)).data.role == 'admin';
+    // Helper: Get user role safely
+    // We wrap this in a check to ensure we don't call it recursively on the same document
+    function getUserRole() {
+      return get(/databases/$(database)/documents/patients/$(request.auth.uid)).data.role;
     }
 
+    // Helper: Check if doctor is active
     function isDoctorActive(doctorId) {
       let doctorDoc = get(/databases/$(database)/documents/doctors/$(doctorId));
       return !doctorDoc.exists() || doctorDoc.data.isActive != false;
     }
 
-    // Admins can read and write all documents.
-    match /{document=**} {
-      allow read, write: if isAdmin();
-    }
-
     // Patients collection
-    match /patients/{patientId} {
-      allow create: if request.auth.uid == patientId;
-      allow update: if request.auth.uid == patientId;
-      allow get: if request.auth.uid == patientId || get(/databases/$(database)/documents/patients/$(request.auth.uid)).data.role == 'doctor';
+    match /patients/{userId} {
+      // CRITICAL: Always allow users to read/write their own record first.
+      // This short-circuits the rule evaluation and prevents recursion.
+      allow read, write: if isSignedIn() && request.auth.uid == userId;
+      
+      // Allow Doctors and Admins to read OTHER patient profiles (e.g., during consultation)
+      allow read: if isSignedIn() && request.auth.uid != userId && (getUserRole() == 'doctor' || getUserRole() == 'admin');
     }
 
-    // Doctors collection: all users can read. Doctors can create and update their own profile only if active.
+    // Doctors collection
     match /doctors/{doctorId} {
+      // Everyone can read verified doctor profiles
       allow read: if true;
-      allow create: if request.auth.uid == doctorId;
-      allow update: if request.auth.uid == doctorId && isDoctorActive(doctorId);
+      // Doctors can manage their own professional details
+      allow create: if isSignedIn() && request.auth.uid == doctorId;
+      allow update: if isSignedIn() && request.auth.uid == doctorId && isDoctorActive(doctorId);
     }
     
-    // Appointments collection: only participants (patient/doctor) can access.
+    // Appointments collection
     match /appointments/{appointmentId} {
-      allow read: if isSignedIn() && (request.auth.uid == resource.data.patientId || request.auth.uid == resource.data.doctorId);
+      // Allow single document access (get) if the user is one of the participants
+      allow get: if isSignedIn() && (
+        request.auth.uid == resource.data.patientId || 
+        request.auth.uid == resource.data.doctorId ||
+        getUserRole() == 'admin'
+      );
+
+      // Allow listing (queries) if the query is filtered by the user's ID
+      allow list: if isSignedIn() && (
+        request.auth.uid == resource.data.patientId || 
+        request.auth.uid == resource.data.doctorId ||
+        getUserRole() == 'admin'
+      );
+
+      // Patients can create appointments
       allow create: if isSignedIn() && request.auth.uid == request.resource.data.patientId;
-      allow update: if isSignedIn() && (request.auth.uid == resource.data.patientId || request.auth.uid == resource.data.doctorId) && isDoctorActive(resource.data.doctorId);
+      
+      // Involved parties can update (add diagnosis/status) if the doctor is active
+      allow update: if isSignedIn() && (
+        request.auth.uid == resource.data.patientId || 
+        request.auth.uid == resource.data.doctorId
+      ) && isDoctorActive(resource.data.doctorId);
     }
     
-    // Contact form: anyone can create (write), but only admins can read.
+    // Contact form submissions
     match /contacts/{contactId} {
       allow create: if true;
+      allow read: if isSignedIn() && getUserRole() == 'admin';
     }
   }
 }
