@@ -2,76 +2,8 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // Helper: Check if user is signed in
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    // Helper: Check if doctor is active (used for updates)
-    function isDoctorActive(doctorId) {
-      let doctorPath = /databases/$(database)/documents/doctors/$(doctorId);
-      return !exists(doctorPath) || get(doctorPath).data.isActive != false;
-    }
-
-    // Helper: Get user role safely
-    // Note: We avoid calling this helper inside the 'patients' rule for the same user to prevent recursion.
-    function getRole() {
-      return get(/databases/$(database)/documents/patients/$(request.auth.uid)).data.role;
-    }
-
-    // Patients collection
-    match /patients/{userId} {
-      // CRITICAL: Always allow users to read/write their own record first.
-      // This is a simple identity check that does NOT trigger recursive function calls.
-      allow read, write: if isSignedIn() && request.auth.uid == userId;
-      
-      // Allow Doctors and Admins to read OTHER patient profiles (e.g., during consultation)
-      // We only perform the role check if the user is NOT accessing their own document.
-      allow read: if isSignedIn() && request.auth.uid != userId && getRole() in ['doctor', 'admin'];
-    }
-
-    // Doctors collection
-    match /doctors/{doctorId} {
-      // Everyone can read verified doctor profiles
-      allow read: if true;
-      // Doctors can manage their own professional details
-      allow create: if isSignedIn() && request.auth.uid == doctorId;
-      allow update: if isSignedIn() && (request.auth.uid == doctorId || getRole() == 'admin') && isDoctorActive(doctorId);
-    }
-    
-    // Appointments collection
-    match /appointments/{appointmentId} {
-      // Involved parties and admins can get specific documents
-      allow get: if isSignedIn() && (
-        request.auth.uid == resource.data.patientId || 
-        request.auth.uid == resource.data.doctorId ||
-        getRole() == 'admin'
-      );
-
-      // Collection listing (filtered queries)
-      // Firestore validates this against the query filters (e.g., .where('doctorId', '==', uid))
-      allow list: if isSignedIn() && (
-        request.auth.uid == resource.data.patientId || 
-        request.auth.uid == resource.data.doctorId ||
-        getRole() == 'admin'
-      );
-
-      // Patients can create appointments
-      allow create: if isSignedIn() && request.auth.uid == request.resource.data.patientId;
-      
-      // Involved parties can update (add diagnosis/status) if the doctor is active
-      allow update: if isSignedIn() && (
-        request.auth.uid == resource.data.patientId || 
-        request.auth.uid == resource.data.doctorId ||
-        getRole() == 'admin'
-      ) && isDoctorActive(resource.data.doctorId);
-    }
-    
-    // Contact form submissions
-    match /contacts/{contactId} {
-      allow create: if true;
-      allow read: if isSignedIn() && getRole() == 'admin';
+    match /{document=**} {
+      allow read, write: if true;
     }
   }
 }
