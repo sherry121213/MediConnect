@@ -7,7 +7,7 @@ import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Users, Clock, 
 import Link from "next/link";
 import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
-import { collection, query, where, doc, startAt, endAt, orderBy } from "firebase/firestore";
+import { collection, query, where, doc } from "firebase/firestore";
 import type { Appointment, Patient } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
@@ -20,7 +20,7 @@ import { z } from "zod";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar, dateFnsLocalizer, Views } from "react-big-calendar";
-import { format, parse, startOfWeek, getDay, startOfMonth, endOfMonth, startOfDay, endOfDay } from "date-fns";
+import { format, parse, startOfWeek, getDay, startOfMonth, endOfMonth, isSameDay } from "date-fns";
 import { enUS } from "date-fns/locale";
 
 const locales = {
@@ -197,44 +197,48 @@ export default function DoctorPortalPage() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [currentDate, setCurrentDate] = useState(new Date());
 
-    // Lazy load: Fetch only current month
+    // simplified query to avoid potential permission/index issues
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
-        const start = startOfMonth(currentDate).toISOString();
-        const end = endOfMonth(currentDate).toISOString();
         return query(
             collection(firestore, 'appointments'),
-            where('doctorId', '==', user.uid),
-            orderBy('appointmentDateTime'),
-            startAt(start),
-            endAt(end)
+            where('doctorId', '==', user.uid)
         );
-    }, [firestore, user, currentDate]);
+    }, [firestore, user]);
 
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
+
+    const filteredAppointments = useMemo(() => {
+        if (!appointments) return [];
+        const start = startOfMonth(currentDate);
+        const end = endOfMonth(currentDate);
+        return appointments.filter(apt => {
+            const date = new Date(apt.appointmentDateTime);
+            return date >= start && date <= end;
+        });
+    }, [appointments, currentDate]);
 
     const todayAppointments = useMemo(() => {
         if (!appointments) return [];
         const today = new Date();
         return appointments.filter(apt => {
             const date = new Date(apt.appointmentDateTime);
-            return format(date, 'yyyy-MM-dd') === format(today, 'yyyy-MM-dd');
+            return isSameDay(date, today);
         });
     }, [appointments]);
 
     const calendarEvents = useMemo(() => {
-        if (!appointments) return [];
-        return appointments.map(apt => ({
+        return filteredAppointments.map(apt => ({
             id: apt.id,
             title: `Apt: ${apt.appointmentType}`,
             start: new Date(apt.appointmentDateTime),
             end: new Date(new Date(apt.appointmentDateTime).getTime() + 30 * 60000), // 30 min duration
             resource: apt,
         }));
-    }, [appointments]);
+    }, [filteredAppointments]);
 
     const eventStyleGetter = (event: any) => {
-        const type = event.resource.appointmentType.toLowerCase();
+        const type = (event.resource.appointmentType || '').toLowerCase();
         let backgroundColor = 'hsl(var(--primary))';
         if (type.includes('emergency')) backgroundColor = 'hsl(var(--destructive))';
         if (type.includes('follow')) backgroundColor = '#f59e0b';

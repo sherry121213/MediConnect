@@ -1,7 +1,7 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    // Open rules for debugging and to ensure the Doctor Portal is not blocked
     match /{document=**} {
       allow read, write: if true;
     }
