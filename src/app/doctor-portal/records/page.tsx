@@ -1,9 +1,9 @@
 'use client';
 
 import { useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Search, Loader2, Calendar as CalendarIcon, ChevronLeft, ChevronRight, FileText, Filter, List, Calendar as CalendarViewIcon, X, User, Clock, ClipboardCheck } from "lucide-react";
+import { Search, Loader2, Calendar as CalendarIcon, ChevronLeft, ChevronRight, FileText, X, User, Clock, ClipboardCheck } from "lucide-react";
 import Link from "next/link";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
 import { collection, query, where, doc } from "firebase/firestore";
@@ -11,25 +11,11 @@ import type { Appointment, Patient } from "@/lib/types";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { format, isBefore, startOfDay, parse, startOfWeek, getDay } from "date-fns";
+import { format, isBefore, startOfDay } from "date-fns";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as DayPickerCalendar } from "@/components/ui/calendar";
 import { cn } from "@/lib/utils";
-import { Calendar, dateFnsLocalizer, Views } from "react-big-calendar";
-import { enUS } from "date-fns/locale";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from "@/components/ui/dialog";
-
-const locales = {
-  "en-US": enUS,
-};
-
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek,
-  getDay,
-  locales,
-});
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 const PatientCell = ({ patientId }: { patientId: string }) => {
     const firestore = useFirestore();
@@ -39,7 +25,7 @@ const PatientCell = ({ patientId }: { patientId: string }) => {
     }, [firestore, patientId]);
     const { data: patient } = useDoc<Patient>(patientDocRef);
 
-    return <span>{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</span>;
+    return <span className="font-medium">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</span>;
 };
 
 function RecordDetailDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment | null }) {
@@ -83,7 +69,7 @@ function RecordDetailDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
                             <p className="font-medium">{format(new Date(appointment.appointmentDateTime), "p")}</p>
                         </div>
                         <div className="space-y-1">
-                            <p className="text-muted-foreground flex items-center gap-1"><Filter className="h-3 w-3" /> Type</p>
+                            <p className="text-muted-foreground">Type</p>
                             <p className="font-medium capitalize">{appointment.appointmentType}</p>
                         </div>
                     </div>
@@ -104,11 +90,11 @@ function RecordDetailDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
                     </div>
                 </div>
 
-                <DialogFooter className="sm:justify-between items-center gap-4">
+                <DialogFooter className="sm:justify-between items-center gap-4 border-t pt-4">
                     <div className="text-[10px] text-muted-foreground italic">
-                        Recorded on: {appointment.updatedAt ? format(new Date(appointment.updatedAt), "PP p") : 'N/A'}
+                        Last updated: {appointment.updatedAt ? format(new Date(appointment.updatedAt), "PP p") : 'N/A'}
                     </div>
-                    <Button variant="outline" asChild>
+                    <Button variant="outline" asChild size="sm">
                         <Link href={`/appointments/${appointment.id}`}>
                             View Full PDF <FileText className="ml-2 h-4 w-4" />
                         </Link>
@@ -124,13 +110,11 @@ export default function AppointmentRecordsPage() {
     const firestore = useFirestore();
     const [searchTerm, setSearchTerm] = useState('');
     const [dateFilter, setDateFilter] = useState<Date | undefined>(undefined);
-    const [viewMode, setViewMode] = useState<'calendar' | 'table'>('calendar');
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const itemsPerPage = 10;
 
-    // Simplified query without orderBy to ensure no index blocks or permission errors
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
         return query(
@@ -145,7 +129,6 @@ export default function AppointmentRecordsPage() {
         if (!appointments) return [];
         return appointments
             .filter(apt => {
-                // Only show past appointments
                 const isPast = isBefore(new Date(apt.appointmentDateTime), startOfDay(new Date()));
                 if (!isPast) return false;
 
@@ -155,24 +138,19 @@ export default function AppointmentRecordsPage() {
                     if (aptDate !== filterDate) return false;
                 }
 
+                // Note: Comprehensive search by patient name would require patient data fetched beforehand or joined.
+                // For now, we filter by simple presence of ID or diagnosis string if searching.
+                if (searchTerm && !apt.diagnosis?.toLowerCase().includes(searchTerm.toLowerCase())) {
+                    return false;
+                }
+
                 return true; 
             })
-            // Sort client-side to ensure query success without indices
             .sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime());
-    }, [appointments, dateFilter]);
+    }, [appointments, dateFilter, searchTerm]);
 
-    const calendarEvents = useMemo(() => {
-        return filteredRecords.map(apt => ({
-            id: apt.id,
-            title: `${apt.appointmentType}`,
-            start: new Date(apt.appointmentDateTime),
-            end: new Date(new Date(apt.appointmentDateTime).getTime() + 30 * 60000),
-            resource: apt,
-        }));
-    }, [filteredRecords]);
-
-    const handleSelectEvent = (event: any) => {
-        setSelectedApt(event.resource);
+    const handleSelectRow = (apt: Appointment) => {
+        setSelectedApt(apt);
         setIsDetailOpen(true);
     };
 
@@ -184,32 +162,12 @@ export default function AppointmentRecordsPage() {
             <div className="container mx-auto px-4">
                 <div className="mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold font-headline">Historical Consultation Records</h1>
-                        <p className="text-muted-foreground">Manage and review all your completed patient interactions.</p>
+                        <h1 className="text-3xl font-bold font-headline">Consultation History</h1>
+                        <p className="text-muted-foreground">Review and manage records of all completed patient sessions.</p>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <div className="border rounded-md p-1 bg-background flex">
-                            <Button 
-                                variant={viewMode === 'calendar' ? 'default' : 'ghost'} 
-                                size="sm" 
-                                className="h-8"
-                                onClick={() => setViewMode('calendar')}
-                            >
-                                <CalendarViewIcon className="mr-2 h-4 w-4" /> Calendar
-                            </Button>
-                            <Button 
-                                variant={viewMode === 'table' ? 'default' : 'ghost'} 
-                                size="sm" 
-                                className="h-8"
-                                onClick={() => setViewMode('table')}
-                            >
-                                <List className="mr-2 h-4 w-4" /> Table
-                            </Button>
-                        </div>
-                        <Button variant="outline" asChild>
-                            <Link href="/doctor-portal">Dashboard</Link>
-                        </Button>
-                    </div>
+                    <Button variant="outline" asChild>
+                        <Link href="/doctor-portal">Back to Dashboard</Link>
+                    </Button>
                 </div>
 
                 <Card className="mb-8">
@@ -218,7 +176,7 @@ export default function AppointmentRecordsPage() {
                             <div className="relative flex-1">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input 
-                                    placeholder="Review records by patient..." 
+                                    placeholder="Search by diagnosis keywords..." 
                                     className="pl-9"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -253,95 +211,71 @@ export default function AppointmentRecordsPage() {
                         {isLoading ? (
                             <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
                         ) : filteredRecords.length > 0 ? (
-                            viewMode === 'table' ? (
-                                <div className="p-6">
-                                    <div className="border rounded-md overflow-hidden">
-                                        <Table>
-                                            <TableHeader>
-                                                <TableRow className="bg-muted/50">
-                                                    <TableHead>Date</TableHead>
-                                                    <TableHead>Patient</TableHead>
-                                                    <TableHead>Diagnosis Summary</TableHead>
-                                                    <TableHead>Status</TableHead>
-                                                    <TableHead className="text-right">Actions</TableHead>
+                            <div className="p-6">
+                                <div className="border rounded-md overflow-hidden">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow className="bg-muted/50">
+                                                <TableHead>Visit Date</TableHead>
+                                                <TableHead>Patient</TableHead>
+                                                <TableHead>Diagnosis Summary</TableHead>
+                                                <TableHead>Status</TableHead>
+                                                <TableHead className="text-right">Actions</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {paginatedRecords.map((apt) => (
+                                                <TableRow key={apt.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => handleSelectRow(apt)}>
+                                                    <TableCell className="font-medium whitespace-nowrap">
+                                                        {format(new Date(apt.appointmentDateTime), "MMM dd, yyyy")}
+                                                        <p className="text-[10px] text-muted-foreground">{format(new Date(apt.appointmentDateTime), "p")}</p>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <PatientCell patientId={apt.patientId} />
+                                                    </TableCell>
+                                                    <TableCell className="max-w-xs truncate">
+                                                        {apt.diagnosis || <span className="text-muted-foreground italic text-xs">No records</span>}
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={apt.status === 'completed' ? 'bg-green-100 text-green-800' : ''}>
+                                                            {apt.status}
+                                                        </Badge>
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleSelectRow(apt); }}>
+                                                            <FileText className="h-4 w-4" />
+                                                        </Button>
+                                                    </TableCell>
                                                 </TableRow>
-                                            </TableHeader>
-                                            <TableBody>
-                                                {paginatedRecords.map((apt) => (
-                                                    <TableRow key={apt.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => handleSelectEvent({ resource: apt })}>
-                                                        <TableCell className="font-medium whitespace-nowrap">
-                                                            {format(new Date(apt.appointmentDateTime), "MMM dd, yyyy")}
-                                                            <p className="text-[10px] text-muted-foreground">{format(new Date(apt.appointmentDateTime), "p")}</p>
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <PatientCell patientId={apt.patientId} />
-                                                        </TableCell>
-                                                        <TableCell className="max-w-xs truncate">
-                                                            {apt.diagnosis || <span className="text-muted-foreground italic text-xs">No records</span>}
-                                                        </TableCell>
-                                                        <TableCell>
-                                                            <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={apt.status === 'completed' ? 'bg-green-100 text-green-800' : ''}>
-                                                                {apt.status}
-                                                            </Badge>
-                                                        </TableCell>
-                                                        <TableCell className="text-right">
-                                                            <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleSelectEvent({ resource: apt }); }}>
-                                                                <FileText className="h-4 w-4" />
-                                                            </Button>
-                                                        </TableCell>
-                                                    </TableRow>
-                                                ))}
-                                            </TableBody>
-                                        </Table>
+                                            ))}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                                {pageCount > 1 && (
+                                    <div className="flex items-center justify-end space-x-2 py-4">
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                                            disabled={currentPage === 1}
+                                        >
+                                            <ChevronLeft className="h-4 w-4" /> Previous
+                                        </Button>
+                                        <span className="text-xs text-muted-foreground px-4">Page {currentPage} of {pageCount}</span>
+                                        <Button
+                                            variant="outline"
+                                            size="sm"
+                                            onClick={() => setCurrentPage(prev => Math.min(prev + 1, pageCount))}
+                                            disabled={currentPage === pageCount}
+                                        >
+                                            Next <ChevronRight className="h-4 w-4" />
+                                        </Button>
                                     </div>
-                                    {pageCount > 1 && (
-                                        <div className="flex items-center justify-end space-x-2 py-4">
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                                                disabled={currentPage === 1}
-                                            >
-                                                <ChevronLeft className="h-4 w-4" /> Previous
-                                            </Button>
-                                            <span className="text-xs text-muted-foreground px-4">Page {currentPage} of {pageCount}</span>
-                                            <Button
-                                                variant="outline"
-                                                size="sm"
-                                                onClick={() => setCurrentPage(prev => Math.min(prev + 1, pageCount))}
-                                                disabled={currentPage === pageCount}
-                                            >
-                                                Next <ChevronRight className="h-4 w-4" />
-                                            </Button>
-                                        </div>
-                                    )}
-                                </div>
-                            ) : (
-                                <div className="p-6 h-[700px]">
-                                    <Calendar
-                                        localizer={localizer}
-                                        events={calendarEvents}
-                                        startAccessor="start"
-                                        endAccessor="end"
-                                        style={{ height: '100%' }}
-                                        views={[Views.MONTH, Views.WEEK, Views.DAY]}
-                                        defaultView={Views.MONTH}
-                                        onSelectEvent={handleSelectEvent}
-                                        eventPropGetter={() => ({
-                                            style: {
-                                                backgroundColor: 'hsl(var(--primary))',
-                                                borderRadius: '4px',
-                                                opacity: 0.7,
-                                                fontSize: '11px',
-                                                border: 'none'
-                                            }
-                                        })}
-                                    />
-                                </div>
-                            )
+                                )}
+                            </div>
                         ) : (
                             <div className="text-center py-24 text-muted-foreground">
-                                <Filter className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                                <FileText className="h-12 w-12 mx-auto mb-4 opacity-20" />
                                 <p className="text-lg font-medium">No historical records found</p>
                                 <p className="text-sm">Adjust your filters or search criteria to see past appointments.</p>
                             </div>
