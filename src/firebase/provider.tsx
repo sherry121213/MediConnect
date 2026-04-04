@@ -2,7 +2,7 @@
 
 import React, { DependencyList, createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FirebaseApp } from 'firebase/app';
-import { Firestore, doc, getDoc, DocumentData, DocumentReference, onSnapshot } from 'firebase/firestore';
+import { Firestore, doc, DocumentData, onSnapshot } from 'firebase/firestore';
 import { Auth, User, onAuthStateChanged } from 'firebase/auth';
 import { FirebaseStorage } from 'firebase/storage';
 import { FirebaseErrorListener } from '@/components/FirebaseErrorListener';
@@ -119,24 +119,22 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
                 doctorDocUnsubscribe = onSnapshot(doctorDocRef, 
                   (doctorSnap) => {
                     const doctorData = doctorSnap.exists() ? doctorSnap.data() : {};
-                    // Merge patient and doctor data, with doctor data taking precedence for overlapping fields
+                    // Merge patient and doctor data
                     const mergedData = { ...patientData, ...doctorData };
                     setUserAuthState({ user: firebaseUser, userData: mergedData, isUserLoading: false, userError: null });
                   },
                   (error) => {
-                    // Handle error for doctor doc
                     const contextualError = new FirestorePermissionError({ operation: 'get', path: doctorDocRef.path });
                     errorEmitter.emit('permission-error', contextualError);
                     setUserAuthState({ user: firebaseUser, userData: patientData, isUserLoading: false, userError: contextualError });
                   }
                 );
               } else {
-                // User is not a doctor, or patient doc doesn't exist yet
+                // User is not a doctor or document not yet ready
                 setUserAuthState({ user: firebaseUser, userData: patientData, isUserLoading: false, userError: null });
               }
             },
             (error) => {
-              // Handle error for patient doc
               const contextualError = new FirestorePermissionError({ operation: 'get', path: patientDocRef.path });
               errorEmitter.emit('permission-error', contextualError);
               setUserAuthState({ user: firebaseUser, userData: null, isUserLoading: false, userError: contextualError });
@@ -186,7 +184,6 @@ export const FirebaseProvider: React.FC<FirebaseProviderProps> = ({
 
 /**
  * Hook to access core Firebase services and user authentication state.
- * Throws error if core services are not available or used outside provider.
  */
 export const useFirebase = (): FirebaseServicesAndUser => {
   const context = useContext(FirebaseContext);
@@ -248,11 +245,9 @@ export function useMemoFirebase<T>(factory: () => T, deps: DependencyList): T | 
 
 /**
  * Hook specifically for accessing the authenticated user's state.
- * This provides the User object, loading status, and any auth errors.
- * @returns {UserHookResult} Object with user, isUserLoading, userError.
  */
 export const useUser = (): UserHookResult => { 
-  const { user, isUserLoading, userError } = useFirebase(); // Leverages the main hook
+  const { user, isUserLoading, userError } = useFirebase();
   return { user, isUserLoading, userError };
 };
 

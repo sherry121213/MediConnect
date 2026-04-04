@@ -1,7 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Permissive rules for development/debugging to resolve permission errors.
+    // Permissive rules for development/debugging to resolve all permission errors.
     // This allows any user (authenticated or not) to read and write all documents.
     match /{document=**} {
       allow read, write: if true;

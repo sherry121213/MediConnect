@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Search, Loader2, Calendar as CalendarIcon, ChevronLeft, ChevronRight, FileText, Filter, List, Calendar as CalendarViewIcon, X, User, Clock, ClipboardCheck } from "lucide-react";
 import Link from "next/link";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
-import { collection, query, where, orderBy, doc } from "firebase/firestore";
+import { collection, query, where, doc } from "firebase/firestore";
 import type { Appointment, Patient } from "@/lib/types";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -130,12 +130,12 @@ export default function AppointmentRecordsPage() {
     const [isDetailOpen, setIsDetailOpen] = useState(false);
     const itemsPerPage = 10;
 
+    // Simplified query without orderBy to ensure no index blocks or permission errors
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
         return query(
             collection(firestore, 'appointments'),
-            where('doctorId', '==', user.uid),
-            orderBy('appointmentDateTime', 'desc')
+            where('doctorId', '==', user.uid)
         );
     }, [firestore, user]);
 
@@ -143,21 +143,22 @@ export default function AppointmentRecordsPage() {
 
     const filteredRecords = useMemo(() => {
         if (!appointments) return [];
-        return appointments.filter(apt => {
-            // Only show past appointments
-            const isPast = isBefore(new Date(apt.appointmentDateTime), startOfDay(new Date()));
-            if (!isPast) return false;
+        return appointments
+            .filter(apt => {
+                // Only show past appointments
+                const isPast = isBefore(new Date(apt.appointmentDateTime), startOfDay(new Date()));
+                if (!isPast) return false;
 
-            if (dateFilter) {
-                const aptDate = format(new Date(apt.appointmentDateTime), 'yyyy-MM-dd');
-                const filterDate = format(dateFilter, 'yyyy-MM-dd');
-                if (aptDate !== filterDate) return false;
-            }
+                if (dateFilter) {
+                    const aptDate = format(new Date(apt.appointmentDateTime), 'yyyy-MM-dd');
+                    const filterDate = format(dateFilter, 'yyyy-MM-dd');
+                    if (aptDate !== filterDate) return false;
+                }
 
-            // Simple search check - in a real app name is in another collection, 
-            // but we can search by other fields or handle locally if patient names were cached.
-            return true; 
-        });
+                return true; 
+            })
+            // Sort client-side to ensure query success without indices
+            .sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime());
     }, [appointments, dateFilter]);
 
     const calendarEvents = useMemo(() => {
