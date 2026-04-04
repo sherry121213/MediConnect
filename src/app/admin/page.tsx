@@ -1,19 +1,29 @@
-
 "use client"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { 
   Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, 
   AreaChart, Area, CartesianGrid 
 } from "recharts";
-import { BookOpen, Stethoscope, UserPlus, UserCheck, DollarSign, Loader2, TrendingUp, TrendingDown, Calendar } from "lucide-react";
-import { useMemo } from "react";
+import { 
+  BookOpen, Stethoscope, UserPlus, DollarSign, Loader2, 
+  TrendingUp, TrendingDown, Calendar, History, Activity, 
+  Wallet, Users as UsersIcon
+} from "lucide-react";
+import { useMemo, useState } from "react";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, where } from "firebase/firestore";
 import type { Doctor, Appointment, Patient } from "@/lib/types";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, isSameDay, startOfDay, subDays } from "date-fns";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 export default function AdminDashboardPage() {
   const firestore = useFirestore();
@@ -39,14 +49,24 @@ export default function AdminDashboardPage() {
   
   const isLoading = isLoadingAppointments || isLoadingDoctors || isLoadingPatients;
 
-  // Stat calculations
-  const totalRevenue = useMemo(() => {
+  // Lifetime Stats
+  const totalLifetimeRevenue = useMemo(() => {
     if (!appointments) return 0;
     return appointments
       .filter(apt => apt.paymentStatus === 'approved')
       .reduce((sum, apt) => sum + (apt.amount || 1500), 0);
   }, [appointments]);
 
+  const totalLifetimeBookings = appointments?.length || 0;
+  
+  const verifiedDoctorsCount = useMemo(() => {
+    if (!doctors) return 0;
+    return doctors.filter(d => d.verified).length;
+  }, [doctors]);
+  
+  const totalPatientsCount = patients?.length || 0;
+
+  // Daily Stats (Today)
   const todayRevenue = useMemo(() => {
     if (!appointments) return 0;
     const today = startOfDay(new Date());
@@ -61,16 +81,7 @@ export default function AdminDashboardPage() {
     return appointments.filter(apt => apt.createdAt && isSameDay(new Date(apt.createdAt), today)).length;
   }, [appointments]);
 
-  const totalBookings = appointments?.length || 0;
-  
-  const verifiedDoctorsCount = useMemo(() => {
-    if (!doctors) return 0;
-    return doctors.filter(d => d.verified).length;
-  }, [doctors]);
-  
-  const totalPatients = patients?.length || 0;
-
-  // Daily Stats for the last 7 days
+  // Daily Stats for the last 7 days (Charts)
   const dailyStats = useMemo(() => {
     if (!appointments) return [];
     
@@ -100,42 +111,6 @@ export default function AdminDashboardPage() {
 
     return Object.values(stats);
   }, [appointments]);
-
-  const monthlyBookings = useMemo(() => {
-    if (!appointments) {
-        const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-        return monthNames.map(name => ({ name, total: 0 }));
-    };
-    const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    const bookingsByMonth: { [key: number]: number } = {};
-
-    appointments.forEach(apt => {
-        if (apt.createdAt) {
-            const monthIndex = new Date(apt.createdAt).getMonth();
-            bookingsByMonth[monthIndex] = (bookingsByMonth[monthIndex] || 0) + 1;
-        }
-    });
-
-    return monthNames.map((name, index) => ({ name, total: bookingsByMonth[index] || 0 }));
-  }, [appointments]);
-
-  const topSpecialties = useMemo(() => {
-    if (!appointments || !doctors) return [];
-    
-    const specialtyCounts: { [key: string]: number } = {};
-
-    appointments.forEach(apt => {
-        const doctor = doctors.find(d => d.id === apt.doctorId);
-        if (doctor && doctor.specialty) {
-            specialtyCounts[doctor.specialty] = (specialtyCounts[doctor.specialty] || 0) + 1;
-        }
-    });
-
-    return Object.entries(specialtyCounts)
-        .map(([specialty, bookings]) => ({ specialty, bookings }))
-        .sort((a, b) => b.bookings - a.bookings)
-        .slice(0, 5);
-  }, [appointments, doctors]);
 
   const StatCard = ({ title, value, icon: Icon, isLoading, description, trend }: { title: string, value: string | number, icon: React.ElementType, isLoading: boolean, description?: string, trend?: 'up' | 'down' }) => (
       <Card>
@@ -168,52 +143,81 @@ export default function AdminDashboardPage() {
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
             <h1 className="text-3xl font-bold font-headline">Admin Dashboard</h1>
-            <p className="text-muted-foreground">Overview of platform performance and daily profits.</p>
+            <p className="text-muted-foreground">Daily performance summary and operation metrics.</p>
         </div>
-        <div className="flex items-center gap-2 bg-muted/50 p-2 rounded-md border text-sm font-medium">
-            <Calendar className="h-4 w-4 text-primary" />
-            {format(new Date(), "EEEE, MMMM do")}
+        <div className="flex items-center gap-3">
+            <Dialog>
+                <DialogTrigger asChild>
+                    <Button variant="outline" className="gap-2">
+                        <History className="h-4 w-4" />
+                        Platform History
+                    </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[600px]">
+                    <DialogHeader>
+                        <DialogTitle className="text-2xl font-headline flex items-center gap-2">
+                            <Activity className="h-6 w-6 text-primary" />
+                            Lifetime Platform Summary
+                        </DialogTitle>
+                        <DialogDescription>
+                            Aggregated metrics since the platform's inception.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid grid-cols-2 gap-4 py-6">
+                        <div className="p-4 bg-muted/30 rounded-lg border text-center space-y-1">
+                            <Wallet className="h-5 w-5 text-primary mx-auto mb-2" />
+                            <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Total Revenue</p>
+                            <p className="text-2xl font-bold">PKR {totalLifetimeRevenue.toLocaleString()}</p>
+                        </div>
+                        <div className="p-4 bg-muted/30 rounded-lg border text-center space-y-1">
+                            <BookOpen className="h-5 w-5 text-primary mx-auto mb-2" />
+                            <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Total Bookings</p>
+                            <p className="text-2xl font-bold">{totalLifetimeBookings}</p>
+                        </div>
+                        <div className="p-4 bg-muted/30 rounded-lg border text-center space-y-1">
+                            <UsersIcon className="h-5 w-5 text-primary mx-auto mb-2" />
+                            <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Total Patients</p>
+                            <p className="text-2xl font-bold">{totalPatientsCount}</p>
+                        </div>
+                        <div className="p-4 bg-muted/30 rounded-lg border text-center space-y-1">
+                            <Stethoscope className="h-5 w-5 text-primary mx-auto mb-2" />
+                            <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">Verified Doctors</p>
+                            <p className="text-2xl font-bold">{verifiedDoctorsCount}</p>
+                        </div>
+                    </div>
+                </DialogContent>
+            </Dialog>
+            <div className="flex items-center gap-2 bg-muted/50 p-2 rounded-md border text-sm font-medium">
+                <Calendar className="h-4 w-4 text-primary" />
+                {format(new Date(), "EEEE, MMMM do")}
+            </div>
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2">
         <StatCard 
-            title="Total Revenue" 
-            value={`PKR ${totalRevenue.toLocaleString()}`}
+            title="Today's Revenue" 
+            value={`PKR ${todayRevenue.toLocaleString()}`}
             icon={DollarSign}
             isLoading={isLoading}
-            description={`PKR ${todayRevenue.toLocaleString()} today`}
+            description="Approved payments today"
             trend={todayRevenue > 0 ? 'up' : undefined}
         />
          <StatCard 
-            title="Total Bookings" 
-            value={totalBookings}
-            icon={BookOpen}
+            title="Today's Bookings" 
+            value={todayBookings}
+            icon={Activity}
             isLoading={isLoading}
-            description={`${todayBookings} new today`}
+            description="Total appointments scheduled today"
             trend={todayBookings > 0 ? 'up' : undefined}
-        />
-        <StatCard 
-            title="Verified Doctors" 
-            value={verifiedDoctorsCount}
-            icon={Stethoscope}
-            isLoading={isLoading}
-            description="Active professionals"
-        />
-        <StatCard 
-            title="Total Patients" 
-            value={totalPatients}
-            icon={UserPlus}
-            isLoading={isLoading}
-            description="Registered users"
         />
       </div>
 
       <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-7">
         <Card className="col-span-4">
           <CardHeader>
-            <CardTitle>Daily Profit & Revenue Summary</CardTitle>
-            <p className="text-sm text-muted-foreground">Detailed revenue trends for the past 7 days.</p>
+            <CardTitle>Revenue Trends</CardTitle>
+            <p className="text-sm text-muted-foreground">Daily profits over the past 7 days.</p>
           </CardHeader>
           <CardContent className="pl-2">
             {isLoading ? (
@@ -243,7 +247,7 @@ export default function AdminDashboardPage() {
         <Card className="col-span-4 lg:col-span-3">
           <CardHeader>
             <CardTitle>Daily Bookings</CardTitle>
-            <p className="text-sm text-muted-foreground">Appointment count day-wise.</p>
+            <p className="text-sm text-muted-foreground">Volume comparison for the week.</p>
           </CardHeader>
           <CardContent>
             {isLoading ? (
@@ -259,53 +263,6 @@ export default function AdminDashboardPage() {
                         <Bar dataKey="bookings" fill="hsl(var(--accent))" radius={[4, 4, 0, 0]} />
                     </BarChart>
                 </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      <div className="grid gap-8 md:grid-cols-2 lg:grid-cols-7">
-        <Card className="col-span-4">
-          <CardHeader>
-            <CardTitle>Annual Booking Overview</CardTitle>
-          </CardHeader>
-          <CardContent className="pl-2">
-            {isLoading ? (
-                <div className="w-full h-[350px] flex items-center justify-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-            ) : (
-                <ResponsiveContainer width="100%" height={350}>
-                  <BarChart data={monthlyBookings}>
-                    <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
-                    <Tooltip cursor={{fill: 'hsl(var(--secondary))'}} contentStyle={{backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))' }}/>
-                    <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-            )}
-          </CardContent>
-        </Card>
-        
-        <Card className="col-span-4 lg:col-span-3">
-          <CardHeader>
-            <CardTitle>Top Specialties</CardTitle>
-            <p className="text-sm text-muted-foreground">Most booked specialties this month.</p>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-                <div className="space-y-4">
-                    {Array.from({length: 5}).map((_, i) => <Skeleton key={i} className="h-6 w-full" />)}
-                </div>
-            ) : (
-                <div className="space-y-4">
-                  {topSpecialties.length > 0 ? topSpecialties.map((spec) => (
-                    <div key={spec.specialty} className="flex items-center">
-                      <span className="text-sm">{spec.specialty}</span>
-                      <span className="ml-auto font-medium text-sm">{spec.bookings} bookings</span>
-                    </div>
-                  )) : <p className="text-sm text-muted-foreground text-center py-4">No booking data available.</p>}
-                </div>
             )}
           </CardContent>
         </Card>
