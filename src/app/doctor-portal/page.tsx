@@ -72,7 +72,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
     const onSubmit = (values: NotesFormValues) => {
         if (!firestore) return;
         const appointmentRef = doc(firestore, 'appointments', appointment.id);
-        updateDocumentNonBlocking(appointmentRef, { ...values, status: 'completed' });
+        updateDocumentNonBlocking(appointmentRef, { ...values, status: 'completed', updatedAt: new Date().toISOString() });
         toast({ title: "Consultation Completed", description: "The records have been updated." });
         onOpenChange(false);
     };
@@ -197,7 +197,7 @@ export default function DoctorPortalPage() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [currentDate, setCurrentDate] = useState(new Date());
 
-    // simplified query to avoid potential permission/index issues
+    // Basic query filtered only by doctorId to ensure maximum permission compliance
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
         return query(

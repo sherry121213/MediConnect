@@ -1,11 +1,10 @@
-
 {
   "entities": {
     "Patient": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Patient",
       "type": "object",
-      "description": "Represents a user (patient or doctor) on the Mediconnect platform.",
+      "description": "Represents a user (patient or doctor) on the Mediconnect platform. This document serves as the primary identity record.",
       "properties": {
         "id": {
           "type": "string",
@@ -47,6 +46,10 @@
           "description": "URL of the user's profile picture.",
           "format": "uri"
         },
+        "profileComplete": {
+          "type": "boolean",
+          "description": "Indicates if the user has completed their profile setup."
+        },
         "createdAt": {
           "type": "string",
           "description": "Timestamp of when the user record was created.",
@@ -70,7 +73,7 @@
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Doctor",
       "type": "object",
-      "description": "Represents a doctor's professional profile on the Mediconnect platform.",
+      "description": "Represents a doctor's professional profile on the Mediconnect platform. Linked to a Patient document via UID.",
       "properties": {
         "id": {
           "type": "string",
@@ -101,6 +104,14 @@
           "type": "number",
           "description": "Doctor's years of professional experience."
         },
+        "medicalSchool": {
+          "type": "string",
+          "description": "Medical school attended."
+        },
+        "degree": {
+          "type": "string",
+          "description": "Degrees earned."
+        },
         "documents": {
           "type": "array",
           "items": {
@@ -113,9 +124,13 @@
           "type": "string",
           "description": "Doctor's practice location."
         },
-        "ratings": {
+        "rating": {
           "type": "number",
           "description": "Doctor's average rating."
+        },
+        "reviews": {
+          "type": "number",
+          "description": "Total number of reviews."
         },
         "verified": {
           "type": "boolean",
@@ -123,7 +138,11 @@
         },
         "isActive": {
           "type": "boolean",
-          "description": "Indicates if the doctor's account is active and visible to patients."
+          "description": "Indicates if the doctor's account is active and visible."
+        },
+        "profileComplete": {
+          "type": "boolean",
+          "description": "Indicates if the professional profile is complete."
         },
         "photoURL": {
           "type": "string",
@@ -146,8 +165,7 @@
         "firstName",
         "lastName",
         "email",
-        "specialty",
-        "location"
+        "specialty"
       ]
     },
     "Appointment": {
@@ -162,11 +180,11 @@
         },
         "patientId": {
           "type": "string",
-          "description": "Reference to Patient (user UID). (Relationship: Patient 1:N Appointment)"
+          "description": "Reference to Patient (user UID)."
         },
         "doctorId": {
           "type": "string",
-          "description": "Reference to Doctor (user UID). (Relationship: Doctor 1:N Appointment)"
+          "description": "Reference to Doctor (user UID)."
         },
         "appointmentDateTime": {
           "type": "string",
@@ -175,11 +193,12 @@
         },
         "appointmentType": {
           "type": "string",
-          "description": "Type of appointment (e.g., chat, audio, video)."
+          "description": "Type of appointment (e.g., Video Call, Audio, Chat)."
         },
         "status": {
           "type": "string",
-          "description": "Status of the appointment (e.g., scheduled, completed, cancelled)."
+          "description": "Status of the appointment (scheduled, completed, cancelled).",
+          "enum": ["scheduled", "completed", "cancelled"]
         },
         "diagnosis": {
           "type": "string",
@@ -191,30 +210,26 @@
         },
         "amount": {
           "type": "number",
-          "description": "The amount paid for the appointment."
+          "description": "The consultation fee."
         },
         "paymentReceiptUrl": {
           "type": "string",
-          "description": "URL or Data URI of the uploaded payment receipt image.",
+          "description": "URL or Data URI of the payment receipt.",
           "format": "uri"
         },
         "paymentStatus": {
           "type": "string",
-          "description": "Status of the payment for the appointment.",
-          "enum": [
-            "pending",
-            "approved",
-            "rejected"
-          ]
+          "description": "Status of the payment.",
+          "enum": ["pending", "approved", "rejected"]
         },
         "createdAt": {
           "type": "string",
-          "description": "Timestamp of when the appointment record was created.",
+          "description": "Timestamp of creation.",
           "format": "date-time"
         },
         "updatedAt": {
           "type": "string",
-          "description": "Timestamp of when the appointment record was last updated.",
+          "description": "Timestamp of last update.",
           "format": "date-time"
         }
       },
@@ -223,43 +238,7 @@
         "patientId",
         "doctorId",
         "appointmentDateTime",
-        "appointmentType",
         "status"
-      ]
-    },
-    "Contact": {
-      "title": "Contact",
-      "type": "object",
-      "description": "Represents a contact form submission from a user.",
-      "properties": {
-        "name": {
-          "type": "string",
-          "description": "The user's full name."
-        },
-        "contactNumber": {
-          "type": "string",
-          "description": "The user's contact phone number."
-        },
-        "email": {
-          "type": "string",
-          "description": "The user's email address.",
-          "format": "email"
-        },
-        "message": {
-          "type": "string",
-          "description": "The message content from the user."
-        },
-        "submittedAt": {
-          "type": "string",
-          "description": "Timestamp of when the contact form was submitted.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "name",
-        "contactNumber",
-        "email",
-        "message"
       ]
     }
   },
@@ -279,13 +258,7 @@
           "schema": {
             "$ref": "#/backend/entities/Patient"
           },
-          "description": "Stores user profiles for both patients and doctors. Only the authenticated user with the matching `patientId` (their UID) or an admin can access their own document.",
-          "params": [
-            {
-              "name": "patientId",
-              "description": "The unique identifier for the user, matching their auth UID."
-            }
-          ]
+          "description": "User profiles for identity and core info."
         }
       },
       {
@@ -295,13 +268,7 @@
           "schema": {
             "$ref": "#/backend/entities/Doctor"
           },
-          "description": "Stores professional doctor profiles. Only an admin can manage these profiles. All authenticated users can read doctor profiles to find suitable healthcare providers.",
-          "params": [
-            {
-              "name": "doctorId",
-              "description": "The unique identifier for the doctor, matching their auth UID."
-            }
-          ]
+          "description": "Professional details for doctors."
         }
       },
       {
@@ -311,32 +278,10 @@
           "schema": {
             "$ref": "#/backend/entities/Appointment"
           },
-          "description": "Stores appointment records. Patients and Doctors have read access to the records where their UID is present. Admins can read all appointments. Includes `patientId` and `doctorId` within the document to enforce authorization independence.",
-          "params": [
-            {
-              "name": "appointmentId",
-              "description": "The unique identifier for the appointment."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/contacts/{contactId}",
-        "definition": {
-          "entityName": "Contact",
-          "schema": {
-            "$ref": "#/backend/entities/Contact"
-          },
-          "description": "Stores contact form submissions from users. Writable by anyone, but readable only by admins to protect user privacy.",
-          "params": [
-            {
-              "name": "contactId",
-              "description": "The unique identifier for the contact submission."
-            }
-          ]
+          "description": "Appointment records."
         }
       }
     ],
-    "reasoning": "The Firestore data structure is designed to support Mediconnect's core features with role-based access."
+    "reasoning": "Simple, role-based structure allowing authenticated access."
   }
 }
