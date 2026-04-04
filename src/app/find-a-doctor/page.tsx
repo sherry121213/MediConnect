@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -10,7 +9,7 @@ import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, MapPin, Loader2, X } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where } from 'firebase/firestore';
+import { collection } from 'firebase/firestore';
 import type { Doctor } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -31,18 +30,14 @@ export default function FindADoctorPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const doctorsPerPage = 8;
 
-  const doctorsQuery = useMemoFirebase(() => {
+  const doctorsCollection = useMemoFirebase(() => {
     if (!firestore) return null;
-    // Only show doctors who are verified, have a complete profile, AND are active.
-    return query(
-        collection(firestore, 'doctors'), 
-        where('verified', '==', true), 
-        where('profileComplete', '==', true),
-        where('isActive', '==', true)
-    );
+    // We fetch the collection without complex filters to avoid missing index errors.
+    // Filtering for 'verified', 'profileComplete', and 'isActive' is done client-side.
+    return collection(firestore, 'doctors');
   }, [firestore]);
 
-  const { data: doctors, isLoading: isLoadingDoctors, error } = useCollection<Doctor>(doctorsQuery);
+  const { data: doctors, isLoading: isLoadingDoctors, error } = useCollection<Doctor>(doctorsCollection);
 
   const handleLocationClick = () => {
     setIsLocating(true);
@@ -89,6 +84,10 @@ export default function FindADoctorPage() {
   const filteredDoctors = useMemo(() => {
     if (!doctors) return [];
     return doctors.filter(doctor => {
+      // Primary visibility requirements: Verified, Active, and Complete Profile
+      const isVisible = doctor.verified === true && doctor.isActive !== false && doctor.profileComplete === true;
+      if (!isVisible) return false;
+
       const nameMatch = `${doctor.firstName} ${doctor.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
       const specialtyMatch = selectedSpecialty === 'all' || doctor.specialty === selectedSpecialty;
       const locationMatch = selectedLocation === 'all' || doctor.location === selectedLocation;
@@ -198,8 +197,8 @@ export default function FindADoctorPage() {
             ) : null}
              {!isLoadingDoctors && !error && filteredDoctors.length === 0 && (
               <div className="col-span-full text-center py-16">
-                <h3 className="text-xl font-medium">No doctors found</h3>
-                <p className="text-muted-foreground mt-2">Try adjusting your search or filters.</p>
+                <h3 className="text-xl font-medium">No verified doctors found</h3>
+                <p className="text-muted-foreground mt-2">Verified doctors will appear here once their profile is approved by an administrator.</p>
               </div>
             )}
              {error && (
