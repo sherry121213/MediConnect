@@ -310,7 +310,7 @@ export default function DoctorPortalPage() {
                                 </Link>
                             </Button>
                             <Button variant="outline" className="w-full justify-start h-12" asChild>
-                                <Link href="/doctor-portal/profile">
+                                <Link href="/doctor-portal/patients">
                                     <Users className="mr-2 h-5 w-5" /> Manage Patients
                                 </Link>
                             </Button>
