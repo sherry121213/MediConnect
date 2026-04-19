@@ -428,25 +428,6 @@ export default function DoctorPortalPage() {
                                     </CardContent>
                                 </Card>
                             </div>
-
-                            <Card className="bg-primary/5 border-primary/20 border-2 border-dashed">
-                                <CardContent className="p-8 flex flex-col md:flex-row items-center justify-between gap-6">
-                                    <div className="flex items-center gap-4">
-                                        <div className="bg-primary text-primary-foreground p-3 rounded-xl shadow-lg">
-                                            <TrendingUp className="h-8 w-8" />
-                                        </div>
-                                        <div>
-                                            <h3 className="font-bold text-xl">Grow Your Digital Clinic</h3>
-                                            <p className="text-muted-foreground text-sm max-w-md">Verify more documents or update your clinic location to appear higher in patient search results.</p>
-                                        </div>
-                                    </div>
-                                    <Button asChild size="lg" className="px-8 shadow-md">
-                                        <Link href="/doctor-portal/profile">
-                                            Complete Profile <ArrowRight className="ml-2 h-4 w-4" />
-                                        </Link>
-                                    </Button>
-                                </CardContent>
-                            </Card>
                         </div>
                     </div>
 
