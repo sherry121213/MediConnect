@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -9,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck, Video, PhoneCall } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -33,7 +34,7 @@ import AppFooter from '@/components/layout/footer';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { format, isSameDay } from 'date-fns';
-
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 export default function DoctorDetailPage() {
     const params = useParams();
@@ -45,6 +46,7 @@ export default function DoctorDetailPage() {
 
     const [selectedDate, setSelectedDate] = useState(getNext7Days()[0].date);
     const [selectedTime, setSelectedTime] = useState<string | null>(null);
+    const [appointmentType, setAppointmentType] = useState<'Video Call' | 'Audio Call'>('Video Call');
     const [isBooking, setIsBooking] = useState(false);
     const [paymentReceipt, setPaymentReceipt] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
@@ -130,7 +132,7 @@ export default function DoctorDetailPage() {
             patientId: user.uid,
             doctorId: doctor.id,
             appointmentDateTime: appointmentDateTime.toISOString(),
-            appointmentType: 'Video Call',
+            appointmentType: appointmentType,
             status: 'scheduled',
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -144,7 +146,7 @@ export default function DoctorDetailPage() {
         
         toast({
             title: "Appointment Booked!",
-            description: `Your appointment with Dr. ${doctor.firstName} is confirmed.`,
+            description: `Your ${appointmentType} with Dr. ${doctor.firstName} is confirmed.`,
         });
 
         setIsBooking(false);
@@ -273,44 +275,83 @@ export default function DoctorDetailPage() {
                              <Card>
                                 <CardHeader>
                                     <CardTitle className="flex items-center"><CalendarDays className="mr-2 h-6 w-6 text-primary"/> Clinical Scheduler</CardTitle>
-                                    <CardDescription>Select a date and time for your consultation. Booked slots are automatically hidden.</CardDescription>
+                                    <CardDescription>Select a date, time, and session type for your consultation.</CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <h4 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Step 1: Select a Date</h4>
-                                    <div className="flex gap-2 overflow-x-auto pb-4 -mx-4 px-4 custom-scrollbar">
-                                        {availableDates.map(day => (
-                                            <button 
-                                                key={day.date.toISOString()}
-                                                onClick={() => { setSelectedDate(day.date); setSelectedTime(null); }}
-                                                className={cn(
-                                                    "p-3 rounded-xl border text-center transition-all shrink-0 w-24",
-                                                    selectedDate.toDateString() === day.date.toDateString() 
-                                                        ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20 scale-105' 
-                                                        : 'bg-background hover:bg-muted border-muted-foreground/10'
-                                                )}
-                                            >
-                                                <p className="text-xs font-bold uppercase opacity-80">{day.dayName}</p>
-                                                <p className="text-2xl font-bold mt-1">{day.dayNumber}</p>
-                                            </button>
-                                        ))}
-                                    </div>
-
-                                     <div className="mt-8 space-y-8">
+                                    <div className="space-y-10">
                                         <div>
-                                            <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2 mb-4">
-                                                <div className="h-2 w-2 rounded-full bg-amber-400" /> Morning Availability
-                                            </h4>
-                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                                                {timeSlots.morning.map(time => <TimeButton key={time} time={time} />)}
+                                            <h4 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Step 1: Select a Date</h4>
+                                            <div className="flex gap-2 overflow-x-auto pb-4 -mx-4 px-4 custom-scrollbar">
+                                                {availableDates.map(day => (
+                                                    <button 
+                                                        key={day.date.toISOString()}
+                                                        onClick={() => { setSelectedDate(day.date); setSelectedTime(null); }}
+                                                        className={cn(
+                                                            "p-3 rounded-xl border text-center transition-all shrink-0 w-24",
+                                                            selectedDate.toDateString() === day.date.toDateString() 
+                                                                ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20 scale-105' 
+                                                                : 'bg-background hover:bg-muted border-muted-foreground/10'
+                                                        )}
+                                                    >
+                                                        <p className="text-xs font-bold uppercase opacity-80">{day.dayName}</p>
+                                                        <p className="text-2xl font-bold mt-1">{day.dayNumber}</p>
+                                                    </button>
+                                                ))}
                                             </div>
                                         </div>
 
                                         <div>
-                                            <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2 mb-4">
-                                                <div className="h-2 w-2 rounded-full bg-blue-400" /> Afternoon Availability
-                                            </h4>
-                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-                                                {timeSlots.afternoon.map(time => <TimeButton key={time} time={time} />)}
+                                            <h4 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Step 2: Choose Consultation Mode</h4>
+                                            <RadioGroup 
+                                                defaultValue={appointmentType} 
+                                                onValueChange={(val) => setAppointmentType(val as any)}
+                                                className="grid grid-cols-2 gap-4"
+                                            >
+                                                <div>
+                                                    <RadioGroupItem value="Video Call" id="video" className="peer sr-only" />
+                                                    <Label
+                                                        htmlFor="video"
+                                                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                                    >
+                                                        <Video className="mb-2 h-6 w-6" />
+                                                        <span className="font-bold">Video Call</span>
+                                                        <span className="text-[10px] text-muted-foreground mt-1">Recommended</span>
+                                                    </Label>
+                                                </div>
+                                                <div>
+                                                    <RadioGroupItem value="Audio Call" id="audio" className="peer sr-only" />
+                                                    <Label
+                                                        htmlFor="audio"
+                                                        className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary cursor-pointer"
+                                                    >
+                                                        <PhoneCall className="mb-2 h-6 w-6" />
+                                                        <span className="font-bold">Audio Call</span>
+                                                        <span className="text-[10px] text-muted-foreground mt-1">Secure voice only</span>
+                                                    </Label>
+                                                </div>
+                                            </RadioGroup>
+                                        </div>
+
+                                        <div>
+                                            <h4 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Step 3: Select Available Time</h4>
+                                            <div className="space-y-6">
+                                                <div>
+                                                    <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2 mb-4">
+                                                        <div className="h-2 w-2 rounded-full bg-amber-400" /> Morning
+                                                    </h4>
+                                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                                        {timeSlots.morning.map(time => <TimeButton key={time} time={time} />)}
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2 mb-4">
+                                                        <div className="h-2 w-2 rounded-full bg-blue-400" /> Afternoon
+                                                    </h4>
+                                                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                                        {timeSlots.afternoon.map(time => <TimeButton key={time} time={time} />)}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                      </div>
@@ -322,20 +363,20 @@ export default function DoctorDetailPage() {
                                                 disabled={!selectedTime || isBooking || isUserLoading}
                                             >
                                                 {isBooking ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Clock className="mr-2 h-5 w-5" />}
-                                                Confirm {selectedTime && `@ ${selectedTime}`}
+                                                Book {appointmentType} {selectedTime && `@ ${selectedTime}`}
                                             </Button>
                                         </AlertDialogTrigger>
                                         <AlertDialogContent className="sm:max-w-[450px]">
                                             <AlertDialogHeader>
                                                 <AlertDialogTitle className="text-2xl font-headline">Secure Consultation Fee</AlertDialogTitle>
                                                 <AlertDialogDescription>
-                                                    To finalize your booking with Dr. {doctor.firstName}, please complete the PKR 1,500 transfer to our clinical account.
+                                                    To finalize your {appointmentType} with Dr. {doctor.firstName}, please complete the PKR 1,500 transfer.
                                                 </AlertDialogDescription>
                                             </AlertDialogHeader>
                                              <div className="my-6 space-y-3 rounded-xl border-2 border-primary/10 bg-primary/5 p-6 text-sm">
                                                 <div className="flex justify-between items-center border-b border-primary/10 pb-2">
-                                                    <span className="font-bold text-muted-foreground">Bank</span>
-                                                    <span className="font-bold">Faysal Bank</span>
+                                                    <span className="font-bold text-muted-foreground">Consultation Mode</span>
+                                                    <Badge variant="outline" className="font-bold border-primary/30 text-primary">{appointmentType}</Badge>
                                                 </div>
                                                 <div className="flex justify-between items-center border-b border-primary/10 pb-2">
                                                     <span className="font-bold text-muted-foreground">Account Title</span>

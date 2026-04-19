@@ -1,8 +1,9 @@
+
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText } from "lucide-react";
+import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, PhoneCall } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
@@ -82,12 +83,41 @@ export default function PatientPortalPage() {
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="grid grid-cols-1 gap-4 py-6">
-                    <Button variant="outline" className="justify-start h-16 border-2 hover:border-primary group" asChild>
+                    <Button 
+                        variant="outline" 
+                        className={cn(
+                            "justify-start h-16 border-2 group",
+                            apt.appointmentType === 'Video Call' ? "border-primary bg-primary/5" : "hover:border-primary"
+                        )} 
+                        asChild
+                    >
                         <Link href="https://meet.google.com" target="_blank">
                             <Video className="mr-4 h-6 w-6 text-primary group-hover:scale-110 transition-transform"/> 
                             <div className="text-left">
-                                <p className="font-bold text-foreground">Secure Video Link</p>
+                                <div className="flex items-center gap-2">
+                                    <p className="font-bold text-foreground">Secure Video Link</p>
+                                    {apt.appointmentType === 'Video Call' && <Badge variant="secondary" className="h-4 text-[8px] bg-primary text-white">Preferred</Badge>}
+                                </div>
                                 <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">HD Video & Audio Consultation</p>
+                            </div>
+                        </Link>
+                    </Button>
+                    <Button 
+                        variant="outline" 
+                        className={cn(
+                            "justify-start h-16 border-2 group",
+                            apt.appointmentType === 'Audio Call' ? "border-primary bg-primary/5" : "hover:border-primary"
+                        )} 
+                        asChild
+                    >
+                        <Link href="https://meet.google.com" target="_blank">
+                            <PhoneCall className="mr-4 h-6 w-6 text-primary group-hover:scale-110 transition-transform"/> 
+                            <div className="text-left">
+                                 <div className="flex items-center gap-2">
+                                    <p className="font-bold text-foreground">Secure Audio Link</p>
+                                    {apt.appointmentType === 'Audio Call' && <Badge variant="secondary" className="h-4 text-[8px] bg-primary text-white">Preferred</Badge>}
+                                </div>
+                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">High-Quality Voice Consultation</p>
                             </div>
                         </Link>
                     </Button>
@@ -130,7 +160,10 @@ export default function PatientPortalPage() {
                             )}
                         </div>
                         <div className="space-y-1">
-                            <p className="font-bold text-xl leading-tight tracking-tight">Dr. {apt.doctor?.firstName} {apt.doctor?.lastName}</p>
+                            <div className="flex items-center gap-2">
+                                <p className="font-bold text-xl leading-tight tracking-tight">Dr. {apt.doctor?.firstName} {apt.doctor?.lastName}</p>
+                                <Badge variant="outline" className="text-[9px] h-4 border-primary/20 text-primary font-bold">{apt.appointmentType}</Badge>
+                            </div>
                             <p className="text-sm text-primary font-bold uppercase tracking-wider opacity-80">{apt.doctor?.specialty || 'General Physician'}</p>
                             <div className="flex items-center gap-4 pt-1">
                                 <Badge variant="secondary" className="bg-primary/5 text-primary-dark border-primary/10 flex items-center gap-1.5 px-2.5">
