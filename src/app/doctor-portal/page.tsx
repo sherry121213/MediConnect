@@ -3,13 +3,13 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Users, Clock, History, ListFilter, Activity, ClipboardCheck, TrendingUp, DollarSign, PieChart as PieChartIcon, ArrowRight, CheckCircle2, User, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Users, Clock, History, ListFilter, Activity, ClipboardCheck, TrendingUp, DollarSign, PieChart as PieChartIcon, ArrowRight, CheckCircle2, User, ChevronLeft, ChevronRight, Settings2, ShieldCheck, Moon } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
 import { collection, query, where, doc } from "firebase/firestore";
-import type { Appointment, Patient } from "@/lib/types";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import type { Appointment, Patient, Doctor } from "@/lib/types";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -22,12 +22,113 @@ import { format, isSameDay, subDays, startOfDay, addDays } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { timeSlots } from "@/lib/time";
 import { cn } from "@/lib/utils";
+import { Checkbox } from "@/components/ui/checkbox";
 
 const notesSchema = z.object({
   diagnosis: z.string().min(3, "Diagnosis is required."),
   prescription: z.string().min(10, "Prescription details are required."),
 });
 type NotesFormValues = z.infer<typeof notesSchema>;
+
+const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
+
+function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean, onOpenChange: (open: boolean) => void, doctor: Doctor }) {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    const [selectedDays, setSelectedDays] = useState<string[]>(doctor.availability?.days || ["Mon", "Tue", "Wed", "Thu", "Fri"]);
+    const [disabledSlots, setDisabledSlots] = useState<string[]>(doctor.availability?.disabledSlots || []);
+    const [isSaving, setIsSaving] = useState(false);
+
+    const handleToggleDay = (day: string) => {
+        setSelectedDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
+    };
+
+    const handleToggleSlot = (slot: string) => {
+        setDisabledSlots(prev => prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot]);
+    };
+
+    const handleSave = async () => {
+        if (!firestore) return;
+        setIsSaving(true);
+        const doctorRef = doc(firestore, 'doctors', doctor.id);
+        updateDocumentNonBlocking(doctorRef, {
+            availability: { days: selectedDays, disabledSlots: disabledSlots },
+            updatedAt: new Date().toISOString()
+        });
+        toast({ title: "Availability Updated", description: "Your clinical hours have been synchronized." });
+        setIsSaving(false);
+        onOpenChange(false);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <Settings2 className="h-5 w-5 text-primary" /> Practice Availability
+                    </DialogTitle>
+                    <DialogDescription>
+                        Control your working days and individual time-slot availability.
+                    </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-8 py-4">
+                    <div>
+                        <h4 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Working Days</h4>
+                        <div className="flex flex-wrap gap-2">
+                            {DAYS_OF_WEEK.map(day => (
+                                <Button 
+                                    key={day} 
+                                    variant={selectedDays.includes(day) ? "default" : "outline"}
+                                    size="sm"
+                                    onClick={() => handleToggleDay(day)}
+                                    className="w-12 h-12 rounded-full p-0 font-bold"
+                                >
+                                    {day}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+
+                    <div className="space-y-6">
+                        <h4 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Manage Clinical Slots</h4>
+                        <p className="text-xs text-muted-foreground italic">Uncheck slots where you are unavailable for consultations.</p>
+                        
+                        {Object.entries(timeSlots).map(([session, slots]) => (
+                            <div key={session}>
+                                <h5 className="text-xs font-bold text-primary uppercase mb-3 flex items-center gap-2">
+                                    {session === 'morning' && <Clock className="h-3 w-3" />}
+                                    {session === 'afternoon' && <Activity className="h-3 w-3" />}
+                                    {session === 'evening' && <Moon className="h-3 w-3" />}
+                                    {session} Session
+                                </h5>
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                    {slots.map(slot => (
+                                        <div key={slot} className="flex items-center space-x-2 p-2 rounded border hover:bg-muted/50 transition-colors">
+                                            <Checkbox 
+                                                id={`slot-${slot}`} 
+                                                checked={!disabledSlots.includes(slot)} 
+                                                onCheckedChange={() => handleToggleSlot(slot)}
+                                            />
+                                            <label htmlFor={`slot-${slot}`} className="text-xs font-medium cursor-pointer">{slot}</label>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+
+                <DialogFooter>
+                    <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+                    <Button onClick={handleSave} disabled={isSaving}>
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Changes"}
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 function ConsultationDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment | null }) {
     const firestore = useFirestore();
@@ -178,7 +279,7 @@ const AppointmentRow = ({ apt, onSelect }: { apt: Appointment, onSelect: (a: App
     );
 };
 
-const ScheduleSlot = ({ time, appointment, onSelect }: { time: string, appointment?: Appointment, onSelect: (a: Appointment) => void }) => {
+const ScheduleSlot = ({ time, appointment, onSelect, isDisabled }: { time: string, appointment?: Appointment, onSelect: (a: Appointment) => void, isDisabled?: boolean }) => {
     const firestore = useFirestore();
     const patientDocRef = useMemoFirebase(() => {
         if (!firestore || !appointment) return null;
@@ -189,7 +290,8 @@ const ScheduleSlot = ({ time, appointment, onSelect }: { time: string, appointme
     return (
         <div className={cn(
             "flex items-center justify-between p-3 rounded-lg border transition-all mb-2",
-            appointment ? "bg-primary/5 border-primary/20" : "bg-muted/20 border-transparent opacity-60"
+            appointment ? "bg-primary/5 border-primary/20" : "bg-muted/20 border-transparent opacity-60",
+            isDisabled && !appointment && "grayscale opacity-30"
         )}>
             <div className="flex items-center gap-4">
                 <p className="text-xs font-bold text-muted-foreground w-16">{time}</p>
@@ -201,7 +303,7 @@ const ScheduleSlot = ({ time, appointment, onSelect }: { time: string, appointme
                         <p className="text-sm font-semibold">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
                     </div>
                 ) : (
-                    <p className="text-xs italic text-muted-foreground">Available Slot</p>
+                    <p className="text-xs italic text-muted-foreground">{isDisabled ? "Practice Closed" : "Available Slot"}</p>
                 )}
             </div>
             {appointment ? (
@@ -209,7 +311,7 @@ const ScheduleSlot = ({ time, appointment, onSelect }: { time: string, appointme
                     View Session
                 </Button>
             ) : (
-                <Badge variant="outline" className="text-[10px] font-bold text-muted-foreground">Free</Badge>
+                <Badge variant="outline" className="text-[10px] font-bold text-muted-foreground">{isDisabled ? "Off" : "Free"}</Badge>
             )}
         </div>
     );
@@ -219,7 +321,8 @@ export default function DoctorPortalPage() {
     const { user, userData, isUserLoading } = useUserData();
     const firestore = useFirestore();
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
-    const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [isConsultOpen, setIsConsultOpen] = useState(false);
+    const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [viewDate, setViewDate] = useState(new Date());
 
@@ -242,16 +345,14 @@ export default function DoctorPortalPage() {
             todayAppointments: [], 
             stats: { today: 0, pending: 0, revenue: 0 }, 
             recentEvents: [],
-            masterSchedule: { morning: [], afternoon: [] }
+            masterSchedule: { morning: [], afternoon: [], evening: [] }
         };
         
         const now = new Date();
-        
         const today = appointments.filter(apt => isSameDay(new Date(apt.appointmentDateTime), now));
         const pending = appointments.filter(apt => apt.status === 'scheduled').length;
         const revenue = appointments.filter(apt => apt.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
 
-        // Clinical Master Schedule Logic
         const filterSlots = (times: string[]) => {
             return times.map(time => {
                 const apt = appointments.find(a => {
@@ -259,11 +360,14 @@ export default function DoctorPortalPage() {
                     const formattedAptTime = format(aptDate, "hh:mm a");
                     return isSameDay(aptDate, viewDate) && formattedAptTime === time;
                 });
-                return { time, appointment: apt };
+                return { 
+                    time, 
+                    appointment: apt,
+                    isDisabled: userData?.availability?.disabledSlots?.includes(time) || !userData?.availability?.days?.includes(format(viewDate, "E"))
+                };
             });
         };
 
-        // Recent System Events
         const events = appointments.slice(0, 5).map(apt => ({
             id: apt.id,
             msg: apt.status === 'completed' ? `Record finalized for patient ${apt.patientId.slice(0,4)}` : `New booking request: ${apt.appointmentType}`,
@@ -277,14 +381,15 @@ export default function DoctorPortalPage() {
             recentEvents: events,
             masterSchedule: {
                 morning: filterSlots(timeSlots.morning),
-                afternoon: filterSlots(timeSlots.afternoon)
+                afternoon: filterSlots(timeSlots.afternoon),
+                evening: filterSlots(timeSlots.evening)
             }
         };
-    }, [appointments, mounted, viewDate]);
+    }, [appointments, mounted, viewDate, userData]);
 
     const handleSelectApt = (apt: Appointment) => {
         setSelectedAppointment(apt);
-        setIsDialogOpen(true);
+        setIsConsultOpen(true);
     };
 
     if (!mounted || isUserLoading) return (
@@ -297,14 +402,17 @@ export default function DoctorPortalPage() {
         <main className="flex-grow bg-secondary/30 py-8">
             <div className="container mx-auto px-4 space-y-8">
                 
-                {/* Professional Command Header */}
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                     <div>
                         <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Clinical Command Center</h1>
-                        <p className="text-muted-foreground flex items-center gap-2 mt-1 text-sm">
-                            <Activity className="h-4 w-4 text-primary" />
-                            Monitoring real-time clinical operations for Dr. {userData?.firstName}.
-                        </p>
+                        <div className="flex items-center gap-4 mt-1">
+                             <p className="text-muted-foreground flex items-center gap-2 text-sm">
+                                <Activity className="h-4 w-4 text-primary" /> Monitoring real-time clinical operations for Dr. {userData?.firstName}.
+                            </p>
+                            <Button variant="outline" size="sm" className="h-8 gap-2 font-bold" onClick={() => setIsAvailabilityOpen(true)}>
+                                <Settings2 className="h-3.5 w-3.5" /> Practice Settings
+                            </Button>
+                        </div>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full md:w-auto">
                         <Card className="p-3 bg-primary text-primary-foreground border-none shadow-lg shadow-primary/20">
@@ -323,8 +431,6 @@ export default function DoctorPortalPage() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    
-                    {/* Left Column: Live Queue & Activity */}
                     <div className="lg:col-span-4 space-y-6">
                         <Card className="border-none shadow-xl overflow-hidden">
                             <CardHeader className="bg-background pb-3 border-b">
@@ -385,7 +491,6 @@ export default function DoctorPortalPage() {
                         </Card>
                     </div>
 
-                    {/* Right Column: Time-Wise Master Schedule */}
                     <div className="lg:col-span-8 space-y-6">
                         <Card className="border-none shadow-2xl">
                             <CardHeader className="border-b bg-background">
@@ -410,11 +515,11 @@ export default function DoctorPortalPage() {
                                 </div>
                             </CardHeader>
                             <CardContent className="p-6 md:p-8">
-                                <div className="grid md:grid-cols-2 gap-12">
+                                <div className="grid md:grid-cols-3 gap-8">
                                     {/* Morning Block */}
                                     <div className="space-y-4">
                                         <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-                                            <div className="h-2 w-2 rounded-full bg-amber-400" /> Morning Session
+                                            <div className="h-2 w-2 rounded-full bg-amber-400" /> Morning
                                         </h3>
                                         <div className="space-y-1">
                                             {masterSchedule.morning.map((slot, idx) => (
@@ -423,6 +528,7 @@ export default function DoctorPortalPage() {
                                                     time={slot.time} 
                                                     appointment={slot.appointment} 
                                                     onSelect={handleSelectApt} 
+                                                    isDisabled={slot.isDisabled}
                                                 />
                                             ))}
                                         </div>
@@ -431,7 +537,7 @@ export default function DoctorPortalPage() {
                                     {/* Afternoon Block */}
                                     <div className="space-y-4">
                                         <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-                                             <div className="h-2 w-2 rounded-full bg-blue-400" /> Afternoon Session
+                                             <div className="h-2 w-2 rounded-full bg-blue-400" /> Afternoon
                                         </h3>
                                         <div className="space-y-1">
                                             {masterSchedule.afternoon.map((slot, idx) => (
@@ -440,6 +546,25 @@ export default function DoctorPortalPage() {
                                                     time={slot.time} 
                                                     appointment={slot.appointment} 
                                                     onSelect={handleSelectApt} 
+                                                    isDisabled={slot.isDisabled}
+                                                />
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Evening Block */}
+                                    <div className="space-y-4">
+                                        <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                                             <Moon className="h-3.5 w-3.5 text-indigo-400" /> Evening
+                                        </h3>
+                                        <div className="space-y-1">
+                                            {masterSchedule.evening.map((slot, idx) => (
+                                                <ScheduleSlot 
+                                                    key={idx} 
+                                                    time={slot.time} 
+                                                    appointment={slot.appointment} 
+                                                    onSelect={handleSelectApt} 
+                                                    isDisabled={slot.isDisabled}
                                                 />
                                             ))}
                                         </div>
@@ -454,6 +579,9 @@ export default function DoctorPortalPage() {
                                         <div className="flex items-center gap-2">
                                             <div className="h-3 w-3 rounded bg-muted/20 border border-transparent" /> Available
                                         </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-3 w-3 rounded bg-muted opacity-30 border border-transparent" /> Practice Closed
+                                        </div>
                                     </div>
                                     <p className="italic">Time zone: GMT+5 (Pakistan Standard Time)</p>
                                 </div>
@@ -463,10 +591,18 @@ export default function DoctorPortalPage() {
                 </div>
 
                 <ConsultationDialog 
-                    isOpen={isDialogOpen} 
-                    onOpenChange={setIsDialogOpen} 
+                    isOpen={isConsultOpen} 
+                    onOpenChange={setIsConsultOpen} 
                     appointment={selectedAppointment} 
                 />
+
+                {userData && (
+                    <AvailabilityDialog 
+                        isOpen={isAvailabilityOpen} 
+                        onOpenChange={setIsAvailabilityOpen} 
+                        doctor={userData as Doctor} 
+                    />
+                )}
             </div>
         </main>
     );

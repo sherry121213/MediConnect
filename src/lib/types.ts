@@ -1,9 +1,13 @@
-
 export type Specialty = 'Psychiatrist' | 'Cardiologist' | 'General Physician' | 'Gynecologist' | 'Dermatology' | 'Orthopedics';
+
+export interface DoctorAvailability {
+  days: string[]; // ["Mon", "Tue", etc]
+  disabledSlots: string[]; // ["09:00 AM", etc]
+}
 
 export interface Doctor {
   id: string;
-  name?: string; // Keep for static data compatibility
+  name?: string; 
   firstName: string;
   lastName: string;
   email: string;
@@ -12,21 +16,20 @@ export interface Doctor {
   location?: string;
   rating?: number;
   reviews?: number;
-  isVerified?: boolean; // Keep for static data
-  verified: boolean; // For Firestore data
-  isActive?: boolean; // New field for disabling/enabling accounts
+  verified: boolean;
+  isActive?: boolean;
   profileImageId?: string;
   photoURL?: string;
   bio?: string;
   medicalSchool?: string;
   degree?: string;
   experience?: number;
-  documents?: string[]; // Array of URLs for professional documents
+  documents?: string[];
   profileComplete?: boolean;
   createdAt?: string;
   updatedAt?: string;
+  availability?: DoctorAvailability;
 }
-
 
 export interface Patient {
     id: string;
