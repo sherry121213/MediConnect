@@ -21,6 +21,8 @@ import { useToast } from "@/hooks/use-toast";
 import { Calendar, dateFnsLocalizer, Views } from "react-big-calendar";
 import { format, parse, startOfWeek, getDay, isSameDay } from "date-fns";
 import { enUS } from "date-fns/locale";
+import AppHeader from "@/components/layout/header";
+import AppFooter from "@/components/layout/footer";
 
 const locales = {
   "en-US": enUS,
@@ -362,5 +364,5 @@ export default function DoctorPortalPage() {
                 />
             </div>
         </main>
-    )
+    );
 }
