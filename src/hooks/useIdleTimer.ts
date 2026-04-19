@@ -12,8 +12,8 @@ interface IdleTimerProps {
 
 const useIdleTimer = ({ idleTimeout = 120000, countdownTime = 30000 }: IdleTimerProps) => {
   const [isIdle, setIsIdle] = useState(false);
-  // Initialize to null to avoid hydration mismatch
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
   const auth = useAuth();
   const router = useRouter();
 
@@ -26,7 +26,7 @@ const useIdleTimer = ({ idleTimeout = 120000, countdownTime = 30000 }: IdleTimer
   }, [auth, router]);
 
   useEffect(() => {
-    // Initialize countdown on mount to avoid hydration mismatch
+    setIsMounted(true);
     setCountdown(countdownTime / 1000);
 
     let idleTimer: NodeJS.Timeout;
@@ -55,7 +55,7 @@ const useIdleTimer = ({ idleTimeout = 120000, countdownTime = 30000 }: IdleTimer
   useEffect(() => {
     let countdownInterval: NodeJS.Timeout;
 
-    if (isIdle) {
+    if (isIdle && isMounted) {
       countdownInterval = setInterval(() => {
         setCountdown(prev => {
           if (prev === null) return null;
@@ -70,14 +70,17 @@ const useIdleTimer = ({ idleTimeout = 120000, countdownTime = 30000 }: IdleTimer
     }
 
     return () => clearInterval(countdownInterval);
-  }, [isIdle, handleSignOut]);
+  }, [isIdle, isMounted, handleSignOut]);
 
   const reset = () => {
      const events = ['mousemove', 'mousedown', 'keypress', 'touchstart', 'scroll'];
      events.forEach(event => window.dispatchEvent(new Event(event)));
   }
 
-  return { isIdle, countdown: countdown ?? (countdownTime / 1000), reset };
+  // Ensure countdown value used in render is hydration-safe
+  const displayCountdown = isMounted ? (countdown ?? (countdownTime / 1000)) : (countdownTime / 1000);
+
+  return { isIdle, countdown: displayCountdown, reset };
 };
 
 export default useIdleTimer;

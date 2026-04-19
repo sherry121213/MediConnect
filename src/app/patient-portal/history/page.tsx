@@ -9,8 +9,8 @@ import Link from "next/link";
 import { useUserData, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, where } from "firebase/firestore";
 import type { Appointment, Doctor } from "@/lib/types";
-import { useState, useMemo } from "react";
-import { format } from "date-fns";
+import { useState, useMemo, useEffect } from "react";
+import { format, isBefore, startOfDay } from "date-fns";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +19,11 @@ export default function MedicalHistoryPage() {
     const { user, isUserLoading } = useUserData();
     const firestore = useFirestore();
     const [searchTerm, setSearchTerm] = useState('');
+    const [now, setNow] = useState<Date | null>(null);
+
+    useEffect(() => {
+        setNow(new Date());
+    }, []);
 
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
@@ -33,9 +38,9 @@ export default function MedicalHistoryPage() {
     const { data: doctors, isLoading: isLoadingDoctors } = useCollection<Doctor>(doctorsCollection);
 
     const historyData = useMemo(() => {
-        if (!appointments || !doctors) return [];
+        if (!appointments || !doctors || !now) return [];
         return appointments
-            .filter(apt => apt.status === 'completed' || new Date(apt.appointmentDateTime) < new Date())
+            .filter(apt => apt.status === 'completed' || isBefore(new Date(apt.appointmentDateTime), now))
             .map(apt => ({
                 ...apt,
                 doctor: doctors.find(d => d.id === apt.doctorId)
@@ -47,9 +52,9 @@ export default function MedicalHistoryPage() {
                 return doctorName.includes(searchLower) || diagnosis.includes(searchLower);
             })
             .sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime());
-    }, [appointments, doctors, searchTerm]);
+    }, [appointments, doctors, searchTerm, now]);
 
-    if (isUserLoading || isLoadingAppointments || isLoadingDoctors) {
+    if (isUserLoading || isLoadingAppointments || isLoadingDoctors || !now) {
         return (
             <div className="flex flex-col min-h-screen">
                 <AppHeader />

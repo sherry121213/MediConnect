@@ -21,12 +21,18 @@ import {
 import { useUserData, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, where } from "firebase/firestore";
 import type { Appointment, Doctor } from "@/lib/types";
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { format, isAfter, isBefore } from "date-fns";
 
 export default function PatientPortalPage() {
     const { user, userData, isUserLoading } = useUserData();
     const firestore = useFirestore();
+    const [now, setNow] = useState<Date | null>(null);
+
+    // Initialize 'now' on mount to avoid hydration mismatch
+    useEffect(() => {
+        setNow(new Date());
+    }, []);
 
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
@@ -40,10 +46,8 @@ export default function PatientPortalPage() {
     }, [firestore]);
     const { data: doctors, isLoading: isLoadingDoctors } = useCollection<Doctor>(doctorsCollection);
 
-    const now = new Date();
-
     const upcomingAppointments = useMemo(() => {
-        if (!appointments || !doctors) return [];
+        if (!appointments || !doctors || !now) return [];
         return appointments
             .filter(apt => isAfter(new Date(apt.appointmentDateTime), now) && apt.status !== 'cancelled')
             .map(apt => ({
@@ -51,10 +55,10 @@ export default function PatientPortalPage() {
                 doctor: doctors.find(d => d.id === apt.doctorId)
             }))
             .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
-    }, [appointments, doctors]);
+    }, [appointments, doctors, now]);
 
     const recentPastAppointments = useMemo(() => {
-        if (!appointments || !doctors) return [];
+        if (!appointments || !doctors || !now) return [];
         return appointments
             .filter(apt => isBefore(new Date(apt.appointmentDateTime), now) || apt.status === 'completed')
             .map(apt => ({
@@ -62,8 +66,8 @@ export default function PatientPortalPage() {
                 doctor: doctors.find(d => d.id === apt.doctorId)
             }))
             .sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime())
-            .slice(0, 3); // Only show top 3 on dashboard
-    }, [appointments, doctors]);
+            .slice(0, 3);
+    }, [appointments, doctors, now]);
 
     const JoinCallDialog = ({ apt }: { apt: any }) => (
         <AlertDialog>
@@ -154,7 +158,7 @@ export default function PatientPortalPage() {
         )
     };
 
-    if (isUserLoading || isLoadingAppointments || isLoadingDoctors) {
+    if (isUserLoading || isLoadingAppointments || isLoadingDoctors || !now) {
         return (
             <div className="flex flex-col min-h-screen">
                 <AppHeader />
@@ -173,7 +177,6 @@ export default function PatientPortalPage() {
             <div className="container mx-auto px-4">
                 <div className="grid lg:grid-cols-3 gap-8">
                     
-                    {/* Sidebar/Profile Summary */}
                     <div className="lg:col-span-1 space-y-6">
                         <Card className="overflow-hidden border-none shadow-lg">
                             <CardHeader className="bg-primary text-primary-foreground pb-8">
@@ -207,9 +210,7 @@ export default function PatientPortalPage() {
                         </Card>
                     </div>
 
-                    {/* Main Content */}
                     <div className="lg:col-span-2 space-y-10">
-                        {/* Upcoming Section */}
                         <section>
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="text-2xl font-bold font-headline flex items-center gap-2">
@@ -238,7 +239,6 @@ export default function PatientPortalPage() {
                             )}
                         </section>
 
-                        {/* Recent History Section */}
                         <section>
                             <div className="flex items-center justify-between mb-4">
                                 <h2 className="text-2xl font-bold font-headline flex items-center gap-2">

@@ -194,7 +194,11 @@ export default function DoctorPortalPage() {
     const firestore = useFirestore();
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [currentDate, setCurrentDate] = useState(new Date());
+    const [now, setNow] = useState<Date | null>(null);
+
+    useEffect(() => {
+        setNow(new Date());
+    }, []);
 
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
@@ -223,10 +227,9 @@ export default function DoctorPortalPage() {
     }, [appointments]);
 
     const todayAppointments = useMemo(() => {
-        if (!appointments) return [];
-        const today = new Date();
-        return appointments.filter(apt => isSameDay(new Date(apt.appointmentDateTime), today));
-    }, [appointments]);
+        if (!appointments || !now) return [];
+        return appointments.filter(apt => isSameDay(new Date(apt.appointmentDateTime), now));
+    }, [appointments, now]);
 
     const eventStyleGetter = (event: any) => {
         return {
@@ -251,7 +254,7 @@ export default function DoctorPortalPage() {
         setIsDialogOpen(true);
     };
 
-    if (isUserLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    if (isUserLoading || !now) return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
 
     return (
         <main className="flex-grow bg-secondary/30 py-8">
@@ -269,7 +272,7 @@ export default function DoctorPortalPage() {
                                 <CardTitle className="text-lg flex items-center gap-2">
                                     <Clock className="h-5 w-5 text-primary" /> Today's Schedule
                                 </CardTitle>
-                                <CardDescription>{format(new Date(), "EEEE, MMMM do")}</CardDescription>
+                                <CardDescription>{format(now, "EEEE, MMMM do")}</CardDescription>
                             </CardHeader>
                             <CardContent className="p-0">
                                 {isLoadingAppointments ? (
@@ -336,7 +339,6 @@ export default function DoctorPortalPage() {
                                     style={{ height: 'calc(100vh - 250px)', minHeight: '600px' }}
                                     views={[Views.MONTH, Views.WEEK, Views.DAY]}
                                     defaultView={Views.MONTH}
-                                    onNavigate={date => setCurrentDate(date)}
                                     onSelectEvent={handleSelectEvent}
                                     eventPropGetter={eventStyleGetter}
                                 />
