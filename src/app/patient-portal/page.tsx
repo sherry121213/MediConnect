@@ -1,7 +1,5 @@
 'use client';
 
-import AppHeader from "@/components/layout/header";
-import AppFooter from "@/components/layout/footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText } from "lucide-react";
@@ -23,6 +21,7 @@ import { collection, query, where } from "firebase/firestore";
 import type { Appointment, Doctor } from "@/lib/types";
 import { useMemo, useState, useEffect } from "react";
 import { format, isAfter, subHours } from "date-fns";
+import { Badge } from "@/components/ui/badge";
 
 export default function PatientPortalPage() {
     const { user, userData, isUserLoading } = useUserData();
@@ -161,20 +160,14 @@ export default function PatientPortalPage() {
 
     if (!mounted || isUserLoading || (user && isLoadingAppointments) || (user && isLoadingDoctors)) {
         return (
-            <div className="flex flex-col min-h-screen">
-                <AppHeader />
-                <main className="flex-grow flex items-center justify-center bg-secondary/30">
-                    <Loader2 className="h-10 w-10 animate-spin text-primary" />
-                </main>
-                <AppFooter />
+            <div className="flex-grow flex items-center justify-center bg-secondary/30">
+                <Loader2 className="h-10 w-10 animate-spin text-primary" />
             </div>
         );
     }
 
     return (
-        <div className="flex flex-col min-h-screen">
-          <AppHeader />
-          <main className="flex-grow bg-secondary/30 py-10">
+        <main className="flex-grow bg-secondary/30 py-10">
             <div className="container mx-auto px-4">
                 <div className="grid lg:grid-cols-12 gap-10">
                     
@@ -274,8 +267,6 @@ export default function PatientPortalPage() {
                     </div>
                 </div>
             </div>
-          </main>
-          <AppFooter />
-        </div>
+        </main>
     )
 }

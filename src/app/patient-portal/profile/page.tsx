@@ -11,8 +11,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Loader2, RefreshCw } from 'lucide-react';
-import AppHeader from '@/components/layout/header';
-import AppFooter from '@/components/layout/footer';
 import { useEffect, useState } from 'react';
 import { updateProfile, sendEmailVerification } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
@@ -238,15 +236,13 @@ export default function PatientProfilePage() {
 
   if (isUserLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
+      <div className="flex-grow flex items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <AppHeader />
       <main className="flex-grow flex items-center justify-center bg-secondary/30 py-12 px-4">
         <Card className="w-full max-w-2xl">
           <CardHeader>
@@ -423,14 +419,12 @@ export default function PatientProfilePage() {
             </Form>
           </CardContent>
         </Card>
+        <ImageCropperDialog
+          isOpen={!!cropperImage}
+          onOpenChange={(isOpen) => !isOpen && setCropperImage(null)}
+          imageSrc={cropperImage}
+          onSave={handleSaveCroppedImage}
+        />
       </main>
-      <AppFooter />
-      <ImageCropperDialog
-        isOpen={!!cropperImage}
-        onOpenChange={(isOpen) => !isOpen && setCropperImage(null)}
-        imageSrc={cropperImage}
-        onSave={handleSaveCroppedImage}
-      />
-    </div>
   );
 }
