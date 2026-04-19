@@ -22,7 +22,7 @@ import { useUserData, useFirestore, useCollection, useMemoFirebase } from "@/fir
 import { collection, query, where } from "firebase/firestore";
 import type { Appointment, Doctor } from "@/lib/types";
 import { useMemo, useState, useEffect } from "react";
-import { format, isAfter, isBefore } from "date-fns";
+import { format, isAfter, subMinutes } from "date-fns";
 
 export default function PatientPortalPage() {
     const { user, userData, isUserLoading } = useUserData();
@@ -48,8 +48,10 @@ export default function PatientPortalPage() {
 
     const upcomingAppointments = useMemo(() => {
         if (!appointments || !doctors || !now) return [];
+        // Show sessions starting from 30 mins ago up to future (to handle current sessions)
+        const threshold = subMinutes(now, 30);
         return appointments
-            .filter(apt => isAfter(new Date(apt.appointmentDateTime), now) && apt.status !== 'cancelled')
+            .filter(apt => isAfter(new Date(apt.appointmentDateTime), threshold) && apt.status !== 'cancelled' && apt.status !== 'completed')
             .map(apt => ({
                 ...apt,
                 doctor: doctors.find(d => d.id === apt.doctorId)
@@ -59,14 +61,15 @@ export default function PatientPortalPage() {
 
     const recentPastAppointments = useMemo(() => {
         if (!appointments || !doctors || !now) return [];
+        const threshold = subMinutes(now, 30);
         return appointments
-            .filter(apt => isBefore(new Date(apt.appointmentDateTime), now) || apt.status === 'completed')
+            .filter(apt => !isAfter(new Date(apt.appointmentDateTime), threshold) || apt.status === 'completed')
             .map(apt => ({
                 ...apt,
                 doctor: doctors.find(d => d.id === apt.doctorId)
             }))
             .sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime())
-            .slice(0, 3);
+            .slice(0, 5);
     }, [appointments, doctors, now]);
 
     const JoinCallDialog = ({ apt }: { apt: any }) => (
@@ -118,7 +121,7 @@ export default function PatientPortalPage() {
                             {doctorImage ? (
                                 <Image
                                     src={doctorImage.imageUrl}
-                                    alt={apt.doctor.firstName}
+                                    alt={apt.doctor?.firstName || 'Doctor'}
                                     fill
                                     className="rounded-full object-cover border-2 border-primary/10"
                                     data-ai-hint={doctorImage.imageHint}

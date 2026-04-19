@@ -19,7 +19,7 @@ import { z } from "zod";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
 import { Calendar, dateFnsLocalizer, Views } from "react-big-calendar";
-import { format, parse, startOfWeek, getDay, startOfMonth, endOfMonth, isSameDay } from "date-fns";
+import { format, parse, startOfWeek, getDay, isSameDay } from "date-fns";
 import { enUS } from "date-fns/locale";
 
 const locales = {
@@ -254,7 +254,15 @@ export default function DoctorPortalPage() {
         setIsDialogOpen(true);
     };
 
-    if (isUserLoading || !now) return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+    if (isUserLoading || !now) return (
+        <div className="flex flex-col min-h-screen">
+            <AppHeader />
+            <main className="flex-grow flex items-center justify-center bg-secondary/30">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            </main>
+            <AppFooter />
+        </div>
+    );
 
     return (
         <main className="flex-grow bg-secondary/30 py-8">

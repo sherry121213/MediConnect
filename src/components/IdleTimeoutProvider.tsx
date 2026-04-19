@@ -1,5 +1,5 @@
 'use client';
-import React, { ReactNode } from 'react';
+import React, { ReactNode, useState, useEffect } from 'react';
 import useIdleTimer from '@/hooks/useIdleTimer';
 import { useUser } from '@/firebase';
 import {
@@ -14,6 +14,12 @@ import { Button } from './ui/button';
 
 export const IdleTimeoutProvider = ({ children }: { children: ReactNode }) => {
   const { user } = useUser();
+  const [mounted, setMounted] = useState(false);
+  
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const { isIdle, countdown, reset } = useIdleTimer({
     idleTimeout: 120000, 
     countdownTime: 30000 
@@ -23,8 +29,8 @@ export const IdleTimeoutProvider = ({ children }: { children: ReactNode }) => {
     reset();
   };
 
-  // Only run the idle timer if a user is logged in
-  if (!user) {
+  // Only run the idle timer if a user is logged in and component is mounted
+  if (!user || !mounted) {
     return <>{children}</>;
   }
 
