@@ -4,7 +4,7 @@ import AppHeader from "@/components/layout/header";
 import AppFooter from "@/components/layout/footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, MessageSquare, PlusCircle, Loader2 } from "lucide-react";
+import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
@@ -34,11 +34,11 @@ export default function PatientPortalPage() {
     }, [firestore, user]);
     const { data: appointments, isLoading: isLoadingAppointments, error: appointmentsError } = useCollection<Appointment>(appointmentsQuery);
 
-    const doctorsQuery = useMemoFirebase(() => {
+    const doctorsCollection = useMemoFirebase(() => {
         if (!firestore) return null;
         return collection(firestore, 'doctors');
     }, [firestore]);
-    const { data: doctors, isLoading: isLoadingDoctors, error: doctorsError } = useCollection<Doctor>(doctorsQuery);
+    const { data: doctors, isLoading: isLoadingDoctors } = useCollection<Doctor>(doctorsCollection);
 
     const now = new Date();
 
@@ -75,7 +75,7 @@ export default function PatientPortalPage() {
                 <AlertDialogHeader>
                     <AlertDialogTitle>Choose Consultation Method</AlertDialogTitle>
                     <AlertDialogDescription>
-                        How would you like to connect with Dr. {apt.doctor.firstName}?
+                        How would you like to connect with {apt.doctor ? `Dr. ${apt.doctor.firstName}` : 'your doctor'}?
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 py-4">
@@ -100,17 +100,14 @@ export default function PatientPortalPage() {
     );
 
     const AppointmentCard = ({ apt, isUpcoming }: { apt: any, isUpcoming: boolean }) => {
-        if (!apt.doctor) {
-            return <Card className="p-4 text-muted-foreground">Loading doctor details...</Card>;
-        }
-        const doctorImage = PlaceHolderImages.find(p => p.id === apt.doctor.profileImageId);
+        const doctorImage = apt.doctor ? PlaceHolderImages.find(p => p.id === apt.doctor.profileImageId) : null;
         const appointmentDate = new Date(apt.appointmentDateTime);
 
         return (
             <Card>
                 <CardContent className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div className="flex items-center gap-4 flex-1">
-                        {doctorImage && (
+                        {doctorImage ? (
                             <Image
                                 src={doctorImage.imageUrl}
                                 alt={apt.doctor.firstName}
@@ -119,10 +116,14 @@ export default function PatientPortalPage() {
                                 className="rounded-full"
                                 data-ai-hint={doctorImage.imageHint}
                             />
+                        ) : (
+                            <div className="h-14 w-14 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                                <Stethoscope className="h-6 w-6" />
+                            </div>
                         )}
                         <div>
-                            <p className="font-bold">Dr. {apt.doctor.firstName}</p>
-                            <p className="text-sm text-muted-foreground">{apt.doctor.specialty}</p>
+                            <p className="font-bold">{apt.doctor ? `Dr. ${apt.doctor.firstName}` : 'Verified Doctor'}</p>
+                            <p className="text-sm text-muted-foreground">{apt.doctor?.specialty || 'General Physician'}</p>
                         </div>
                     </div>
                     <div className="text-sm text-muted-foreground">
@@ -196,8 +197,11 @@ export default function PatientPortalPage() {
                             </section>
                         )}
 
-                        {appointmentsError && <p className="text-destructive text-center">Error loading appointments: {appointmentsError.message}</p>}
-                        {doctorsError && <p className="text-destructive text-center">Error loading doctor data: {doctorsError.message}</p>}
+                        {appointmentsError && (
+                            <div className="p-4 bg-destructive/10 text-destructive rounded-md text-center">
+                                <p>Error loading appointments. Please try refreshing.</p>
+                            </div>
+                        )}
                     </div>
                 )}
             </div>

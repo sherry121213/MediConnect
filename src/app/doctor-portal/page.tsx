@@ -3,14 +3,13 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Users, Clock, History, MoreVertical } from "lucide-react";
+import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Users, Clock, History, ListFilter } from "lucide-react";
 import Link from "next/link";
-import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
 import { collection, query, where, doc } from "firebase/firestore";
 import type { Appointment, Patient } from "@/lib/types";
-import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -179,12 +178,12 @@ const AppointmentRow = ({ apt, onSelect }: { apt: Appointment, onSelect: (a: App
                 <div>
                     <p className="font-medium text-sm">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
                     <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <Clock className="h-3 w-3" /> {format(new Date(apt.appointmentDateTime), "p")}
+                        <CalendarIcon className="h-3 w-3" /> {format(new Date(apt.appointmentDateTime), "MMM dd")} <Clock className="h-3 w-3 ml-1" /> {format(new Date(apt.appointmentDateTime), "p")}
                     </p>
                 </div>
             </div>
             <Button size="sm" variant="ghost" onClick={() => onSelect(apt)}>
-                Join
+                Details
             </Button>
         </div>
     );
@@ -197,7 +196,6 @@ export default function DoctorPortalPage() {
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [currentDate, setCurrentDate] = useState(new Date());
 
-    // Basic query filtered only by doctorId to ensure maximum permission compliance
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
         return query(
@@ -208,44 +206,32 @@ export default function DoctorPortalPage() {
 
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    const filteredAppointments = useMemo(() => {
+    const sortedAppointments = useMemo(() => {
         if (!appointments) return [];
-        const start = startOfMonth(currentDate);
-        const end = endOfMonth(currentDate);
-        return appointments.filter(apt => {
-            const date = new Date(apt.appointmentDateTime);
-            return date >= start && date <= end;
-        });
-    }, [appointments, currentDate]);
+        return [...appointments].sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime());
+    }, [appointments]);
+
+    const calendarEvents = useMemo(() => {
+        if (!appointments) return [];
+        return appointments.map(apt => ({
+            id: apt.id,
+            title: `Apt: ${apt.appointmentType}`,
+            start: new Date(apt.appointmentDateTime),
+            end: new Date(new Date(apt.appointmentDateTime).getTime() + 30 * 60000),
+            resource: apt,
+        }));
+    }, [appointments]);
 
     const todayAppointments = useMemo(() => {
         if (!appointments) return [];
         const today = new Date();
-        return appointments.filter(apt => {
-            const date = new Date(apt.appointmentDateTime);
-            return isSameDay(date, today);
-        });
+        return appointments.filter(apt => isSameDay(new Date(apt.appointmentDateTime), today));
     }, [appointments]);
 
-    const calendarEvents = useMemo(() => {
-        return filteredAppointments.map(apt => ({
-            id: apt.id,
-            title: `Apt: ${apt.appointmentType}`,
-            start: new Date(apt.appointmentDateTime),
-            end: new Date(new Date(apt.appointmentDateTime).getTime() + 30 * 60000), // 30 min duration
-            resource: apt,
-        }));
-    }, [filteredAppointments]);
-
     const eventStyleGetter = (event: any) => {
-        const type = (event.resource.appointmentType || '').toLowerCase();
-        let backgroundColor = 'hsl(var(--primary))';
-        if (type.includes('emergency')) backgroundColor = 'hsl(var(--destructive))';
-        if (type.includes('follow')) backgroundColor = '#f59e0b';
-        
         return {
             style: {
-                backgroundColor,
+                backgroundColor: 'hsl(var(--primary))',
                 borderRadius: '6px',
                 opacity: 0.8,
                 color: 'white',
@@ -260,7 +246,7 @@ export default function DoctorPortalPage() {
         setIsDialogOpen(true);
     };
 
-    const handleSelectToday = (apt: Appointment) => {
+    const handleSelectApt = (apt: Appointment) => {
         setSelectedAppointment(apt);
         setIsDialogOpen(true);
     };
@@ -272,10 +258,10 @@ export default function DoctorPortalPage() {
             <div className="container mx-auto px-4">
                 <div className="flex flex-col lg:flex-row gap-8">
                     
-                    {/* Left Sidebar: Today's Focus */}
-                    <div className="lg:w-1/4 space-y-6">
-                        <div className="flex items-center justify-between">
+                    <div className="lg:w-1/3 space-y-6">
+                        <div className="flex flex-col gap-1">
                             <h1 className="text-2xl font-bold font-headline">Welcome, Dr. {userData?.firstName}</h1>
+                            <p className="text-muted-foreground text-sm">Manage your patient schedule and records.</p>
                         </div>
                         
                         <Card>
@@ -289,15 +275,37 @@ export default function DoctorPortalPage() {
                                 {isLoadingAppointments ? (
                                     <div className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></div>
                                 ) : todayAppointments.length > 0 ? (
-                                    <div className="divide-y max-h-[400px] overflow-y-auto">
+                                    <div className="divide-y max-h-[300px] overflow-y-auto">
                                         {todayAppointments.map(apt => (
-                                            <AppointmentRow key={apt.id} apt={apt} onSelect={handleSelectToday} />
+                                            <AppointmentRow key={apt.id} apt={apt} onSelect={handleSelectApt} />
                                         ))}
                                     </div>
                                 ) : (
                                     <div className="p-8 text-center text-muted-foreground">
-                                        <CalendarIcon className="h-10 w-10 mx-auto mb-2 opacity-20" />
-                                        <p className="text-sm">No appointments scheduled for today.</p>
+                                        <p className="text-sm">No appointments for today.</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader className="pb-3 border-b">
+                                <CardTitle className="text-lg flex items-center gap-2">
+                                    <ListFilter className="h-5 w-5 text-primary" /> All Recent Bookings
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                {isLoadingAppointments ? (
+                                    <div className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></div>
+                                ) : sortedAppointments.length > 0 ? (
+                                    <div className="divide-y max-h-[400px] overflow-y-auto">
+                                        {sortedAppointments.map(apt => (
+                                            <AppointmentRow key={apt.id} apt={apt} onSelect={handleSelectApt} />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="p-8 text-center text-muted-foreground">
+                                        <p className="text-sm">No bookings found yet.</p>
                                     </div>
                                 )}
                             </CardContent>
@@ -317,7 +325,6 @@ export default function DoctorPortalPage() {
                         </div>
                     </div>
 
-                    {/* Right Content: The Big Calendar */}
                     <div className="flex-1">
                         <Card className="h-full min-h-[700px]">
                             <CardContent className="p-6 h-full">
