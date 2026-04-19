@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Users, Clock, History, ListFilter } from "lucide-react";
+import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Users, Clock, History, ListFilter, Activity, ClipboardCheck, TrendingUp } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
@@ -23,6 +23,7 @@ import { format, parse, startOfWeek, getDay, isSameDay } from "date-fns";
 import { enUS } from "date-fns/locale";
 import AppHeader from "@/components/layout/header";
 import AppFooter from "@/components/layout/footer";
+import { Badge } from "@/components/ui/badge";
 
 const locales = {
   "en-US": enUS,
@@ -172,21 +173,21 @@ const AppointmentRow = ({ apt, onSelect }: { apt: Appointment, onSelect: (a: App
     const { data: patient } = useDoc<Patient>(patientDocRef);
 
     return (
-        <div className="flex items-center justify-between p-3 hover:bg-muted/50 rounded-lg transition-colors border-b last:border-0 group">
+        <div className="flex items-center justify-between p-4 hover:bg-muted/50 rounded-xl transition-all border-b last:border-0 group cursor-pointer" onClick={() => onSelect(apt)}>
             <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10">
-                    <AvatarFallback>{patient?.firstName?.[0]}</AvatarFallback>
+                <Avatar className="h-10 w-10 border-2 border-background shadow-sm">
+                    <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback>
                 </Avatar>
                 <div>
-                    <p className="font-medium text-sm">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                        <CalendarIcon className="h-3 w-3" /> {format(new Date(apt.appointmentDateTime), "MMM dd")} <Clock className="h-3 w-3 ml-1" /> {format(new Date(apt.appointmentDateTime), "p")}
+                    <p className="font-bold text-sm">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
+                    <p className="text-[10px] text-muted-foreground flex items-center gap-1 uppercase font-bold tracking-tighter">
+                        <Clock className="h-2.5 w-2.5" /> {format(new Date(apt.appointmentDateTime), "p")} • {apt.appointmentType}
                     </p>
                 </div>
             </div>
-            <Button size="sm" variant="ghost" onClick={() => onSelect(apt)}>
-                Details
-            </Button>
+            <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={apt.status === 'completed' ? 'bg-green-100 text-green-800' : 'text-primary border-primary/20'}>
+                {apt.status === 'scheduled' ? 'Upcoming' : apt.status}
+            </Badge>
         </div>
     );
 };
@@ -202,7 +203,6 @@ export default function DoctorPortalPage() {
         setMounted(true);
     }, []);
 
-    // Memoize the query to prevent permission evaluations on every render
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
         return query(
@@ -213,35 +213,47 @@ export default function DoctorPortalPage() {
 
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    const { sortedAppointments, calendarEvents, todayAppointments } = useMemo(() => {
-        if (!mounted || !appointments) return { sortedAppointments: [], calendarEvents: [], todayAppointments: [] };
+    const { sortedAppointments, calendarEvents, todayAppointments, stats } = useMemo(() => {
+        if (!mounted || !appointments) return { sortedAppointments: [], calendarEvents: [], todayAppointments: [], stats: { today: 0, pending: 0, total: 0 } };
         
         const now = new Date();
-        
         const sorted = [...appointments].sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime());
         
         const events = appointments.map(apt => ({
             id: apt.id,
-            title: `Apt: ${apt.appointmentType}`,
+            title: `${apt.appointmentType}`,
             start: new Date(apt.appointmentDateTime),
             end: new Date(new Date(apt.appointmentDateTime).getTime() + 30 * 60000),
             resource: apt,
         }));
 
         const today = appointments.filter(apt => isSameDay(new Date(apt.appointmentDateTime), now));
+        const pending = appointments.filter(apt => apt.status === 'scheduled').length;
 
-        return { sortedAppointments: sorted, calendarEvents: events, todayAppointments: today };
+        return { 
+            sortedAppointments: sorted, 
+            calendarEvents: events, 
+            todayAppointments: today,
+            stats: {
+                today: today.length,
+                pending: pending,
+                total: appointments.length
+            }
+        };
     }, [appointments, mounted]);
 
     const eventStyleGetter = (event: any) => {
+        const isPast = new Date(event.start) < new Date();
         return {
             style: {
-                backgroundColor: 'hsl(var(--primary))',
-                borderRadius: '6px',
-                opacity: 0.8,
+                backgroundColor: isPast ? 'hsl(var(--muted-foreground))' : 'hsl(var(--primary))',
+                borderRadius: '4px',
+                opacity: 0.9,
                 color: 'white',
                 border: 'none',
-                display: 'block'
+                display: 'block',
+                fontSize: '10px',
+                fontWeight: '600'
             }
         };
     };
@@ -267,102 +279,140 @@ export default function DoctorPortalPage() {
     );
 
     return (
-        <main className="flex-grow bg-secondary/30 py-8">
-            <div className="container mx-auto px-4">
-                <div className="flex flex-col lg:flex-row gap-8">
+        <div className="flex flex-col min-h-screen">
+            <AppHeader />
+            <main className="flex-grow bg-secondary/30 py-8">
+                <div className="container mx-auto px-4 space-y-8">
                     
-                    <div className="lg:w-1/3 space-y-6">
-                        <div className="flex flex-col gap-1">
-                            <h1 className="text-2xl font-bold font-headline">Welcome, Dr. {userData?.firstName}</h1>
-                            <p className="text-muted-foreground text-sm">Manage your patient schedule and records.</p>
+                    {/* Unique Command Center Header & Stats */}
+                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                        <div>
+                            <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Clinical Command Center</h1>
+                            <p className="text-muted-foreground flex items-center gap-2 mt-1">
+                                <Activity className="h-4 w-4 text-primary" />
+                                Welcome back, Dr. {userData?.firstName}. You have {stats.today} patients scheduled for today.
+                            </p>
                         </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full md:w-auto">
+                            <Card className="p-3 bg-primary text-primary-foreground border-none shadow-lg shadow-primary/20">
+                                <p className="text-[10px] font-bold uppercase opacity-80">Patients Today</p>
+                                <p className="text-2xl font-bold">{stats.today}</p>
+                            </Card>
+                            <Card className="p-3 bg-background border-none shadow-sm">
+                                <p className="text-[10px] font-bold uppercase text-muted-foreground">Pending Records</p>
+                                <p className="text-2xl font-bold text-primary">{stats.pending}</p>
+                            </Card>
+                            <Card className="p-3 bg-background border-none shadow-sm hidden sm:block">
+                                <p className="text-[10px] font-bold uppercase text-muted-foreground">Week Capacity</p>
+                                <p className="text-2xl font-bold flex items-center gap-1">
+                                    84% <TrendingUp className="h-4 w-4 text-green-500" />
+                                </p>
+                            </Card>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                         
-                        <Card>
-                            <CardHeader className="pb-3 border-b">
-                                <CardTitle className="text-lg flex items-center gap-2">
-                                    <Clock className="h-5 w-5 text-primary" /> Today's Schedule
-                                </CardTitle>
-                                <CardDescription>{format(new Date(), "EEEE, MMMM do")}</CardDescription>
-                            </CardHeader>
-                            <CardContent className="p-0">
-                                {isLoadingAppointments ? (
-                                    <div className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></div>
-                                ) : todayAppointments.length > 0 ? (
-                                    <div className="divide-y max-h-[300px] overflow-y-auto">
-                                        {todayAppointments.map(apt => (
-                                            <AppointmentRow key={apt.id} apt={apt} onSelect={handleSelectApt} />
-                                        ))}
+                        {/* Left Column: Real-time Patient Queue */}
+                        <div className="lg:col-span-4 space-y-6">
+                            <Card className="border-none shadow-xl overflow-hidden">
+                                <CardHeader className="bg-background pb-3 border-b">
+                                    <div className="flex items-center justify-between">
+                                        <CardTitle className="text-lg flex items-center gap-2">
+                                            <ClipboardCheck className="h-5 w-5 text-primary" /> Today's Live Queue
+                                        </CardTitle>
+                                        <Badge variant="outline" className="text-[10px] font-bold">{format(new Date(), "MMM dd")}</Badge>
                                     </div>
-                                ) : (
-                                    <div className="p-8 text-center text-muted-foreground">
-                                        <p className="text-sm">No appointments for today.</p>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                                </CardHeader>
+                                <CardContent className="p-0">
+                                    {isLoadingAppointments ? (
+                                        <div className="p-12 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
+                                    ) : todayAppointments.length > 0 ? (
+                                        <div className="divide-y max-h-[500px] overflow-y-auto custom-scrollbar">
+                                            {todayAppointments.map(apt => (
+                                                <AppointmentRow key={apt.id} apt={apt} onSelect={handleSelectApt} />
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="p-12 text-center text-muted-foreground space-y-2">
+                                            <CalendarIcon className="h-10 w-10 mx-auto opacity-20" />
+                                            <p className="text-sm font-medium">No sessions for today.</p>
+                                            <Button variant="link" size="sm" asChild>
+                                                <Link href="/doctor-portal/records">View Past Records</Link>
+                                            </Button>
+                                        </div>
+                                    )}
+                                </CardContent>
+                                <div className="p-4 bg-muted/20 border-t flex items-center justify-between">
+                                    <Button variant="ghost" size="sm" className="text-xs font-bold text-primary gap-2" asChild>
+                                        <Link href="/doctor-portal/patients">
+                                            <Users className="h-3.5 w-3.5" /> Manage All Patients
+                                        </Link>
+                                    </Button>
+                                    <Button variant="ghost" size="sm" className="text-xs font-bold text-muted-foreground gap-2" asChild>
+                                        <Link href="/doctor-portal/records">
+                                            <History className="h-3.5 w-3.5" /> History
+                                        </Link>
+                                    </Button>
+                                </div>
+                            </Card>
 
-                        <Card>
-                            <CardHeader className="pb-3 border-b">
-                                <CardTitle className="text-lg flex items-center gap-2">
-                                    <ListFilter className="h-5 w-5 text-primary" /> All Recent Bookings
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="p-0">
-                                {isLoadingAppointments ? (
-                                    <div className="p-8 text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></div>
-                                ) : sortedAppointments.length > 0 ? (
-                                    <div className="divide-y max-h-[400px] overflow-y-auto">
-                                        {sortedAppointments.map(apt => (
-                                            <AppointmentRow key={apt.id} apt={apt} onSelect={handleSelectApt} />
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="p-8 text-center text-muted-foreground">
-                                        <p className="text-sm">No bookings found yet.</p>
-                                    </div>
-                                )}
-                            </CardContent>
-                        </Card>
+                            <Card className="bg-primary/5 border-primary/10 border-2 border-dashed">
+                                <CardContent className="p-6">
+                                    <h4 className="font-bold text-sm text-primary mb-2 flex items-center gap-2">
+                                        <Activity className="h-4 w-4" /> Physician Tip
+                                    </h4>
+                                    <p className="text-xs text-muted-foreground leading-relaxed italic">
+                                        "Digital prescriptions are automatically shared with patients immediately after you complete the consultation records."
+                                    </p>
+                                </CardContent>
+                            </Card>
+                        </div>
 
-                        <div className="grid grid-cols-1 gap-4">
-                            <Button variant="outline" className="w-full justify-start h-12" asChild>
-                                <Link href="/doctor-portal/records">
-                                    <History className="mr-2 h-5 w-5" /> Appointment Records
-                                </Link>
-                            </Button>
-                            <Button variant="outline" className="w-full justify-start h-12" asChild>
-                                <Link href="/doctor-portal/patients">
-                                    <Users className="mr-2 h-5 w-5" /> Manage Patients
-                                </Link>
-                            </Button>
+                        {/* Right Column: High-End Scheduler */}
+                        <div className="lg:col-span-8">
+                            <Card className="border-none shadow-2xl h-full">
+                                <CardHeader className="bg-background pb-3 border-b flex flex-row items-center justify-between">
+                                    <div>
+                                        <CardTitle className="text-lg">Professional Scheduler</CardTitle>
+                                        <CardDescription className="text-[10px] uppercase font-bold tracking-widest text-primary">Monthly Overview</CardDescription>
+                                    </div>
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-1.5 mr-4">
+                                            <div className="h-2 w-2 rounded-full bg-primary"></div>
+                                            <span className="text-[10px] font-bold text-muted-foreground uppercase">Active</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <div className="h-2 w-2 rounded-full bg-muted-foreground"></div>
+                                            <span className="text-[10px] font-bold text-muted-foreground uppercase">Past</span>
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="p-4 h-[600px] sm:h-[700px]">
+                                    <Calendar
+                                        localizer={localizer}
+                                        events={calendarEvents}
+                                        startAccessor="start"
+                                        endAccessor="end"
+                                        style={{ height: '100%' }}
+                                        views={[Views.MONTH, Views.WEEK, Views.DAY]}
+                                        defaultView={Views.MONTH}
+                                        onSelectEvent={handleSelectEvent}
+                                        eventPropGetter={eventStyleGetter}
+                                    />
+                                </CardContent>
+                            </Card>
                         </div>
                     </div>
 
-                    <div className="flex-1">
-                        <Card className="h-full min-h-[700px]">
-                            <CardContent className="p-6 h-full">
-                                <Calendar
-                                    localizer={localizer}
-                                    events={calendarEvents}
-                                    startAccessor="start"
-                                    endAccessor="end"
-                                    style={{ height: 'calc(100vh - 250px)', minHeight: '600px' }}
-                                    views={[Views.MONTH, Views.WEEK, Views.DAY]}
-                                    defaultView={Views.MONTH}
-                                    onSelectEvent={handleSelectEvent}
-                                    eventPropGetter={eventStyleGetter}
-                                />
-                            </CardContent>
-                        </Card>
-                    </div>
+                    <ConsultationDialog 
+                        isOpen={isDialogOpen} 
+                        onOpenChange={setIsDialogOpen} 
+                        appointment={selectedAppointment} 
+                    />
                 </div>
-
-                <ConsultationDialog 
-                    isOpen={isDialogOpen} 
-                    onOpenChange={setIsDialogOpen} 
-                    appointment={selectedAppointment} 
-                />
-            </div>
-        </main>
+            </main>
+            <AppFooter />
+        </div>
     );
 }
