@@ -194,12 +194,13 @@ export default function DoctorPortalPage() {
     const firestore = useFirestore();
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
-    const [now, setNow] = useState<Date | null>(null);
+    const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
-        setNow(new Date());
+        setMounted(true);
     }, []);
 
+    // Memoize the query to prevent permission evaluations on every render
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
         return query(
@@ -210,26 +211,25 @@ export default function DoctorPortalPage() {
 
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    const sortedAppointments = useMemo(() => {
-        if (!appointments) return [];
-        return [...appointments].sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime());
-    }, [appointments]);
-
-    const calendarEvents = useMemo(() => {
-        if (!appointments) return [];
-        return appointments.map(apt => ({
+    const { sortedAppointments, calendarEvents, todayAppointments } = useMemo(() => {
+        if (!mounted || !appointments) return { sortedAppointments: [], calendarEvents: [], todayAppointments: [] };
+        
+        const now = new Date();
+        
+        const sorted = [...appointments].sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime());
+        
+        const events = appointments.map(apt => ({
             id: apt.id,
             title: `Apt: ${apt.appointmentType}`,
             start: new Date(apt.appointmentDateTime),
             end: new Date(new Date(apt.appointmentDateTime).getTime() + 30 * 60000),
             resource: apt,
         }));
-    }, [appointments]);
 
-    const todayAppointments = useMemo(() => {
-        if (!appointments || !now) return [];
-        return appointments.filter(apt => isSameDay(new Date(apt.appointmentDateTime), now));
-    }, [appointments, now]);
+        const today = appointments.filter(apt => isSameDay(new Date(apt.appointmentDateTime), now));
+
+        return { sortedAppointments: sorted, calendarEvents: events, todayAppointments: today };
+    }, [appointments, mounted]);
 
     const eventStyleGetter = (event: any) => {
         return {
@@ -254,7 +254,7 @@ export default function DoctorPortalPage() {
         setIsDialogOpen(true);
     };
 
-    if (isUserLoading || !now) return (
+    if (!mounted || isUserLoading) return (
         <div className="flex flex-col min-h-screen">
             <AppHeader />
             <main className="flex-grow flex items-center justify-center bg-secondary/30">
@@ -280,7 +280,7 @@ export default function DoctorPortalPage() {
                                 <CardTitle className="text-lg flex items-center gap-2">
                                     <Clock className="h-5 w-5 text-primary" /> Today's Schedule
                                 </CardTitle>
-                                <CardDescription>{format(now, "EEEE, MMMM do")}</CardDescription>
+                                <CardDescription>{format(new Date(), "EEEE, MMMM do")}</CardDescription>
                             </CardHeader>
                             <CardContent className="p-0">
                                 {isLoadingAppointments ? (

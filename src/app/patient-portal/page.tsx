@@ -27,50 +27,49 @@ import { format, isAfter, subMinutes } from "date-fns";
 export default function PatientPortalPage() {
     const { user, userData, isUserLoading } = useUserData();
     const firestore = useFirestore();
-    const [now, setNow] = useState<Date | null>(null);
+    const [mounted, setMounted] = useState(false);
 
-    // Initialize 'now' on mount to avoid hydration mismatch
     useEffect(() => {
-        setNow(new Date());
+        setMounted(true);
     }, []);
 
+    // Stable query for appointments - memoized to prevent infinite loops
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
         return query(collection(firestore, 'appointments'), where('patientId', '==', user.uid));
     }, [firestore, user]);
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
+    // Stable query for doctors - needed to resolve doctor names/specialties
     const doctorsCollection = useMemoFirebase(() => {
         if (!firestore) return null;
         return collection(firestore, 'doctors');
     }, [firestore]);
     const { data: doctors, isLoading: isLoadingDoctors } = useCollection<Doctor>(doctorsCollection);
 
-    const upcomingAppointments = useMemo(() => {
-        if (!appointments || !doctors || !now) return [];
-        // Show sessions starting from 30 mins ago up to future (to handle current sessions)
-        const threshold = subMinutes(now, 30);
-        return appointments
-            .filter(apt => isAfter(new Date(apt.appointmentDateTime), threshold) && apt.status !== 'cancelled' && apt.status !== 'completed')
-            .map(apt => ({
-                ...apt,
-                doctor: doctors.find(d => d.id === apt.doctorId)
-            }))
-            .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
-    }, [appointments, doctors, now]);
+    // Filter appointments only after mounting to avoid hydration mismatch with "now"
+    const { upcomingAppointments, recentPastAppointments } = useMemo(() => {
+        if (!mounted || !appointments || !doctors) return { upcomingAppointments: [], recentPastAppointments: [] };
+        
+        const now = new Date();
+        const threshold = subMinutes(now, 30); // Buffer for active sessions
 
-    const recentPastAppointments = useMemo(() => {
-        if (!appointments || !doctors || !now) return [];
-        const threshold = subMinutes(now, 30);
-        return appointments
+        const allMapped = appointments.map(apt => ({
+            ...apt,
+            doctor: doctors.find(d => d.id === apt.doctorId)
+        }));
+
+        const upcoming = allMapped
+            .filter(apt => isAfter(new Date(apt.appointmentDateTime), threshold) && apt.status !== 'cancelled' && apt.status !== 'completed')
+            .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
+
+        const past = allMapped
             .filter(apt => !isAfter(new Date(apt.appointmentDateTime), threshold) || apt.status === 'completed')
-            .map(apt => ({
-                ...apt,
-                doctor: doctors.find(d => d.id === apt.doctorId)
-            }))
             .sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime())
             .slice(0, 5);
-    }, [appointments, doctors, now]);
+
+        return { upcomingAppointments: upcoming, recentPastAppointments: past };
+    }, [appointments, doctors, mounted]);
 
     const JoinCallDialog = ({ apt }: { apt: any }) => (
         <AlertDialog>
@@ -161,7 +160,8 @@ export default function PatientPortalPage() {
         )
     };
 
-    if (isUserLoading || isLoadingAppointments || isLoadingDoctors || !now) {
+    // Global loading state while establishing auth and initial data
+    if (!mounted || isUserLoading || (user && isLoadingAppointments) || (user && isLoadingDoctors)) {
         return (
             <div className="flex flex-col min-h-screen">
                 <AppHeader />

@@ -30,7 +30,8 @@ export const IdleTimeoutProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Only run the idle timer if a user is logged in and component is mounted
-  if (!user || !mounted) {
+  // We MUST render children even if not mounted, but avoid showing the dialog
+  if (!mounted || !user) {
     return <>{children}</>;
   }
 
