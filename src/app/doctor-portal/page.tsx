@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Users, Clock, History, ListFilter, Activity, ClipboardCheck, TrendingUp } from "lucide-react";
+import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Users, Clock, History, ListFilter, Activity, ClipboardCheck, TrendingUp, DollarSign, PieChart as PieChartIcon, ArrowRight, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
@@ -18,24 +18,14 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, dateFnsLocalizer, Views } from "react-big-calendar";
-import { format, parse, startOfWeek, getDay, isSameDay } from "date-fns";
-import { enUS } from "date-fns/locale";
+import { format, isSameDay, subDays, startOfDay } from "date-fns";
 import AppHeader from "@/components/layout/header";
 import AppFooter from "@/components/layout/footer";
 import { Badge } from "@/components/ui/badge";
-
-const locales = {
-  "en-US": enUS,
-};
-
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek,
-  getDay,
-  locales,
-});
+import { 
+  Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, 
+  Cell, PieChart, Pie 
+} from "recharts";
 
 const notesSchema = z.object({
   diagnosis: z.string().min(3, "Diagnosis is required."),
@@ -213,55 +203,54 @@ export default function DoctorPortalPage() {
 
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    const { sortedAppointments, calendarEvents, todayAppointments, stats } = useMemo(() => {
-        if (!mounted || !appointments) return { sortedAppointments: [], calendarEvents: [], todayAppointments: [], stats: { today: 0, pending: 0, total: 0 } };
+    const { todayAppointments, stats, analytics, consultMix, recentEvents } = useMemo(() => {
+        if (!mounted || !appointments) return { 
+            todayAppointments: [], 
+            stats: { today: 0, pending: 0, revenue: 0 }, 
+            analytics: [], 
+            consultMix: [],
+            recentEvents: []
+        };
         
         const now = new Date();
-        const sorted = [...appointments].sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime());
-        
-        const events = appointments.map(apt => ({
-            id: apt.id,
-            title: `${apt.appointmentType}`,
-            start: new Date(apt.appointmentDateTime),
-            end: new Date(new Date(apt.appointmentDateTime).getTime() + 30 * 60000),
-            resource: apt,
-        }));
-
         const today = appointments.filter(apt => isSameDay(new Date(apt.appointmentDateTime), now));
         const pending = appointments.filter(apt => apt.status === 'scheduled').length;
+        const revenue = appointments.filter(apt => apt.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
+
+        // Weekly Revenue Growth Data
+        const last7Days = Array.from({ length: 7 }, (_, i) => {
+            const d = subDays(now, 6 - i);
+            const dateStr = format(d, 'MMM dd');
+            const dayRevenue = appointments
+                .filter(a => a.paymentStatus === 'approved' && isSameDay(new Date(a.createdAt), d))
+                .reduce((sum, a) => sum + (a.amount || 1500), 0);
+            return { name: dateStr, revenue: dayRevenue };
+        });
+
+        // Consultation Mix
+        const videoCount = appointments.filter(a => a.appointmentType === 'Video Call').length;
+        const chatCount = appointments.filter(a => a.appointmentType === 'Chat' || a.appointmentType !== 'Video Call').length;
+        const mix = [
+            { name: 'Video Sessions', value: videoCount, color: 'hsl(var(--primary))' },
+            { name: 'Text Consults', value: chatCount, color: 'hsl(var(--accent))' }
+        ];
+
+        // Recent System Events (Mocked based on actual data states)
+        const events = appointments.slice(0, 5).map(apt => ({
+            id: apt.id,
+            msg: apt.status === 'completed' ? `Record finalized for patient ${apt.patientId.slice(0,4)}` : `New booking request: ${apt.appointmentType}`,
+            time: format(new Date(apt.createdAt), "p"),
+            type: apt.status
+        }));
 
         return { 
-            sortedAppointments: sorted, 
-            calendarEvents: events, 
             todayAppointments: today,
-            stats: {
-                today: today.length,
-                pending: pending,
-                total: appointments.length
-            }
+            stats: { today: today.length, pending: pending, revenue },
+            analytics: last7Days,
+            consultMix: mix,
+            recentEvents: events
         };
     }, [appointments, mounted]);
-
-    const eventStyleGetter = (event: any) => {
-        const isPast = new Date(event.start) < new Date();
-        return {
-            style: {
-                backgroundColor: isPast ? 'hsl(var(--muted-foreground))' : 'hsl(var(--primary))',
-                borderRadius: '4px',
-                opacity: 0.9,
-                color: 'white',
-                border: 'none',
-                display: 'block',
-                fontSize: '10px',
-                fontWeight: '600'
-            }
-        };
-    };
-
-    const handleSelectEvent = (event: any) => {
-        setSelectedAppointment(event.resource);
-        setIsDialogOpen(true);
-    };
 
     const handleSelectApt = (apt: Appointment) => {
         setSelectedAppointment(apt);
@@ -284,28 +273,28 @@ export default function DoctorPortalPage() {
             <main className="flex-grow bg-secondary/30 py-8">
                 <div className="container mx-auto px-4 space-y-8">
                     
-                    {/* Unique Command Center Header & Stats */}
+                    {/* High-End Analytics Header */}
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                         <div>
                             <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Clinical Command Center</h1>
                             <p className="text-muted-foreground flex items-center gap-2 mt-1">
                                 <Activity className="h-4 w-4 text-primary" />
-                                Welcome back, Dr. {userData?.firstName}. You have {stats.today} patients scheduled for today.
+                                Welcome back, Dr. {userData?.firstName}. Your clinical practice is performing at peak efficiency.
                             </p>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full md:w-auto">
                             <Card className="p-3 bg-primary text-primary-foreground border-none shadow-lg shadow-primary/20">
-                                <p className="text-[10px] font-bold uppercase opacity-80">Patients Today</p>
-                                <p className="text-2xl font-bold">{stats.today}</p>
+                                <p className="text-[10px] font-bold uppercase opacity-80">Practice Revenue</p>
+                                <p className="text-2xl font-bold">PKR {stats.revenue.toLocaleString()}</p>
                             </Card>
                             <Card className="p-3 bg-background border-none shadow-sm">
-                                <p className="text-[10px] font-bold uppercase text-muted-foreground">Pending Records</p>
-                                <p className="text-2xl font-bold text-primary">{stats.pending}</p>
+                                <p className="text-[10px] font-bold uppercase text-muted-foreground">Active Patients</p>
+                                <p className="text-2xl font-bold text-primary">{appointments?.length || 0}</p>
                             </Card>
                             <Card className="p-3 bg-background border-none shadow-sm hidden sm:block">
-                                <p className="text-[10px] font-bold uppercase text-muted-foreground">Week Capacity</p>
+                                <p className="text-[10px] font-bold uppercase text-muted-foreground">Avg. Rating</p>
                                 <p className="text-2xl font-bold flex items-center gap-1">
-                                    84% <TrendingUp className="h-4 w-4 text-green-500" />
+                                    {userData?.rating || 4.9} <TrendingUp className="h-4 w-4 text-green-500" />
                                 </p>
                             </Card>
                         </div>
@@ -357,49 +346,105 @@ export default function DoctorPortalPage() {
                                 </div>
                             </Card>
 
-                            <Card className="bg-primary/5 border-primary/10 border-2 border-dashed">
-                                <CardContent className="p-6">
-                                    <h4 className="font-bold text-sm text-primary mb-2 flex items-center gap-2">
-                                        <Activity className="h-4 w-4" /> Physician Tip
-                                    </h4>
-                                    <p className="text-xs text-muted-foreground leading-relaxed italic">
-                                        "Digital prescriptions are automatically shared with patients immediately after you complete the consultation records."
-                                    </p>
+                            <Card className="border-none shadow-md">
+                                <CardHeader className="pb-2">
+                                    <CardTitle className="text-sm flex items-center gap-2">
+                                        <Activity className="h-4 w-4 text-primary" /> Clinical Event Log
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="space-y-4">
+                                    {recentEvents.map(ev => (
+                                        <div key={ev.id} className="flex items-start gap-3 text-xs">
+                                            <div className={`mt-1 h-2 w-2 rounded-full shrink-0 ${ev.type === 'completed' ? 'bg-green-500' : 'bg-primary'}`} />
+                                            <div className="flex-1">
+                                                <p className="font-medium text-foreground">{ev.msg}</p>
+                                                <p className="text-[10px] text-muted-foreground">{ev.time}</p>
+                                            </div>
+                                        </div>
+                                    ))}
                                 </CardContent>
                             </Card>
                         </div>
 
-                        {/* Right Column: High-End Scheduler */}
-                        <div className="lg:col-span-8">
-                            <Card className="border-none shadow-2xl h-full">
-                                <CardHeader className="bg-background pb-3 border-b flex flex-row items-center justify-between">
-                                    <div>
-                                        <CardTitle className="text-lg">Professional Scheduler</CardTitle>
-                                        <CardDescription className="text-[10px] uppercase font-bold tracking-widest text-primary">Monthly Overview</CardDescription>
-                                    </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex items-center gap-1.5 mr-4">
-                                            <div className="h-2 w-2 rounded-full bg-primary"></div>
-                                            <span className="text-[10px] font-bold text-muted-foreground uppercase">Active</span>
+                        {/* Right Column: Practice Intelligence & Analytics */}
+                        <div className="lg:col-span-8 space-y-8">
+                            <div className="grid md:grid-cols-2 gap-8">
+                                {/* Practice Revenue Chart */}
+                                <Card className="border-none shadow-xl h-[400px]">
+                                    <CardHeader className="border-b">
+                                        <CardTitle className="text-lg flex items-center gap-2">
+                                            <DollarSign className="h-5 w-5 text-primary" /> Revenue Velocity
+                                        </CardTitle>
+                                        <CardDescription className="text-xs">Clinical earnings over the last 7 days</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="pt-6 h-[300px]">
+                                        <ResponsiveContainer width="100%" height="100%">
+                                            <BarChart data={analytics}>
+                                                <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
+                                                <YAxis hide />
+                                                <Tooltip 
+                                                    cursor={{fill: 'hsl(var(--muted)/0.3)'}}
+                                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
+                                                />
+                                                <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                                            </BarChart>
+                                        </ResponsiveContainer>
+                                    </CardContent>
+                                </Card>
+
+                                {/* Consultation Mix Pie Chart */}
+                                <Card className="border-none shadow-xl h-[400px]">
+                                    <CardHeader className="border-b">
+                                        <CardTitle className="text-lg flex items-center gap-2">
+                                            <PieChartIcon className="h-5 w-5 text-primary" /> Consultation Mix
+                                        </CardTitle>
+                                        <CardDescription className="text-xs">Breakdown of service modalities</CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="pt-6 flex flex-col items-center justify-center h-[300px]">
+                                        <ResponsiveContainer width="100%" height={200}>
+                                            <PieChart>
+                                                <Pie
+                                                    data={consultMix}
+                                                    innerRadius={60}
+                                                    outerRadius={80}
+                                                    paddingAngle={5}
+                                                    dataKey="value"
+                                                >
+                                                    {consultMix.map((entry, index) => (
+                                                        <Cell key={`cell-${index}`} fill={entry.color} />
+                                                    ))}
+                                                </Pie>
+                                                <Tooltip />
+                                            </PieChart>
+                                        </ResponsiveContainer>
+                                        <div className="grid grid-cols-2 gap-4 mt-4 w-full px-4">
+                                            {consultMix.map((m, i) => (
+                                                <div key={i} className="flex flex-col items-center">
+                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase">{m.name}</p>
+                                                    <p className="text-lg font-bold" style={{ color: m.color }}>{m.value}</p>
+                                                </div>
+                                            ))}
                                         </div>
-                                        <div className="flex items-center gap-1.5">
-                                            <div className="h-2 w-2 rounded-full bg-muted-foreground"></div>
-                                            <span className="text-[10px] font-bold text-muted-foreground uppercase">Past</span>
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            <Card className="bg-primary/5 border-primary/20 border-2 border-dashed">
+                                <CardContent className="p-8 flex flex-col md:flex-row items-center justify-between gap-6">
+                                    <div className="flex items-center gap-4">
+                                        <div className="bg-primary text-primary-foreground p-3 rounded-xl shadow-lg">
+                                            <TrendingUp className="h-8 w-8" />
+                                        </div>
+                                        <div>
+                                            <h3 className="font-bold text-xl">Grow Your Digital Clinic</h3>
+                                            <p className="text-muted-foreground text-sm max-w-md">Verify more documents or update your clinic location to appear higher in patient search results.</p>
                                         </div>
                                     </div>
-                                </CardHeader>
-                                <CardContent className="p-4 h-[600px] sm:h-[700px]">
-                                    <Calendar
-                                        localizer={localizer}
-                                        events={calendarEvents}
-                                        startAccessor="start"
-                                        endAccessor="end"
-                                        style={{ height: '100%' }}
-                                        views={[Views.MONTH, Views.WEEK, Views.DAY]}
-                                        defaultView={Views.MONTH}
-                                        onSelectEvent={handleSelectEvent}
-                                        eventPropGetter={eventStyleGetter}
-                                    />
+                                    <Button asChild size="lg" className="px-8 shadow-md">
+                                        <Link href="/doctor-portal/profile">
+                                            Complete Profile <ArrowRight className="ml-2 h-4 w-4" />
+                                        </Link>
+                                    </Button>
                                 </CardContent>
                             </Card>
                         </div>
