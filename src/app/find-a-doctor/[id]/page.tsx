@@ -1,15 +1,15 @@
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
-import { useDoc, useFirestore, useUser, useMemoFirebase } from '@/firebase';
-import { doc, collection } from 'firebase/firestore';
-import type { Doctor } from '@/lib/types';
+import { useDoc, useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
+import { doc, collection, query, where } from 'firebase/firestore';
+import type { Doctor, Appointment } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, BriefcaseMedical, CalendarDays, Clock, GraduationCap, Heart, Loader2, MapPin, Star, UserCheck, Brain } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -25,13 +25,14 @@ import {
 } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { getNext7Days, timeSlots } from '@/lib/time';
 import { cn } from '@/lib/utils';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
+import { format, isSameDay } from 'date-fns';
 
 
 export default function DoctorDetailPage() {
@@ -47,6 +48,11 @@ export default function DoctorDetailPage() {
     const [isBooking, setIsBooking] = useState(false);
     const [paymentReceipt, setPaymentReceipt] = useState<string | null>(null);
     const [isUploading, setIsUploading] = useState(false);
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
 
     const doctorDocRef = useMemoFirebase(() => {
         if (!firestore || !doctorId) return null;
@@ -55,8 +61,26 @@ export default function DoctorDetailPage() {
 
     const { data: doctor, isLoading, error } = useDoc<Doctor>(doctorDocRef);
 
+    // Fetch existing appointments to prevent double booking
+    const appointmentsQuery = useMemoFirebase(() => {
+        if (!firestore || !doctorId) return null;
+        return query(
+            collection(firestore, 'appointments'),
+            where('doctorId', '==', doctorId)
+        );
+    }, [firestore, doctorId]);
+
+    const { data: existingAppointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
+
+    const bookedTimes = useMemo(() => {
+        if (!existingAppointments || !selectedDate || !mounted) return [];
+        return existingAppointments
+            .filter(apt => isSameDay(new Date(apt.appointmentDateTime), selectedDate) && apt.status !== 'cancelled')
+            .map(apt => format(new Date(apt.appointmentDateTime), "hh:mm a"));
+    }, [existingAppointments, selectedDate, mounted]);
+
     const handleConfirmBooking = () => {
-        if (isUserLoading) return; // Wait until user status is confirmed
+        if (isUserLoading) return;
 
         if (!user) {
             toast({
@@ -127,7 +151,7 @@ export default function DoctorDetailPage() {
         router.push('/patient-portal');
     };
     
-    if (isLoading || isUserLoading) {
+    if (isLoading || isUserLoading || !mounted) {
         return (
             <div className="flex flex-col min-h-screen">
                 <AppHeader />
@@ -165,25 +189,40 @@ export default function DoctorDetailPage() {
     const isToday = selectedDate.toDateString() === now.toDateString();
 
     const isTimeSlotPast = (time: string) => {
-        if (!isToday) {
-            return false;
-        }
+        if (!isToday) return false;
         
         const [timePart, ampm] = time.split(' ');
         const [hours, minutes] = timePart.split(':');
         let numericHours = parseInt(hours);
         
-        if (ampm === 'PM' && numericHours !== 12) {
-            numericHours += 12;
-        }
-        if (ampm === 'AM' && numericHours === 12) { // Handle 12 AM (midnight)
-            numericHours = 0;
-        }
+        if (ampm === 'PM' && numericHours !== 12) numericHours += 12;
+        if (ampm === 'AM' && numericHours === 12) numericHours = 0;
 
         const timeSlotDateTime = new Date(selectedDate);
         timeSlotDateTime.setHours(numericHours, parseInt(minutes), 0, 0);
 
         return timeSlotDateTime < now;
+    };
+
+    const TimeButton = ({ time }: { time: string }) => {
+        const isPast = isTimeSlotPast(time);
+        const isBooked = bookedTimes.includes(time);
+        const isDisabled = isPast || isBooked;
+
+        return (
+            <Button 
+                variant={selectedTime === time ? 'default' : 'outline'}
+                onClick={() => setSelectedTime(time)}
+                disabled={isDisabled}
+                className={cn(
+                    "relative",
+                    isBooked && "opacity-50 grayscale cursor-not-allowed border-destructive/30"
+                )}
+            >
+                {time}
+                {isBooked && <span className="absolute -top-1 -right-1 flex h-2 w-2 rounded-full bg-destructive" />}
+            </Button>
+        );
     };
 
     return (
@@ -198,22 +237,21 @@ export default function DoctorDetailPage() {
                         </Link>
                     </Button>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                        {/* Doctor Info */}
                         <div className="lg:col-span-1">
                             <Card>
                                 <CardHeader className="items-center text-center">
                                     {doctorImage ? (
                                         <Image
-                                            src={doctorImage.imageUrl}
+                                            src={doctor.photoURL || doctorImage.imageUrl}
                                             alt={`${doctor.firstName} ${doctor.lastName}`}
                                             width={128}
                                             height={128}
-                                            className="rounded-full border-4 border-background"
+                                            className="rounded-full border-4 border-background object-cover aspect-square"
                                             data-ai-hint={doctorImage.imageHint}
                                         />
                                     ) : <Skeleton className="h-32 w-32 rounded-full" />}
                                     <div className="pt-4">
-                                        <CardTitle className="text-2xl font-headline">Dr. {doctor.firstName}</CardTitle>
+                                        <CardTitle className="text-2xl font-headline">Dr. {doctor.firstName} {doctor.lastName}</CardTitle>
                                         <CardDescription className="text-md text-primary mt-1">{doctor.specialty}</CardDescription>
                                         <div className="flex items-center justify-center gap-4 mt-2 text-sm text-muted-foreground">
                                             <div className="flex items-center gap-1.5">
@@ -231,78 +269,97 @@ export default function DoctorDetailPage() {
                                 </CardContent>
                             </Card>
                         </div>
-                        {/* Booking Schedule */}
                         <div className="lg:col-span-2">
                              <Card>
                                 <CardHeader>
-                                    <CardTitle className="flex items-center"><CalendarDays className="mr-2 h-6 w-6 text-primary"/> Book an Appointment</CardTitle>
+                                    <CardTitle className="flex items-center"><CalendarDays className="mr-2 h-6 w-6 text-primary"/> Clinical Scheduler</CardTitle>
+                                    <CardDescription>Select a date and time for your consultation. Booked slots are automatically hidden.</CardDescription>
                                 </CardHeader>
                                 <CardContent>
-                                    <h4 className="font-semibold mb-3">Step 1: Select a Date</h4>
-                                    <div className="flex gap-2 overflow-x-auto pb-2 -mx-4 px-4">
+                                    <h4 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Step 1: Select a Date</h4>
+                                    <div className="flex gap-2 overflow-x-auto pb-4 -mx-4 px-4 custom-scrollbar">
                                         {availableDates.map(day => (
                                             <button 
                                                 key={day.date.toISOString()}
                                                 onClick={() => { setSelectedDate(day.date); setSelectedTime(null); }}
                                                 className={cn(
-                                                    "p-2 rounded-lg border text-center transition-colors shrink-0 w-20",
-                                                    selectedDate.toDateString() === day.date.toDateString() ? 'bg-primary text-primary-foreground' : 'bg-background hover:bg-muted'
+                                                    "p-3 rounded-xl border text-center transition-all shrink-0 w-24",
+                                                    selectedDate.toDateString() === day.date.toDateString() 
+                                                        ? 'bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20 scale-105' 
+                                                        : 'bg-background hover:bg-muted border-muted-foreground/10'
                                                 )}
                                             >
-                                                <p className="text-sm font-medium">{day.dayName}</p>
-                                                <p className="text-2xl font-bold">{day.dayNumber}</p>
+                                                <p className="text-xs font-bold uppercase opacity-80">{day.dayName}</p>
+                                                <p className="text-2xl font-bold mt-1">{day.dayNumber}</p>
                                             </button>
                                         ))}
                                     </div>
-                                     <h4 className="font-semibold mb-3 mt-6">Step 2: Select a Time</h4>
-                                     <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
-                                         {timeSlots.morning.map(time => (
-                                            <Button 
-                                                key={time}
-                                                variant={selectedTime === time ? 'default' : 'outline'}
-                                                onClick={() => setSelectedTime(time)}
-                                                disabled={isTimeSlotPast(time)}
-                                            >{time}</Button>
-                                        ))}
-                                         {timeSlots.afternoon.map(time => (
-                                            <Button 
-                                                key={time}
-                                                variant={selectedTime === time ? 'default' : 'outline'}
-                                                onClick={() => setSelectedTime(time)}
-                                                disabled={isTimeSlotPast(time)}
-                                            >{time}</Button>
-                                        ))}
+
+                                     <div className="mt-8 space-y-8">
+                                        <div>
+                                            <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2 mb-4">
+                                                <div className="h-2 w-2 rounded-full bg-amber-400" /> Morning Availability
+                                            </h4>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                                {timeSlots.morning.map(time => <TimeButton key={time} time={time} />)}
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2 mb-4">
+                                                <div className="h-2 w-2 rounded-full bg-blue-400" /> Afternoon Availability
+                                            </h4>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+                                                {timeSlots.afternoon.map(time => <TimeButton key={time} time={time} />)}
+                                            </div>
+                                        </div>
                                      </div>
+
                                      <AlertDialog>
                                         <AlertDialogTrigger asChild>
                                              <Button 
-                                                className="w-full mt-8" 
-                                                size="lg"
+                                                className="w-full mt-12 h-14 text-lg font-bold shadow-xl" 
                                                 disabled={!selectedTime || isBooking || isUserLoading}
                                             >
-                                                {isBooking ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Clock className="mr-2 h-4 w-4" />}
-                                                Confirm & Book Appointment
+                                                {isBooking ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Clock className="mr-2 h-5 w-5" />}
+                                                Confirm {selectedTime && `@ ${selectedTime}`}
                                             </Button>
                                         </AlertDialogTrigger>
-                                        <AlertDialogContent>
+                                        <AlertDialogContent className="sm:max-w-[450px]">
                                             <AlertDialogHeader>
-                                                <AlertDialogTitle>Confirm Payment</AlertDialogTitle>
+                                                <AlertDialogTitle className="text-2xl font-headline">Secure Consultation Fee</AlertDialogTitle>
                                                 <AlertDialogDescription>
-                                                    To confirm your appointment, please transfer the consultation fee to the account details below and upload a screenshot of your receipt.
+                                                    To finalize your booking with Dr. {doctor.firstName}, please complete the PKR 1,500 transfer to our clinical account.
                                                 </AlertDialogDescription>
                                             </AlertDialogHeader>
-                                             <div className="my-4 space-y-2 rounded-md border bg-muted/30 p-4 text-sm">
-                                                <p><strong>Bank:</strong> Faysal Bank</p>
-                                                <p><strong>Account Title:</strong> Mediconnect Pvt. Ltd.</p>
-                                                <p><strong>Account Number:</strong> 0123-4567890123</p>
-                                                <p><strong>Consultation Fee:</strong> PKR 1,500</p>
+                                             <div className="my-6 space-y-3 rounded-xl border-2 border-primary/10 bg-primary/5 p-6 text-sm">
+                                                <div className="flex justify-between items-center border-b border-primary/10 pb-2">
+                                                    <span className="font-bold text-muted-foreground">Bank</span>
+                                                    <span className="font-bold">Faysal Bank</span>
+                                                </div>
+                                                <div className="flex justify-between items-center border-b border-primary/10 pb-2">
+                                                    <span className="font-bold text-muted-foreground">Account Title</span>
+                                                    <span className="font-bold">Mediconnect Pvt. Ltd.</span>
+                                                </div>
+                                                <div className="flex justify-between items-center border-b border-primary/10 pb-2">
+                                                    <span className="font-bold text-muted-foreground">Account Number</span>
+                                                    <span className="font-bold font-mono">0123-4567890123</span>
+                                                </div>
+                                                <div className="flex justify-between items-center pt-1">
+                                                    <span className="font-bold text-primary">Fee Total</span>
+                                                    <span className="text-lg font-bold text-primary">PKR 1,500</span>
+                                                </div>
                                             </div>
-                                             <div className="space-y-2">
-                                                <Label htmlFor="receipt-upload">Upload Payment Receipt</Label>
+                                             <div className="space-y-3">
+                                                <Label htmlFor="receipt-upload" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Proof of Payment</Label>
                                                 <div className="relative">
-                                                    <Button asChild variant="outline" size="sm" className="w-full">
-                                                        <label htmlFor="receipt-upload" className="cursor-pointer text-center w-full">
-                                                            {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Uploading...</>) : (paymentReceipt ? 'Change Receipt' : 'Choose File')}
+                                                    <Button asChild variant="outline" size="lg" className={cn("w-full border-dashed py-8 transition-all", paymentReceipt && "bg-green-50 border-green-200")}>
+                                                        <label htmlFor="receipt-upload" className="cursor-pointer text-center w-full flex flex-col gap-1">
+                                                            {isUploading ? (<><Loader2 className="h-6 w-6 animate-spin mx-auto text-primary" /><span className="text-xs">Processing...</span></>) : (
+                                                                paymentReceipt ? 
+                                                                <><span className="font-bold text-green-700">Receipt Attached</span><span className="text-[10px] text-green-600">Click to replace</span></> : 
+                                                                <><span className="font-bold">Upload Receipt Screenshot</span><span className="text-[10px] text-muted-foreground">JPG, PNG or PDF (Max 5MB)</span></>
+                                                            )}
                                                         </label>
                                                     </Button>
                                                     <Input
@@ -313,15 +370,11 @@ export default function DoctorDetailPage() {
                                                             if (!e.target.files || e.target.files.length === 0) return;
                                                             const file = e.target.files[0];
                                                             setIsUploading(true);
-                                                            setPaymentReceipt(null);
                                                             const reader = new FileReader();
                                                             reader.onloadend = () => {
                                                                 setPaymentReceipt(reader.result as string);
                                                                 setIsUploading(false);
-                                                                toast({
-                                                                    title: 'Receipt Ready',
-                                                                    description: 'Your receipt has been selected.',
-                                                                })
+                                                                toast({ title: 'Receipt Attached', description: 'Your payment proof has been synchronized.' })
                                                             };
                                                             reader.readAsDataURL(file);
                                                         }}
@@ -329,15 +382,12 @@ export default function DoctorDetailPage() {
                                                         disabled={isUploading}
                                                     />
                                                 </div>
-                                                {paymentReceipt && !isUploading && (
-                                                    <p className="text-sm text-green-600 font-medium text-center mt-2">Receipt selected successfully.</p>
-                                                )}
                                             </div>
-                                            <AlertDialogFooter>
-                                                <AlertDialogCancel disabled={isBooking}>Cancel</AlertDialogCancel>
-                                                <AlertDialogAction onClick={handleConfirmBooking} disabled={isBooking || isUploading || !paymentReceipt}>
+                                            <AlertDialogFooter className="mt-8">
+                                                <AlertDialogCancel disabled={isBooking}>Back</AlertDialogCancel>
+                                                <AlertDialogAction onClick={handleConfirmBooking} disabled={isBooking || isUploading || !paymentReceipt} className="px-8 font-bold">
                                                      {isBooking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                                    Pay & Confirm
+                                                    Confirm Booking
                                                 </AlertDialogAction>
                                             </AlertDialogFooter>
                                         </AlertDialogContent>
