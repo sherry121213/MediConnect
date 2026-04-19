@@ -10,9 +10,10 @@ interface IdleTimerProps {
     countdownTime?: number;
 }
 
-const useIdleTimer = ({ idleTimeout = 30000, countdownTime = 7000 }: IdleTimerProps) => {
+const useIdleTimer = ({ idleTimeout = 120000, countdownTime = 30000 }: IdleTimerProps) => {
   const [isIdle, setIsIdle] = useState(false);
-  const [countdown, setCountdown] = useState(countdownTime / 1000);
+  // Initialize to null to avoid hydration mismatch
+  const [countdown, setCountdown] = useState<number | null>(null);
   const auth = useAuth();
   const router = useRouter();
 
@@ -25,6 +26,9 @@ const useIdleTimer = ({ idleTimeout = 30000, countdownTime = 7000 }: IdleTimerPr
   }, [auth, router]);
 
   useEffect(() => {
+    // Initialize countdown on mount to avoid hydration mismatch
+    setCountdown(countdownTime / 1000);
+
     let idleTimer: NodeJS.Timeout;
 
     const resetTimer = () => {
@@ -54,6 +58,7 @@ const useIdleTimer = ({ idleTimeout = 30000, countdownTime = 7000 }: IdleTimerPr
     if (isIdle) {
       countdownInterval = setInterval(() => {
         setCountdown(prev => {
+          if (prev === null) return null;
           if (prev <= 1) {
             clearInterval(countdownInterval);
             handleSignOut();
@@ -72,7 +77,7 @@ const useIdleTimer = ({ idleTimeout = 30000, countdownTime = 7000 }: IdleTimerPr
      events.forEach(event => window.dispatchEvent(new Event(event)));
   }
 
-  return { isIdle, countdown, reset };
+  return { isIdle, countdown: countdown ?? (countdownTime / 1000), reset };
 };
 
 export default useIdleTimer;
