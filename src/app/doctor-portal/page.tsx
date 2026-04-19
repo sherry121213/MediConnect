@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Users, Clock, History, ListFilter, Activity, ClipboardCheck, TrendingUp, DollarSign, PieChart as PieChartIcon, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Users, Clock, History, ListFilter, Activity, ClipboardCheck, TrendingUp, DollarSign, PieChart as PieChartIcon, ArrowRight, CheckCircle2, User, ChevronLeft, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
@@ -18,14 +18,12 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
-import { format, isSameDay, subDays, startOfDay } from "date-fns";
+import { format, isSameDay, subDays, startOfDay, addDays } from "date-fns";
 import AppHeader from "@/components/layout/header";
 import AppFooter from "@/components/layout/footer";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, 
-  Cell, PieChart, Pie 
-} from "recharts";
+import { timeSlots } from "@/lib/time";
+import { cn } from "@/lib/utils";
 
 const notesSchema = z.object({
   diagnosis: z.string().min(3, "Diagnosis is required."),
@@ -182,12 +180,50 @@ const AppointmentRow = ({ apt, onSelect }: { apt: Appointment, onSelect: (a: App
     );
 };
 
+const ScheduleSlot = ({ time, appointment, onSelect }: { time: string, appointment?: Appointment, onSelect: (a: Appointment) => void }) => {
+    const firestore = useFirestore();
+    const patientDocRef = useMemoFirebase(() => {
+        if (!firestore || !appointment) return null;
+        return doc(firestore, 'patients', appointment.patientId);
+    }, [firestore, appointment]);
+    const { data: patient } = useDoc<Patient>(patientDocRef);
+
+    return (
+        <div className={cn(
+            "flex items-center justify-between p-3 rounded-lg border transition-all mb-2",
+            appointment ? "bg-primary/5 border-primary/20" : "bg-muted/20 border-transparent opacity-60"
+        )}>
+            <div className="flex items-center gap-4">
+                <p className="text-xs font-bold text-muted-foreground w-16">{time}</p>
+                {appointment ? (
+                    <div className="flex items-center gap-3">
+                        <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                            <User className="h-3 w-3" />
+                        </div>
+                        <p className="text-sm font-semibold">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
+                    </div>
+                ) : (
+                    <p className="text-xs italic text-muted-foreground">Available Slot</p>
+                )}
+            </div>
+            {appointment ? (
+                <Button size="sm" variant="ghost" className="h-7 text-[10px] font-bold uppercase tracking-wider" onClick={() => onSelect(appointment)}>
+                    View Session
+                </Button>
+            ) : (
+                <Badge variant="outline" className="text-[10px] font-bold text-muted-foreground">Free</Badge>
+            )}
+        </div>
+    );
+}
+
 export default function DoctorPortalPage() {
     const { user, userData, isUserLoading } = useUserData();
     const firestore = useFirestore();
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
+    const [viewDate, setViewDate] = useState(new Date());
 
     useEffect(() => {
         setMounted(true);
@@ -203,39 +239,34 @@ export default function DoctorPortalPage() {
 
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    const { todayAppointments, stats, analytics, consultMix, recentEvents } = useMemo(() => {
+    const { todayAppointments, stats, recentEvents, masterSchedule } = useMemo(() => {
         if (!mounted || !appointments) return { 
             todayAppointments: [], 
             stats: { today: 0, pending: 0, revenue: 0 }, 
-            analytics: [], 
-            consultMix: [],
-            recentEvents: []
+            recentEvents: [],
+            masterSchedule: { morning: [], afternoon: [] }
         };
         
         const now = new Date();
+        const selectedStart = startOfDay(viewDate);
+        
         const today = appointments.filter(apt => isSameDay(new Date(apt.appointmentDateTime), now));
         const pending = appointments.filter(apt => apt.status === 'scheduled').length;
         const revenue = appointments.filter(apt => apt.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
 
-        // Weekly Revenue Growth Data
-        const last7Days = Array.from({ length: 7 }, (_, i) => {
-            const d = subDays(now, 6 - i);
-            const dateStr = format(d, 'MMM dd');
-            const dayRevenue = appointments
-                .filter(a => a.paymentStatus === 'approved' && isSameDay(new Date(a.createdAt), d))
-                .reduce((sum, a) => sum + (a.amount || 1500), 0);
-            return { name: dateStr, revenue: dayRevenue };
-        });
+        // Clinical Master Schedule Logic
+        const filterSlots = (times: string[]) => {
+            return times.map(time => {
+                const apt = appointments.find(a => {
+                    const aptDate = new Date(a.appointmentDateTime);
+                    const formattedAptTime = format(aptDate, "hh:mm a");
+                    return isSameDay(aptDate, viewDate) && formattedAptTime === time;
+                });
+                return { time, appointment: apt };
+            });
+        };
 
-        // Consultation Mix
-        const videoCount = appointments.filter(a => a.appointmentType === 'Video Call').length;
-        const chatCount = appointments.filter(a => a.appointmentType === 'Chat' || a.appointmentType !== 'Video Call').length;
-        const mix = [
-            { name: 'Video Sessions', value: videoCount, color: 'hsl(var(--primary))' },
-            { name: 'Text Consults', value: chatCount, color: 'hsl(var(--accent))' }
-        ];
-
-        // Recent System Events (Mocked based on actual data states)
+        // Recent System Events
         const events = appointments.slice(0, 5).map(apt => ({
             id: apt.id,
             msg: apt.status === 'completed' ? `Record finalized for patient ${apt.patientId.slice(0,4)}` : `New booking request: ${apt.appointmentType}`,
@@ -246,11 +277,13 @@ export default function DoctorPortalPage() {
         return { 
             todayAppointments: today,
             stats: { today: today.length, pending: pending, revenue },
-            analytics: last7Days,
-            consultMix: mix,
-            recentEvents: events
+            recentEvents: events,
+            masterSchedule: {
+                morning: filterSlots(timeSlots.morning),
+                afternoon: filterSlots(timeSlots.afternoon)
+            }
         };
-    }, [appointments, mounted]);
+    }, [appointments, mounted, viewDate]);
 
     const handleSelectApt = (apt: Appointment) => {
         setSelectedAppointment(apt);
@@ -273,13 +306,13 @@ export default function DoctorPortalPage() {
             <main className="flex-grow bg-secondary/30 py-8">
                 <div className="container mx-auto px-4 space-y-8">
                     
-                    {/* High-End Analytics Header */}
+                    {/* Professional Command Header */}
                     <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                         <div>
                             <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Clinical Command Center</h1>
-                            <p className="text-muted-foreground flex items-center gap-2 mt-1">
+                            <p className="text-muted-foreground flex items-center gap-2 mt-1 text-sm">
                                 <Activity className="h-4 w-4 text-primary" />
-                                Welcome back, Dr. {userData?.firstName}. Your clinical practice is performing at peak efficiency.
+                                Monitoring real-time clinical operations for Dr. {userData?.firstName}.
                             </p>
                         </div>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full md:w-auto">
@@ -288,21 +321,19 @@ export default function DoctorPortalPage() {
                                 <p className="text-2xl font-bold">PKR {stats.revenue.toLocaleString()}</p>
                             </Card>
                             <Card className="p-3 bg-background border-none shadow-sm">
-                                <p className="text-[10px] font-bold uppercase text-muted-foreground">Active Patients</p>
-                                <p className="text-2xl font-bold text-primary">{appointments?.length || 0}</p>
+                                <p className="text-[10px] font-bold uppercase text-muted-foreground">Patients Today</p>
+                                <p className="text-2xl font-bold text-primary">{stats.today}</p>
                             </Card>
                             <Card className="p-3 bg-background border-none shadow-sm hidden sm:block">
-                                <p className="text-[10px] font-bold uppercase text-muted-foreground">Avg. Rating</p>
-                                <p className="text-2xl font-bold flex items-center gap-1">
-                                    {userData?.rating || 4.9} <TrendingUp className="h-4 w-4 text-green-500" />
-                                </p>
+                                <p className="text-[10px] font-bold uppercase text-muted-foreground">Pending Records</p>
+                                <p className="text-2xl font-bold">{stats.pending}</p>
                             </Card>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                         
-                        {/* Left Column: Real-time Patient Queue */}
+                        {/* Left Column: Live Queue & Activity */}
                         <div className="lg:col-span-4 space-y-6">
                             <Card className="border-none shadow-xl overflow-hidden">
                                 <CardHeader className="bg-background pb-3 border-b">
@@ -317,7 +348,7 @@ export default function DoctorPortalPage() {
                                     {isLoadingAppointments ? (
                                         <div className="p-12 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
                                     ) : todayAppointments.length > 0 ? (
-                                        <div className="divide-y max-h-[500px] overflow-y-auto custom-scrollbar">
+                                        <div className="divide-y max-h-[400px] overflow-y-auto custom-scrollbar">
                                             {todayAppointments.map(apt => (
                                                 <AppointmentRow key={apt.id} apt={apt} onSelect={handleSelectApt} />
                                             ))}
@@ -332,18 +363,6 @@ export default function DoctorPortalPage() {
                                         </div>
                                     )}
                                 </CardContent>
-                                <div className="p-4 bg-muted/20 border-t flex items-center justify-between">
-                                    <Button variant="ghost" size="sm" className="text-xs font-bold text-primary gap-2" asChild>
-                                        <Link href="/doctor-portal/patients">
-                                            <Users className="h-3.5 w-3.5" /> Manage All Patients
-                                        </Link>
-                                    </Button>
-                                    <Button variant="ghost" size="sm" className="text-xs font-bold text-muted-foreground gap-2" asChild>
-                                        <Link href="/doctor-portal/records">
-                                            <History className="h-3.5 w-3.5" /> History
-                                        </Link>
-                                    </Button>
-                                </div>
                             </Card>
 
                             <Card className="border-none shadow-md">
@@ -353,7 +372,7 @@ export default function DoctorPortalPage() {
                                     </CardTitle>
                                 </CardHeader>
                                 <CardContent className="space-y-4">
-                                    {recentEvents.map(ev => (
+                                    {recentEvents.length > 0 ? recentEvents.map(ev => (
                                         <div key={ev.id} className="flex items-start gap-3 text-xs">
                                             <div className={`mt-1 h-2 w-2 rounded-full shrink-0 ${ev.type === 'completed' ? 'bg-green-500' : 'bg-primary'}`} />
                                             <div className="flex-1">
@@ -361,73 +380,94 @@ export default function DoctorPortalPage() {
                                                 <p className="text-[10px] text-muted-foreground">{ev.time}</p>
                                             </div>
                                         </div>
-                                    ))}
+                                    )) : (
+                                        <p className="text-xs text-muted-foreground italic text-center py-4">No recent activity detected.</p>
+                                    )}
                                 </CardContent>
+                                <div className="p-4 bg-muted/20 border-t">
+                                     <Button variant="ghost" size="sm" className="w-full text-xs font-bold text-primary gap-2" asChild>
+                                        <Link href="/doctor-portal/records">
+                                            <History className="h-3.5 w-3.5" /> Full Audit History
+                                        </Link>
+                                    </Button>
+                                </div>
                             </Card>
                         </div>
 
-                        {/* Right Column: Practice Intelligence & Analytics */}
-                        <div className="lg:col-span-8 space-y-8">
-                            <div className="grid md:grid-cols-2 gap-8">
-                                {/* Practice Revenue Chart */}
-                                <Card className="border-none shadow-xl h-[400px]">
-                                    <CardHeader className="border-b">
-                                        <CardTitle className="text-lg flex items-center gap-2">
-                                            <DollarSign className="h-5 w-5 text-primary" /> Revenue Velocity
-                                        </CardTitle>
-                                        <CardDescription className="text-xs">Clinical earnings over the last 7 days</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="pt-6 h-[300px]">
-                                        <ResponsiveContainer width="100%" height="100%">
-                                            <BarChart data={analytics}>
-                                                <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
-                                                <YAxis hide />
-                                                <Tooltip 
-                                                    cursor={{fill: 'hsl(var(--muted)/0.3)'}}
-                                                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 12px rgba(0,0,0,0.1)' }}
-                                                />
-                                                <Bar dataKey="revenue" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </CardContent>
-                                </Card>
-
-                                {/* Consultation Mix Pie Chart */}
-                                <Card className="border-none shadow-xl h-[400px]">
-                                    <CardHeader className="border-b">
-                                        <CardTitle className="text-lg flex items-center gap-2">
-                                            <PieChartIcon className="h-5 w-5 text-primary" /> Consultation Mix
-                                        </CardTitle>
-                                        <CardDescription className="text-xs">Breakdown of service modalities</CardDescription>
-                                    </CardHeader>
-                                    <CardContent className="pt-6 flex flex-col items-center justify-center h-[300px]">
-                                        <ResponsiveContainer width="100%" height={200}>
-                                            <PieChart>
-                                                <Pie
-                                                    data={consultMix}
-                                                    innerRadius={60}
-                                                    outerRadius={80}
-                                                    paddingAngle={5}
-                                                    dataKey="value"
-                                                >
-                                                    {consultMix.map((entry, index) => (
-                                                        <Cell key={`cell-${index}`} fill={entry.color} />
-                                                    ))}
-                                                </Pie>
-                                                <Tooltip />
-                                            </PieChart>
-                                        </ResponsiveContainer>
-                                        <div className="grid grid-cols-2 gap-4 mt-4 w-full px-4">
-                                            {consultMix.map((m, i) => (
-                                                <div key={i} className="flex flex-col items-center">
-                                                    <p className="text-[10px] font-bold text-muted-foreground uppercase">{m.name}</p>
-                                                    <p className="text-lg font-bold" style={{ color: m.color }}>{m.value}</p>
-                                                </div>
-                                            ))}
+                        {/* Right Column: Time-Wise Master Schedule */}
+                        <div className="lg:col-span-8 space-y-6">
+                            <Card className="border-none shadow-2xl">
+                                <CardHeader className="border-b bg-background">
+                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                        <div>
+                                            <CardTitle className="text-xl font-headline flex items-center gap-2">
+                                                <Clock className="h-6 w-6 text-primary" /> Clinical Master Schedule
+                                            </CardTitle>
+                                            <CardDescription className="text-sm">Granular time-slot availability and booking status.</CardDescription>
                                         </div>
-                                    </CardContent>
-                                </Card>
-                            </div>
+                                        <div className="flex items-center gap-2 bg-muted/30 p-1.5 rounded-lg border">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewDate(addDays(viewDate, -1))}>
+                                                <ChevronLeft className="h-4 w-4" />
+                                            </Button>
+                                            <div className="px-4 text-sm font-bold min-w-[140px] text-center">
+                                                {format(viewDate, "EEE, MMM dd")}
+                                            </div>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewDate(addDays(viewDate, 1))}>
+                                                <ChevronRight className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </CardHeader>
+                                <CardContent className="p-6 md:p-8">
+                                    <div className="grid md:grid-cols-2 gap-12">
+                                        {/* Morning Block */}
+                                        <div className="space-y-4">
+                                            <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                                                <div className="h-2 w-2 rounded-full bg-amber-400" /> Morning Session
+                                            </h3>
+                                            <div className="space-y-1">
+                                                {masterSchedule.morning.map((slot, idx) => (
+                                                    <ScheduleSlot 
+                                                        key={idx} 
+                                                        time={slot.time} 
+                                                        appointment={slot.appointment} 
+                                                        onSelect={handleSelectApt} 
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Afternoon Block */}
+                                        <div className="space-y-4">
+                                            <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                                                 <div className="h-2 w-2 rounded-full bg-blue-400" /> Afternoon Session
+                                            </h3>
+                                            <div className="space-y-1">
+                                                {masterSchedule.afternoon.map((slot, idx) => (
+                                                    <ScheduleSlot 
+                                                        key={idx} 
+                                                        time={slot.time} 
+                                                        appointment={slot.appointment} 
+                                                        onSelect={handleSelectApt} 
+                                                    />
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    
+                                    <div className="mt-8 pt-6 border-t flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
+                                        <div className="flex items-center gap-6">
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-3 w-3 rounded bg-primary/20 border border-primary/20" /> Booked
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-3 w-3 rounded bg-muted/20 border border-transparent" /> Available
+                                            </div>
+                                        </div>
+                                        <p className="italic">Time zone: GMT+5 (Pakistan Standard Time)</p>
+                                    </div>
+                                </CardContent>
+                            </Card>
                         </div>
                     </div>
 
