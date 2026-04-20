@@ -1,9 +1,247 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Fully permissive rules for development to resolve all permission errors.
-    match /{document=**} {
-      allow read, write: if true;
+
+    /**
+     * MediConnect Security Rules
+     *
+     * CORE PHILOSOPHY:
+     * This ruleset enforces a multi-actor authorization model specifically designed for a healthcare ecosystem. 
+     * It distinguishes between Patients, Doctors, and Administrators using a combination of path-based 
+     * ownership and field-based membership checks.
+     *
+     * DATA STRUCTURE:
+     * - /patients/{patientId}: Private patient profiles and symptom history.
+     * - /doctors/{doctorId}: Public-facing doctor profiles.
+     * - /appointments, /transactions, /paymentDisputes: Top-level collaborative collections shared between roles.
+     * - /roles_admin: A specialized DBAC collection for global administrator privileges.
+     *
+     * KEY SECURITY DECISIONS:
+     * - Admin Access: A global `isAdmin()` helper facilitates administrative oversight across all entities.
+     * - Denormalization: Fields like `patientId`, `doctorId`, and `adminUserId` are strictly required on 
+     *   collaborative documents to allow for single-document authorization checks without costly `get()` calls.
+     * - Prototyping Flexibility: While access control is strictly enforced based on identity, the rules 
+     *   allow flexible data shapes for rapid feature iteration.
+     * - Consistency: Relational integrity is enforced by ensuring internal IDs match the document path 
+     *   during creation and remain immutable.
+     */
+
+    // --- Helper Functions ---
+
+    /** Checks if the user is authenticated. */
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /** Checks if the authenticated user is an administrator via DBAC. */
+    function isAdmin() {
+      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
+    }
+
+    /** Checks if the authenticated user's UID matches the provided userId. */
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    /** Checks if the document exists and the current user is the owner. */
+    function isExistingOwner(userId) {
+      return resource != null && isOwner(userId);
+    }
+
+    /** Validates that a field in the document matches the current user's UID. */
+    function isParticipant(userIdField) {
+      return isSignedIn() && request.auth.uid == userIdField;
+    }
+
+    // --- Collection Rules ---
+
+    /**
+     * @description Access to the root patient profile document.
+     * @path /patients/{patientId}
+     * @allow Authenticated user (create/get/list/update) where UID matches patientId.
+     * @deny Any user where UID does not match patientId.
+     * @principle Enforces path-based ownership and relational integrity.
+     */
+    match /patients/{patientId} {
+      allow get, list: if isOwner(patientId);
+      allow create: if isOwner(patientId) && request.resource.data.id == patientId;
+      allow update: if isExistingOwner(patientId) && request.resource.data.id == resource.data.id;
+      allow delete: if false; // Profiles are generally preserved.
+    }
+
+    /**
+     * @description Doctor profiles are publicly viewable but write-restricted to the doctor or admin.
+     * @path /doctors/{doctorId}
+     * @allow Public (get/list). Doctor or Admin (create/update).
+     * @deny Non-owner or non-admin (write).
+     * @principle Public read with owner/admin write permissions.
+     */
+    match /doctors/{doctorId} {
+      allow get, list: if true;
+      allow create: if isOwner(doctorId) && request.resource.data.id == doctorId;
+      allow update: if (isExistingOwner(doctorId) || isAdmin()) && request.resource.data.id == resource.data.id;
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Medical specialties are global reference data.
+     * @path /specialties/{specialtyId}
+     * @allow Public (get/list). Admin (create/update/delete).
+     * @deny Non-admin (write).
+     * @principle System-wide read-only data for standard users.
+     */
+    match /specialties/{specialtyId} {
+      allow get, list: if true;
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Verification documents for doctors.
+     * @path /doctorVerificationDocuments/{documentId}
+     * @allow Doctor-Owner (get/list/create). Admin (get/list/update).
+     * @deny Non-owner or non-admin access.
+     * @principle Owner-only submission with administrative review.
+     */
+    match /doctorVerificationDocuments/{documentId} {
+      allow get, list: if isSignedIn() && (isParticipant(resource.data.doctorId) || isAdmin());
+      allow create: if isOwner(request.resource.data.doctorId);
+      allow update: if isSignedIn() && (isParticipant(resource.data.doctorId) || isAdmin());
+      allow delete: if isExistingOwner(resource.data.doctorId);
+    }
+
+    /**
+     * @description Reviews for doctors left by patients.
+     * @path /doctors/{doctorId}/ratings/{ratingId}
+     * @allow Public (get/list). Patient-Owner (create/update/delete).
+     * @deny Forging review ownership.
+     * @principle Public consumption with authenticated author control.
+     */
+    match /doctors/{doctorId}/ratings/{ratingId} {
+      allow get, list: if true;
+      allow create: if isOwner(request.resource.data.patientId) && request.resource.data.doctorId == doctorId;
+      allow update, delete: if isExistingOwner(resource.data.patientId);
+    }
+
+    /**
+     * @description Private symptom check logs for patients.
+     * @path /patients/{patientId}/symptomChecks/{historyId}
+     * @allow Patient-Owner (all operations).
+     * @deny Any access by other users or doctors.
+     * @principle Restricts access to a user's own data tree.
+     */
+    match /patients/{patientId}/symptomChecks/{historyId} {
+      allow get, list: if isOwner(patientId);
+      allow create: if isOwner(patientId) && request.resource.data.patientId == patientId;
+      allow update, delete: if isExistingOwner(patientId);
+    }
+
+    /**
+     * @description Scheduled appointments between patients and doctors.
+     * @path /appointments/{appointmentId}
+     * @allow Patient or Doctor involved in the appointment, or Admin.
+     * @deny Users not participating in the specific appointment.
+     * @principle Shared access based on denormalized participant IDs.
+     */
+    match /appointments/{appointmentId} {
+      allow get, list: if isSignedIn() && (isParticipant(resource.data.patientId) || isParticipant(resource.data.doctorId) || isAdmin());
+      allow create: if isOwner(request.resource.data.patientId);
+      allow update: if isSignedIn() && (isParticipant(resource.data.patientId) || isParticipant(resource.data.doctorId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Requests for doctor time off requiring admin approval.
+     * @path /doctorUnavailabilityRequests/{requestId}
+     * @allow Doctor-Owner (create/get/list). Admin (get/list/update).
+     * @deny Modification by other doctors or patients.
+     * @principle Enforces workflow where admins process owner requests.
+     */
+    match /doctorUnavailabilityRequests/{requestId} {
+      allow get, list: if isSignedIn() && (isParticipant(resource.data.doctorId) || isAdmin());
+      allow create: if isOwner(request.resource.data.doctorId);
+      allow update: if isSignedIn() && (isParticipant(resource.data.doctorId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Live consultation session data and notes.
+     * @path /consultationSessions/{sessionId}
+     * @allow Participating Patient, Doctor, or Admin.
+     * @deny Unauthorized third parties.
+     * @principle Authorization independence using denormalized IDs.
+     */
+    match /consultationSessions/{sessionId} {
+      allow get, list: if isSignedIn() && (isParticipant(resource.data.patientId) || isParticipant(resource.data.doctorId) || isAdmin());
+      allow create: if isSignedIn() && (isParticipant(request.resource.data.doctorId) || isAdmin());
+      allow update: if isSignedIn() && (isParticipant(resource.data.patientId) || isParticipant(resource.data.doctorId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Financial transaction records.
+     * @path /transactions/{transactionId}
+     * @allow Involved Patient, involved Doctor, or Admin.
+     * @deny Cross-user financial snooping.
+     * @principle Restricted list access based on user involvement.
+     */
+    match /transactions/{transactionId} {
+      allow get, list: if isSignedIn() && (isParticipant(resource.data.patientId) || isParticipant(resource.data.doctorId) || isAdmin());
+      allow create, update, delete: if isAdmin();
+    }
+
+    /**
+     * @description Payment disputes raised by patients.
+     * @path /paymentDisputes/{disputeId}
+     * @allow Patient-Owner (create/get). Involved Doctor or Admin (get/list/update).
+     * @deny Unauthorized modification of dispute status.
+     * @principle Multi-actor resolution workflow with owner-only initiation.
+     */
+    match /paymentDisputes/{disputeId} {
+      allow get, list: if isSignedIn() && (isParticipant(resource.data.patientId) || isParticipant(resource.data.doctorId) || isAdmin());
+      allow create: if isOwner(request.resource.data.patientId);
+      allow update: if isSignedIn() && (isParticipant(resource.data.patientId) || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Admin-Doctor administrative chat sessions.
+     * @path /adminDoctorChatSessions/{sessionId}
+     * @allow Participating Doctor or Admin.
+     * @deny Patients or unrelated doctors/admins.
+     * @principle Closed collaborator pattern for private admin communications.
+     */
+    match /adminDoctorChatSessions/{sessionId} {
+      allow get, list: if isSignedIn() && (isParticipant(resource.data.doctorId) || isParticipant(resource.data.adminUserId) || isAdmin());
+      allow create: if isSignedIn() && (isParticipant(request.resource.data.doctorId) || isAdmin());
+      allow update: if isSignedIn() && (isParticipant(resource.data.doctorId) || isParticipant(resource.data.adminUserId) || isAdmin());
+      allow delete: if isAdmin();
+
+      /**
+       * @description Individual messages within an Admin-Doctor chat.
+       * @path /adminDoctorChatSessions/{sessionId}/messages/{messageId}
+       * @allow Participating Doctor or Admin based on denormalized parent IDs.
+       * @deny Unauthorized access to message history.
+       * @principle Denormalization for authorization independence in subcollections.
+       */
+      match /messages/{messageId} {
+        allow get, list: if isSignedIn() && (isParticipant(resource.data.doctorId) || isParticipant(resource.data.adminUserId) || isAdmin());
+        allow create: if isSignedIn() && (isParticipant(request.resource.data.senderId) && (request.resource.data.doctorId == request.auth.uid || isAdmin()));
+        allow update: if isSignedIn() && (isParticipant(resource.data.doctorId) || isAdmin());
+        allow delete: if isAdmin();
+      }
+    }
+
+    /**
+     * @description Database Access Control for Administrative roles.
+     * @path /roles_admin/{userId}
+     * @allow Any authenticated user (get) to check role status.
+     * @deny Client-side creation or modification of admin privileges.
+     * @principle Existence-over-content model for global roles.
+     */
+    match /roles_admin/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isAdmin();
+      allow create, update, delete: if false;
     }
   }
 }
