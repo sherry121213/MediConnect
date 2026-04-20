@@ -23,8 +23,6 @@ import { Badge } from "@/components/ui/badge";
 import { timeSlots } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
-import AppHeader from "@/components/layout/header";
-import AppFooter from "@/components/layout/footer";
 
 const notesSchema = z.object({
   diagnosis: z.string().min(3, "Diagnosis is required."),
@@ -37,7 +35,6 @@ const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean, onOpenChange: (open: boolean) => void, doctor: Doctor }) {
     const firestore = useFirestore();
     const { toast } = useToast();
-    // Default to all days active if not set
     const [selectedDays, setSelectedDays] = useState<string[]>(doctor.availability?.days || DAYS_OF_WEEK);
     const [disabledSlots, setDisabledSlots] = useState<string[]>(doctor.availability?.disabledSlots || []);
     const [isSaving, setIsSaving] = useState(false);
@@ -401,225 +398,217 @@ export default function DoctorPortalPage() {
     };
 
     if (!mounted || isUserLoading) return (
-        <div className="flex flex-col min-h-screen">
-            <AppHeader />
-            <main className="flex-grow flex items-center justify-center bg-secondary/30">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            </main>
-            <AppFooter />
+        <div className="flex-grow flex items-center justify-center bg-secondary/30">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
     );
 
     return (
-        <div className="flex flex-col min-h-screen">
-            <AppHeader />
-            <main className="flex-grow bg-secondary/30 py-8">
-                <div className="container mx-auto px-4 space-y-8">
-                    
-                    <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
-                        <div>
-                            <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Clinical Command Center</h1>
-                            <div className="flex items-center gap-4 mt-1">
-                                <p className="text-muted-foreground flex items-center gap-2 text-sm">
-                                    <Activity className="h-4 w-4 text-primary" /> Monitoring clinical operations for Dr. {userData?.firstName}.
-                                </p>
-                                <Button variant="outline" size="sm" className="h-8 gap-2 font-bold" onClick={() => setIsAvailabilityOpen(true)}>
-                                    <Settings2 className="h-3.5 w-3.5" /> Practice Settings
+        <main className="flex-grow bg-secondary/30 py-8">
+            <div className="container mx-auto px-4 space-y-8">
+                
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+                    <div>
+                        <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Clinical Command Center</h1>
+                        <p className="text-muted-foreground flex items-center gap-2 text-sm mt-1">
+                            <Activity className="h-4 w-4 text-primary" /> Monitoring clinical operations for Dr. {userData?.firstName}.
+                        </p>
+                    </div>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full md:w-auto">
+                        <Card className="p-3 bg-primary text-primary-foreground border-none shadow-lg shadow-primary/20">
+                            <p className="text-[10px] font-bold uppercase opacity-80">Practice Revenue</p>
+                            <p className="text-2xl font-bold">PKR {stats.revenue.toLocaleString()}</p>
+                        </Card>
+                        <Card className="p-3 bg-background border-none shadow-sm">
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground">Patients Today</p>
+                            <p className="text-2xl font-bold text-primary">{stats.today}</p>
+                        </Card>
+                        <Card className="p-3 bg-background border-none shadow-sm hidden sm:block">
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground">Pending Records</p>
+                            <p className="text-2xl font-bold">{stats.pending}</p>
+                        </Card>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    <div className="lg:col-span-4 space-y-6">
+                        <Card className="border-none shadow-xl overflow-hidden">
+                            <CardHeader className="bg-background pb-3 border-b">
+                                <div className="flex items-center justify-between">
+                                    <CardTitle className="text-lg flex items-center gap-2">
+                                        <ClipboardCheck className="h-5 w-5 text-primary" /> Today's Live Queue
+                                    </CardTitle>
+                                    <Badge variant="outline" className="text-[10px] font-bold">{format(new Date(), "MMM dd")}</Badge>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                {isLoadingAppointments ? (
+                                    <div className="p-12 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
+                                ) : todayAppointments.length > 0 ? (
+                                    <div className="divide-y max-h-[400px] overflow-y-auto custom-scrollbar">
+                                        {todayAppointments.map(apt => (
+                                            <AppointmentRow key={apt.id} apt={apt} onSelect={handleSelectApt} />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="p-12 text-center text-muted-foreground space-y-2">
+                                        <CalendarIcon className="h-10 w-10 mx-auto opacity-20" />
+                                        <p className="text-sm font-medium">No sessions for today.</p>
+                                        <Button variant="link" size="sm" asChild>
+                                            <Link href="/doctor-portal/records">View Past Records</Link>
+                                        </Button>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-none shadow-md">
+                            <CardHeader className="pb-2">
+                                <CardTitle className="text-sm flex items-center gap-2">
+                                    <Activity className="h-4 w-4 text-primary" /> Clinical Event Log
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-4">
+                                {recentEvents.length > 0 ? recentEvents.map(ev => (
+                                    <div key={ev.id} className="flex items-start gap-3 text-xs">
+                                        <div className={`mt-1 h-2 w-2 rounded-full shrink-0 ${ev.type === 'completed' ? 'bg-green-500' : 'bg-primary'}`} />
+                                        <div className="flex-1">
+                                            <p className="font-medium text-foreground">{ev.msg}</p>
+                                            <p className="text-[10px] text-muted-foreground">{ev.time}</p>
+                                        </div>
+                                    </div>
+                                )) : (
+                                    <p className="text-xs text-muted-foreground italic text-center py-4">No recent activity detected.</p>
+                                )}
+                            </CardContent>
+                            <div className="p-4 bg-muted/20 border-t">
+                                <Button variant="ghost" size="sm" className="w-full text-xs font-bold text-primary gap-2" asChild>
+                                    <Link href="/doctor-portal/records">
+                                        <History className="h-3.5 w-3.5" /> Full Audit History
+                                    </Link>
                                 </Button>
                             </div>
-                        </div>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full md:w-auto">
-                            <Card className="p-3 bg-primary text-primary-foreground border-none shadow-lg shadow-primary/20">
-                                <p className="text-[10px] font-bold uppercase opacity-80">Practice Revenue</p>
-                                <p className="text-2xl font-bold">PKR {stats.revenue.toLocaleString()}</p>
-                            </Card>
-                            <Card className="p-3 bg-background border-none shadow-sm">
-                                <p className="text-[10px] font-bold uppercase text-muted-foreground">Patients Today</p>
-                                <p className="text-2xl font-bold text-primary">{stats.today}</p>
-                            </Card>
-                            <Card className="p-3 bg-background border-none shadow-sm hidden sm:block">
-                                <p className="text-[10px] font-bold uppercase text-muted-foreground">Pending Records</p>
-                                <p className="text-2xl font-bold">{stats.pending}</p>
-                            </Card>
-                        </div>
+                        </Card>
                     </div>
 
-                    <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                        <div className="lg:col-span-4 space-y-6">
-                            <Card className="border-none shadow-xl overflow-hidden">
-                                <CardHeader className="bg-background pb-3 border-b">
-                                    <div className="flex items-center justify-between">
-                                        <CardTitle className="text-lg flex items-center gap-2">
-                                            <ClipboardCheck className="h-5 w-5 text-primary" /> Today's Live Queue
+                    <div className="lg:col-span-8 space-y-6">
+                        <Card className="border-none shadow-2xl">
+                            <CardHeader className="border-b bg-background">
+                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                                    <div className="space-y-1">
+                                        <CardTitle className="text-xl font-headline flex items-center gap-2">
+                                            <Clock className="h-6 w-6 text-primary" /> Clinical Master Schedule
                                         </CardTitle>
-                                        <Badge variant="outline" className="text-[10px] font-bold">{format(new Date(), "MMM dd")}</Badge>
+                                        <CardDescription className="text-sm">Granular time-slot availability and booking status.</CardDescription>
                                     </div>
-                                </CardHeader>
-                                <CardContent className="p-0">
-                                    {isLoadingAppointments ? (
-                                        <div className="p-12 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
-                                    ) : todayAppointments.length > 0 ? (
-                                        <div className="divide-y max-h-[400px] overflow-y-auto custom-scrollbar">
-                                            {todayAppointments.map(apt => (
-                                                <AppointmentRow key={apt.id} apt={apt} onSelect={handleSelectApt} />
-                                            ))}
-                                        </div>
-                                    ) : (
-                                        <div className="p-12 text-center text-muted-foreground space-y-2">
-                                            <CalendarIcon className="h-10 w-10 mx-auto opacity-20" />
-                                            <p className="text-sm font-medium">No sessions for today.</p>
-                                            <Button variant="link" size="sm" asChild>
-                                                <Link href="/doctor-portal/records">View Past Records</Link>
-                                            </Button>
-                                        </div>
-                                    )}
-                                </CardContent>
-                            </Card>
-
-                            <Card className="border-none shadow-md">
-                                <CardHeader className="pb-2">
-                                    <CardTitle className="text-sm flex items-center gap-2">
-                                        <Activity className="h-4 w-4 text-primary" /> Clinical Event Log
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                    {recentEvents.length > 0 ? recentEvents.map(ev => (
-                                        <div key={ev.id} className="flex items-start gap-3 text-xs">
-                                            <div className={`mt-1 h-2 w-2 rounded-full shrink-0 ${ev.type === 'completed' ? 'bg-green-500' : 'bg-primary'}`} />
-                                            <div className="flex-1">
-                                                <p className="font-medium text-foreground">{ev.msg}</p>
-                                                <p className="text-[10px] text-muted-foreground">{ev.time}</p>
-                                            </div>
-                                        </div>
-                                    )) : (
-                                        <p className="text-xs text-muted-foreground italic text-center py-4">No recent activity detected.</p>
-                                    )}
-                                </CardContent>
-                                <div className="p-4 bg-muted/20 border-t">
-                                    <Button variant="ghost" size="sm" className="w-full text-xs font-bold text-primary gap-2" asChild>
-                                        <Link href="/doctor-portal/records">
-                                            <History className="h-3.5 w-3.5" /> Full Audit History
-                                        </Link>
-                                    </Button>
-                                </div>
-                            </Card>
-                        </div>
-
-                        <div className="lg:col-span-8 space-y-6">
-                            <Card className="border-none shadow-2xl">
-                                <CardHeader className="border-b bg-background">
-                                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                                        <div>
-                                            <CardTitle className="text-xl font-headline flex items-center gap-2">
-                                                <Clock className="h-6 w-6 text-primary" /> Clinical Master Schedule
-                                            </CardTitle>
-                                            <CardDescription className="text-sm">Granular time-slot availability and booking status.</CardDescription>
-                                        </div>
-                                        <div className="flex items-center gap-2 bg-muted/30 p-1.5 rounded-lg border">
-                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewDate(addDays(viewDate, -1))}>
+                                    <div className="flex items-center gap-2">
+                                        <div className="flex items-center gap-1 bg-muted/30 p-1 rounded-lg border">
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setViewDate(addDays(viewDate, -1))}>
                                                 <ChevronLeft className="h-4 w-4" />
                                             </Button>
-                                            <div className="px-4 text-sm font-bold min-w-[140px] text-center">
-                                                {format(viewDate, "EEE, MMM dd")}
+                                            <div className="px-3 text-xs font-bold min-w-[100px] text-center">
+                                                {format(viewDate, "MMM dd")}
                                             </div>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewDate(addDays(viewDate, 1))}>
+                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setViewDate(addDays(viewDate, 1))}>
                                                 <ChevronRight className="h-4 w-4" />
                                             </Button>
                                         </div>
+                                        <Button variant="outline" size="sm" className="h-9 gap-2 font-bold ml-2" onClick={() => setIsAvailabilityOpen(true)}>
+                                            <Settings2 className="h-3.5 w-3.5" /> Practice Settings
+                                        </Button>
                                     </div>
-                                </CardHeader>
-                                <CardContent className="p-6 md:p-8">
-                                    <div className="grid md:grid-cols-3 gap-8">
-                                        {/* Morning Block */}
-                                        <div className="space-y-4">
-                                            <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-                                                <div className="h-2 w-2 rounded-full bg-amber-400" /> Morning
-                                            </h3>
-                                            <div className="space-y-1">
-                                                {masterSchedule.morning.map((slot, idx) => (
-                                                    <ScheduleSlot 
-                                                        key={idx} 
-                                                        time={slot.time} 
-                                                        appointment={slot.appointment} 
-                                                        onSelect={handleSelectApt} 
-                                                        isDisabled={slot.isDisabled}
-                                                    />
-                                                ))}
-                                            </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-6 md:p-8">
+                                <div className="grid md:grid-cols-3 gap-8">
+                                    {/* Morning Block */}
+                                    <div className="space-y-4">
+                                        <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                                            <div className="h-2 w-2 rounded-full bg-amber-400" /> Morning
+                                        </h3>
+                                        <div className="space-y-1">
+                                            {masterSchedule.morning.map((slot, idx) => (
+                                                <ScheduleSlot 
+                                                    key={idx} 
+                                                    time={slot.time} 
+                                                    appointment={slot.appointment} 
+                                                    onSelect={handleSelectApt} 
+                                                    isDisabled={slot.isDisabled}
+                                                />
+                                            ))}
                                         </div>
+                                    </div>
 
-                                        {/* Afternoon Block */}
-                                        <div className="space-y-4">
-                                            <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-                                                <div className="h-2 w-2 rounded-full bg-blue-400" /> Afternoon
-                                            </h3>
-                                            <div className="space-y-1">
-                                                {masterSchedule.afternoon.map((slot, idx) => (
-                                                    <ScheduleSlot 
-                                                        key={idx} 
-                                                        time={slot.time} 
-                                                        appointment={slot.appointment} 
-                                                        onSelect={handleSelectApt} 
-                                                        isDisabled={slot.isDisabled}
-                                                    />
-                                                ))}
-                                            </div>
+                                    {/* Afternoon Block */}
+                                    <div className="space-y-4">
+                                        <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                                            <div className="h-2 w-2 rounded-full bg-blue-400" /> Afternoon
+                                        </h3>
+                                        <div className="space-y-1">
+                                            {masterSchedule.afternoon.map((slot, idx) => (
+                                                <ScheduleSlot 
+                                                    key={idx} 
+                                                    time={slot.time} 
+                                                    appointment={slot.appointment} 
+                                                    onSelect={handleSelectApt} 
+                                                    isDisabled={slot.isDisabled}
+                                                />
+                                            ))}
                                         </div>
+                                    </div>
 
-                                        {/* Evening Block */}
-                                        <div className="space-y-4">
-                                            <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
-                                                <Moon className="h-3.5 w-3.5 text-indigo-400" /> Evening
-                                            </h3>
-                                            <div className="space-y-1">
-                                                {masterSchedule.evening.map((slot, idx) => (
-                                                    <ScheduleSlot 
-                                                        key={idx} 
-                                                        time={slot.time} 
-                                                        appointment={slot.appointment} 
-                                                        onSelect={handleSelectApt} 
-                                                        isDisabled={slot.isDisabled}
-                                                    />
-                                                ))}
-                                            </div>
+                                    {/* Evening Block */}
+                                    <div className="space-y-4">
+                                        <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                                            <Moon className="h-3.5 w-3.5 text-indigo-400" /> Evening
+                                        </h3>
+                                        <div className="space-y-1">
+                                            {masterSchedule.evening.map((slot, idx) => (
+                                                <ScheduleSlot 
+                                                    key={idx} 
+                                                    time={slot.time} 
+                                                    appointment={slot.appointment} 
+                                                    onSelect={handleSelectApt} 
+                                                    isDisabled={slot.isDisabled}
+                                                />
+                                            ))}
                                         </div>
                                     </div>
-                                    
-                                    <div className="mt-8 pt-6 border-t flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
-                                        <div className="flex items-center gap-6">
-                                            <div className="flex items-center gap-2">
-                                                <div className="h-3 w-3 rounded bg-primary/20 border border-primary/20" /> Booked
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <div className="h-3 w-3 rounded bg-muted/20 border border-transparent" /> Available
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <div className="h-3 w-3 rounded bg-muted opacity-30 border border-transparent" /> Practice Closed
-                                            </div>
+                                </div>
+                                
+                                <div className="mt-8 pt-6 border-t flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
+                                    <div className="flex items-center gap-6">
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-3 w-3 rounded bg-primary/20 border border-primary/20" /> Booked
                                         </div>
-                                        <p className="italic">Time zone: GMT+5 (Pakistan Standard Time)</p>
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-3 w-3 rounded bg-muted/20 border border-transparent" /> Available
+                                        </div>
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-3 w-3 rounded bg-muted opacity-30 border border-transparent" /> Practice Closed
+                                        </div>
                                     </div>
-                                </CardContent>
-                            </Card>
-                        </div>
+                                    <p className="italic">Time zone: GMT+5 (Pakistan Standard Time)</p>
+                                </div>
+                            </CardContent>
+                        </Card>
                     </div>
-
-                    <ConsultationDialog 
-                        isOpen={isConsultOpen} 
-                        onOpenChange={setIsConsultOpen} 
-                        appointment={selectedAppointment} 
-                    />
-
-                    {userData && (
-                        <AvailabilityDialog 
-                            isOpen={isAvailabilityOpen} 
-                            onOpenChange={setIsAvailabilityOpen} 
-                            doctor={userData as Doctor} 
-                        />
-                    )}
                 </div>
-            </main>
-            <AppFooter />
-        </div>
+
+                <ConsultationDialog 
+                    isOpen={isConsultOpen} 
+                    onOpenChange={setIsConsultOpen} 
+                    appointment={selectedAppointment} 
+                />
+
+                {userData && (
+                    <AvailabilityDialog 
+                        isOpen={isAvailabilityOpen} 
+                        onOpenChange={setIsAvailabilityOpen} 
+                        doctor={userData as Doctor} 
+                    />
+                )}
+            </div>
+        </main>
     );
 }

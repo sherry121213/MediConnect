@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useUserData, useAuth } from '@/firebase';
@@ -81,7 +80,6 @@ export default function DoctorPortalLayout({
       const isProfilePage = pathname === '/doctor-portal/profile';
       const isProfileComplete = !!userData.profileComplete;
 
-      // If profile is not complete, and we are not on the profile page, redirect there.
       if (!isProfileComplete && !isProfilePage) {
         router.replace('/doctor-portal/profile');
         return;
@@ -114,7 +112,6 @@ export default function DoctorPortalLayout({
       );
   }
 
-  // Handle Deactivated Account
   if (userData.isActive === false) {
       return <DoctorAccountDisabled />;
   }
