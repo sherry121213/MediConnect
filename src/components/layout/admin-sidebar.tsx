@@ -18,6 +18,8 @@ import {
   CreditCard,
   LogOut,
   Users,
+  MessageCircle,
+  CalendarClock,
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -28,7 +30,9 @@ const adminNavItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/doctors', label: 'Doctors', icon: Stethoscope },
   { href: '/admin/patients', label: 'Patients', icon: Users },
+  { href: '/admin/requests', label: 'Clinical Requests', icon: CalendarClock },
   { href: '/admin/payments', label: 'Payments', icon: CreditCard },
+  { href: '/admin/chats', label: 'Messages', icon: MessageCircle },
 ];
 
 export default function AdminSidebar() {
@@ -77,12 +81,12 @@ export default function AdminSidebar() {
           <SidebarMenuItem>
             <div className="flex items-center gap-2 p-2">
               <Avatar className="h-9 w-9">
-                 <AvatarImage src={user?.photoURL || `https://picsum.photos/seed/${user?.uid}/100/100`} />
+                 <AvatarImage src={user?.photoURL || undefined} />
                  <AvatarFallback>{fallback || "A"}</AvatarFallback>
               </Avatar>
-              <div className="group-data-[collapsible=icon]:hidden">
-                <p className="text-sm font-semibold">{displayName}</p>
-                <p className="text-xs text-muted-foreground">{displayEmail}</p>
+              <div className="group-data-[collapsible=icon]:hidden overflow-hidden">
+                <p className="text-sm font-semibold truncate">{displayName}</p>
+                <p className="text-xs text-muted-foreground truncate">{displayEmail}</p>
               </div>
             </div>
           </SidebarMenuItem>

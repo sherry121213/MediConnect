@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, LogOut, User as UserIcon, Shield, LayoutDashboard } from 'lucide-react';
+import { Menu, LogOut, User as UserIcon, Shield, LayoutDashboard, MessageCircle, CalendarClock } from 'lucide-react';
 import Logo from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import {
@@ -77,11 +77,19 @@ export default function AppHeader() {
             <>
               <DropdownMenuItem onClick={() => router.push('/doctor-portal')}>
                   <LayoutDashboard className="mr-2 h-4 w-4" />
-                  <span>Doctor Portal</span>
+                  <span>Dashboard</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/doctor-portal/unavailability')}>
+                <CalendarClock className="mr-2 h-4 w-4" />
+                <span>Leave Requests</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => router.push('/doctor-portal/chat')}>
+                <MessageCircle className="mr-2 h-4 w-4" />
+                <span>Support Chat</span>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push('/doctor-portal/profile')}>
                 <UserIcon className="mr-2 h-4 w-4" />
-                <span>Profile</span>
+                <span>Profile Settings</span>
               </DropdownMenuItem>
             </>
           )}
@@ -208,8 +216,10 @@ export default function AppHeader() {
                   )}
                   {userData?.role === 'doctor' && (
                      <>
-                      <Button variant="outline" className="w-full" onClick={() => {router.push('/doctor-portal'); setMobileMenuOpen(false);}}>Doctor Portal</Button>
-                      <Button variant="outline" className="w-full" onClick={() => {router.push('/doctor-portal/profile'); setMobileMenuOpen(false);}}>My Profile</Button>
+                      <Button variant="outline" className="w-full" onClick={() => {router.push('/doctor-portal'); setMobileMenuOpen(false);}}>Doctor Dashboard</Button>
+                      <Button variant="outline" className="w-full" onClick={() => {router.push('/doctor-portal/profile'); setMobileMenuOpen(false);}}>Professional Profile</Button>
+                      <Button variant="outline" className="w-full" onClick={() => {router.push('/doctor-portal/unavailability'); setMobileMenuOpen(false);}}>Leave Requests</Button>
+                      <Button variant="outline" className="w-full" onClick={() => {router.push('/doctor-portal/chat'); setMobileMenuOpen(false);}}>Support Chat</Button>
                      </>
                   )}
                   {userData?.role === 'patient' && (
