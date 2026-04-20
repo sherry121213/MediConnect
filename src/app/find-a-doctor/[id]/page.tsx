@@ -178,16 +178,18 @@ export default function DoctorDetailPage() {
     const availableDates = getNext7Days();
 
     const now = new Date();
-    const isToday = selectedDate.toDateString() === now.toDateString();
 
-    const isTimeSlotPast = (time: string) => {
+    const isTimeSlotPast = (time: string, date: Date) => {
+        const isToday = date.toDateString() === now.toDateString();
         if (!isToday) return false;
+        
         const [timePart, ampm] = time.split(' ');
         const [hours, minutes] = timePart.split(':');
         let numericHours = parseInt(hours);
         if (ampm === 'PM' && numericHours !== 12) numericHours += 12;
         if (ampm === 'AM' && numericHours === 12) numericHours = 0;
-        const timeSlotDateTime = new Date(selectedDate);
+        
+        const timeSlotDateTime = new Date(date);
         timeSlotDateTime.setHours(numericHours, parseInt(minutes), 0, 0);
         return timeSlotDateTime < now;
     };
@@ -198,17 +200,21 @@ export default function DoctorDetailPage() {
 
     const isDayDisabledByDoctor = (date: Date) => {
         const dayShort = format(date, "E"); // "Mon", "Tue", etc
-        return doctor.availability?.days && !doctor.availability.days.includes(dayShort);
+        // Active by default if availability.days is missing
+        if (!doctor.availability?.days) return false;
+        return !doctor.availability.days.includes(dayShort);
     };
 
     const TimeButton = ({ time }: { time: string }) => {
-        const isPast = isTimeSlotPast(time);
+        const isPast = isTimeSlotPast(time, selectedDate);
         const isBooked = bookedTimes.includes(time);
         const isDisabledByDoctor = isSlotDisabledByDoctor(time);
         const isOffDuty = isDayDisabledByDoctor(selectedDate);
+        
         const isDisabled = isPast || isBooked || isDisabledByDoctor || isOffDuty;
 
-        if (isDisabledByDoctor && !isBooked) return null; // Hide slots specifically disabled by doctor
+        // Hide slots explicitly disabled by doctor unless already booked
+        if (isDisabledByDoctor && !isBooked) return null; 
 
         return (
             <Button 

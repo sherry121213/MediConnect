@@ -8,7 +8,7 @@ export const getNext7Days = () => {
             date: date,
             dayName: days[date.getDay()],
             dayNumber: date.getDate(),
-            fullDayName: days[date.getDay()] // Simplified key for logic
+            fullDayName: days[date.getDay()] 
         });
     }
     return next7Days;
