@@ -1,4 +1,3 @@
-
 'use client';
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -56,7 +55,6 @@ export default function SignupPage() {
     },
   });
 
-  // Redirect if user is already logged in
   useEffect(() => {
     if (!isUserLoading && user && userData) {
       if (userData.role === 'admin') {
@@ -66,7 +64,7 @@ export default function SignupPage() {
       } else if (userData.role === 'patient') {
         router.replace('/patient-portal');
       } else {
-        router.replace('/'); // Fallback to home
+        router.replace('/'); 
       }
     }
   }, [user, userData, isUserLoading, router]);
@@ -80,7 +78,6 @@ export default function SignupPage() {
     const lowercasedEmail = email.toLowerCase();
     const adminEmailsLower = adminEmails.map(e => e.toLowerCase());
 
-    // Special handling for pre-configured admin users
     if (adminEmailsLower.includes(lowercasedEmail)) {
       try {
         const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -107,7 +104,11 @@ export default function SignupPage() {
         };
 
         const adminDocRef = doc(firestore, 'patients', newUser.uid);
-        setDocumentNonBlocking(adminDocRef, adminDocData);
+        setDocumentNonBlocking(adminDocRef, adminDocData, { merge: true });
+
+        // CRITICAL: Register in roles_admin for Firestore Security Rules
+        const roleDocRef = doc(firestore, 'roles_admin', newUser.uid);
+        setDocumentNonBlocking(roleDocRef, { active: true }, { merge: true });
 
         toast({
           title: 'Admin Account Created',
@@ -119,7 +120,7 @@ export default function SignupPage() {
         if (error.code === 'auth/email-already-in-use') {
             toast({
               title: "Admin Account Exists",
-              description: "Please log in, or use the 'Forgot your password?' link on the login page to reset it.",
+              description: "Please log in.",
             });
             router.push('/login');
         } else {
@@ -162,7 +163,7 @@ export default function SignupPage() {
           ...baseUserData,
           verified: !!preverifiedData,
           profileComplete: !!preverifiedData,
-          isActive: true, // New doctors are active by default
+          isActive: true, 
           role: 'doctor',
           ...(preverifiedData && {
               specialty: preverifiedData.specialty,
@@ -175,20 +176,20 @@ export default function SignupPage() {
           })
         };
         const doctorDocRef = doc(firestore, 'doctors', newUser.uid);
-        setDocumentNonBlocking(doctorDocRef, doctorData);
+        setDocumentNonBlocking(doctorDocRef, doctorData, { merge: true });
 
         const patientDocRef = doc(firestore, 'patients', newUser.uid);
-        setDocumentNonBlocking(patientDocRef, {...baseUserData, role: 'doctor', profileComplete: !!preverifiedData });
+        setDocumentNonBlocking(patientDocRef, {...baseUserData, role: 'doctor', profileComplete: !!preverifiedData }, { merge: true });
         
-      } else { // Patient role
+      } else { 
         const patientData = {...baseUserData, role: 'patient', profileComplete: false };
         const patientDocRef = doc(firestore, 'patients', newUser.uid);
-        setDocumentNonBlocking(patientDocRef, patientData);
+        setDocumentNonBlocking(patientDocRef, patientData, { merge: true });
       }
       
       toast({
         title: "Account Created!",
-        description: "A verification link has been sent to your email. Please check your inbox to continue.",
+        description: "A verification link has been sent to your email.",
       });
 
       if (role === 'doctor') {
@@ -202,21 +203,13 @@ export default function SignupPage() {
             toast({
               variant: "destructive",
               title: "Email Already Registered",
-              description: (
-                <span>
-                  This email is already in use. Please{' '}
-                  <Link href="/login" className="underline font-bold">
-                    log in
-                  </Link>{' '}
-                  instead.
-                </span>
-              ),
+              description: "This email is already in use.",
             });
         } else {
             toast({
               variant: "destructive",
               title: "Sign Up Failed",
-              description: error.message || "Could not create account. Please try again.",
+              description: error.message || "Could not create account.",
             });
         }
     } finally {
@@ -224,7 +217,6 @@ export default function SignupPage() {
     }
   };
 
-  // Show loading screen while checking auth status or if user is logged in
   if (isUserLoading || user) {
      return (
       <div className="flex h-screen w-full items-center justify-center">

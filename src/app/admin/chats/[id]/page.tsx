@@ -7,7 +7,7 @@ import { collection, query, where, doc, addDoc, setDoc } from 'firebase/firestor
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, ArrowLeft, User, Shield, ShieldCheck } from 'lucide-react';
+import { Loader2, Send, ArrowLeft, User, ShieldCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { Patient } from '@/lib/types';
@@ -48,7 +48,7 @@ export default function AdminSpecificChatPage() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !firestore || !sessionId || !user) return;
+    if (!newMessage.trim() || !firestore || !sessionId || !user || !session) return;
 
     const messageData = {
       sessionId,
@@ -57,10 +57,17 @@ export default function AdminSpecificChatPage() {
       content: newMessage,
       timestamp: new Date().toISOString(),
       isRead: false,
+      // Denormalized IDs for authorization compatibility
+      doctorId: session.doctorId,
+      adminUserId: user.uid
     };
 
     addDoc(collection(firestore, 'adminDoctorChatSessions', sessionId, 'messages'), messageData);
-    setDoc(doc(firestore, 'adminDoctorChatSessions', sessionId), { lastMessageAt: new Date().toISOString() }, { merge: true });
+    setDoc(doc(firestore, 'adminDoctorChatSessions', sessionId), { 
+      lastMessageAt: new Date().toISOString(),
+      lastMessageContent: newMessage,
+      lastMessageSenderRole: 'admin'
+    }, { merge: true });
     setNewMessage('');
   };
 

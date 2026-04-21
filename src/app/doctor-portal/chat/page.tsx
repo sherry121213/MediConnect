@@ -35,7 +35,8 @@ export default function DoctorChatPage() {
         doctorId: user.uid,
         createdAt: new Date().toISOString(),
         lastMessageAt: new Date().toISOString(),
-        status: 'open'
+        status: 'open',
+        lastMessageSenderRole: 'admin' // Initial state
       });
       setSessionId(newSessionRef.id);
     }
@@ -63,6 +64,9 @@ export default function DoctorChatPage() {
       content: newMessage,
       timestamp: new Date().toISOString(),
       isRead: false,
+      // Denormalized IDs for rules
+      doctorId: user.uid,
+      adminUserId: 'system' // Placeholder for initial generic chat
     };
 
     addDoc(collection(firestore, 'adminDoctorChatSessions', sessionId, 'messages'), messageData);
