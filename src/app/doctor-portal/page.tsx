@@ -608,6 +608,19 @@ export default function DoctorPortalPage() {
                         doctor={userData as Doctor} 
                     />
                 )}
+
+                {/* Floating Support Chat */}
+                <div className="fixed bottom-6 right-6 z-50">
+                    <Button 
+                        asChild
+                        className="h-14 w-14 rounded-full shadow-2xl hover:scale-110 transition-transform bg-slate-900 hover:bg-slate-800"
+                        size="icon"
+                    >
+                        <Link href="/doctor-portal/chat">
+                            <MessageSquare className="h-6 w-6 text-white" />
+                        </Link>
+                    </Button>
+                </div>
             </div>
         </main>
     );
