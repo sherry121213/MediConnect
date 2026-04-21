@@ -65,7 +65,7 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
             <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
-                        <Settings2 className="h-5 w-5 text-primary" /> Practice Availability
+                        <Settings2 className="h-5 w-5 text-primary" /> Session Availability
                     </DialogTitle>
                     <DialogDescription>
                         Control your working days and individual time-slot availability. Unchecked items will be hidden from patients.
@@ -514,7 +514,7 @@ export default function DoctorPortalPage() {
                                             </Button>
                                         </div>
                                         <Button variant="outline" size="sm" className="h-9 gap-2 font-bold ml-2" onClick={() => setIsAvailabilityOpen(true)}>
-                                            <Settings2 className="h-3.5 w-3.5" /> Practice Settings
+                                            <Settings2 className="h-3.5 w-3.5" /> Session Availability
                                         </Button>
                                     </div>
                                 </div>
