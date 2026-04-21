@@ -3,13 +3,13 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Users, Clock, History, ListFilter, Activity, ClipboardCheck, TrendingUp, DollarSign, PieChart as PieChartIcon, ArrowRight, CheckCircle2, User, ChevronLeft, ChevronRight, Settings2, ShieldCheck, Moon } from "lucide-react";
+import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Users, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
 import { collection, query, where, doc } from "firebase/firestore";
 import type { Appointment, Patient, Doctor } from "@/lib/types";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -18,7 +18,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
-import { format, isSameDay, subDays, startOfDay, addDays } from "date-fns";
+import { format, isSameDay, startOfDay, addDays, isAfter, subDays } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { timeSlots } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -171,9 +171,6 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
                     <DialogTitle>{view === 'details' ? 'Appointment Details' : 'Complete Consultation'}</DialogTitle>
-                    <DialogDescription>
-                        Patient: {patient ? `${patient.firstName} ${patient.lastName}` : 'Loading...'}
-                    </DialogDescription>
                 </DialogHeader>
                 
                 {view === 'details' ? (
@@ -330,29 +327,43 @@ export default function DoctorPortalPage() {
         setMounted(true);
     }, []);
 
+    // Clinical Listeners
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
-        return query(
-            collection(firestore, 'appointments'),
-            where('doctorId', '==', user.uid)
-        );
+        return query(collection(firestore, 'appointments'), where('doctorId', '==', user.uid));
     }, [firestore, user]);
-
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    const { todayAppointments, stats, recentEvents, masterSchedule } = useMemo(() => {
+    const chatSessionQuery = useMemoFirebase(() => {
+        if (!firestore || !user) return null;
+        return query(collection(firestore, 'adminDoctorChatSessions'), where('doctorId', '==', user.uid));
+    }, [firestore, user]);
+    const { data: chatSessions } = useCollection<any>(chatSessionQuery);
+
+    const requestsQuery = useMemoFirebase(() => {
+        if (!firestore || !user) return null;
+        return query(collection(firestore, 'doctorUnavailabilityRequests'), where('doctorId', '==', user.uid));
+    }, [firestore, user]);
+    const { data: requests } = useCollection<any>(requestsQuery);
+
+    const { todayAppointments, stats, recentEvents, masterSchedule, notifications } = useMemo(() => {
         if (!mounted || !appointments) return { 
             todayAppointments: [], 
             stats: { today: 0, pending: 0, revenue: 0 }, 
             recentEvents: [],
-            masterSchedule: { morning: [], afternoon: [], evening: [] }
+            masterSchedule: { morning: [], afternoon: [], evening: [] },
+            notifications: []
         };
         
         const now = new Date();
+        const startOfToday = startOfDay(now);
+        const yesterday = subDays(now, 1);
+
         const today = appointments.filter(apt => isSameDay(new Date(apt.appointmentDateTime), now));
         const pending = appointments.filter(apt => apt.status === 'scheduled').length;
         const revenue = appointments.filter(apt => apt.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
 
+        // Filter Slots
         const filterSlots = (times: string[]) => {
             return times.map(time => {
                 const apt = appointments.find(a => {
@@ -360,18 +371,27 @@ export default function DoctorPortalPage() {
                     const formattedAptTime = format(aptDate, "hh:mm a");
                     return isSameDay(aptDate, viewDate) && formattedAptTime === time && a.status !== 'cancelled';
                 });
-                
                 const dayOfWeek = format(viewDate, "E");
                 const isDayDisabled = userData?.availability?.days ? !userData.availability.days.includes(dayOfWeek) : false;
                 const isSlotDisabled = userData?.availability?.disabledSlots?.includes(time) || false;
-
-                return { 
-                    time, 
-                    appointment: apt,
-                    isDisabled: isDayDisabled || isSlotDisabled
-                };
+                return { time, appointment: apt, isDisabled: isDayDisabled || isSlotDisabled };
             });
         };
+
+        // Notifications logic
+        const alerts: any[] = [];
+        // New Appointments
+        appointments.filter(a => isAfter(new Date(a.createdAt), yesterday)).forEach(a => {
+            alerts.push({ id: `apt-${a.id}`, msg: `New booking: ${a.appointmentType} scheduled for ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary' });
+        });
+        // Chat replies
+        chatSessions?.filter(s => s.lastMessageSenderRole === 'admin').forEach(s => {
+            alerts.push({ id: `chat-${s.id}`, msg: "Admin replied to your support chat session.", icon: MessageSquare, color: 'text-blue-500', link: '/doctor-portal/chat' });
+        });
+        // Leave status updates
+        requests?.filter(r => r.status !== 'pending' && isAfter(new Date(r.processedAt || 0), yesterday)).forEach(r => {
+            alerts.push({ id: `req-${r.id}`, msg: `Your leave request for ${format(new Date(r.requestedDate), "PP")} was ${r.status}.`, icon: r.status === 'approved' ? CheckCircle2 : AlertCircle, color: r.status === 'approved' ? 'text-green-500' : 'text-destructive' });
+        });
 
         const events = appointments.slice(0, 5).map(apt => ({
             id: apt.id,
@@ -384,13 +404,10 @@ export default function DoctorPortalPage() {
             todayAppointments: today,
             stats: { today: today.length, pending: pending, revenue },
             recentEvents: events,
-            masterSchedule: {
-                morning: filterSlots(timeSlots.morning),
-                afternoon: filterSlots(timeSlots.afternoon),
-                evening: filterSlots(timeSlots.evening)
-            }
+            masterSchedule: { morning: filterSlots(timeSlots.morning), afternoon: filterSlots(timeSlots.afternoon), evening: filterSlots(timeSlots.evening) },
+            notifications: alerts
         };
-    }, [appointments, mounted, viewDate, userData]);
+    }, [appointments, mounted, viewDate, userData, chatSessions, requests]);
 
     const handleSelectApt = (apt: Appointment) => {
         setSelectedAppointment(apt);
@@ -431,7 +448,34 @@ export default function DoctorPortalPage() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                    {/* Left Column: Alerts & Queue */}
                     <div className="lg:col-span-4 space-y-6">
+                        {/* Notifications Card */}
+                        <Card className="border-none shadow-xl border-l-4 border-l-amber-400">
+                             <CardHeader className="pb-2">
+                                <CardTitle className="text-sm flex items-center gap-2">
+                                    <Bell className="h-4 w-4 text-amber-500" /> Clinical Alerts & Notifications
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="space-y-3 max-h-[250px] overflow-y-auto custom-scrollbar">
+                                {notifications.length > 0 ? notifications.map(n => (
+                                    <div key={n.id} className="p-3 rounded-lg bg-muted/20 border text-xs flex gap-3 items-start animate-in fade-in slide-in-from-right-2">
+                                        <n.icon className={cn("h-4 w-4 shrink-0", n.color)} />
+                                        <div className="flex-1">
+                                            <p className="leading-relaxed">{n.msg}</p>
+                                            {n.link && (
+                                                <Button variant="link" asChild className="h-auto p-0 text-[10px] font-bold mt-1">
+                                                    <Link href={n.link}>View Details</Link>
+                                                </Button>
+                                            )}
+                                        </div>
+                                    </div>
+                                )) : (
+                                    <p className="text-xs text-muted-foreground italic text-center py-4">No unread notifications.</p>
+                                )}
+                            </CardContent>
+                        </Card>
+
                         <Card className="border-none shadow-xl overflow-hidden">
                             <CardHeader className="bg-background pb-3 border-b">
                                 <div className="flex items-center justify-between">
@@ -461,36 +505,9 @@ export default function DoctorPortalPage() {
                                 )}
                             </CardContent>
                         </Card>
-
-                        <Card className="border-none shadow-md">
-                            <CardHeader className="pb-2">
-                                <CardTitle className="text-sm flex items-center gap-2">
-                                    <Activity className="h-4 w-4 text-primary" /> Clinical Event Log
-                                </CardTitle>
-                            </CardHeader>
-                            <CardContent className="space-y-4">
-                                {recentEvents.length > 0 ? recentEvents.map(ev => (
-                                    <div key={ev.id} className="flex items-start gap-3 text-xs">
-                                        <div className={`mt-1 h-2 w-2 rounded-full shrink-0 ${ev.type === 'completed' ? 'bg-green-500' : 'bg-primary'}`} />
-                                        <div className="flex-1">
-                                            <p className="font-medium text-foreground">{ev.msg}</p>
-                                            <p className="text-[10px] text-muted-foreground">{ev.time}</p>
-                                        </div>
-                                    </div>
-                                )) : (
-                                    <p className="text-xs text-muted-foreground italic text-center py-4">No recent activity detected.</p>
-                                )}
-                            </CardContent>
-                            <div className="p-4 bg-muted/20 border-t">
-                                <Button variant="ghost" size="sm" className="w-full text-xs font-bold text-primary gap-2" asChild>
-                                    <Link href="/doctor-portal/records">
-                                        <History className="h-3.5 w-3.5" /> Full Audit History
-                                    </Link>
-                                </Button>
-                            </div>
-                        </Card>
                     </div>
 
+                    {/* Right Column: Master Schedule */}
                     <div className="lg:col-span-8 space-y-6">
                         <Card className="border-none shadow-2xl">
                             <CardHeader className="border-b bg-background">
@@ -574,21 +591,6 @@ export default function DoctorPortalPage() {
                                             ))}
                                         </div>
                                     </div>
-                                </div>
-                                
-                                <div className="mt-8 pt-6 border-t flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-muted-foreground">
-                                    <div className="flex items-center gap-6">
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-3 w-3 rounded bg-primary/20 border border-primary/20" /> Booked
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-3 w-3 rounded bg-muted/20 border border-transparent" /> Available
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-3 w-3 rounded bg-muted opacity-30 border border-transparent" /> Practice Closed
-                                        </div>
-                                    </div>
-                                    <p className="italic">Time zone: GMT+5 (Pakistan Standard Time)</p>
                                 </div>
                             </CardContent>
                         </Card>

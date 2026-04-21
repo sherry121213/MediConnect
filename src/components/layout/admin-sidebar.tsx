@@ -20,26 +20,43 @@ import {
   Users,
   MessageCircle,
   CalendarClock,
+  Bell,
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { useAuth, useUserData } from '@/firebase';
+import { useAuth, useUserData, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
-
-const adminNavItems = [
-  { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/admin/doctors', label: 'Doctors', icon: Stethoscope },
-  { href: '/admin/patients', label: 'Patients', icon: Users },
-  { href: '/admin/requests', label: 'Clinical Requests', icon: CalendarClock },
-  { href: '/admin/payments', label: 'Payments', icon: CreditCard },
-  { href: '/admin/chats', label: 'Messages', icon: MessageCircle },
-];
+import { collection, query, where } from 'firebase/firestore';
+import { Badge } from '@/components/ui/badge';
 
 export default function AdminSidebar() {
   const pathname = usePathname();
   const { user, userData } = useUserData();
   const auth = useAuth();
+  const firestore = useFirestore();
   const router = useRouter();
+
+  // Notification listeners for Admin
+  const requestsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'doctorUnavailabilityRequests'), where('status', '==', 'pending'));
+  }, [firestore]);
+  const { data: pendingRequests } = useCollection(requestsQuery);
+
+  const chatsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'adminDoctorChatSessions'), where('lastMessageSenderRole', '==', 'doctor'));
+  }, [firestore]);
+  const { data: unreadChats } = useCollection(chatsQuery);
+
+  const adminNavItems = [
+    { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/admin/doctors', label: 'Doctors', icon: Stethoscope },
+    { href: '/admin/patients', label: 'Patients', icon: Users },
+    { href: '/admin/requests', label: 'Clinical Requests', icon: CalendarClock, badge: pendingRequests?.length },
+    { href: '/admin/payments', label: 'Payments', icon: CreditCard },
+    { href: '/admin/chats', label: 'Messages', icon: MessageCircle, badge: unreadChats?.length },
+  ];
 
   const handleLogout = () => {
     if (auth) {
@@ -66,9 +83,15 @@ export default function AdminSidebar() {
                 <SidebarMenuButton
                   isActive={pathname === item.href}
                   tooltip={{ children: item.label, side: 'right' }}
+                  className="relative"
                 >
                   <item.icon />
                   <span>{item.label}</span>
+                  {item.badge ? (
+                    <Badge className="ml-auto bg-primary h-5 min-w-5 flex items-center justify-center p-0 text-[10px] rounded-full">
+                        {item.badge}
+                    </Badge>
+                  ) : null}
                 </SidebarMenuButton>
               </Link>
             </SidebarMenuItem>

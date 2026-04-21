@@ -2,23 +2,22 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useFirestore, useUserData, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, addDoc, serverTimestamp, setDoc } from 'firebase/firestore';
+import { collection, query, where, doc, addDoc, setDoc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, Shield, User, MessageSquare, AlertCircle } from 'lucide-react';
+import { Loader2, Send, Shield, MessageSquare } from 'lucide-react';
 import { format } from 'date-fns';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 export default function DoctorChatPage() {
-  const { user, userData } = useUserData();
+  const { user } = useUserData();
   const firestore = useFirestore();
   const [newMessage, setNewMessage] = useState('');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // 1. Find or create a session for this doctor
   const sessionsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(collection(firestore, 'adminDoctorChatSessions'), where('doctorId', '==', user.uid));
@@ -30,7 +29,6 @@ export default function DoctorChatPage() {
     if (sessions && sessions.length > 0) {
       setSessionId(sessions[0].id);
     } else if (sessions && sessions.length === 0 && user && firestore) {
-      // Create session if it doesn't exist
       const newSessionRef = doc(collection(firestore, 'adminDoctorChatSessions'));
       setDoc(newSessionRef, {
         id: newSessionRef.id,
@@ -43,7 +41,6 @@ export default function DoctorChatPage() {
     }
   }, [sessions, user, firestore]);
 
-  // 2. Fetch messages for the session
   const messagesQuery = useMemoFirebase(() => {
     if (!firestore || !sessionId) return null;
     return query(collection(firestore, 'adminDoctorChatSessions', sessionId, 'messages'));
@@ -69,7 +66,11 @@ export default function DoctorChatPage() {
     };
 
     addDoc(collection(firestore, 'adminDoctorChatSessions', sessionId, 'messages'), messageData);
-    setDoc(doc(firestore, 'adminDoctorChatSessions', sessionId), { lastMessageAt: new Date().toISOString() }, { merge: true });
+    setDoc(doc(firestore, 'adminDoctorChatSessions', sessionId), { 
+      lastMessageAt: new Date().toISOString(),
+      lastMessageContent: newMessage,
+      lastMessageSenderRole: 'doctor'
+    }, { merge: true });
     setNewMessage('');
   };
 
