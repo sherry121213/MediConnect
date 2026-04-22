@@ -1,13 +1,14 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Users, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, CheckCircle2, ShieldAlert } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
-import { collection, query, where, doc } from "firebase/firestore";
+import { collection, query, where, doc, addDoc } from "firebase/firestore";
 import type { Appointment, Patient, Doctor } from "@/lib/types";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -16,7 +17,7 @@ import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
 import { format, isSameDay, startOfDay, addDays, isAfter, subDays } from "date-fns";
 import { Badge } from "@/components/ui/badge";
@@ -29,6 +30,11 @@ const notesSchema = z.object({
   prescription: z.string().min(10, "Prescription details are required."),
 });
 type NotesFormValues = z.infer<typeof notesSchema>;
+
+const leaveRequestSchema = z.object({
+  reason: z.string().min(5, "Please provide a valid reason."),
+});
+type LeaveFormValues = z.infer<typeof leaveRequestSchema>;
 
 const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -125,6 +131,64 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
                         {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Changes"}
                     </Button>
                 </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function LeaveRequestDialog({ isOpen, onOpenChange, date, doctorId }: { isOpen: boolean, onOpenChange: (open: boolean) => void, date: Date, doctorId: string }) {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    const form = useForm<LeaveFormValues>({
+        resolver: zodResolver(leaveRequestSchema),
+        defaultValues: { reason: '' }
+    });
+
+    const onSubmit = (values: LeaveFormValues) => {
+        if (!firestore) return;
+        const colRef = collection(firestore, 'doctorUnavailabilityRequests');
+        addDocumentNonBlocking(colRef, {
+            doctorId,
+            requestedDate: date.toISOString(),
+            reason: values.reason,
+            status: 'pending',
+            requestedAt: new Date().toISOString(),
+        });
+        toast({ title: "Request Submitted", description: "Admin will review your leave for " + format(date, "MMM dd") });
+        onOpenChange(false);
+        form.reset();
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-[400px]">
+                <DialogHeader>
+                    <DialogTitle>Request Leave for {format(date, "MMM dd")}</DialogTitle>
+                    <DialogDescription>Full-day unavailability requires administrative approval.</DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                        <FormField
+                            control={form.control}
+                            name="reason"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Reason for Absence</FormLabel>
+                                    <FormControl>
+                                        <Textarea placeholder="e.g., Medical conference, personal emergency..." rows={4} {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        <DialogFooter>
+                            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+                            <Button type="submit" disabled={form.formState.isSubmitting}>
+                                {form.formState.isSubmitting ? "Sending..." : "Submit Request"}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
             </DialogContent>
         </Dialog>
     );
@@ -320,6 +384,7 @@ export default function DoctorPortalPage() {
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
     const [isConsultOpen, setIsConsultOpen] = useState(false);
     const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(false);
+    const [isLeaveOpen, setIsLeaveOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [viewDate, setViewDate] = useState(new Date());
 
@@ -346,12 +411,13 @@ export default function DoctorPortalPage() {
     }, [firestore, user]);
     const { data: requests } = useCollection<any>(requestsQuery);
 
-    const { todayAppointments, stats, masterSchedule, notifications } = useMemo(() => {
+    const { todayAppointments, stats, masterSchedule, notifications, currentDayLeaveStatus } = useMemo(() => {
         if (!mounted || !appointments) return { 
             todayAppointments: [], 
             stats: { today: 0, pending: 0, revenue: 0 }, 
             masterSchedule: { morning: [], afternoon: [], evening: [] },
-            notifications: []
+            notifications: [],
+            currentDayLeaveStatus: null as 'pending' | 'approved' | null
         };
         
         const now = new Date();
@@ -360,6 +426,10 @@ export default function DoctorPortalPage() {
         const today = appointments.filter(apt => isSameDay(new Date(apt.appointmentDateTime), now));
         const pending = appointments.filter(apt => apt.status === 'scheduled').length;
         const revenue = appointments.filter(apt => apt.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
+
+        // Leave status for viewDate
+        const activeRequest = requests?.find(r => isSameDay(new Date(r.requestedDate), viewDate));
+        const leaveStatus = activeRequest?.status || null;
 
         // Filter Slots
         const filterSlots = (times: string[]) => {
@@ -372,7 +442,7 @@ export default function DoctorPortalPage() {
                 const dayOfWeek = format(viewDate, "E");
                 const isDayDisabled = userData?.availability?.days ? !userData.availability.days.includes(dayOfWeek) : false;
                 const isSlotDisabled = userData?.availability?.disabledSlots?.includes(time) || false;
-                return { time, appointment: apt, isDisabled: isDayDisabled || isSlotDisabled };
+                return { time, appointment: apt, isDisabled: isDayDisabled || isSlotDisabled || leaveStatus === 'approved' };
             });
         };
 
@@ -392,7 +462,8 @@ export default function DoctorPortalPage() {
             todayAppointments: today,
             stats: { today: today.length, pending: pending, revenue },
             masterSchedule: { morning: filterSlots(timeSlots.morning), afternoon: filterSlots(timeSlots.afternoon), evening: filterSlots(timeSlots.evening) },
-            notifications: alerts
+            notifications: alerts,
+            currentDayLeaveStatus: leaveStatus
         };
     }, [appointments, mounted, viewDate, userData, chatSessions, requests]);
 
@@ -493,8 +564,8 @@ export default function DoctorPortalPage() {
                     </div>
 
                     <div className="lg:col-span-8 space-y-6">
-                        <Card className="border-none shadow-2xl">
-                            <CardHeader className="border-b bg-background">
+                        <Card className="border-none shadow-2xl relative">
+                            <CardHeader className="border-b bg-background z-10">
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                     <div className="space-y-1">
                                         <CardTitle className="text-xl font-headline flex items-center gap-2">
@@ -514,13 +585,41 @@ export default function DoctorPortalPage() {
                                                 <ChevronRight className="h-4 w-4" />
                                             </Button>
                                         </div>
-                                        <Button variant="outline" size="sm" className="h-9 gap-2 font-bold ml-2" onClick={() => setIsAvailabilityOpen(true)}>
-                                            <Settings2 className="h-3.5 w-3.5" /> Session Availability
-                                        </Button>
+                                        
+                                        <div className="flex items-center gap-2 ml-2">
+                                            {currentDayLeaveStatus === 'approved' ? (
+                                                <Badge className="bg-green-100 text-green-800 border-green-200 h-9 px-4 gap-2">
+                                                    <CheckCircle2 className="h-4 w-4" /> On Leave
+                                                </Badge>
+                                            ) : currentDayLeaveStatus === 'pending' ? (
+                                                <Badge variant="outline" className="text-amber-600 border-amber-600 h-9 px-4 gap-2 bg-amber-50">
+                                                    <Clock className="h-4 w-4" /> Leave Pending
+                                                </Badge>
+                                            ) : (
+                                                <Button variant="outline" size="sm" className="h-9 gap-2 font-bold text-destructive hover:bg-red-50" onClick={() => setIsLeaveOpen(true)}>
+                                                    <Moon className="h-3.5 w-3.5" /> Request Day Off
+                                                </Button>
+                                            )}
+                                            
+                                            <Button variant="outline" size="sm" className="h-9 gap-2 font-bold" onClick={() => setIsAvailabilityOpen(true)}>
+                                                <Settings2 className="h-3.5 w-3.5" /> Session Availability
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
                             </CardHeader>
                             <CardContent className="p-6 md:p-8">
+                                {currentDayLeaveStatus === 'approved' && (
+                                    <div className="absolute inset-x-0 bottom-0 top-[88px] z-20 bg-background/80 backdrop-blur-[2px] flex items-center justify-center rounded-b-2xl">
+                                        <div className="bg-white p-8 rounded-2xl shadow-2xl border text-center max-w-sm space-y-4 animate-in zoom-in-95">
+                                            <div className="h-16 w-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
+                                                <ShieldCheck className="h-10 w-10" />
+                                            </div>
+                                            <h4 className="text-xl font-bold">Approved Leave</h4>
+                                            <p className="text-muted-foreground text-sm">Your practice is officially closed for {format(viewDate, "PPP")}. No appointments can be booked or held.</p>
+                                        </div>
+                                    </div>
+                                )}
                                 <div className="grid md:grid-cols-3 gap-8">
                                     <div className="space-y-4">
                                         <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
@@ -592,18 +691,27 @@ export default function DoctorPortalPage() {
                     />
                 )}
 
-                {/* Redesigned Floating Support Chat */}
-                <div className="fixed bottom-8 right-8 z-50 flex items-center gap-3">
-                    <div className="hidden sm:block px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
-                        Admin Support
+                {user && (
+                    <LeaveRequestDialog 
+                        isOpen={isLeaveOpen} 
+                        onOpenChange={setIsLeaveOpen} 
+                        date={viewDate} 
+                        doctorId={user.uid} 
+                    />
+                )}
+
+                {/* Refined Floating Support Chat */}
+                <div className="fixed bottom-8 right-8 z-[100] group">
+                    <div className="absolute right-full mr-4 top-1/2 -translate-y-1/2 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                        Administrative Support
                     </div>
                     <Button 
                         asChild
-                        className="h-14 w-14 rounded-full shadow-2xl hover:scale-110 transition-transform bg-slate-900 hover:bg-slate-800 border-2 border-white/20"
+                        className="h-16 w-16 rounded-full shadow-2xl hover:scale-110 transition-transform bg-slate-900 hover:bg-slate-800 border-2 border-white/20 p-0"
                         size="icon"
                     >
-                        <Link href="/doctor-portal/chat">
-                            <MessageSquare className="h-6 w-6 text-white" />
+                        <Link href="/doctor-portal/chat" className="flex items-center justify-center">
+                            <MessageSquare className="h-7 w-7 text-white" />
                         </Link>
                     </Button>
                 </div>

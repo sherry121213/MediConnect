@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -47,7 +48,10 @@ export default function AdminRequestsPage() {
   const handleStatusChange = (requestId: string, status: 'approved' | 'rejected') => {
     if (!firestore) return;
     const reqRef = doc(firestore, 'doctorUnavailabilityRequests', requestId);
-    updateDocumentNonBlocking(reqRef, { status, processedAt: new Date().toISOString() });
+    updateDocumentNonBlocking(reqRef, { 
+      status, 
+      processedAt: new Date().toISOString() 
+    });
     
     toast({
       title: `Request ${status.charAt(0).toUpperCase() + status.slice(1)}`,
@@ -57,13 +61,15 @@ export default function AdminRequestsPage() {
 
   return (
     <div className="p-4 md:p-8 space-y-6">
-      <div>
-        <h1 className="text-3xl font-bold font-headline">Clinical Requests</h1>
-        <p className="text-muted-foreground">Manage doctor leave and unavailability requests.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-3xl font-bold font-headline">Clinical Requests</h1>
+          <p className="text-muted-foreground">Manage doctor leave and unavailability requests.</p>
+        </div>
       </div>
 
-      <Card>
-        <CardHeader>
+      <Card className="border-none shadow-lg overflow-hidden">
+        <CardHeader className="bg-primary/5">
           <CardTitle className="text-lg flex items-center gap-2">
             <ClipboardList className="h-5 w-5 text-primary" /> Approval Queue
           </CardTitle>
@@ -92,27 +98,32 @@ export default function AdminRequestsPage() {
                         {format(new Date(req.requestedDate), "PPP")}
                       </div>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground italic">
+                    <TableCell className="hidden md:table-cell text-sm text-muted-foreground italic max-w-xs truncate">
                       {req.reason}
                     </TableCell>
                     <TableCell>
                       <Badge variant={req.status === 'approved' ? 'secondary' : req.status === 'rejected' ? 'destructive' : 'outline'} 
-                             className={req.status === 'approved' ? 'bg-green-100 text-green-800' : ''}>
+                             className={cn(
+                               req.status === 'approved' && "bg-green-100 text-green-800",
+                               req.status === 'pending' && "bg-amber-100 text-amber-800 border-amber-200"
+                             )}>
                         {req.status}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-right">
                       {req.status === 'pending' ? (
                         <div className="flex justify-end gap-2">
-                          <Button size="sm" variant="outline" className="h-8 w-8 p-0 text-green-600 hover:bg-green-50" onClick={() => handleStatusChange(req.id, 'approved')}>
+                          <Button size="sm" variant="outline" className="h-8 w-8 p-0 text-green-600 hover:bg-green-100 hover:border-green-300" onClick={() => handleStatusChange(req.id, 'approved')}>
                             <Check className="h-4 w-4" />
                           </Button>
-                          <Button size="sm" variant="outline" className="h-8 w-8 p-0 text-destructive hover:bg-red-50" onClick={() => handleStatusChange(req.id, 'rejected')}>
+                          <Button size="sm" variant="outline" className="h-8 w-8 p-0 text-destructive hover:bg-red-100 hover:border-red-300" onClick={() => handleStatusChange(req.id, 'rejected')}>
                             <X className="h-4 w-4" />
                           </Button>
                         </div>
                       ) : (
-                        <span className="text-xs text-muted-foreground">{format(new Date(req.processedAt || req.requestedAt), "PP")}</span>
+                        <div className="text-[10px] text-muted-foreground italic">
+                          Processed {format(new Date(req.processedAt || req.requestedAt), "PP")}
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
