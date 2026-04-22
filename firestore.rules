@@ -18,7 +18,20 @@ service cloud.firestore {
       return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
     }
 
-    // Global match for all documents to ensure features like Chat and Leave Requests work without interruption
+    // Publicly readable clinical data (Doctors & Specialties)
+    // This allows unauthenticated users to see the doctor list and landing page
+    match /doctors/{doctorId} {
+      allow read: if true;
+      allow write: if isSignedIn() && (request.auth.uid == doctorId || isAdmin());
+    }
+
+    match /specialties/{specialtyId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Global match for all other documents (Chat, Appointments, Leave Requests)
+    // Ensures features work without interruption for signed-in users
     match /{document=**} {
       allow read, write: if isSignedIn();
     }
