@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useParams } from 'next/navigation';
@@ -31,10 +32,24 @@ export default function DoctorProfilePage() {
     const handleVerifyDoctor = () => {
         if (!firestore || !doctorId || !doctor) return;
         const doctorDocRef = doc(firestore, 'doctors', doctorId);
-        updateDocumentNonBlocking(doctorDocRef, { verified: true, updatedAt: new Date().toISOString() });
+        
+        // Mark as verified and complete profile to allow immediate portal access
+        updateDocumentNonBlocking(doctorDocRef, { 
+            verified: true, 
+            profileComplete: true,
+            updatedAt: new Date().toISOString() 
+        });
+
+        // Also update the patients collection for consistent routing
+        const patientDocRef = doc(firestore, 'patients', doctorId);
+        updateDocumentNonBlocking(patientDocRef, {
+            profileComplete: true,
+            updatedAt: new Date().toISOString()
+        });
+
         toast({
             title: "Doctor Verified!",
-            description: `Dr. ${doctor.firstName}'s professional profile has been verified.`,
+            description: `Dr. ${doctor.firstName}'s professional profile has been verified and their portal is now active.`,
         });
     };
 

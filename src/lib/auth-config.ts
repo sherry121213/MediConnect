@@ -89,6 +89,24 @@ export const preverifiedDoctors: Record<string, any> = {
         phone: '0309-0123456',
         location: 'Lahore',
         degreeUrl: '',
+    },
+    'laraibkhan2102004@gmail.com': {
+        specialty: 'General Physician',
+        experience: 5,
+        medicalSchool: 'Medical University',
+        degree: 'MBBS',
+        phone: '0300-1122334',
+        location: 'Peshawar',
+        degreeUrl: '',
+    },
+    'mahnooriaz47@gmail.com': {
+        specialty: 'General Physician',
+        experience: 5,
+        medicalSchool: 'Medical University',
+        degree: 'MBBS',
+        phone: '0333-9988776',
+        location: 'Karachi',
+        degreeUrl: '',
     }
 };
 

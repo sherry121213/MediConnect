@@ -128,7 +128,20 @@ export default function AdminDoctorsPage() {
     const handleVerifyDoctor = async (doctorId: string) => {
         if (!firestore) return;
         const doctorDocRef = doc(firestore, 'doctors', doctorId);
-        updateDocumentNonBlocking(doctorDocRef, { verified: true, updatedAt: new Date().toISOString() });
+        // Once verified by admin, we also mark profile as complete so they can access the portal immediately
+        updateDocumentNonBlocking(doctorDocRef, { 
+            verified: true, 
+            profileComplete: true, 
+            updatedAt: new Date().toISOString() 
+        });
+
+        // Also update the patients collection which is the source of truth for user data and portal routing
+        const patientDocRef = doc(firestore, 'patients', doctorId);
+        updateDocumentNonBlocking(patientDocRef, {
+            profileComplete: true,
+            updatedAt: new Date().toISOString()
+        });
+
         toast({
             title: "Doctor Verified",
             description: "The doctor has been verified and can now access their portal.",
