@@ -158,11 +158,12 @@ export default function SignupPage() {
       if (role === 'doctor') {
         const preverifiedKey = Object.keys(preverifiedDoctors).find(k => k.toLowerCase() === lowercasedEmail);
         const preverifiedData = preverifiedKey ? preverifiedDoctors[preverifiedKey] : null;
+        const isPreverified = !!preverifiedData;
 
         const doctorData = {
           ...baseUserData,
-          verified: !!preverifiedData,
-          profileComplete: !!preverifiedData,
+          verified: isPreverified,
+          profileComplete: isPreverified,
           isActive: true, 
           role: 'doctor',
           ...(preverifiedData && {
@@ -179,7 +180,12 @@ export default function SignupPage() {
         setDocumentNonBlocking(doctorDocRef, doctorData, { merge: true });
 
         const patientDocRef = doc(firestore, 'patients', newUser.uid);
-        setDocumentNonBlocking(patientDocRef, {...baseUserData, role: 'doctor', profileComplete: !!preverifiedData }, { merge: true });
+        setDocumentNonBlocking(patientDocRef, {
+            ...baseUserData, 
+            role: 'doctor', 
+            profileComplete: isPreverified,
+            verified: isPreverified
+        }, { merge: true });
         
       } else { 
         const patientData = {...baseUserData, role: 'patient', profileComplete: false };

@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -138,6 +137,7 @@ export default function AdminDoctorsPage() {
         // Also update the patients collection which is the source of truth for user data and portal routing
         const patientDocRef = doc(firestore, 'patients', doctorId);
         updateDocumentNonBlocking(patientDocRef, {
+            verified: true,
             profileComplete: true,
             updatedAt: new Date().toISOString()
         });

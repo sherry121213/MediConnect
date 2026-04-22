@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useParams } from 'next/navigation';
@@ -15,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 export default function DoctorProfilePage() {
     const params = useParams();
@@ -40,9 +40,10 @@ export default function DoctorProfilePage() {
             updatedAt: new Date().toISOString() 
         });
 
-        // Also update the patients collection for consistent routing
+        // Also update the patients collection for consistent routing and permission checks
         const patientDocRef = doc(firestore, 'patients', doctorId);
         updateDocumentNonBlocking(patientDocRef, {
+            verified: true,
             profileComplete: true,
             updatedAt: new Date().toISOString()
         });
@@ -55,8 +56,6 @@ export default function DoctorProfilePage() {
 
     if (isLoading) return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
     if (error || !doctor) return <div className="p-8 text-center text-destructive">Error loading profile or doctor not found.</div>;
-
-    const doctorImage = placeholderImages.find(p => p.id === doctor.profileImageId);
 
     return (
         <div className="p-4 md:p-8 max-w-5xl mx-auto">
@@ -194,15 +193,4 @@ export default function DoctorProfilePage() {
             </Card>
         </div>
     );
-}
-
-// Minimal Avatar components for this file context if not imported
-function Avatar({ children, className }: { children: React.ReactNode, className?: string }) {
-    return <div className={`relative flex h-10 w-10 shrink-0 overflow-hidden rounded-full ${className}`}>{children}</div>;
-}
-function AvatarImage({ src }: { src?: string }) {
-    return src ? <img src={src} className="aspect-square h-full w-full object-cover" /> : null;
-}
-function AvatarFallback({ children, className }: { children: React.ReactNode, className?: string }) {
-    return <div className={`flex h-full w-full items-center justify-center rounded-full bg-muted font-bold ${className}`}>{children}</div>;
 }
