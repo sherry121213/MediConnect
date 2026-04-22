@@ -346,17 +346,15 @@ export default function DoctorPortalPage() {
     }, [firestore, user]);
     const { data: requests } = useCollection<any>(requestsQuery);
 
-    const { todayAppointments, stats, recentEvents, masterSchedule, notifications } = useMemo(() => {
+    const { todayAppointments, stats, masterSchedule, notifications } = useMemo(() => {
         if (!mounted || !appointments) return { 
             todayAppointments: [], 
             stats: { today: 0, pending: 0, revenue: 0 }, 
-            recentEvents: [],
             masterSchedule: { morning: [], afternoon: [], evening: [] },
             notifications: []
         };
         
         const now = new Date();
-        const startOfToday = startOfDay(now);
         const yesterday = subDays(now, 1);
 
         const today = appointments.filter(apt => isSameDay(new Date(apt.appointmentDateTime), now));
@@ -380,30 +378,19 @@ export default function DoctorPortalPage() {
 
         // Notifications logic
         const alerts: any[] = [];
-        // New Appointments
         appointments.filter(a => isAfter(new Date(a.createdAt), yesterday)).forEach(a => {
             alerts.push({ id: `apt-${a.id}`, msg: `New booking: ${a.appointmentType} scheduled for ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary' });
         });
-        // Chat replies
         chatSessions?.filter(s => s.lastMessageSenderRole === 'admin').forEach(s => {
             alerts.push({ id: `chat-${s.id}`, msg: "Admin replied to your support chat session.", icon: MessageSquare, color: 'text-blue-500', link: '/doctor-portal/chat' });
         });
-        // Leave status updates
         requests?.filter(r => r.status !== 'pending' && isAfter(new Date(r.processedAt || 0), yesterday)).forEach(r => {
             alerts.push({ id: `req-${r.id}`, msg: `Your leave request for ${format(new Date(r.requestedDate), "PP")} was ${r.status}.`, icon: r.status === 'approved' ? CheckCircle2 : AlertCircle, color: r.status === 'approved' ? 'text-green-500' : 'text-destructive' });
         });
 
-        const events = appointments.slice(0, 5).map(apt => ({
-            id: apt.id,
-            msg: apt.status === 'completed' ? `Record finalized for patient ${apt.patientId.slice(0,4)}` : `New booking request: ${apt.appointmentType}`,
-            time: format(new Date(apt.createdAt), "p"),
-            type: apt.status
-        }));
-
         return { 
             todayAppointments: today,
             stats: { today: today.length, pending: pending, revenue },
-            recentEvents: events,
             masterSchedule: { morning: filterSlots(timeSlots.morning), afternoon: filterSlots(timeSlots.afternoon), evening: filterSlots(timeSlots.evening) },
             notifications: alerts
         };
@@ -448,9 +435,7 @@ export default function DoctorPortalPage() {
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                    {/* Left Column: Alerts & Queue */}
                     <div className="lg:col-span-4 space-y-6">
-                        {/* Notifications Card */}
                         <Card className="border-none shadow-xl border-l-4 border-l-amber-400">
                              <CardHeader className="pb-2">
                                 <CardTitle className="text-sm flex items-center gap-2">
@@ -507,7 +492,6 @@ export default function DoctorPortalPage() {
                         </Card>
                     </div>
 
-                    {/* Right Column: Master Schedule */}
                     <div className="lg:col-span-8 space-y-6">
                         <Card className="border-none shadow-2xl">
                             <CardHeader className="border-b bg-background">
@@ -538,7 +522,6 @@ export default function DoctorPortalPage() {
                             </CardHeader>
                             <CardContent className="p-6 md:p-8">
                                 <div className="grid md:grid-cols-3 gap-8">
-                                    {/* Morning Block */}
                                     <div className="space-y-4">
                                         <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
                                             <div className="h-2 w-2 rounded-full bg-amber-400" /> Morning
@@ -556,7 +539,6 @@ export default function DoctorPortalPage() {
                                         </div>
                                     </div>
 
-                                    {/* Afternoon Block */}
                                     <div className="space-y-4">
                                         <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
                                             <div className="h-2 w-2 rounded-full bg-blue-400" /> Afternoon
@@ -574,7 +556,6 @@ export default function DoctorPortalPage() {
                                         </div>
                                     </div>
 
-                                    {/* Evening Block */}
                                     <div className="space-y-4">
                                         <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
                                             <Moon className="h-3.5 w-3.5 text-indigo-400" /> Evening
@@ -611,11 +592,14 @@ export default function DoctorPortalPage() {
                     />
                 )}
 
-                {/* Floating Support Chat */}
-                <div className="fixed bottom-6 right-6 z-50">
+                {/* Redesigned Floating Support Chat */}
+                <div className="fixed bottom-8 right-8 z-50 flex items-center gap-3">
+                    <div className="hidden sm:block px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                        Admin Support
+                    </div>
                     <Button 
                         asChild
-                        className="h-14 w-14 rounded-full shadow-2xl hover:scale-110 transition-transform bg-slate-900 hover:bg-slate-800"
+                        className="h-14 w-14 rounded-full shadow-2xl hover:scale-110 transition-transform bg-slate-900 hover:bg-slate-800 border-2 border-white/20"
                         size="icon"
                     >
                         <Link href="/doctor-portal/chat">

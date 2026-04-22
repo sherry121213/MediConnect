@@ -1,11 +1,13 @@
 'use client';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useMemoFirebase } from '../provider';
+import { useDoc } from '../firestore/use-doc';
 import { doc } from 'firebase/firestore';
 import type { Patient } from '@/lib/types';
 
 /**
  * Hook that returns the authenticated Firebase User and their corresponding
  * profile data from the 'patients' collection (which contains roles).
+ * Uses direct imports to avoid circular dependency via the index barrel file.
  */
 export function useUserData() {
   const { user, isUserLoading: isAuthLoading, userError } = useUser();

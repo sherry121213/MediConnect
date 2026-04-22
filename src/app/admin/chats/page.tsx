@@ -3,7 +3,7 @@
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, doc, query } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, MessageSquare, User, Search, Shield, Bell } from 'lucide-react';
+import { Loader2, MessageSquare, User, Search, Shield } from 'lucide-react';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { useState } from 'react';
@@ -43,7 +43,9 @@ const DoctorListItem = ({ session }: { session: any }) => {
         </div>
         <div className="text-right">
           <p className="text-[10px] uppercase font-bold text-muted-foreground">Last Active</p>
-          <p className="text-xs">{format(new Date(session.lastMessageAt || session.createdAt), "MMM dd, p")}</p>
+          <p className="text-xs">
+            {session.lastMessageAt ? format(new Date(session.lastMessageAt), "MMM dd, p") : format(new Date(session.createdAt), "MMM dd, p")}
+          </p>
           {isUnread && <Badge variant="secondary" className="h-4 text-[8px] bg-primary text-white mt-1">NEW REPLY</Badge>}
         </div>
       </div>
@@ -66,6 +68,12 @@ export default function AdminChatsPage() {
       if (!searchTerm) return true;
       return s.id.toLowerCase().includes(searchTerm.toLowerCase());
   });
+
+  const sortedSessions = filteredSessions ? [...filteredSessions].sort((a:any, b:any) => {
+    const timeA = new Date(a.lastMessageAt || a.createdAt).getTime();
+    const timeB = new Date(b.lastMessageAt || b.createdAt).getTime();
+    return timeB - timeA;
+  }) : [];
 
   return (
     <div className="p-4 md:p-8 space-y-6">
@@ -94,9 +102,9 @@ export default function AdminChatsPage() {
         <CardContent className="p-0">
           {isLoading ? (
             <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-          ) : filteredSessions && filteredSessions.length > 0 ? (
+          ) : sortedSessions.length > 0 ? (
             <div className="divide-y">
-              {filteredSessions.sort((a:any, b:any) => new Date(b.lastMessageAt || 0).getTime() - new Date(a.lastMessageAt || 0).getTime()).map((session: any) => (
+              {sortedSessions.map((session: any) => (
                 <DoctorListItem key={session.id} session={session} />
               ))}
             </div>
