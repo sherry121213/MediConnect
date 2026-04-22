@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -72,7 +73,7 @@ export default function DoctorDetailPage() {
 
     const { data: existingAppointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    // Unavailability requests check
+    // Unavailability requests check - ONLY approved ones block bookings
     const unavailabilityQuery = useMemoFirebase(() => {
       if (!firestore || !doctorId) return null;
       return query(

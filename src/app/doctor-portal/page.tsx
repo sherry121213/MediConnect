@@ -19,7 +19,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
-import { format, isSameDay, startOfDay, addDays, isAfter, subDays } from "date-fns";
+import { format, isSameDay, startOfDay, addDays, isAfter, subDays, isBefore } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { timeSlots } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -68,7 +68,7 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto">
+            <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto border-none shadow-2xl">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <Settings2 className="h-5 w-5 text-primary" /> Session Availability
@@ -139,13 +139,18 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
 function LeaveRequestDialog({ isOpen, onOpenChange, date, doctorId }: { isOpen: boolean, onOpenChange: (open: boolean) => void, date: Date, doctorId: string }) {
     const firestore = useFirestore();
     const { toast } = useToast();
+    
+    // Check if the date is at least 2 days away
+    const minLeadDate = addDays(startOfDay(new Date()), 2);
+    const isTooEarly = isBefore(date, minLeadDate);
+
     const form = useForm<LeaveFormValues>({
         resolver: zodResolver(leaveRequestSchema),
         defaultValues: { reason: '' }
     });
 
     const onSubmit = (values: LeaveFormValues) => {
-        if (!firestore) return;
+        if (!firestore || isTooEarly) return;
         const colRef = collection(firestore, 'doctorUnavailabilityRequests');
         addDocumentNonBlocking(colRef, {
             doctorId,
@@ -166,29 +171,42 @@ function LeaveRequestDialog({ isOpen, onOpenChange, date, doctorId }: { isOpen: 
                     <DialogTitle>Request Leave for {format(date, "MMM dd")}</DialogTitle>
                     <DialogDescription>Full-day unavailability requires administrative approval.</DialogDescription>
                 </DialogHeader>
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-                        <FormField
-                            control={form.control}
-                            name="reason"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Reason for Absence</FormLabel>
-                                    <FormControl>
-                                        <Textarea placeholder="e.g., Medical conference, personal emergency..." rows={4} {...field} />
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        <DialogFooter>
-                            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-                            <Button type="submit" disabled={form.formState.isSubmitting}>
-                                {form.formState.isSubmitting ? "Sending..." : "Submit Request"}
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </Form>
+                
+                {isTooEarly ? (
+                    <div className="py-6 space-y-4 text-center">
+                        <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
+                        <div className="space-y-2">
+                            <p className="font-bold text-destructive">Short-Notice Request Blocked</p>
+                            <p className="text-sm text-muted-foreground">Clinical leave must be requested at least 2 days in advance to ensure patient stability.</p>
+                        </div>
+                        <Button variant="outline" className="w-full" onClick={() => onOpenChange(false)}>Close</Button>
+                    </div>
+                ) : (
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
+                            <FormField
+                                control={form.control}
+                                name="reason"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Reason for Absence</FormLabel>
+                                        <FormControl>
+                                            <Textarea placeholder="e.g., Medical conference, personal emergency..." rows={4} {...field} />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                             <p className="text-[10px] text-muted-foreground italic">Note: Once approved, this entire day will be blocked for all patient bookings.</p>
+                            <DialogFooter>
+                                <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+                                <Button type="submit" disabled={form.formState.isSubmitting}>
+                                    {form.formState.isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Submit Request"}
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </Form>
+                )}
             </DialogContent>
         </Dialog>
     );
