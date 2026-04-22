@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -288,6 +287,24 @@ export default function DoctorDetailPage() {
                                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                               {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => <TimeButton key={time} time={time} />)}
                                             </div>
+                                        </div>
+
+                                        <div>
+                                            <h4 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Step 3: Consultation Mode</h4>
+                                            <RadioGroup defaultValue="Video Call" onValueChange={(val) => setAppointmentType(val as any)} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                                <div className="flex items-center space-x-3 p-4 rounded-xl border hover:bg-muted/50 transition-all cursor-pointer">
+                                                    <RadioGroupItem value="Video Call" id="video" />
+                                                    <Label htmlFor="video" className="flex items-center gap-2 cursor-pointer">
+                                                        <Video className="h-4 w-4 text-primary" /> Video Consultation
+                                                    </Label>
+                                                </div>
+                                                <div className="flex items-center space-x-3 p-4 rounded-xl border hover:bg-muted/50 transition-all cursor-pointer">
+                                                    <RadioGroupItem value="Audio Call" id="audio" />
+                                                    <Label htmlFor="audio" className="flex items-center gap-2 cursor-pointer">
+                                                        <PhoneCall className="h-4 w-4 text-primary" /> Audio Only
+                                                    </Label>
+                                                </div>
+                                            </RadioGroup>
                                         </div>
 
                                         <AlertDialog>

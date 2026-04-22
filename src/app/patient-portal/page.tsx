@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,6 +22,7 @@ import type { Appointment, Doctor } from "@/lib/types";
 import { useMemo, useState, useEffect } from "react";
 import { format, isAfter, subHours } from "date-fns";
 import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 export default function PatientPortalPage() {
     const { user, userData, isUserLoading } = useUserData();

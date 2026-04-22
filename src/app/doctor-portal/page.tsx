@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
@@ -140,7 +139,7 @@ function LeaveRequestDialog({ isOpen, onOpenChange, date, doctorId }: { isOpen: 
     const firestore = useFirestore();
     const { toast } = useToast();
     
-    // Check if the date is at least 2 days away
+    // Enforce 2-day lead time
     const minLeadDate = addDays(startOfDay(new Date()), 2);
     const isTooEarly = isBefore(date, minLeadDate);
 
