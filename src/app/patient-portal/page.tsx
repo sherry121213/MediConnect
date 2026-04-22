@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -91,14 +92,14 @@ export default function PatientPortalPage() {
                         )} 
                         asChild
                     >
-                        <Link href="https://meet.google.com" target="_blank">
+                        <Link href={`/consultation/${apt.id}`}>
                             <Video className="mr-4 h-6 w-6 text-primary group-hover:scale-110 transition-transform"/> 
                             <div className="text-left">
                                 <div className="flex items-center gap-2">
-                                    <p className="font-bold text-foreground">Secure Video Link</p>
-                                    {apt.appointmentType === 'Video Call' && <Badge variant="secondary" className="h-4 text-[8px] bg-primary text-white">Preferred</Badge>}
+                                    <p className="font-bold text-foreground">Secure Video Room</p>
+                                    {apt.appointmentType === 'Video Call' && <Badge variant="secondary" className="h-4 text-[8px] bg-primary text-white">Direct Integration</Badge>}
                                 </div>
-                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">HD Video & Audio Consultation</p>
+                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">HD Video & Internal Audio</p>
                             </div>
                         </Link>
                     </Button>
@@ -110,23 +111,25 @@ export default function PatientPortalPage() {
                         )} 
                         asChild
                     >
-                        <Link href="https://meet.google.com" target="_blank">
+                        <Link href={`/consultation/${apt.id}`}>
                             <PhoneCall className="mr-4 h-6 w-6 text-primary group-hover:scale-110 transition-transform"/> 
                             <div className="text-left">
                                  <div className="flex items-center gap-2">
-                                    <p className="font-bold text-foreground">Secure Audio Link</p>
-                                    {apt.appointmentType === 'Audio Call' && <Badge variant="secondary" className="h-4 text-[8px] bg-primary text-white">Preferred</Badge>}
+                                    <p className="font-bold text-foreground">Secure Audio Room</p>
+                                    {apt.appointmentType === 'Audio Call' && <Badge variant="secondary" className="h-4 text-[8px] bg-primary text-white">Direct Integration</Badge>}
                                 </div>
-                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">High-Quality Voice Consultation</p>
+                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Voice Consultation</p>
                             </div>
                         </Link>
                     </Button>
-                    <Button variant="outline" className="justify-start h-16 border-2 hover:border-primary group opacity-60">
-                        <MessageSquare className="mr-4 h-6 w-6 text-primary group-hover:scale-110 transition-transform"/>
-                        <div className="text-left">
-                            <p className="font-bold text-foreground">Interactive Chat</p>
-                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Real-time messaging support</p>
-                        </div>
+                    <Button variant="outline" className="justify-start h-16 border-2 hover:border-primary group" asChild>
+                        <Link href={`/consultation/${apt.id}`}>
+                            <MessageSquare className="mr-4 h-6 w-6 text-primary group-hover:scale-110 transition-transform"/>
+                            <div className="text-left">
+                                <p className="font-bold text-foreground">Interactive Chat Room</p>
+                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Integrated Real-time messaging</p>
+                            </div>
+                        </Link>
                     </Button>
                 </div>
                 <AlertDialogFooter>
@@ -217,6 +220,11 @@ export default function PatientPortalPage() {
                                     <Button className="w-full justify-start h-14 text-base font-bold shadow-lg shadow-primary/20" asChild>
                                         <Link href="/find-a-doctor">
                                             <PlusCircle className="mr-3 h-5 w-5" /> Book Medical Consultation
+                                        </Link>
+                                    </Button>
+                                    <Button variant="outline" className="w-full justify-start h-14 text-base font-bold border-2" asChild>
+                                        <Link href="/patient-portal/messages">
+                                            <MessageSquare className="mr-3 h-5 w-5 text-primary" /> Clinical Message Center
                                         </Link>
                                     </Button>
                                     <Button variant="outline" className="w-full justify-start h-14 text-base font-bold border-2" asChild>

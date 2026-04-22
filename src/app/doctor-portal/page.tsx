@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
@@ -277,12 +278,17 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
                         </div>
                         <div className="flex flex-col gap-2">
                             <Button className="w-full" asChild>
-                                <Link href="https://meet.google.com" target="_blank">
-                                    <Video className="mr-2 h-4 w-4" /> Join Video Call
+                                <Link href={`/consultation/${appointment.id}`}>
+                                    <Video className="mr-2 h-4 w-4" /> Start Video/Audio Consultation
+                                </Link>
+                            </Button>
+                             <Button variant="outline" className="w-full" asChild>
+                                <Link href={`/consultation/${appointment.id}`}>
+                                    <MessageSquare className="mr-2 h-4 w-4 text-primary" /> Integrated Patient Chat
                                 </Link>
                             </Button>
                             <Button variant="outline" className="w-full" onClick={() => setView('notes')}>
-                                Start Consultation Form
+                                Fill Clinical Records
                             </Button>
                         </div>
                     </div>

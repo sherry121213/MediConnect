@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Patient": {
@@ -182,303 +183,6 @@
         "createdAt"
       ]
     },
-    "Specialty": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Specialty",
-      "type": "object",
-      "description": "Defines a medical specialty or category for doctors.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Specialty entity."
-        },
-        "name": {
-          "type": "string",
-          "description": "The name of the medical specialty (e.g., 'Cardiology', 'Pediatrics')."
-        },
-        "description": {
-          "type": "string",
-          "description": "A brief description of the specialty."
-        },
-        "iconUrl": {
-          "type": "string",
-          "description": "URL to an icon representing the specialty for UI purposes.",
-          "format": "uri"
-        }
-      },
-      "required": [
-        "id",
-        "name",
-        "description"
-      ]
-    },
-    "DoctorVerificationDocument": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "DoctorVerificationDocument",
-      "type": "object",
-      "description": "Stores details about a document submitted by a doctor for verification.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the DoctorVerificationDocument entity."
-        },
-        "doctorId": {
-          "type": "string",
-          "description": "Reference to the Doctor who submitted the document. (Relationship: Doctor 1:N DoctorVerificationDocument)"
-        },
-        "documentType": {
-          "type": "string",
-          "description": "The type of document submitted (e.g., 'Medical License', 'Degree Certificate', 'ID Proof')."
-        },
-        "documentUrl": {
-          "type": "string",
-          "description": "URL to the stored document file.",
-          "format": "uri"
-        },
-        "uploadDate": {
-          "type": "string",
-          "description": "Timestamp when the document was uploaded.",
-          "format": "date-time"
-        },
-        "verificationStatus": {
-          "type": "string",
-          "description": "Current status of the document verification process (e.g., 'Pending', 'Approved', 'Rejected')."
-        },
-        "adminNotes": {
-          "type": "string",
-          "description": "Notes added by an admin during the verification process."
-        },
-        "processedByUserId": {
-          "type": "string",
-          "description": "Identifier of the admin or user who processed this verification request from the external authentication system."
-        },
-        "processedAt": {
-          "type": "string",
-          "description": "Timestamp when the verification request was processed.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "doctorId",
-        "documentType",
-        "documentUrl",
-        "uploadDate",
-        "verificationStatus"
-      ]
-    },
-    "RatingAndReview": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "RatingAndReview",
-      "type": "object",
-      "description": "Stores patient ratings and reviews for doctors.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the RatingAndReview entity."
-        },
-        "doctorId": {
-          "type": "string",
-          "description": "Reference to the Doctor being reviewed. (Relationship: Doctor 1:N RatingAndReview)"
-        },
-        "patientId": {
-          "type": "string",
-          "description": "Reference to the Patient who submitted the review. (Relationship: Patient 1:N RatingAndReview)"
-        },
-        "rating": {
-          "type": "number",
-          "description": "The numerical rating given by the patient (e.g., 1 to 5)."
-        },
-        "comment": {
-          "type": "string",
-          "description": "The textual comment or feedback provided by the patient."
-        },
-        "reviewDate": {
-          "type": "string",
-          "description": "Timestamp when the review was submitted.",
-          "format": "date-time"
-        },
-        "appointmentId": {
-          "type": "string",
-          "description": "Optional reference to the specific Appointment this review is for. (Relationship: Appointment 1:1 RatingAndReview)"
-        }
-      },
-      "required": [
-        "id",
-        "doctorId",
-        "patientId",
-        "rating",
-        "reviewDate"
-      ]
-    },
-    "SymptomCheckHistory": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "SymptomCheckHistory",
-      "type": "object",
-      "description": "Records patient interactions with the AI Symptom Checker.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the SymptomCheckHistory entity."
-        },
-        "patientId": {
-          "type": "string",
-          "description": "Reference to the Patient who used the symptom checker. (Relationship: Patient 1:N SymptomCheckHistory)"
-        },
-        "symptomsInput": {
-          "type": "string",
-          "description": "The raw text input of symptoms provided by the patient."
-        },
-        "aiSuggestedSpecialties": {
-          "type": "array",
-          "description": "An array of suggested medical specialties based on AI analysis.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "aiSuggestedLabTests": {
-          "type": "array",
-          "description": "An array of suggested lab tests based on AI analysis.",
-          "items": {
-            "type": "string"
-          }
-        },
-        "consultationRecommendation": {
-          "type": "string",
-          "description": "A general recommendation for consultation from the AI."
-        },
-        "checkDate": {
-          "type": "string",
-          "description": "Timestamp when the symptom check was performed.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "patientId",
-        "symptomsInput",
-        "checkDate"
-      ]
-    },
-    "Appointment": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Appointment",
-      "type": "object",
-      "description": "Details of a scheduled appointment between a patient and a doctor.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Appointment entity."
-        },
-        "patientId": {
-          "type": "string",
-          "description": "Reference to the Patient who booked the appointment. (Relationship: Patient 1:N Appointment)"
-        },
-        "doctorId": {
-          "type": "string",
-          "description": "Reference to the Doctor with whom the appointment is booked. (Relationship: Doctor 1:N Appointment)"
-        },
-        "appointmentDateTime": {
-          "type": "string",
-          "description": "The scheduled date and time for the appointment.",
-          "format": "date-time"
-        },
-        "durationMinutes": {
-          "type": "number",
-          "description": "The planned duration of the appointment in minutes."
-        },
-        "type": {
-          "type": "string",
-          "description": "The type of consultation for the appointment (e.g., 'Chat', 'Audio Call', 'Video Call')."
-        },
-        "status": {
-          "type": "string",
-          "description": "The current status of the appointment (e.g., 'Pending', 'Confirmed', 'CancelledByPatient', 'CancelledByDoctor', 'Completed', 'NoShow')."
-        },
-        "reasonForAppointment": {
-          "type": "string",
-          "description": "The reason or primary concern for which the patient booked the appointment."
-        },
-        "bookingDate": {
-          "type": "string",
-          "description": "Timestamp when the appointment was originally booked.",
-          "format": "date-time"
-        },
-        "cancellationReason": {
-          "type": "string",
-          "description": "The reason provided if the appointment was cancelled."
-        },
-        "consultationSessionId": {
-          "type": "string",
-          "description": "Optional reference to the ConsultationSession initiated for this appointment. (Relationship: Appointment 1:1 ConsultationSession)"
-        }
-      },
-      "required": [
-        "id",
-        "patientId",
-        "doctorId",
-        "appointmentDateTime",
-        "durationMinutes",
-        "type",
-        "status",
-        "bookingDate"
-      ]
-    },
-    "DoctorUnavailabilityRequest": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "DoctorUnavailabilityRequest",
-      "type": "object",
-      "description": "Represents a request by a doctor to mark themselves unavailable for a full day, requiring admin approval.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the DoctorUnavailabilityRequest entity."
-        },
-        "doctorId": {
-          "type": "string",
-          "description": "Reference to the Doctor making the unavailability request. (Relationship: Doctor 1:N DoctorUnavailabilityRequest)"
-        },
-        "requestedDate": {
-          "type": "string",
-          "description": "The specific date for which the doctor requests unavailability.",
-          "format": "date"
-        },
-        "reason": {
-          "type": "string",
-          "description": "The reason provided by the doctor for their unavailability."
-        },
-        "requestStatus": {
-          "type": "string",
-          "description": "The current status of the unavailability request (e.g., 'Pending', 'Approved', 'Rejected')."
-        },
-        "requestedAt": {
-          "type": "string",
-          "description": "Timestamp when the unavailability request was submitted.",
-          "format": "date-time"
-        },
-        "processedByUserId": {
-          "type": "string",
-          "description": "Identifier of the admin or user who processed this request from the external authentication system."
-        },
-        "processedAt": {
-          "type": "string",
-          "description": "Timestamp when the unavailability request was processed.",
-          "format": "date-time"
-        },
-        "adminNotes": {
-          "type": "string",
-          "description": "Notes added by the admin regarding the request."
-        }
-      },
-      "required": [
-        "id",
-        "doctorId",
-        "requestedDate",
-        "reason",
-        "requestStatus",
-        "requestedAt"
-      ]
-    },
     "ConsultationSession": {
       "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "ConsultationSession",
@@ -491,7 +195,15 @@
         },
         "appointmentId": {
           "type": "string",
-          "description": "Reference to the Appointment associated with this consultation session. (Relationship: Appointment 1:1 ConsultationSession)"
+          "description": "Reference to the Appointment associated with this consultation session."
+        },
+        "patientId": {
+          "type": "string",
+          "description": "Denormalized patient ID for authorization."
+        },
+        "doctorId": {
+          "type": "string",
+          "description": "Denormalized doctor ID for authorization."
         },
         "startTime": {
           "type": "string",
@@ -503,238 +215,36 @@
           "description": "Timestamp when the consultation session ended.",
           "format": "date-time"
         },
-        "sessionType": {
-          "type": "string",
-          "description": "The medium of the consultation (e.g., 'Chat', 'Audio Call', 'Video Call')."
-        },
-        "sessionUrl": {
-          "type": "string",
-          "description": "URL or identifier for accessing the recorded session (e.g., video link, chat transcript link).",
-          "format": "uri"
-        },
         "status": {
           "type": "string",
-          "description": "The current status of the session (e.g., 'InProgress', 'Completed', 'Failed')."
-        },
-        "chatTranscript": {
-          "type": "string",
-          "description": "The full transcript of the chat consultation, if applicable."
-        },
-        "doctorNotes": {
-          "type": "string",
-          "description": "Clinical notes recorded by the doctor during or after the consultation."
+          "description": "The current status of the session (e.g., 'InProgress', 'Completed')."
         }
       },
       "required": [
         "id",
         "appointmentId",
-        "startTime",
-        "sessionType",
-        "status"
-      ]
-    },
-    "Transaction": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "Transaction",
-      "type": "object",
-      "description": "Records financial transactions on the platform, such as appointment payments.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Transaction entity."
-        },
-        "patientId": {
-          "type": "string",
-          "description": "Reference to the Patient involved in the transaction. (Relationship: Patient 1:N Transaction)"
-        },
-        "amount": {
-          "type": "number",
-          "description": "The monetary amount of the transaction."
-        },
-        "currency": {
-          "type": "string",
-          "description": "The currency code of the transaction amount (e.g., 'PKR', 'USD')."
-        },
-        "transactionDate": {
-          "type": "string",
-          "description": "Timestamp when the transaction occurred.",
-          "format": "date-time"
-        },
-        "status": {
-          "type": "string",
-          "description": "The status of the transaction (e.g., 'Pending', 'Completed', 'Failed', 'Refunded')."
-        },
-        "paymentGatewayRefId": {
-          "type": "string",
-          "description": "Reference ID provided by the external payment gateway for this transaction."
-        },
-        "type": {
-          "type": "string",
-          "description": "The type of transaction (e.g., 'AppointmentPayment', 'Refund')."
-        },
-        "appointmentId": {
-          "type": "string",
-          "description": "Optional reference to the Appointment if the transaction is for an appointment. (Relationship: Appointment 1:1 Transaction)"
-        },
-        "disputeId": {
-          "type": "string",
-          "description": "Optional reference to a PaymentDispute if one was raised for this transaction. (Relationship: Transaction 1:1 PaymentDispute)"
-        }
-      },
-      "required": [
-        "id",
         "patientId",
-        "amount",
-        "currency",
-        "transactionDate",
-        "status",
-        "paymentGatewayRefId",
-        "type"
-      ]
-    },
-    "PaymentDispute": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "PaymentDispute",
-      "type": "object",
-      "description": "Manages disputes raised against a specific payment transaction.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the PaymentDispute entity."
-        },
-        "transactionId": {
-          "type": "string",
-          "description": "Reference to the Transaction against which the dispute is raised. (Relationship: Transaction 1:1 PaymentDispute)"
-        },
-        "patientId": {
-          "type": "string",
-          "description": "Reference to the Patient who raised the dispute. (Relationship: Patient 1:N PaymentDispute)"
-        },
-        "doctorId": {
-          "type": "string",
-          "description": "Reference to the Doctor involved in the transaction if applicable. (Relationship: Doctor 1:N PaymentDispute)"
-        },
-        "disputeReason": {
-          "type": "string",
-          "description": "Detailed reason for the payment dispute."
-        },
-        "disputeDate": {
-          "type": "string",
-          "description": "Timestamp when the dispute was initiated.",
-          "format": "date-time"
-        },
-        "status": {
-          "type": "string",
-          "description": "The current status of the dispute (e.g., 'Open', 'UnderReview', 'Resolved', 'Closed')."
-        },
-        "resolutionDetails": {
-          "type": "string",
-          "description": "Details of how the dispute was resolved."
-        },
-        "resolvedByUserId": {
-          "type": "string",
-          "description": "Identifier of the admin or user who resolved this dispute from the external authentication system."
-        },
-        "resolvedAt": {
-          "type": "string",
-          "description": "Timestamp when the dispute was resolved.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "transactionId",
-        "patientId",
-        "disputeReason",
-        "disputeDate",
-        "status"
-      ]
-    },
-    "AdminDoctorChatSession": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "AdminDoctorChatSession",
-      "type": "object",
-      "description": "Represents a chat session between an admin and a doctor for administrative communications.",
-      "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the AdminDoctorChatSession entity."
-        },
-        "doctorId": {
-          "type": "string",
-          "description": "Reference to the Doctor participating in the chat session. (Relationship: Doctor 1:N AdminDoctorChatSession)"
-        },
-        "adminUserId": {
-          "type": "string",
-          "description": "Identifier of the Admin participating in the chat session from the external authentication system."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the chat session was initiated.",
-          "format": "date-time"
-        },
-        "lastMessageAt": {
-          "type": "string",
-          "description": "Timestamp of the most recent message in the chat session.",
-          "format": "date-time"
-        },
-        "status": {
-          "type": "string",
-          "description": "The current status of the chat session (e.g., 'Open', 'Closed')."
-        }
-      },
-      "required": [
-        "id",
         "doctorId",
-        "adminUserId",
-        "createdAt",
-        "lastMessageAt"
+        "startTime",
+        "status"
       ]
     },
-    "AdminDoctorChatMessage": {
+    "ConsultationChatMessage": {
       "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "AdminDoctorChatMessage",
+      "title": "ConsultationChatMessage",
       "type": "object",
-      "description": "Stores individual messages within an Admin-Doctor chat session.",
+      "description": "A message sent during a consultation session.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the AdminDoctorChatMessage entity."
-        },
-        "sessionId": {
-          "type": "string",
-          "description": "Reference to the AdminDoctorChatSession this message belongs to. (Relationship: AdminDoctorChatSession 1:N AdminDoctorChatMessage)"
-        },
-        "senderId": {
-          "type": "string",
-          "description": "Identifier of the sender (either a Doctor's ID or an Admin's external user ID)."
-        },
-        "senderRole": {
-          "type": "string",
-          "description": "The role of the sender ('Doctor' or 'Admin')."
-        },
-        "content": {
-          "type": "string",
-          "description": "The actual text content of the message."
-        },
-        "timestamp": {
-          "type": "string",
-          "description": "Timestamp when the message was sent.",
-          "format": "date-time"
-        },
-        "isRead": {
-          "type": "boolean",
-          "description": "Indicates if the message has been read by the receiver."
-        }
+        "id": { "type": "string" },
+        "sessionId": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderRole": { "type": "string", "enum": ["patient", "doctor"] },
+        "content": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "patientId": { "type": "string" },
+        "doctorId": { "type": "string" }
       },
-      "required": [
-        "id",
-        "sessionId",
-        "senderId",
-        "senderRole",
-        "content",
-        "timestamp"
-      ]
+      "required": ["id", "sessionId", "senderId", "senderRole", "content", "timestamp", "patientId", "doctorId"]
     }
   },
   "auth": {
@@ -746,200 +256,21 @@
   "firestore": {
     "structure": [
       {
-        "path": "/patients/{patientId}",
-        "definition": {
-          "entityName": "Patient",
-          "schema": {
-            "$ref": "#/backend/entities/Patient"
-          },
-          "description": "Top-level collection for patient profiles. Access is restricted to the patient themselves (owner). `patientId` corresponds to the authenticated user's UID. All patient-specific private data is nested under this path."
-        }
-      },
-      {
-        "path": "/doctors/{doctorId}",
-        "definition": {
-          "entityName": "Doctor",
-          "schema": {
-            "$ref": "#/backend/entities/Doctor"
-          },
-          "description": "Top-level collection for doctor profiles. Publicly readable for search and display. Only the doctor themselves (owner) or an admin can update their profile. `doctorId` corresponds to the authenticated user's UID for doctors."
-        }
-      },
-      {
-        "path": "/specialties/{specialtyId}",
-        "definition": {
-          "entityName": "Specialty",
-          "schema": {
-            "$ref": "#/backend/entities/Specialty"
-          },
-          "description": "Global collection for medical specialties. Publicly readable for displaying available specialties. Only administrators can create, update, or delete specialties."
-        }
-      },
-      {
-        "path": "/doctorVerificationDocuments/{documentId}",
-        "definition": {
-          "entityName": "DoctorVerificationDocument",
-          "schema": {
-            "$ref": "#/backend/entities/DoctorVerificationDocument"
-          },
-          "description": "Top-level collection for all doctor verification documents. Doctors can upload and read their own documents. Administrators can read and update the verification status of any document. Includes denormalized 'doctorId' for authorization independence and efficient querying by both doctors and admins."
-        }
-      },
-      {
-        "path": "/doctors/{doctorId}/ratings/{ratingId}",
-        "definition": {
-          "entityName": "RatingAndReview",
-          "schema": {
-            "$ref": "#/backend/entities/RatingAndReview"
-          },
-          "description": "Subcollection storing patient ratings and reviews for a specific doctor. Patients can create and manage their own reviews. Doctors can read all reviews for their profile. Public users can read reviews. Includes denormalized 'doctorId' and 'patientId' for authorization independence.",
-          "params": [
-            {
-              "name": "doctorId",
-              "description": "The unique identifier of the doctor being reviewed."
-            },
-            {
-              "name": "ratingId",
-              "description": "The unique identifier for the rating and review."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/patients/{patientId}/symptomChecks/{historyId}",
-        "definition": {
-          "entityName": "SymptomCheckHistory",
-          "schema": {
-            "$ref": "#/backend/entities/SymptomCheckHistory"
-          },
-          "description": "Subcollection for each patient's AI symptom check history. Only the patient (owner) can create or read their own symptom check records. Includes denormalized 'patientId' for authorization independence.",
-          "params": [
-            {
-              "name": "patientId",
-              "description": "The unique identifier of the patient whose symptom check history is being recorded."
-            },
-            {
-              "name": "historyId",
-              "description": "The unique identifier for a specific symptom check entry."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/appointments/{appointmentId}",
-        "definition": {
-          "entityName": "Appointment",
-          "schema": {
-            "$ref": "#/backend/entities/Appointment"
-          },
-          "description": "Top-level collection for all appointments. Access is granted to the associated patient, doctor, or an administrator. Includes denormalized 'patientId' and 'doctorId' for authorization independence, enabling efficient querying by either party without cross-document reads in rules."
-        }
-      },
-      {
-        "path": "/doctorUnavailabilityRequests/{requestId}",
-        "definition": {
-          "entityName": "DoctorUnavailabilityRequest",
-          "schema": {
-            "$ref": "#/backend/entities/DoctorUnavailabilityRequest"
-          },
-          "description": "Top-level collection for doctor unavailability requests. Doctors can create, read, and update their own requests. Administrators can read and update the status of any request. Includes denormalized 'doctorId' for authorization independence and efficient admin queries on request status."
-        }
-      },
-      {
         "path": "/consultationSessions/{sessionId}",
         "definition": {
           "entityName": "ConsultationSession",
-          "schema": {
-            "$ref": "#/backend/entities/ConsultationSession"
-          },
-          "description": "Top-level collection for live telemedicine consultation sessions. Access is granted to the associated patient, doctor, or an administrator. **CRITICAL DENORMALIZATION:** This document MUST include denormalized 'patientId' and 'doctorId' fields (from its associated Appointment) for robust authorization independence.",
-          "params": [
-            {
-              "name": "sessionId",
-              "description": "The unique identifier for the consultation session."
-            }
-          ]
+          "schema": { "$ref": "#/backend/entities/ConsultationSession" },
+          "description": "Top-level collection for consultation sessions."
         }
       },
       {
-        "path": "/transactions/{transactionId}",
+        "path": "/consultationSessions/{sessionId}/messages/{messageId}",
         "definition": {
-          "entityName": "Transaction",
-          "schema": {
-            "$ref": "#/backend/entities/Transaction"
-          },
-          "description": "Top-level collection for financial transactions. Patients can read their own transactions. Doctors can read transactions they are involved in (e.g., related to their appointments). Administrators can read and manage all transactions. Includes denormalized 'patientId'. **CRITICAL DENORMALIZATION:** If 'appointmentId' is present, this document MUST also include a denormalized 'doctorId' for authorization independence and efficient doctor-specific queries.",
-          "params": [
-            {
-              "name": "transactionId",
-              "description": "The unique identifier for the financial transaction."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/paymentDisputes/{disputeId}",
-        "definition": {
-          "entityName": "PaymentDispute",
-          "schema": {
-            "$ref": "#/backend/entities/PaymentDispute"
-          },
-          "description": "Top-level collection for payment disputes. Patients can create and manage their own disputes. Doctors can read disputes they are involved in. Administrators can read and resolve all disputes. Includes denormalized 'patientId' and 'doctorId' for authorization independence.",
-          "params": [
-            {
-              "name": "disputeId",
-              "description": "The unique identifier for the payment dispute."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/adminDoctorChatSessions/{sessionId}",
-        "definition": {
-          "entityName": "AdminDoctorChatSession",
-          "schema": {
-            "$ref": "#/backend/entities/AdminDoctorChatSession"
-          },
-          "description": "Top-level collection for chat sessions between an admin and a doctor. Access is restricted to the specific doctor and admin involved in the session. Includes denormalized 'doctorId' and 'adminUserId' for authorization independence.",
-          "params": [
-            {
-              "name": "sessionId",
-              "description": "The unique identifier for the chat session."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/adminDoctorChatSessions/{sessionId}/messages/{messageId}",
-        "definition": {
-          "entityName": "AdminDoctorChatMessage",
-          "schema": {
-            "$ref": "#/backend/entities/AdminDoctorChatMessage"
-          },
-          "description": "Subcollection for individual messages within an Admin-Doctor chat session. Access is restricted to the specific doctor and admin involved in the parent session. **CRITICAL DENORMALIZATION:** This document MUST include denormalized 'doctorId' and 'adminUserId' (from its parent AdminDoctorChatSession) for robust authorization independence when reading messages.",
-          "params": [
-            {
-              "name": "sessionId",
-              "description": "The unique identifier of the parent chat session."
-            },
-            {
-              "name": "messageId",
-              "description": "The unique identifier for the chat message."
-            }
-          ]
-        }
-      },
-      {
-        "path": "/roles_admin/{userId}",
-        "definition": {
-          "entityName": "Admin",
-          "schema": {
-            "$ref": "#/backend/entities/Doctor"
-          },
-          "description": "A collection used for Database Access Control (DBAC). The mere existence of a document at this path signifies that the 'userId' is an administrator. This is an existence-over-content model for global roles."
+          "entityName": "ConsultationChatMessage",
+          "schema": { "$ref": "#/backend/entities/ConsultationChatMessage" },
+          "description": "Messages within a consultation session."
         }
       }
-    ],
-    "reasoning": "The Firestore data structure is designed with a strong emphasis on Authorization Independence and Query-Accessible Paths (QAPs), as mandated by the core design principles. This is achieved primarily through strategic denormalization and structural segregation.\n\n**Authorization Independence via Denormalization:**\nFor documents requiring access by multiple user roles or where access depends on parent document attributes, key authorization fields have been denormalized directly into the document. This eliminates the need for `get()` calls in Firestore Security Rules, preventing potential transaction/batch breaks and significantly improving rule debuggability and performance. For example:\n*   `/appointments/{appointmentId}` documents include both `patientId` and `doctorId`, allowing direct checks like `request.auth.uid == resource.data.patientId || request.auth.uid == resource.data.doctorId`.\n*   `/paymentDisputes/{disputeId}` includes `patientId` and `doctorId` for multi-party authorization.\n*   `/adminDoctorChatSessions/{sessionId}` includes `doctorId` and `adminUserId` for explicit session access.\n*   **Critical Denormalization Requirements:** To fully achieve authorization independence for all entities, `ConsultationSession` documents *must* include denormalized `patientId` and `doctorId` fields from their associated `Appointment`. Similarly, `AdminDoctorChatMessage` documents *must* include `doctorId` and `adminUserId` from their parent `AdminDoctorChatSession`. If a `Transaction` is related to an `Appointment`, its `doctorId` should also be denormalized. These explicit mentions ensure that security rules can always operate solely on the `request.auth.uid` and the document's own data (`resource.data`) without cross-document reads.\n\n**Structural Segregation for QAPs and Clarity:**\nCollections are structured to ensure all documents within a collection share a homogeneous security posture. This simplifies security rules and directly supports QAPs, enabling efficient and secure `list` operations:\n*   **User-Owned Data:** Collections like `/patients/{patientId}/symptomChecks` are nested under the user's root (`/patients/{patientId}`) to ensure direct path-based ownership for private data.\n*   **Collaborative Data & Global Search:** Collections such as `/appointments`, `/doctorUnavailabilityRequests`, `/transactions`, and `/paymentDisputes` are top-level. This design is crucial for QAPs, allowing patients to easily query their appointments by `patientId`, doctors to query their requests by `doctorId`, and administrators to query all pending requests or transactions across the platform efficiently. By including the relevant `patientId`, `doctorId`, or `adminUserId` directly in these top-level documents, read access can be granted based on the querying user's UID, facilitating `list` operations without relying on complex, less performant `get()` calls or collection group queries for common use cases.\n*   **Role-Based Access:** A dedicated `/roles_admin/{userId}` collection provides a simple, existence-based check for administrator privileges, aligning with the DBAC principle.\n\nThis structure prioritizes flat, wide collections where possible for global query efficiency, with necessary nesting for tightly coupled, user-specific sub-entities. Denormalization of authorization fields ensures that security rules are atomic, robust, and easy to debug, making the system highly secure and scalable."
+    ]
   }
 }
