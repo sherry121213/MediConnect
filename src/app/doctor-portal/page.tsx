@@ -63,7 +63,7 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
             <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto border-none shadow-2xl">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-xl font-headline">
-                        <Settings2 className="h-5 w-5 text-primary" /> Session Slot Control
+                        <Settings2 className="h-5 world-5 text-primary" /> Session Slot Control
                     </DialogTitle>
                     <DialogDescription>
                         Manage individual clinical slots. Unchecked slots will be hidden from patients for booking.
@@ -158,7 +158,14 @@ function LeaveRequestDialog({ isOpen, onOpenChange, date, doctorId }: { isOpen: 
                                 Immediate clinical pauses cannot be automated to prevent disruption. Please contact Admin directly for emergencies.
                             </p>
                         </div>
-                        <Button variant="outline" className="w-full" onClick={() => onOpenChange(false)}>Close</Button>
+                        <div className="flex flex-col gap-2">
+                            <Button className="w-full h-12 font-bold shadow-lg" asChild>
+                                <Link href="/doctor-portal/chat">
+                                    <MessageSquare className="mr-2 h-4 w-4" /> Request via Admin Chat
+                                </Link>
+                            </Button>
+                            <Button variant="outline" className="w-full h-12" onClick={() => onOpenChange(false)}>Close</Button>
+                        </div>
                     </div>
                 ) : (
                     <Form {...form}>
@@ -479,7 +486,7 @@ export default function DoctorPortalPage() {
                     <div>
                         <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Clinical Command Center</h1>
                         <p className="text-muted-foreground flex items-center gap-2 text-sm mt-1">
-                            <Activity className="h-4 w-4 text-primary" /> Monitoring operations for Dr. {userData?.firstName}.
+                            <Activity className="h-4 world-4 text-primary" /> Monitoring operations for Dr. {userData?.firstName}.
                         </p>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full md:w-auto">
