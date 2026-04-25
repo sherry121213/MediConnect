@@ -72,7 +72,7 @@ export default function DoctorDetailPage() {
 
     const { data: existingAppointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    // Unavailability requests check - ONLY approved ones block bookings
+    // Unavailability audit check - ONLY approved leave blocks booking
     const unavailabilityQuery = useMemoFirebase(() => {
       if (!firestore || !doctorId) return null;
       return query(
@@ -188,18 +188,11 @@ export default function DoctorDetailPage() {
 
     const isSlotDisabledByDoctor = (time: string) => doctor.availability?.disabledSlots?.includes(time);
 
-    const isDayDisabledByDoctor = (date: Date) => {
-        const dayShort = format(date, "E");
-        if (!doctor.availability?.days) return false;
-        return !doctor.availability.days.includes(dayShort);
-    };
-
     const TimeButton = ({ time }: { time: string }) => {
         const isPast = isTimeSlotPast(time, selectedDate);
         const isBooked = bookedTimes.includes(time);
         const isDisabledByDoctor = isSlotDisabledByDoctor(time);
-        const isOffDuty = isDayDisabledByDoctor(selectedDate);
-        const isDisabled = isPast || isBooked || isDisabledByDoctor || isOffDuty || isDayOffByAdmin;
+        const isDisabled = isPast || isBooked || isDisabledByDoctor || isDayOffByAdmin;
 
         if (isDisabledByDoctor && !isBooked) return null; 
 
@@ -208,7 +201,7 @@ export default function DoctorDetailPage() {
                 variant={selectedTime === time ? 'default' : 'outline'}
                 onClick={() => setSelectedTime(time)}
                 disabled={isDisabled}
-                className={cn("relative", isBooked && "opacity-50 grayscale cursor-not-allowed border-destructive/30")}
+                className={cn("relative rounded-xl font-bold", isBooked && "opacity-50 grayscale cursor-not-allowed border-destructive/30")}
             >
                 {time}
                 {isBooked && <span className="absolute -top-1 -right-1 flex h-2 w-2 rounded-full bg-destructive" />}
@@ -221,87 +214,95 @@ export default function DoctorDetailPage() {
             <AppHeader />
             <main className="flex-grow bg-secondary/30 py-12">
                 <div className="container mx-auto px-4">
-                    <Button asChild variant="ghost" className="mb-6">
+                    <Button asChild variant="ghost" className="mb-6 rounded-xl">
                         <Link href="/find-a-doctor"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Link>
                     </Button>
                     <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
                         <div className="lg:col-span-1">
-                            <Card>
-                                <CardHeader className="items-center text-center">
-                                    <div className="relative h-32 w-32">
-                                        <Image src={doctor.photoURL || doctorImage?.imageUrl || ''} alt={doctor.firstName} fill className="rounded-full border-4 border-background object-cover" />
+                            <Card className="rounded-2xl border-none shadow-xl overflow-hidden">
+                                <CardHeader className="items-center text-center bg-white">
+                                    <div className="relative h-32 w-32 shadow-lg rounded-full">
+                                        <Image src={doctor.photoURL || doctorImage?.imageUrl || ''} alt={doctor.firstName} fill className="rounded-full border-4 border-white object-cover" />
                                     </div>
                                     <div className="pt-4">
                                         <CardTitle className="text-2xl font-headline">Dr. {doctor.firstName} {doctor.lastName}</CardTitle>
-                                        <CardDescription className="text-md text-primary">{doctor.specialty}</CardDescription>
+                                        <CardDescription className="text-md text-primary font-bold">{doctor.specialty}</CardDescription>
                                     </div>
                                 </CardHeader>
-                                <CardContent className="text-sm text-muted-foreground space-y-4">
-                                     <div className="flex items-center"><UserCheck className="mr-2 h-4 w-4" /> <strong>{doctor.experience || 0} years</strong> experience</div>
-                                     <div className="flex items-center"><MapPin className="mr-2 h-4 w-4" /> {doctor.location}</div>
+                                <CardContent className="text-sm text-muted-foreground space-y-4 p-6 bg-muted/5">
+                                     <div className="flex items-center gap-3"><UserCheck className="h-4 w-4 text-primary" /> <strong>{doctor.experience || 0} years</strong> experience</div>
+                                     <div className="flex items-center gap-3"><MapPin className="h-4 w-4 text-primary" /> {doctor.location}</div>
                                 </CardContent>
                             </Card>
                         </div>
                         <div className="lg:col-span-2">
-                             <Card>
-                                <CardHeader>
-                                    <CardTitle className="flex items-center"><CalendarDays className="mr-2 h-6 w-6 text-primary"/> Clinical Scheduler</CardTitle>
+                             <Card className="rounded-3xl border-none shadow-2xl overflow-hidden bg-white">
+                                <CardHeader className="bg-primary/5 border-b">
+                                    <CardTitle className="flex items-center gap-2"><CalendarDays className="h-6 w-6 text-primary"/> Clinical Scheduler</CardTitle>
+                                    <CardDescription>Select a date and time for your consultation.</CardDescription>
                                 </CardHeader>
-                                <CardContent>
+                                <CardContent className="p-8">
                                     {isDayOffByAdmin ? (
-                                      <div className="bg-destructive/10 border border-destructive/20 rounded-xl p-8 text-center space-y-4">
-                                        <ShieldAlert className="h-12 w-12 text-destructive mx-auto" />
-                                        <h4 className="text-xl font-bold text-destructive">Doctor Unavailable</h4>
-                                        <p className="text-muted-foreground">Dr. {doctor.firstName} has requested a full day off on this date. Please select another day.</p>
+                                      <div className="bg-destructive/5 border border-destructive/10 rounded-3xl p-12 text-center space-y-6 animate-in zoom-in-95">
+                                        <div className="h-20 w-20 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mx-auto shadow-inner">
+                                            <ShieldAlert className="h-10 w-10" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <h4 className="text-2xl font-bold text-destructive tracking-tight">Doctor Unavailable</h4>
+                                            <p className="text-muted-foreground text-sm max-w-md mx-auto">
+                                                Dr. {doctor.firstName} is officially off-duty on this date. Please select a different date from the calendar above to view available slots.
+                                            </p>
+                                        </div>
                                       </div>
                                     ) : (
-                                    <div className="space-y-10">
+                                    <div className="space-y-12">
                                         <div>
-                                            <h4 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Step 1: Select a Date</h4>
-                                            <div className="flex gap-2 overflow-x-auto pb-4 -mx-4 px-4 custom-scrollbar">
-                                                {availableDates.map(day => {
-                                                    const isOff = isDayDisabledByDoctor(day.date);
-                                                    return (
-                                                        <button 
-                                                            key={day.date.toISOString()}
-                                                            onClick={() => { setSelectedDate(day.date); setSelectedTime(null); }}
-                                                            disabled={isOff}
-                                                            className={cn(
-                                                                "p-3 rounded-xl border text-center transition-all shrink-0 w-24",
-                                                                selectedDate.toDateString() === day.date.toDateString() 
-                                                                    ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-105' 
-                                                                    : 'bg-background hover:bg-muted border-muted-foreground/10',
-                                                                isOff && "opacity-30 grayscale cursor-not-allowed"
-                                                            )}
-                                                        >
-                                                            <p className="text-xs font-bold uppercase opacity-80">{day.dayName}</p>
-                                                            <p className="text-2xl font-bold mt-1">{day.dayNumber}</p>
-                                                        </button>
-                                                    )
-                                                })}
+                                            <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 1: Select Date</h4>
+                                            <div className="flex gap-4 overflow-x-auto pb-4 -mx-4 px-4 custom-scrollbar">
+                                                {availableDates.map(day => (
+                                                    <button 
+                                                        key={day.date.toISOString()}
+                                                        onClick={() => { setSelectedDate(day.date); setSelectedTime(null); }}
+                                                        className={cn(
+                                                            "p-4 rounded-2xl border text-center transition-all shrink-0 w-24 flex flex-col items-center gap-1",
+                                                            selectedDate.toDateString() === day.date.toDateString() 
+                                                                ? 'bg-primary text-primary-foreground border-primary shadow-xl scale-105' 
+                                                                : 'bg-background hover:bg-muted border-muted-foreground/10 shadow-sm'
+                                                        )}
+                                                    >
+                                                        <p className="text-[10px] font-bold uppercase opacity-80">{day.dayName}</p>
+                                                        <p className="text-3xl font-bold">{day.dayNumber}</p>
+                                                    </button>
+                                                ))}
                                             </div>
                                         </div>
 
                                         <div>
-                                            <h4 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Step 2: Select Time</h4>
-                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                            <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 2: Select Session Time</h4>
+                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                                               {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => <TimeButton key={time} time={time} />)}
                                             </div>
                                         </div>
 
                                         <div>
-                                            <h4 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Step 3: Consultation Mode</h4>
+                                            <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 3: Consultation Mode</h4>
                                             <RadioGroup defaultValue="Video Call" onValueChange={(val) => setAppointmentType(val as any)} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                <div className="flex items-center space-x-3 p-4 rounded-xl border hover:bg-muted/50 transition-all cursor-pointer">
+                                                <div className="flex items-center space-x-3 p-5 rounded-2xl border-2 hover:bg-muted/50 transition-all cursor-pointer group">
                                                     <RadioGroupItem value="Video Call" id="video" />
-                                                    <Label htmlFor="video" className="flex items-center gap-2 cursor-pointer">
-                                                        <Video className="h-4 w-4 text-primary" /> Video Consultation
+                                                    <Label htmlFor="video" className="flex items-center gap-3 cursor-pointer font-bold">
+                                                        <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:scale-110 transition-transform">
+                                                            <Video className="h-5 w-5" />
+                                                        </div>
+                                                        Video Room
                                                     </Label>
                                                 </div>
-                                                <div className="flex items-center space-x-3 p-4 rounded-xl border hover:bg-muted/50 transition-all cursor-pointer">
+                                                <div className="flex items-center space-x-3 p-5 rounded-2xl border-2 hover:bg-muted/50 transition-all cursor-pointer group">
                                                     <RadioGroupItem value="Audio Call" id="audio" />
-                                                    <Label htmlFor="audio" className="flex items-center gap-2 cursor-pointer">
-                                                        <PhoneCall className="h-4 w-4 text-primary" /> Audio Only
+                                                    <Label htmlFor="audio" className="flex items-center gap-3 cursor-pointer font-bold">
+                                                        <div className="p-2 rounded-lg bg-primary/10 text-primary group-hover:scale-110 transition-transform">
+                                                            <PhoneCall className="h-5 w-5" />
+                                                        </div>
+                                                        Audio Room
                                                     </Label>
                                                 </div>
                                             </RadioGroup>
@@ -309,28 +310,36 @@ export default function DoctorDetailPage() {
 
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
-                                                <Button className="w-full h-14 text-lg font-bold" disabled={!selectedTime || isBooking}>
-                                                    Book Consultation {selectedTime && `@ ${selectedTime}`}
+                                                <Button className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl shadow-primary/20" disabled={!selectedTime || isBooking}>
+                                                    Finalize Booking {selectedTime && `@ ${selectedTime}`}
                                                 </Button>
                                             </AlertDialogTrigger>
-                                            <AlertDialogContent>
+                                            <AlertDialogContent className="rounded-3xl border-none shadow-2xl">
                                                 <AlertDialogHeader>
-                                                    <AlertDialogTitle>Finalize Consultation</AlertDialogTitle>
-                                                    <AlertDialogDescription>Complete the PKR 1,500 fee transfer to confirm your session.</AlertDialogDescription>
+                                                    <AlertDialogTitle className="text-2xl font-headline">Clinical Confirmation</AlertDialogTitle>
+                                                    <AlertDialogDescription>Complete the consultation fee transfer of PKR 1,500 to finalize your session with Dr. {doctor.firstName}.</AlertDialogDescription>
                                                 </AlertDialogHeader>
-                                                <div className="space-y-4 py-4">
-                                                    <Label>Upload Receipt Screenshot</Label>
-                                                    <Input type="file" accept="image/*" onChange={(e) => {
-                                                        const file = e.target.files?.[0];
-                                                        if (!file) return;
-                                                        const reader = new FileReader();
-                                                        reader.onloadend = () => setPaymentReceipt(reader.result as string);
-                                                        reader.readAsDataURL(file);
-                                                    }} />
+                                                <div className="space-y-6 py-6">
+                                                    <div className="bg-muted/30 p-6 rounded-2xl border border-dashed text-center">
+                                                        <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1">Total Fee Payable</p>
+                                                        <p className="text-3xl font-bold text-primary">PKR 1,500</p>
+                                                    </div>
+                                                    <div className="space-y-2">
+                                                        <Label className="text-xs font-bold uppercase opacity-60">Upload Payment Receipt</Label>
+                                                        <Input type="file" accept="image/*" className="rounded-xl border-2 h-14 pt-3.5" onChange={(e) => {
+                                                            const file = e.target.files?.[0];
+                                                            if (!file) return;
+                                                            const reader = new FileReader();
+                                                            reader.onloadend = () => setPaymentReceipt(reader.result as string);
+                                                            reader.readAsDataURL(file);
+                                                        }} />
+                                                    </div>
                                                 </div>
-                                                <AlertDialogFooter>
-                                                    <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={handleConfirmBooking} disabled={!paymentReceipt || isBooking}>Confirm Booking</AlertDialogAction>
+                                                <AlertDialogFooter className="gap-3">
+                                                    <AlertDialogCancel className="rounded-xl h-12">Discard</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={handleConfirmBooking} disabled={!paymentReceipt || isBooking} className="rounded-xl h-12 bg-primary font-bold">
+                                                        Confirm & Notify Doctor
+                                                    </AlertDialogAction>
                                                 </AlertDialogFooter>
                                             </AlertDialogContent>
                                         </AlertDialog>
@@ -346,3 +355,4 @@ export default function DoctorDetailPage() {
         </div>
     );
 }
+
