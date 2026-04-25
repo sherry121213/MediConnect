@@ -130,7 +130,7 @@ function LeaveRequestDialog({ isOpen, onOpenChange, date, doctorId }: { isOpen: 
             status: 'pending',
             requestedAt: new Date().toISOString(),
         });
-        toast({ title: "Clinical Request Logged", description: "Audit requested for " + format(date, "PPP") });
+        toast({ title: "Clinical Audit Logged", description: "Audit requested for " + format(date, "PPP") });
         onOpenChange(false);
         form.reset();
     };
@@ -152,10 +152,10 @@ function LeaveRequestDialog({ isOpen, onOpenChange, date, doctorId }: { isOpen: 
                     <div className="py-6 space-y-6 text-center">
                         <div className="p-4 bg-destructive/5 border border-destructive/10 rounded-xl space-y-2">
                             <p className="font-bold text-destructive flex items-center justify-center gap-2 uppercase tracking-tighter">
-                                <AlertCircle className="h-4 w-4" /> Policy: Same-Day Restriction
+                                <AlertCircle className="h-4 w-4" /> Policy: Emergency Restriction
                             </p>
                             <p className="text-xs text-muted-foreground leading-relaxed">
-                                Immediate clinical pauses cannot be automated to prevent disruption. Please contact Admin directly for emergencies.
+                                Automated audit is restricted for same-day absences to protect active patient bookings. Please contact Admin directly for overrides.
                             </p>
                         </div>
                         <div className="flex flex-col gap-2">
@@ -175,16 +175,16 @@ function LeaveRequestDialog({ isOpen, onOpenChange, date, doctorId }: { isOpen: 
                                 name="reason"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-[10px] uppercase font-bold tracking-widest opacity-60">Absence Reason</FormLabel>
+                                        <FormLabel className="text-[10px] uppercase font-bold tracking-widest opacity-60">Audit Justification</FormLabel>
                                         <FormControl>
-                                            <Textarea placeholder="Detail the nature of your unavailability..." rows={4} className="resize-none" {...field} />
+                                            <Textarea placeholder="Detail the clinical or personal nature of your unavailability..." rows={4} className="resize-none" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
                             <div className="p-3 bg-muted/30 rounded-lg text-[10px] text-muted-foreground italic leading-relaxed border border-dashed border-muted-foreground/20">
-                                All absences must be logged for clinical audit. Once approved, patients will be unable to schedule sessions for this date.
+                                This request will be sent for clinical audit. Once approved, patients will be unable to schedule sessions for this specific date.
                             </div>
                             <DialogFooter className="gap-2">
                                 <Button type="button" variant="ghost" className="flex-1" onClick={() => onOpenChange(false)}>Cancel</Button>
@@ -455,7 +455,7 @@ export default function DoctorPortalPage() {
             alerts.push({ id: `chat-${s.id}`, msg: "New Administrative Message.", icon: MessageSquare, color: 'text-blue-500', link: '/doctor-portal/chat' });
         });
         requests?.filter(r => r.status !== 'pending' && isAfter(new Date(r.processedAt || 0), yesterday)).forEach(r => {
-            alerts.push({ id: `req-${r.id}`, msg: `Absence for ${format(new Date(r.requestedDate), "PP")} ${r.status}.`, icon: r.status === 'approved' ? CheckCircle2 : AlertCircle, color: r.status === 'approved' ? 'text-green-500' : 'text-destructive' });
+            alerts.push({ id: `req-${r.id}`, msg: `Audit for ${format(new Date(r.requestedDate), "PP")} ${r.status}.`, icon: r.status === 'approved' ? CheckCircle2 : AlertCircle, color: r.status === 'approved' ? 'text-green-500' : 'text-destructive' });
         });
 
         return { 
