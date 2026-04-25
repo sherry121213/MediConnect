@@ -36,18 +36,11 @@ const leaveRequestSchema = z.object({
 });
 type LeaveFormValues = z.infer<typeof leaveRequestSchema>;
 
-const DAYS_OF_WEEK = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
 function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean, onOpenChange: (open: boolean) => void, doctor: Doctor }) {
     const firestore = useFirestore();
     const { toast } = useToast();
-    const [selectedDays, setSelectedDays] = useState<string[]>(doctor.availability?.days || DAYS_OF_WEEK);
     const [disabledSlots, setDisabledSlots] = useState<string[]>(doctor.availability?.disabledSlots || []);
     const [isSaving, setIsSaving] = useState(false);
-
-    const handleToggleDay = (day: string) => {
-        setSelectedDays(prev => prev.includes(day) ? prev.filter(d => d !== day) : [...prev, day]);
-    };
 
     const handleToggleSlot = (slot: string) => {
         setDisabledSlots(prev => prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot]);
@@ -58,7 +51,7 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
         setIsSaving(true);
         const doctorRef = doc(firestore, 'doctors', doctor.id);
         updateDocumentNonBlocking(doctorRef, {
-            availability: { days: selectedDays, disabledSlots: disabledSlots },
+            availability: { ...doctor.availability, disabledSlots: disabledSlots },
             updatedAt: new Date().toISOString()
         });
         toast({ title: "Availability Updated", description: "Your clinical hours have been synchronized." });
@@ -70,53 +63,33 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto border-none shadow-2xl">
                 <DialogHeader>
-                    <DialogTitle className="flex items-center gap-2">
-                        <Settings2 className="h-5 w-5 text-primary" /> Session Availability
+                    <DialogTitle className="flex items-center gap-2 text-xl font-headline">
+                        <Settings2 className="h-5 w-5 text-primary" /> Session Timing Control
                     </DialogTitle>
                     <DialogDescription>
-                        Control your working days and individual time-slot availability. Unchecked items will be hidden from patients.
+                        Manage your individual time-slot availability for each clinical session. Unchecked slots will be hidden from patients.
                     </DialogDescription>
                 </DialogHeader>
                 
                 <div className="space-y-8 py-4">
-                    <div>
-                        <h4 className="text-sm font-bold uppercase tracking-widest text-muted-foreground mb-4">Working Days</h4>
-                        <div className="flex flex-wrap gap-2">
-                            {DAYS_OF_WEEK.map(day => (
-                                <Button 
-                                    key={day} 
-                                    variant={selectedDays.includes(day) ? "default" : "outline"}
-                                    size="sm"
-                                    onClick={() => handleToggleDay(day)}
-                                    className="w-12 h-12 rounded-full p-0 font-bold"
-                                >
-                                    {day}
-                                </Button>
-                            ))}
-                        </div>
-                    </div>
-
                     <div className="space-y-6">
-                        <h4 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Manage Clinical Slots</h4>
-                        <p className="text-xs text-muted-foreground italic">Uncheck slots where you are unavailable for consultations.</p>
-                        
                         {Object.entries(timeSlots).map(([session, slots]) => (
-                            <div key={session}>
-                                <h5 className="text-xs font-bold text-primary uppercase mb-3 flex items-center gap-2">
+                            <div key={session} className="p-4 rounded-xl bg-muted/20 border border-muted/50">
+                                <h5 className="text-xs font-bold text-primary uppercase mb-4 flex items-center gap-2 tracking-widest">
                                     {session === 'morning' && <Clock className="h-3 w-3" />}
                                     {session === 'afternoon' && <Activity className="h-3 w-3" />}
                                     {session === 'evening' && <Moon className="h-3 w-3" />}
-                                    {session} Session
+                                    {session} Clinical Block
                                 </h5>
-                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                     {slots.map(slot => (
-                                        <div key={slot} className="flex items-center space-x-2 p-2 rounded border hover:bg-muted/50 transition-colors">
+                                        <div key={slot} className="flex items-center space-x-3 p-3 rounded-lg border bg-background hover:bg-muted/30 transition-all cursor-pointer">
                                             <Checkbox 
                                                 id={`slot-${slot}`} 
                                                 checked={!disabledSlots.includes(slot)} 
                                                 onCheckedChange={() => handleToggleSlot(slot)}
                                             />
-                                            <label htmlFor={`slot-${slot}`} className="text-xs font-medium cursor-pointer">{slot}</label>
+                                            <label htmlFor={`slot-${slot}`} className="text-xs font-bold cursor-pointer select-none">{slot}</label>
                                         </div>
                                     ))}
                                 </div>
@@ -125,10 +98,10 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
                     </div>
                 </div>
 
-                <DialogFooter>
+                <DialogFooter className="border-t pt-4">
                     <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-                    <Button onClick={handleSave} disabled={isSaving}>
-                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Changes"}
+                    <Button onClick={handleSave} disabled={isSaving} className="px-8">
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sync Schedule"}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -140,9 +113,9 @@ function LeaveRequestDialog({ isOpen, onOpenChange, date, doctorId }: { isOpen: 
     const firestore = useFirestore();
     const { toast } = useToast();
     
-    // Enforce 2-day lead time
-    const minLeadDate = addDays(startOfDay(new Date()), 2);
-    const isTooEarly = isBefore(date, minLeadDate);
+    // Strict block for same-day requests
+    const today = startOfDay(new Date());
+    const isSameDayRequest = isSameDay(date, today);
 
     const form = useForm<LeaveFormValues>({
         resolver: zodResolver(leaveRequestSchema),
@@ -150,7 +123,7 @@ function LeaveRequestDialog({ isOpen, onOpenChange, date, doctorId }: { isOpen: 
     });
 
     const onSubmit = (values: LeaveFormValues) => {
-        if (!firestore || isTooEarly) return;
+        if (!firestore || isSameDayRequest) return;
         const colRef = collection(firestore, 'doctorUnavailabilityRequests');
         addDocumentNonBlocking(colRef, {
             doctorId,
@@ -159,27 +132,35 @@ function LeaveRequestDialog({ isOpen, onOpenChange, date, doctorId }: { isOpen: 
             status: 'pending',
             requestedAt: new Date().toISOString(),
         });
-        toast({ title: "Request Submitted", description: "Admin will review your leave for " + format(date, "MMM dd") });
+        toast({ title: "Clinical Request Sent", description: "Admin will review your leave for " + format(date, "PPP") });
         onOpenChange(false);
         form.reset();
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[400px]">
+            <DialogContent className="sm:max-w-[450px]">
                 <DialogHeader>
-                    <DialogTitle>Request Leave for {format(date, "MMM dd")}</DialogTitle>
-                    <DialogDescription>Full-day unavailability requires administrative approval.</DialogDescription>
+                    <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
+                        <Moon className="h-6 w-6 text-primary" />
+                    </div>
+                    <DialogTitle className="text-center font-headline text-2xl">Unavailability Request</DialogTitle>
+                    <DialogDescription className="text-center">
+                        Requesting a clinical pause for <span className="font-bold text-foreground">{format(date, "EEEE, MMM dd")}</span>.
+                    </DialogDescription>
                 </DialogHeader>
                 
-                {isTooEarly ? (
-                    <div className="py-6 space-y-4 text-center">
-                        <AlertCircle className="h-12 w-12 text-destructive mx-auto" />
-                        <div className="space-y-2">
-                            <p className="font-bold text-destructive">Short-Notice Request Blocked</p>
-                            <p className="text-sm text-muted-foreground">Clinical leave must be requested at least 2 days in advance to ensure patient stability.</p>
+                {isSameDayRequest ? (
+                    <div className="py-6 space-y-6 text-center">
+                        <div className="p-4 bg-destructive/5 border border-destructive/10 rounded-xl space-y-2">
+                            <p className="font-bold text-destructive flex items-center justify-center gap-2 uppercase tracking-tighter">
+                                <AlertCircle className="h-4 w-4" /> Immediate Block Restricted
+                            </p>
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                                Same-day leave requests cannot be automated to prevent active patient disruption. Please contact the clinical administrator directly for urgent same-day emergencies.
+                            </p>
                         </div>
-                        <Button variant="outline" className="w-full" onClick={() => onOpenChange(false)}>Close</Button>
+                        <Button variant="outline" className="w-full" onClick={() => onOpenChange(false)}>I Understand</Button>
                     </div>
                 ) : (
                     <Form {...form}>
@@ -189,19 +170,21 @@ function LeaveRequestDialog({ isOpen, onOpenChange, date, doctorId }: { isOpen: 
                                 name="reason"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Reason for Absence</FormLabel>
+                                        <FormLabel className="text-xs uppercase font-bold tracking-widest opacity-70">Professional Reason</FormLabel>
                                         <FormControl>
-                                            <Textarea placeholder="e.g., Medical conference, personal emergency..." rows={4} {...field} />
+                                            <Textarea placeholder="Describe the nature of your unavailability for administrative audit..." rows={4} className="resize-none" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
-                             <p className="text-[10px] text-muted-foreground italic">Note: Once approved, this entire day will be blocked for all patient bookings.</p>
-                            <DialogFooter>
-                                <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-                                <Button type="submit" disabled={form.formState.isSubmitting}>
-                                    {form.formState.isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Submit Request"}
+                            <div className="p-3 bg-muted/30 rounded-lg text-[10px] text-muted-foreground italic leading-relaxed border border-dashed border-muted-foreground/20">
+                                This request will be queued for administrative review. If approved, your master schedule for this day will be locked, and no patient can book a slot.
+                            </div>
+                            <DialogFooter className="gap-2">
+                                <Button type="button" variant="ghost" className="flex-1" onClick={() => onOpenChange(false)}>Cancel</Button>
+                                <Button type="submit" className="flex-1" disabled={form.formState.isSubmitting}>
+                                    {form.formState.isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Send to Admin"}
                                 </Button>
                             </DialogFooter>
                         </form>
@@ -462,10 +445,8 @@ export default function DoctorPortalPage() {
                     const formattedAptTime = format(aptDate, "hh:mm a");
                     return isSameDay(aptDate, viewDate) && formattedAptTime === time && a.status !== 'cancelled';
                 });
-                const dayOfWeek = format(viewDate, "E");
-                const isDayDisabled = userData?.availability?.days ? !userData.availability.days.includes(dayOfWeek) : false;
                 const isSlotDisabled = userData?.availability?.disabledSlots?.includes(time) || false;
-                return { time, appointment: apt, isDisabled: isDayDisabled || isSlotDisabled || leaveStatus === 'approved' };
+                return { time, appointment: apt, isDisabled: isSlotDisabled || leaveStatus === 'approved' };
             });
         };
 

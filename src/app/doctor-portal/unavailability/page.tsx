@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -13,17 +14,17 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Calendar as CalendarIcon, Loader2, Clock, CheckCircle2, XCircle, AlertCircle, History } from 'lucide-react';
+import { Calendar as CalendarIcon, Loader2, Clock, CheckCircle2, XCircle, AlertCircle, History, Info, Sparkles } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { format, addDays, startOfDay } from 'date-fns';
+import { format, addDays, startOfDay, isSameDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const requestSchema = z.object({
   requestedDate: z.date({ required_error: "A date is required." }),
-  reason: z.string().min(5, "Please provide a reason (min 5 characters)."),
+  reason: z.string().min(5, "Please provide a professional reason (min 5 characters)."),
 });
 
 type RequestFormValues = z.infer<typeof requestSchema>;
@@ -67,8 +68,8 @@ export default function DoctorUnavailabilityPage() {
     addDocumentNonBlocking(colRef, requestData);
 
     toast({
-      title: "Request Submitted",
-      description: "Admin will review your unavailability request shortly.",
+      title: "Clinical Request Queued",
+      description: "Admin will review your pause for " + format(values.requestedDate, "PPP"),
     });
     
     form.reset();
@@ -77,48 +78,62 @@ export default function DoctorUnavailabilityPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'approved': return <Badge className="bg-green-100 text-green-800"><CheckCircle2 className="mr-1 h-3 w-3" /> Approved</Badge>;
+      case 'approved': return <Badge className="bg-green-100 text-green-800 border-green-200"><CheckCircle2 className="mr-1 h-3 w-3" /> Approved</Badge>;
       case 'rejected': return <Badge variant="destructive"><XCircle className="mr-1 h-3 w-3" /> Rejected</Badge>;
-      default: return <Badge variant="outline" className="text-amber-600 border-amber-600"><Clock className="mr-1 h-3 w-3" /> Pending</Badge>;
+      default: return <Badge variant="outline" className="text-amber-600 border-amber-600 bg-amber-50"><Clock className="mr-1 h-3 w-3" /> Pending</Badge>;
     }
   };
 
   return (
-    <main className="flex-grow bg-secondary/30 py-8">
-      <div className="container mx-auto px-4 max-w-5xl space-y-8">
-        <div>
-          <h1 className="text-3xl font-bold font-headline">Clinical Leave Requests</h1>
-          <p className="text-muted-foreground">Request full-day unavailability. Requires administrative approval.</p>
+    <main className="flex-grow bg-secondary/30 py-10">
+      <div className="container mx-auto px-4 max-w-6xl space-y-10">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div>
+            <h1 className="text-3xl font-bold font-headline flex items-center gap-3">
+               <div className="h-10 w-1 bg-primary rounded-full" />
+               Unavailability Center
+            </h1>
+            <p className="text-muted-foreground mt-1">Submit clinical pause requests for full-day absences.</p>
+          </div>
+          <div className="bg-primary/5 border border-primary/10 p-4 rounded-2xl flex items-center gap-4">
+             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
+                <Sparkles className="h-5 w-5" />
+             </div>
+             <div className="text-sm">
+                <p className="font-bold">Next Possible Leave</p>
+                <p className="text-muted-foreground">{format(addDays(new Date(), 1), "EEEE, MMM dd")}</p>
+             </div>
+          </div>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
-          <Card className="md:col-span-1 h-fit">
-            <CardHeader>
+        <div className="grid lg:grid-cols-12 gap-8">
+          <Card className="lg:col-span-4 h-fit border-none shadow-xl overflow-hidden">
+            <CardHeader className="bg-slate-900 text-white">
               <CardTitle className="text-lg flex items-center gap-2">
-                <CalendarIcon className="h-5 w-5 text-primary" /> New Request
+                <CalendarIcon className="h-5 w-5 text-primary" /> Request a Pause
               </CardTitle>
-              <CardDescription>Select a date and provide a reason.</CardDescription>
+              <CardDescription className="text-slate-400">Select a future clinical date.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-6">
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                   <FormField
                     control={form.control}
                     name="requestedDate"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel>Request Date</FormLabel>
+                        <FormLabel className="text-xs uppercase font-bold opacity-70">Target Date</FormLabel>
                         <Popover>
                           <PopoverTrigger asChild>
                             <FormControl>
                               <Button
                                 variant={"outline"}
                                 className={cn(
-                                  "w-full pl-3 text-left font-normal",
+                                  "w-full h-12 pl-3 text-left font-normal border-2 hover:border-primary transition-colors",
                                   !field.value && "text-muted-foreground"
                                 )}
                               >
-                                {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                {field.value ? format(field.value, "PPP") : <span>Select a date...</span>}
                                 <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                               </Button>
                             </FormControl>
@@ -128,7 +143,7 @@ export default function DoctorUnavailabilityPage() {
                               mode="single"
                               selected={field.value}
                               onSelect={field.onChange}
-                              disabled={(date) => date < startOfDay(new Date())}
+                              disabled={(date) => isSameDay(date, new Date()) || date < startOfDay(new Date())}
                               initialFocus
                             />
                           </PopoverContent>
@@ -142,56 +157,70 @@ export default function DoctorUnavailabilityPage() {
                     name="reason"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Reason</FormLabel>
+                        <FormLabel className="text-xs uppercase font-bold opacity-70">Audit Reason</FormLabel>
                         <FormControl>
-                          <Textarea placeholder="e.g. Medical Conference, Personal Emergency..." {...field} />
+                          <Textarea placeholder="Explain the reason for this clinical unavailability..." className="resize-none border-2" rows={4} {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <Button type="submit" className="w-full" disabled={isSubmitting}>
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Submit Request"}
+                  <div className="flex gap-2 p-3 bg-muted/50 rounded-lg text-[10px] text-muted-foreground">
+                    <Info className="h-3 w-3 shrink-0 text-primary" />
+                    <p>Same-day requests are blocked to maintain clinical continuity. Future requests can be accumulated and reviewed by Admin.</p>
+                  </div>
+                  <Button type="submit" className="w-full h-12 font-bold" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Submit Audit Request"}
                   </Button>
                 </form>
               </Form>
             </CardContent>
           </Card>
 
-          <Card className="md:col-span-2">
-            <CardHeader>
+          <Card className="lg:col-span-8 border-none shadow-xl">
+            <CardHeader className="border-b">
               <CardTitle className="text-lg flex items-center gap-2">
-                <History className="h-5 w-5 text-primary" /> Request History
+                <History className="h-5 w-5 text-primary" /> Audit History
               </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
               {isLoading ? (
-                <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+                <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
               ) : requests && requests.length > 0 ? (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>Reason</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead className="text-right">Requested At</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {requests.sort((a:any, b:any) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime()).map((req: any) => (
-                      <TableRow key={req.id}>
-                        <TableCell className="font-medium">{format(new Date(req.requestedDate), "MMM dd, yyyy")}</TableCell>
-                        <TableCell className="max-w-[150px] truncate">{req.reason}</TableCell>
-                        <TableCell>{getStatusBadge(req.status)}</TableCell>
-                        <TableCell className="text-right text-xs text-muted-foreground">{format(new Date(req.requestedAt), "PP")}</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                <div className="overflow-x-auto">
+                    <Table>
+                    <TableHeader className="bg-muted/30">
+                        <TableRow>
+                        <TableHead className="font-bold">Leave Date</TableHead>
+                        <TableHead className="font-bold">Reason Summary</TableHead>
+                        <TableHead className="font-bold">Status</TableHead>
+                        <TableHead className="text-right font-bold">Request Log</TableHead>
+                        </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                        {requests.sort((a:any, b:any) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime()).map((req: any) => (
+                        <TableRow key={req.id} className="hover:bg-muted/10 transition-colors">
+                            <TableCell className="font-bold text-sm text-primary">
+                                {format(new Date(req.requestedDate), "MMM dd, yyyy")}
+                                <p className="text-[10px] text-muted-foreground font-normal uppercase tracking-tighter">{format(new Date(req.requestedDate), "EEEE")}</p>
+                            </TableCell>
+                            <TableCell className="max-w-[200px] truncate text-sm italic text-muted-foreground">
+                                {req.reason}
+                            </TableCell>
+                            <TableCell>{getStatusBadge(req.status)}</TableCell>
+                            <TableCell className="text-right text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
+                                {format(new Date(req.requestedAt), "PP")}
+                            </TableCell>
+                        </TableRow>
+                        ))}
+                    </TableBody>
+                    </Table>
+                </div>
               ) : (
-                <div className="text-center py-12 text-muted-foreground">
-                  <AlertCircle className="h-8 w-8 mx-auto mb-2 opacity-20" />
-                  <p>No leave requests found.</p>
+                <div className="text-center py-24 text-muted-foreground">
+                  <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-10" />
+                  <p className="font-medium">No clinical leave requests found.</p>
+                  <p className="text-xs">Your request history will appear here.</p>
                 </div>
               )}
             </CardContent>
