@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, CheckCircle2, ShieldAlert } from "lucide-react";
+import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, CheckCircle2, Info, Popover as PopoverIcon } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
@@ -23,6 +23,8 @@ import { Badge } from "@/components/ui/badge";
 import { timeSlots } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 const notesSchema = z.object({
   diagnosis: z.string().min(3, "Diagnosis is required."),
@@ -31,6 +33,7 @@ const notesSchema = z.object({
 type NotesFormValues = z.infer<typeof notesSchema>;
 
 const leaveRequestSchema = z.object({
+  requestedDate: z.date({ required_error: "Please select a date for the audit." }),
   reason: z.string().min(5, "Please provide a professional reason."),
 });
 type LeaveFormValues = z.infer<typeof leaveRequestSchema>;
@@ -108,29 +111,36 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
     );
 }
 
-function LeaveRequestDialog({ isOpen, onOpenChange, date, doctorId }: { isOpen: boolean, onOpenChange: (open: boolean) => void, date: Date, doctorId: string }) {
+function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { isOpen: boolean, onOpenChange: (open: boolean) => void, defaultDate: Date, doctorId: string }) {
     const firestore = useFirestore();
     const { toast } = useToast();
     
-    const today = startOfDay(new Date());
-    const isSameDayRequest = isSameDay(date, today);
-
     const form = useForm<LeaveFormValues>({
         resolver: zodResolver(leaveRequestSchema),
-        defaultValues: { reason: '' }
+        defaultValues: { 
+            reason: '',
+            requestedDate: defaultDate
+        }
     });
 
+    // Reset date if defaultDate changes and dialog is opened
+    useEffect(() => {
+        if (isOpen) {
+            form.setValue('requestedDate', defaultDate);
+        }
+    }, [isOpen, defaultDate, form]);
+
     const onSubmit = (values: LeaveFormValues) => {
-        if (!firestore || isSameDayRequest) return;
+        if (!firestore) return;
         const colRef = collection(firestore, 'doctorUnavailabilityRequests');
         addDocumentNonBlocking(colRef, {
             doctorId,
-            requestedDate: date.toISOString(),
+            requestedDate: values.requestedDate.toISOString(),
             reason: values.reason,
             status: 'pending',
             requestedAt: new Date().toISOString(),
         });
-        toast({ title: "Clinical Audit Logged", description: "Audit requested for " + format(date, "PPP") });
+        toast({ title: "Clinical Audit Logged", description: "Audit requested for " + format(values.requestedDate, "PPP") });
         onOpenChange(false);
         form.reset();
     };
@@ -144,57 +154,79 @@ function LeaveRequestDialog({ isOpen, onOpenChange, date, doctorId }: { isOpen: 
                     </div>
                     <DialogTitle className="text-center font-headline text-2xl">Absence Audit Request</DialogTitle>
                     <DialogDescription className="text-center">
-                        Requesting a clinical pause for <span className="font-bold text-foreground">{format(date, "EEEE, MMM dd")}</span>.
+                        Request a clinical pause for administrative review.
                     </DialogDescription>
                 </DialogHeader>
                 
-                {isSameDayRequest ? (
-                    <div className="py-6 space-y-6 text-center">
-                        <div className="p-4 bg-destructive/5 border border-destructive/10 rounded-xl space-y-2">
-                            <p className="font-bold text-destructive flex items-center justify-center gap-2 uppercase tracking-tighter">
-                                <AlertCircle className="h-4 w-4" /> Policy: Emergency Restriction
-                            </p>
-                            <p className="text-xs text-muted-foreground leading-relaxed">
-                                Automated audit is restricted for same-day absences to protect active patient bookings. Please contact Admin directly for overrides.
-                            </p>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
+                        <FormField
+                            control={form.control}
+                            name="requestedDate"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel className="text-[10px] uppercase font-bold tracking-widest opacity-60">Step 1: Pick a Date</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button
+                                                    variant={"outline"}
+                                                    className={cn(
+                                                        "w-full pl-3 text-left font-normal h-12 rounded-xl",
+                                                        !field.value && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    {field.value ? (
+                                                        format(field.value, "PPP")
+                                                    ) : (
+                                                        <span>Select audit date</span>
+                                                    )}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={field.value}
+                                                onSelect={field.onChange}
+                                                disabled={(date) => isSameDay(date, new Date()) || date < startOfDay(new Date())}
+                                                initialFocus
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="reason"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] uppercase font-bold tracking-widest opacity-60">Step 2: Justification</FormLabel>
+                                    <FormControl>
+                                        <Textarea placeholder="Detail the clinical or personal nature of your unavailability..." rows={4} className="resize-none rounded-xl" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <div className="p-3 bg-muted/30 rounded-lg text-[10px] text-muted-foreground italic leading-relaxed border border-dashed border-muted-foreground/20">
+                            <Info className="h-3 w-3 inline mr-1 text-primary" /> 
+                            Automated audit is restricted for same-day absences. For emergencies today, please contact Admin via the direct support chat.
                         </div>
-                        <div className="flex flex-col gap-2">
-                            <Button className="w-full h-12 font-bold shadow-lg" asChild>
-                                <Link href="/doctor-portal/chat">
-                                    <MessageSquare className="mr-2 h-4 w-4" /> Request via Admin Chat
-                                </Link>
+
+                        <DialogFooter className="gap-2">
+                            <Button type="button" variant="ghost" className="flex-1" onClick={() => onOpenChange(false)}>Cancel</Button>
+                            <Button type="submit" className="flex-1" disabled={form.formState.isSubmitting}>
+                                {form.formState.isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Log for Audit"}
                             </Button>
-                            <Button variant="outline" className="w-full h-12" onClick={() => onOpenChange(false)}>Close</Button>
-                        </div>
-                    </div>
-                ) : (
-                    <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-                            <FormField
-                                control={form.control}
-                                name="reason"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-[10px] uppercase font-bold tracking-widest opacity-60">Audit Justification</FormLabel>
-                                        <FormControl>
-                                            <Textarea placeholder="Detail the clinical or personal nature of your unavailability..." rows={4} className="resize-none" {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <div className="p-3 bg-muted/30 rounded-lg text-[10px] text-muted-foreground italic leading-relaxed border border-dashed border-muted-foreground/20">
-                                This request will be sent for clinical audit. Once approved, patients will be unable to schedule sessions for this specific date.
-                            </div>
-                            <DialogFooter className="gap-2">
-                                <Button type="button" variant="ghost" className="flex-1" onClick={() => onOpenChange(false)}>Cancel</Button>
-                                <Button type="submit" className="flex-1" disabled={form.formState.isSubmitting}>
-                                    {form.formState.isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Log for Audit"}
-                                </Button>
-                            </DialogFooter>
-                        </form>
-                    </Form>
-                )}
+                        </DialogFooter>
+                    </form>
+                </Form>
             </DialogContent>
         </Dialog>
     );
@@ -694,7 +726,7 @@ export default function DoctorPortalPage() {
                     <LeaveRequestDialog 
                         isOpen={isLeaveOpen} 
                         onOpenChange={setIsLeaveOpen} 
-                        date={viewDate} 
+                        defaultDate={viewDate} 
                         doctorId={user.uid} 
                     />
                 )}
