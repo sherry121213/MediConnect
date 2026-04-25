@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
@@ -32,7 +31,7 @@ const notesSchema = z.object({
 type NotesFormValues = z.infer<typeof notesSchema>;
 
 const leaveRequestSchema = z.object({
-  reason: z.string().min(5, "Please provide a valid reason."),
+  reason: z.string().min(5, "Please provide a professional reason."),
 });
 type LeaveFormValues = z.infer<typeof leaveRequestSchema>;
 
@@ -54,7 +53,7 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
             availability: { ...doctor.availability, disabledSlots: disabledSlots },
             updatedAt: new Date().toISOString()
         });
-        toast({ title: "Availability Updated", description: "Your clinical hours have been synchronized." });
+        toast({ title: "Clinical Hours Synced", description: "Your daily session slots have been updated." });
         setIsSaving(false);
         onOpenChange(false);
     };
@@ -64,10 +63,10 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
             <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto border-none shadow-2xl">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-xl font-headline">
-                        <Settings2 className="h-5 w-5 text-primary" /> Session Timing Control
+                        <Settings2 className="h-5 w-5 text-primary" /> Session Slot Control
                     </DialogTitle>
                     <DialogDescription>
-                        Manage your individual time-slot availability for each clinical session. Unchecked slots will be hidden from patients.
+                        Manage individual clinical slots. Unchecked slots will be hidden from patients for booking.
                     </DialogDescription>
                 </DialogHeader>
                 
@@ -79,7 +78,7 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
                                     {session === 'morning' && <Clock className="h-3 w-3" />}
                                     {session === 'afternoon' && <Activity className="h-3 w-3" />}
                                     {session === 'evening' && <Moon className="h-3 w-3" />}
-                                    {session} Clinical Block
+                                    {session} Block
                                 </h5>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                     {slots.map(slot => (
@@ -101,7 +100,7 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
                 <DialogFooter className="border-t pt-4">
                     <Button variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
                     <Button onClick={handleSave} disabled={isSaving} className="px-8">
-                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Sync Schedule"}
+                        {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Save Changes"}
                     </Button>
                 </DialogFooter>
             </DialogContent>
@@ -113,7 +112,6 @@ function LeaveRequestDialog({ isOpen, onOpenChange, date, doctorId }: { isOpen: 
     const firestore = useFirestore();
     const { toast } = useToast();
     
-    // Strict block for same-day requests
     const today = startOfDay(new Date());
     const isSameDayRequest = isSameDay(date, today);
 
@@ -132,19 +130,19 @@ function LeaveRequestDialog({ isOpen, onOpenChange, date, doctorId }: { isOpen: 
             status: 'pending',
             requestedAt: new Date().toISOString(),
         });
-        toast({ title: "Clinical Request Sent", description: "Admin will review your leave for " + format(date, "PPP") });
+        toast({ title: "Clinical Request Logged", description: "Audit requested for " + format(date, "PPP") });
         onOpenChange(false);
         form.reset();
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[450px]">
+            <DialogContent className="sm:max-w-[450px] border-none shadow-2xl">
                 <DialogHeader>
                     <div className="mx-auto h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center mb-2">
                         <Moon className="h-6 w-6 text-primary" />
                     </div>
-                    <DialogTitle className="text-center font-headline text-2xl">Unavailability Request</DialogTitle>
+                    <DialogTitle className="text-center font-headline text-2xl">Absence Audit Request</DialogTitle>
                     <DialogDescription className="text-center">
                         Requesting a clinical pause for <span className="font-bold text-foreground">{format(date, "EEEE, MMM dd")}</span>.
                     </DialogDescription>
@@ -154,13 +152,13 @@ function LeaveRequestDialog({ isOpen, onOpenChange, date, doctorId }: { isOpen: 
                     <div className="py-6 space-y-6 text-center">
                         <div className="p-4 bg-destructive/5 border border-destructive/10 rounded-xl space-y-2">
                             <p className="font-bold text-destructive flex items-center justify-center gap-2 uppercase tracking-tighter">
-                                <AlertCircle className="h-4 w-4" /> Immediate Block Restricted
+                                <AlertCircle className="h-4 w-4" /> Policy: Same-Day Restriction
                             </p>
-                            <p className="text-sm text-muted-foreground leading-relaxed">
-                                Same-day leave requests cannot be automated to prevent active patient disruption. Please contact the clinical administrator directly for urgent same-day emergencies.
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                Immediate clinical pauses cannot be automated to prevent disruption. Please contact Admin directly for emergencies.
                             </p>
                         </div>
-                        <Button variant="outline" className="w-full" onClick={() => onOpenChange(false)}>I Understand</Button>
+                        <Button variant="outline" className="w-full" onClick={() => onOpenChange(false)}>Close</Button>
                     </div>
                 ) : (
                     <Form {...form}>
@@ -170,21 +168,21 @@ function LeaveRequestDialog({ isOpen, onOpenChange, date, doctorId }: { isOpen: 
                                 name="reason"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel className="text-xs uppercase font-bold tracking-widest opacity-70">Professional Reason</FormLabel>
+                                        <FormLabel className="text-[10px] uppercase font-bold tracking-widest opacity-60">Absence Reason</FormLabel>
                                         <FormControl>
-                                            <Textarea placeholder="Describe the nature of your unavailability for administrative audit..." rows={4} className="resize-none" {...field} />
+                                            <Textarea placeholder="Detail the nature of your unavailability..." rows={4} className="resize-none" {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
                             />
                             <div className="p-3 bg-muted/30 rounded-lg text-[10px] text-muted-foreground italic leading-relaxed border border-dashed border-muted-foreground/20">
-                                This request will be queued for administrative review. If approved, your master schedule for this day will be locked, and no patient can book a slot.
+                                All absences must be logged for clinical audit. Once approved, patients will be unable to schedule sessions for this date.
                             </div>
                             <DialogFooter className="gap-2">
                                 <Button type="button" variant="ghost" className="flex-1" onClick={() => onOpenChange(false)}>Cancel</Button>
                                 <Button type="submit" className="flex-1" disabled={form.formState.isSubmitting}>
-                                    {form.formState.isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Send to Admin"}
+                                    {form.formState.isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Log for Audit"}
                                 </Button>
                             </DialogFooter>
                         </form>
@@ -227,7 +225,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
         if (!firestore) return;
         const appointmentRef = doc(firestore, 'appointments', appointment.id);
         updateDocumentNonBlocking(appointmentRef, { ...values, status: 'completed', updatedAt: new Date().toISOString() });
-        toast({ title: "Consultation Completed", description: "The records have been updated." });
+        toast({ title: "Consultation Logged", description: "Patient records have been archived." });
         onOpenChange(false);
     };
 
@@ -235,7 +233,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[500px]">
                 <DialogHeader>
-                    <DialogTitle>{view === 'details' ? 'Appointment Details' : 'Complete Consultation'}</DialogTitle>
+                    <DialogTitle>{view === 'details' ? 'Clinical Overview' : 'Archiving Session'}</DialogTitle>
                 </DialogHeader>
                 
                 {view === 'details' ? (
@@ -255,23 +253,18 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
                                 <p className="font-medium">{format(new Date(appointment.appointmentDateTime), "PPP p")}</p>
                             </div>
                             <div className="space-y-1">
-                                <p className="text-muted-foreground">Consultation Type</p>
+                                <p className="text-muted-foreground">Mode</p>
                                 <p className="font-medium capitalize">{appointment.appointmentType}</p>
                             </div>
                         </div>
                         <div className="flex flex-col gap-2">
-                            <Button className="w-full" asChild>
+                            <Button className="w-full h-12 font-bold" asChild>
                                 <Link href={`/consultation/${appointment.id}`}>
-                                    <Video className="mr-2 h-4 w-4" /> Start Video/Audio Consultation
+                                    <Video className="mr-2 h-4 w-4" /> Start Tele-Consultation
                                 </Link>
                             </Button>
-                             <Button variant="outline" className="w-full" asChild>
-                                <Link href={`/consultation/${appointment.id}`}>
-                                    <MessageSquare className="mr-2 h-4 w-4 text-primary" /> Integrated Patient Chat
-                                </Link>
-                            </Button>
-                            <Button variant="outline" className="w-full" onClick={() => setView('notes')}>
-                                Fill Clinical Records
+                            <Button variant="outline" className="w-full h-12 font-bold" onClick={() => setView('notes')}>
+                                Document Findings
                             </Button>
                         </div>
                     </div>
@@ -283,9 +276,9 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
                                 name="diagnosis"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Diagnosis</FormLabel>
+                                        <FormLabel className="text-xs font-bold uppercase opacity-60">Diagnosis</FormLabel>
                                         <FormControl>
-                                            <Input placeholder="e.g., Viral Infection" {...field} />
+                                            <Input placeholder="Initial findings..." {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -296,9 +289,9 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
                                 name="prescription"
                                 render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Prescription & Advice</FormLabel>
+                                        <FormLabel className="text-xs font-bold uppercase opacity-60">Treatment Plan</FormLabel>
                                         <FormControl>
-                                            <Textarea placeholder="e.g., Paracetamol 500mg, twice a day..." rows={5} {...field} />
+                                            <Textarea placeholder="Prescription and clinical advice..." rows={5} {...field} />
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -306,8 +299,8 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
                             />
                             <DialogFooter>
                                 <Button type="button" variant="ghost" onClick={() => setView('details')}>Back</Button>
-                                <Button type="submit" disabled={form.formState.isSubmitting}>
-                                    {form.formState.isSubmitting ? "Saving..." : "Complete & Close"}
+                                <Button type="submit" disabled={form.formState.isSubmitting} className="px-8">
+                                    {form.formState.isSubmitting ? "Syncing..." : "Archive Session"}
                                 </Button>
                             </DialogFooter>
                         </form>
@@ -370,15 +363,15 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled }: { time: strin
                         <p className="text-sm font-semibold">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
                     </div>
                 ) : (
-                    <p className="text-xs italic text-muted-foreground">{isDisabled ? "Practice Closed" : "Available Slot"}</p>
+                    <p className="text-xs italic text-muted-foreground">{isDisabled ? "Off" : "Open"}</p>
                 )}
             </div>
             {appointment ? (
-                <Button size="sm" variant="ghost" className="h-7 text-[10px] font-bold uppercase tracking-wider" onClick={() => onSelect(appointment)}>
-                    View Session
+                <Button size="sm" variant="ghost" className="h-7 text-[10px] font-bold uppercase tracking-wider hover:bg-primary/10" onClick={() => onSelect(appointment)}>
+                    View
                 </Button>
             ) : (
-                <Badge variant="outline" className="text-[10px] font-bold text-muted-foreground">{isDisabled ? "Off" : "Free"}</Badge>
+                <Badge variant="outline" className="text-[10px] font-bold text-muted-foreground border-dashed">{isDisabled ? "Closed" : "Free"}</Badge>
             )}
         </div>
     );
@@ -398,7 +391,6 @@ export default function DoctorPortalPage() {
         setMounted(true);
     }, []);
 
-    // Clinical Listeners
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
         return query(collection(firestore, 'appointments'), where('doctorId', '==', user.uid));
@@ -433,11 +425,9 @@ export default function DoctorPortalPage() {
         const pending = appointments.filter(apt => apt.status === 'scheduled').length;
         const revenue = appointments.filter(apt => apt.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
 
-        // Leave status for viewDate
         const activeRequest = requests?.find(r => isSameDay(new Date(r.requestedDate), viewDate));
         const leaveStatus = activeRequest?.status || null;
 
-        // Filter Slots
         const filterSlots = (times: string[]) => {
             return times.map(time => {
                 const apt = appointments.find(a => {
@@ -450,16 +440,15 @@ export default function DoctorPortalPage() {
             });
         };
 
-        // Notifications logic
         const alerts: any[] = [];
         appointments.filter(a => isAfter(new Date(a.createdAt), yesterday)).forEach(a => {
-            alerts.push({ id: `apt-${a.id}`, msg: `New booking: ${a.appointmentType} scheduled for ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary' });
+            alerts.push({ id: `apt-${a.id}`, msg: `New Patient: ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary' });
         });
         chatSessions?.filter(s => s.lastMessageSenderRole === 'admin').forEach(s => {
-            alerts.push({ id: `chat-${s.id}`, msg: "Admin replied to your support chat session.", icon: MessageSquare, color: 'text-blue-500', link: '/doctor-portal/chat' });
+            alerts.push({ id: `chat-${s.id}`, msg: "New Administrative Message.", icon: MessageSquare, color: 'text-blue-500', link: '/doctor-portal/chat' });
         });
         requests?.filter(r => r.status !== 'pending' && isAfter(new Date(r.processedAt || 0), yesterday)).forEach(r => {
-            alerts.push({ id: `req-${r.id}`, msg: `Your leave request for ${format(new Date(r.requestedDate), "PP")} was ${r.status}.`, icon: r.status === 'approved' ? CheckCircle2 : AlertCircle, color: r.status === 'approved' ? 'text-green-500' : 'text-destructive' });
+            alerts.push({ id: `req-${r.id}`, msg: `Absence for ${format(new Date(r.requestedDate), "PP")} ${r.status}.`, icon: r.status === 'approved' ? CheckCircle2 : AlertCircle, color: r.status === 'approved' ? 'text-green-500' : 'text-destructive' });
         });
 
         return { 
@@ -490,20 +479,20 @@ export default function DoctorPortalPage() {
                     <div>
                         <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Clinical Command Center</h1>
                         <p className="text-muted-foreground flex items-center gap-2 text-sm mt-1">
-                            <Activity className="h-4 w-4 text-primary" /> Monitoring clinical operations for Dr. {userData?.firstName}.
+                            <Activity className="h-4 w-4 text-primary" /> Monitoring operations for Dr. {userData?.firstName}.
                         </p>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full md:w-auto">
                         <Card className="p-3 bg-primary text-primary-foreground border-none shadow-lg shadow-primary/20">
-                            <p className="text-[10px] font-bold uppercase opacity-80">Practice Revenue</p>
+                            <p className="text-[10px] font-bold uppercase opacity-80">Total Revenue</p>
                             <p className="text-2xl font-bold">PKR {stats.revenue.toLocaleString()}</p>
                         </Card>
                         <Card className="p-3 bg-background border-none shadow-sm">
-                            <p className="text-[10px] font-bold uppercase text-muted-foreground">Patients Today</p>
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground">Today's Patients</p>
                             <p className="text-2xl font-bold text-primary">{stats.today}</p>
                         </Card>
                         <Card className="p-3 bg-background border-none shadow-sm hidden sm:block">
-                            <p className="text-[10px] font-bold uppercase text-muted-foreground">Pending Records</p>
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground">Scheduled</p>
                             <p className="text-2xl font-bold">{stats.pending}</p>
                         </Card>
                     </div>
@@ -511,38 +500,38 @@ export default function DoctorPortalPage() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                     <div className="lg:col-span-4 space-y-6">
-                        <Card className="border-none shadow-xl border-l-4 border-l-amber-400">
-                             <CardHeader className="pb-2">
-                                <CardTitle className="text-sm flex items-center gap-2">
-                                    <Bell className="h-4 w-4 text-amber-500" /> Clinical Alerts & Notifications
+                        <Card className="border-none shadow-xl bg-white">
+                             <CardHeader className="pb-2 border-b">
+                                <CardTitle className="text-xs uppercase tracking-widest font-bold flex items-center gap-2">
+                                    <Bell className="h-4 w-4 text-amber-500" /> Alerts & Logs
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="space-y-3 max-h-[250px] overflow-y-auto custom-scrollbar">
+                            <CardContent className="space-y-3 p-4 max-h-[300px] overflow-y-auto custom-scrollbar">
                                 {notifications.length > 0 ? notifications.map(n => (
-                                    <div key={n.id} className="p-3 rounded-lg bg-muted/20 border text-xs flex gap-3 items-start animate-in fade-in slide-in-from-right-2">
-                                        <n.icon className={cn("h-4 w-4 shrink-0", n.color)} />
+                                    <div key={n.id} className="p-3 rounded-xl bg-muted/20 border border-muted/50 text-[11px] flex gap-3 items-start animate-in fade-in slide-in-from-right-2">
+                                        <n.icon className={cn("h-4 w-4 shrink-0 mt-0.5", n.color)} />
                                         <div className="flex-1">
-                                            <p className="leading-relaxed">{n.msg}</p>
+                                            <p className="leading-tight font-medium text-slate-700">{n.msg}</p>
                                             {n.link && (
                                                 <Button variant="link" asChild className="h-auto p-0 text-[10px] font-bold mt-1">
-                                                    <Link href={n.link}>View Details</Link>
+                                                    <Link href={n.link}>Resolve</Link>
                                                 </Button>
                                             )}
                                         </div>
                                     </div>
                                 )) : (
-                                    <p className="text-xs text-muted-foreground italic text-center py-4">No unread notifications.</p>
+                                    <p className="text-xs text-muted-foreground italic text-center py-6">No unread clinical logs.</p>
                                 )}
                             </CardContent>
                         </Card>
 
-                        <Card className="border-none shadow-xl overflow-hidden">
+                        <Card className="border-none shadow-xl overflow-hidden bg-white">
                             <CardHeader className="bg-background pb-3 border-b">
                                 <div className="flex items-center justify-between">
-                                    <CardTitle className="text-lg flex items-center gap-2">
-                                        <ClipboardCheck className="h-5 w-5 text-primary" /> Today's Live Queue
+                                    <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-tighter">
+                                        <ClipboardCheck className="h-5 w-5 text-primary" /> Active Queue
                                     </CardTitle>
-                                    <Badge variant="outline" className="text-[10px] font-bold">{format(new Date(), "MMM dd")}</Badge>
+                                    <Badge variant="outline" className="text-[10px] font-bold border-primary/20 text-primary">LIVE</Badge>
                                 </div>
                             </CardHeader>
                             <CardContent className="p-0">
@@ -555,12 +544,9 @@ export default function DoctorPortalPage() {
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="p-12 text-center text-muted-foreground space-y-2">
-                                        <CalendarIcon className="h-10 w-10 mx-auto opacity-20" />
-                                        <p className="text-sm font-medium">No sessions for today.</p>
-                                        <Button variant="link" size="sm" asChild>
-                                            <Link href="/doctor-portal/records">View Past Records</Link>
-                                        </Button>
+                                    <div className="p-16 text-center text-muted-foreground space-y-4">
+                                        <CalendarIcon className="h-12 w-12 mx-auto opacity-10" />
+                                        <p className="text-xs font-bold uppercase tracking-widest">Queue Empty</p>
                                     </div>
                                 )}
                             </CardContent>
@@ -568,65 +554,67 @@ export default function DoctorPortalPage() {
                     </div>
 
                     <div className="lg:col-span-8 space-y-6">
-                        <Card className="border-none shadow-2xl relative">
-                            <CardHeader className="border-b bg-background z-10">
+                        <Card className="border-none shadow-2xl relative bg-white">
+                            <CardHeader className="border-b bg-muted/5 z-10">
                                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                                     <div className="space-y-1">
                                         <CardTitle className="text-xl font-headline flex items-center gap-2">
                                             <Clock className="h-6 w-6 text-primary" /> Clinical Master Schedule
                                         </CardTitle>
-                                        <CardDescription className="text-sm">Granular time-slot availability and booking status.</CardDescription>
+                                        <CardDescription className="text-xs">Manage individual slot availability and audit log.</CardDescription>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        <div className="flex items-center gap-1 bg-muted/30 p-1 rounded-lg border">
-                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setViewDate(addDays(viewDate, -1))}>
+                                        <div className="flex items-center gap-1 bg-white p-1 rounded-xl border shadow-sm">
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setViewDate(addDays(viewDate, -1))}>
                                                 <ChevronLeft className="h-4 w-4" />
                                             </Button>
-                                            <div className="px-3 text-xs font-bold min-w-[100px] text-center">
+                                            <div className="px-4 text-xs font-bold min-w-[110px] text-center">
                                                 {format(viewDate, "MMM dd")}
                                             </div>
-                                            <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setViewDate(addDays(viewDate, 1))}>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setViewDate(addDays(viewDate, 1))}>
                                                 <ChevronRight className="h-4 w-4" />
                                             </Button>
                                         </div>
                                         
                                         <div className="flex items-center gap-2 ml-2">
                                             {currentDayLeaveStatus === 'approved' ? (
-                                                <Badge className="bg-green-100 text-green-800 border-green-200 h-9 px-4 gap-2">
-                                                    <CheckCircle2 className="h-4 w-4" /> On Leave
+                                                <Badge className="bg-green-100 text-green-800 border-green-200 h-10 px-4 gap-2 font-bold">
+                                                    <CheckCircle2 className="h-4 w-4" /> Approved Leave
                                                 </Badge>
                                             ) : currentDayLeaveStatus === 'pending' ? (
-                                                <Badge variant="outline" className="text-amber-600 border-amber-600 h-9 px-4 gap-2 bg-amber-50">
-                                                    <Clock className="h-4 w-4" /> Leave Pending
+                                                <Badge variant="outline" className="text-amber-600 border-amber-600 h-10 px-4 gap-2 bg-amber-50 font-bold">
+                                                    <Clock className="h-4 w-4" /> Audit Pending
                                                 </Badge>
                                             ) : (
-                                                <Button variant="outline" size="sm" className="h-9 gap-2 font-bold text-destructive hover:bg-red-50" onClick={() => setIsLeaveOpen(true)}>
-                                                    <Moon className="h-3.5 w-3.5" /> Request Day Off
+                                                <Button variant="outline" size="sm" className="h-10 gap-2 font-bold text-destructive hover:bg-red-50 border-destructive/20" onClick={() => setIsLeaveOpen(true)}>
+                                                    <Moon className="h-4 w-4" /> Request Off
                                                 </Button>
                                             )}
                                             
-                                            <Button variant="outline" size="sm" className="h-9 gap-2 font-bold" onClick={() => setIsAvailabilityOpen(true)}>
-                                                <Settings2 className="h-3.5 w-3.5" /> Session Availability
+                                            <Button variant="outline" size="sm" className="h-10 gap-2 font-bold" onClick={() => setIsAvailabilityOpen(true)}>
+                                                <Settings2 className="h-4 w-4" /> Availability
                                             </Button>
                                         </div>
                                     </div>
                                 </div>
                             </CardHeader>
-                            <CardContent className="p-6 md:p-8">
+                            <CardContent className="p-6 md:p-10">
                                 {currentDayLeaveStatus === 'approved' && (
-                                    <div className="absolute inset-x-0 bottom-0 top-[88px] z-20 bg-background/80 backdrop-blur-[2px] flex items-center justify-center rounded-b-2xl">
-                                        <div className="bg-white p-8 rounded-2xl shadow-2xl border text-center max-w-sm space-y-4 animate-in zoom-in-95">
-                                            <div className="h-16 w-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto">
-                                                <ShieldCheck className="h-10 w-10" />
+                                    <div className="absolute inset-x-0 bottom-0 top-[100px] z-20 bg-white/90 backdrop-blur-[4px] flex items-center justify-center rounded-b-2xl">
+                                        <div className="bg-white p-10 rounded-3xl shadow-2xl border-2 text-center max-w-sm space-y-6 animate-in zoom-in-95">
+                                            <div className="h-20 w-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                                                <ShieldCheck className="h-12 w-12" />
                                             </div>
-                                            <h4 className="text-xl font-bold">Approved Leave</h4>
-                                            <p className="text-muted-foreground text-sm">Your practice is officially closed for {format(viewDate, "PPP")}. No appointments can be booked or held.</p>
+                                            <div className="space-y-2">
+                                                <h4 className="text-2xl font-bold tracking-tight">Practice Closed</h4>
+                                                <p className="text-muted-foreground text-sm leading-relaxed">Admin has approved your clinical pause for {format(viewDate, "PPP")}. No bookings possible.</p>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
-                                <div className="grid md:grid-cols-3 gap-8">
+                                <div className="grid md:grid-cols-3 gap-10">
                                     <div className="space-y-4">
-                                        <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary flex items-center gap-2">
                                             <div className="h-2 w-2 rounded-full bg-amber-400" /> Morning
                                         </h3>
                                         <div className="space-y-1">
@@ -643,7 +631,7 @@ export default function DoctorPortalPage() {
                                     </div>
 
                                     <div className="space-y-4">
-                                        <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary flex items-center gap-2">
                                             <div className="h-2 w-2 rounded-full bg-blue-400" /> Afternoon
                                         </h3>
                                         <div className="space-y-1">
@@ -660,7 +648,7 @@ export default function DoctorPortalPage() {
                                     </div>
 
                                     <div className="space-y-4">
-                                        <h3 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-2">
+                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary flex items-center gap-2">
                                             <Moon className="h-3.5 w-3.5 text-indigo-400" /> Evening
                                         </h3>
                                         <div className="space-y-1">
@@ -704,7 +692,6 @@ export default function DoctorPortalPage() {
                     />
                 )}
 
-                {/* Refined Floating Support Chat */}
                 <div className="fixed bottom-8 right-8 z-[100] group">
                     <div className="absolute right-full mr-4 top-1/2 -translate-y-1/2 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
                         Administrative Support

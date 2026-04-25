@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -14,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Calendar as CalendarIcon, Loader2, Clock, CheckCircle2, XCircle, AlertCircle, History, Info, Sparkles } from 'lucide-react';
+import { Calendar as CalendarIcon, Loader2, Clock, CheckCircle2, XCircle, AlertCircle, History, Info, Sparkles, ClipboardList } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { format, addDays, startOfDay, isSameDay } from 'date-fns';
@@ -23,8 +22,8 @@ import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 
 const requestSchema = z.object({
-  requestedDate: z.date({ required_error: "A date is required." }),
-  reason: z.string().min(5, "Please provide a professional reason (min 5 characters)."),
+  requestedDate: z.date({ required_error: "A clinical date is required." }),
+  reason: z.string().min(5, "Please provide a clinical or personal reason for audit (min 5 characters)."),
 });
 
 type RequestFormValues = z.infer<typeof requestSchema>;
@@ -68,8 +67,8 @@ export default function DoctorUnavailabilityPage() {
     addDocumentNonBlocking(colRef, requestData);
 
     toast({
-      title: "Clinical Request Queued",
-      description: "Admin will review your pause for " + format(values.requestedDate, "PPP"),
+      title: "Clinical Request Logged",
+      description: "Admin audit initiated for " + format(values.requestedDate, "PPP"),
     });
     
     form.reset();
@@ -78,9 +77,9 @@ export default function DoctorUnavailabilityPage() {
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'approved': return <Badge className="bg-green-100 text-green-800 border-green-200"><CheckCircle2 className="mr-1 h-3 w-3" /> Approved</Badge>;
-      case 'rejected': return <Badge variant="destructive"><XCircle className="mr-1 h-3 w-3" /> Rejected</Badge>;
-      default: return <Badge variant="outline" className="text-amber-600 border-amber-600 bg-amber-50"><Clock className="mr-1 h-3 w-3" /> Pending</Badge>;
+      case 'approved': return <Badge className="bg-green-100 text-green-800 border-green-200"><CheckCircle2 className="mr-1 h-3 w-3" /> Active Approval</Badge>;
+      case 'rejected': return <Badge variant="destructive"><XCircle className="mr-1 h-3 w-3" /> Declined</Badge>;
+      default: return <Badge variant="outline" className="text-amber-600 border-amber-600 bg-amber-50"><Clock className="mr-1 h-3 w-3" /> In Review</Badge>;
     }
   };
 
@@ -89,30 +88,30 @@ export default function DoctorUnavailabilityPage() {
       <div className="container mx-auto px-4 max-w-6xl space-y-10">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
-            <h1 className="text-3xl font-bold font-headline flex items-center gap-3">
-               <div className="h-10 w-1 bg-primary rounded-full" />
+            <h1 className="text-3xl font-bold font-headline flex items-center gap-3 tracking-tight">
+               <div className="h-10 w-1.5 bg-primary rounded-full" />
                Unavailability Center
             </h1>
-            <p className="text-muted-foreground mt-1">Submit clinical pause requests for full-day absences.</p>
+            <p className="text-muted-foreground mt-1">Submit clinical pause requests for full-day absences and track your audit history.</p>
           </div>
-          <div className="bg-primary/5 border border-primary/10 p-4 rounded-2xl flex items-center gap-4">
+          <div className="bg-white border shadow-sm p-4 rounded-2xl flex items-center gap-4">
              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                 <Sparkles className="h-5 w-5" />
              </div>
              <div className="text-sm">
-                <p className="font-bold">Next Possible Leave</p>
-                <p className="text-muted-foreground">{format(addDays(new Date(), 1), "EEEE, MMM dd")}</p>
+                <p className="font-bold text-xs uppercase text-muted-foreground tracking-wider">Earliest Possible Pause</p>
+                <p className="font-bold">{format(addDays(new Date(), 1), "EEEE, MMM dd")}</p>
              </div>
           </div>
         </div>
 
         <div className="grid lg:grid-cols-12 gap-8">
-          <Card className="lg:col-span-4 h-fit border-none shadow-xl overflow-hidden">
+          <Card className="lg:col-span-4 h-fit border-none shadow-2xl overflow-hidden bg-white">
             <CardHeader className="bg-slate-900 text-white">
               <CardTitle className="text-lg flex items-center gap-2">
-                <CalendarIcon className="h-5 w-5 text-primary" /> Request a Pause
+                <CalendarIcon className="h-5 w-5 text-primary" /> Log Absence
               </CardTitle>
-              <CardDescription className="text-slate-400">Select a future clinical date.</CardDescription>
+              <CardDescription className="text-slate-400">Select any future clinical date for audit.</CardDescription>
             </CardHeader>
             <CardContent className="p-6">
               <Form {...form}>
@@ -122,19 +121,19 @@ export default function DoctorUnavailabilityPage() {
                     name="requestedDate"
                     render={({ field }) => (
                       <FormItem className="flex flex-col">
-                        <FormLabel className="text-xs uppercase font-bold opacity-70">Target Date</FormLabel>
+                        <FormLabel className="text-[10px] uppercase font-bold tracking-widest opacity-60">Absence Date</FormLabel>
                         <Popover>
                           <PopoverTrigger asChild>
                             <FormControl>
                               <Button
                                 variant={"outline"}
                                 className={cn(
-                                  "w-full h-12 pl-3 text-left font-normal border-2 hover:border-primary transition-colors",
+                                  "w-full h-14 pl-4 text-left font-bold border-2 hover:border-primary transition-all",
                                   !field.value && "text-muted-foreground"
                                 )}
                               >
-                                {field.value ? format(field.value, "PPP") : <span>Select a date...</span>}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                {field.value ? format(field.value, "PPP") : <span>Select clinical date...</span>}
+                                <CalendarIcon className="ml-auto h-5 w-5 opacity-40 text-primary" />
                               </Button>
                             </FormControl>
                           </PopoverTrigger>
@@ -157,31 +156,41 @@ export default function DoctorUnavailabilityPage() {
                     name="reason"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs uppercase font-bold opacity-70">Audit Reason</FormLabel>
+                        <FormLabel className="text-[10px] uppercase font-bold tracking-widest opacity-60">Absence Reason</FormLabel>
                         <FormControl>
-                          <Textarea placeholder="Explain the reason for this clinical unavailability..." className="resize-none border-2" rows={4} {...field} />
+                          <Textarea placeholder="Explain the clinical nature or reason for this absence..." className="resize-none border-2 h-32" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
                   />
-                  <div className="flex gap-2 p-3 bg-muted/50 rounded-lg text-[10px] text-muted-foreground">
-                    <Info className="h-3 w-3 shrink-0 text-primary" />
-                    <p>Same-day requests are blocked to maintain clinical continuity. Future requests can be accumulated and reviewed by Admin.</p>
+                  <div className="p-4 bg-muted/40 rounded-xl space-y-3">
+                    <div className="flex gap-3 text-[10px] text-muted-foreground uppercase font-bold tracking-tight">
+                        <Info className="h-3.5 w-3.5 text-primary shrink-0" />
+                        Policy Checklist:
+                    </div>
+                    <ul className="space-y-1.5 pl-6 list-disc text-[10px] text-muted-foreground italic">
+                        <li>Same-day requests are auto-blocked.</li>
+                        <li>Approved requests lock your entire schedule.</li>
+                        <li>Patients will see you as "Unavailable".</li>
+                    </ul>
                   </div>
-                  <Button type="submit" className="w-full h-12 font-bold" disabled={isSubmitting}>
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Submit Audit Request"}
+                  <Button type="submit" className="w-full h-14 font-bold shadow-lg shadow-primary/20" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Submit for Clinical Audit"}
                   </Button>
                 </form>
               </Form>
             </CardContent>
           </Card>
 
-          <Card className="lg:col-span-8 border-none shadow-xl">
-            <CardHeader className="border-b">
-              <CardTitle className="text-lg flex items-center gap-2">
-                <History className="h-5 w-5 text-primary" /> Audit History
-              </CardTitle>
+          <Card className="lg:col-span-8 border-none shadow-2xl bg-white overflow-hidden">
+            <CardHeader className="border-b bg-muted/20">
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-xl font-headline flex items-center gap-2">
+                    <ClipboardList className="h-6 w-6 text-primary" /> Clinical Audit Log
+                </CardTitle>
+                <History className="h-5 w-5 text-muted-foreground/30" />
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               {isLoading ? (
@@ -191,25 +200,30 @@ export default function DoctorUnavailabilityPage() {
                     <Table>
                     <TableHeader className="bg-muted/30">
                         <TableRow>
-                        <TableHead className="font-bold">Leave Date</TableHead>
+                        <TableHead className="font-bold py-5">Scheduled Leave</TableHead>
                         <TableHead className="font-bold">Reason Summary</TableHead>
-                        <TableHead className="font-bold">Status</TableHead>
-                        <TableHead className="text-right font-bold">Request Log</TableHead>
+                        <TableHead className="font-bold">Audit Status</TableHead>
+                        <TableHead className="text-right font-bold pr-6">Submission Log</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
                         {requests.sort((a:any, b:any) => new Date(b.requestedAt).getTime() - new Date(a.requestedAt).getTime()).map((req: any) => (
-                        <TableRow key={req.id} className="hover:bg-muted/10 transition-colors">
-                            <TableCell className="font-bold text-sm text-primary">
-                                {format(new Date(req.requestedDate), "MMM dd, yyyy")}
-                                <p className="text-[10px] text-muted-foreground font-normal uppercase tracking-tighter">{format(new Date(req.requestedDate), "EEEE")}</p>
+                        <TableRow key={req.id} className="hover:bg-primary/5 transition-all group">
+                            <TableCell className="py-4">
+                                <p className="font-bold text-sm text-primary group-hover:translate-x-1 transition-transform">
+                                    {format(new Date(req.requestedDate), "MMM dd, yyyy")}
+                                </p>
+                                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tighter mt-0.5">{format(new Date(req.requestedDate), "EEEE")}</p>
                             </TableCell>
-                            <TableCell className="max-w-[200px] truncate text-sm italic text-muted-foreground">
+                            <TableCell className="max-w-[180px] truncate text-xs font-medium text-slate-600 italic">
                                 {req.reason}
                             </TableCell>
                             <TableCell>{getStatusBadge(req.status)}</TableCell>
-                            <TableCell className="text-right text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
-                                {format(new Date(req.requestedAt), "PP")}
+                            <TableCell className="text-right pr-6">
+                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">
+                                    {format(new Date(req.requestedAt), "PP")}
+                                </p>
+                                <p className="text-[9px] text-muted-foreground/60">{format(new Date(req.requestedAt), "p")}</p>
                             </TableCell>
                         </TableRow>
                         ))}
@@ -217,10 +231,10 @@ export default function DoctorUnavailabilityPage() {
                     </Table>
                 </div>
               ) : (
-                <div className="text-center py-24 text-muted-foreground">
-                  <AlertCircle className="h-12 w-12 mx-auto mb-4 opacity-10" />
-                  <p className="font-medium">No clinical leave requests found.</p>
-                  <p className="text-xs">Your request history will appear here.</p>
+                <div className="text-center py-32 text-muted-foreground">
+                  <AlertCircle className="h-16 w-16 mx-auto mb-4 opacity-10" />
+                  <p className="font-bold text-lg">No clinical leave audits found.</p>
+                  <p className="text-sm">Submit your first absence request to populate the log.</p>
                 </div>
               )}
             </CardContent>
