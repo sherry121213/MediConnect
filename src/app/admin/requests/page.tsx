@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -13,6 +12,7 @@ import { format } from 'date-fns';
 import { Check, X, Loader2, Calendar, User, ClipboardList } from 'lucide-react';
 import type { Patient } from '@/lib/types';
 import { useDoc } from '@/firebase';
+import { cn } from '@/lib/utils';
 
 const DoctorCell = ({ doctorId }: { doctorId: string }) => {
   const firestore = useFirestore();
