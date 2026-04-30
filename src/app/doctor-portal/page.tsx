@@ -3,11 +3,11 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, CheckCircle2, Info, Popover as PopoverIcon } from "lucide-react";
+import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, CheckCircle2, Info, Popover as PopoverIcon, CalendarDays, FileText, ArrowRight, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
-import { collection, query, where, doc, addDoc } from "firebase/firestore";
+import { collection, query, where, doc, addDoc, orderBy } from "firebase/firestore";
 import type { Appointment, Patient, Doctor } from "@/lib/types";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const notesSchema = z.object({
   diagnosis: z.string().min(3, "Diagnosis is required."),
@@ -32,11 +33,133 @@ const notesSchema = z.object({
 });
 type NotesFormValues = z.infer<typeof notesSchema>;
 
+const postponeSchema = z.object({
+  newDate: z.date({ required_error: "Please select a new date." }),
+  newTime: z.string().min(1, "Please select a new time."),
+});
+type PostponeFormValues = z.infer<typeof postponeSchema>;
+
 const leaveRequestSchema = z.object({
   requestedDate: z.date({ required_error: "Please select a date for the audit." }),
   reason: z.string().min(5, "Please provide a professional reason."),
 });
 type LeaveFormValues = z.infer<typeof leaveRequestSchema>;
+
+function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment }) {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    const [isSaving, setIsSaving] = useState(false);
+
+    const form = useForm<PostponeFormValues>({
+        resolver: zodResolver(postponeSchema),
+        defaultValues: {
+            newDate: addDays(new Date(), 1),
+            newTime: "",
+        }
+    });
+
+    const onSubmit = async (values: PostponeFormValues) => {
+        if (!firestore) return;
+        setIsSaving(true);
+
+        const newDateTime = new Date(values.newDate);
+        const [hours, minutesPart] = values.newTime.split(':');
+        const [minutes, ampm] = minutesPart.split(' ');
+        let numericHours = parseInt(hours);
+        if (ampm === 'PM' && numericHours !== 12) numericHours += 12;
+        if (ampm === 'AM' && numericHours === 12) numericHours = 0;
+        newDateTime.setHours(numericHours, parseInt(minutes), 0, 0);
+
+        const appointmentRef = doc(firestore, 'appointments', appointment.id);
+        updateDocumentNonBlocking(appointmentRef, {
+            appointmentDateTime: newDateTime.toISOString(),
+            updatedAt: new Date().toISOString()
+        });
+
+        toast({ title: "Appointment Postponed", description: `Rescheduled to ${format(newDateTime, "PPP p")}` });
+        setIsSaving(false);
+        onOpenChange(false);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-[450px]">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <RefreshCw className="h-5 w-5 text-amber-500" /> Reschedule Session
+                    </DialogTitle>
+                    <DialogDescription>Select a new clinical date and time for this patient.</DialogDescription>
+                </DialogHeader>
+                
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
+                         <FormField
+                            control={form.control}
+                            name="newDate"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel>New Date</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button variant="outline" className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                    {field.value ? format(field.value, "PPP") : <span>Pick a date</span>}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <Calendar
+                                                mode="single"
+                                                selected={field.value}
+                                                onSelect={field.onChange}
+                                                disabled={(date) => isBefore(date, startOfDay(new Date()))}
+                                                initialFocus
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <FormField
+                            control={form.control}
+                            name="newTime"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Select New Slot</FormLabel>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => (
+                                            <Button 
+                                                key={time} 
+                                                type="button"
+                                                variant={field.value === time ? "default" : "outline"}
+                                                size="sm"
+                                                className="text-[10px] font-bold"
+                                                onClick={() => field.onChange(time)}
+                                            >
+                                                {time}
+                                            </Button>
+                                        ))}
+                                    </div>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        <DialogFooter>
+                            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+                            <Button type="submit" disabled={isSaving}>
+                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Confirm Postponement"}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean, onOpenChange: (open: boolean) => void, doctor: Doctor }) {
     const firestore = useFirestore();
@@ -66,7 +189,7 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
             <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto border-none shadow-2xl">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-xl font-headline">
-                        <Settings2 className="h-5 world-5 text-primary" /> Session Slot Control
+                        <Settings2 className="h-5 w-5 text-primary" /> Session Slot Control
                     </DialogTitle>
                     <DialogDescription>
                         Manage individual clinical slots. Unchecked slots will be hidden from patients for booking.
@@ -119,14 +242,14 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
         resolver: zodResolver(leaveRequestSchema),
         defaultValues: { 
             reason: '',
-            requestedDate: defaultDate
+            requestedDate: isBefore(defaultDate, addDays(new Date(), 1)) ? addDays(new Date(), 1) : defaultDate
         }
     });
 
-    // Reset date if defaultDate changes and dialog is opened
     useEffect(() => {
         if (isOpen) {
-            form.setValue('requestedDate', defaultDate);
+            const initialDate = isBefore(defaultDate, addDays(new Date(), 1)) ? addDays(new Date(), 1) : defaultDate;
+            form.setValue('requestedDate', initialDate);
         }
     }, [isOpen, defaultDate, form]);
 
@@ -190,7 +313,7 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
                                                 mode="single"
                                                 selected={field.value}
                                                 onSelect={field.onChange}
-                                                disabled={(date) => isSameDay(date, new Date()) || date < startOfDay(new Date())}
+                                                disabled={(date) => isBefore(date, addDays(new Date(), 1))}
                                                 initialFocus
                                             />
                                         </PopoverContent>
@@ -216,7 +339,7 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
 
                         <div className="p-3 bg-muted/30 rounded-lg text-[10px] text-muted-foreground italic leading-relaxed border border-dashed border-muted-foreground/20">
                             <Info className="h-3 w-3 inline mr-1 text-primary" /> 
-                            Automated audit is restricted for same-day absences. For emergencies today, please contact Admin via the direct support chat.
+                            Automated audit is strictly for future dates (starting tomorrow). For same-day clinical issues, please contact Admin via the direct support chat.
                         </div>
 
                         <DialogFooter className="gap-2">
@@ -235,13 +358,24 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
 function ConsultationDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment | null }) {
     const firestore = useFirestore();
     const { toast } = useToast();
-    const [view, setView] = useState<'details' | 'notes'>('details');
+    const [isPostponeOpen, setIsPostponeOpen] = useState(false);
     
     const patientDocRef = useMemoFirebase(() => {
         if (!firestore || !appointment) return null;
         return doc(firestore, 'patients', appointment.patientId);
     }, [firestore, appointment]);
     const { data: patient } = useDoc<Patient>(patientDocRef);
+
+    const historyQuery = useMemoFirebase(() => {
+        if (!firestore || !appointment) return null;
+        return query(
+            collection(firestore, 'appointments'),
+            where('patientId', '==', appointment.patientId),
+            where('status', '==', 'completed'),
+            orderBy('appointmentDateTime', 'desc')
+        );
+    }, [firestore, appointment]);
+    const { data: history, isLoading: isLoadingHistory } = useCollection<Appointment>(historyQuery);
 
     const form = useForm<NotesFormValues>({
         resolver: zodResolver(notesSchema),
@@ -254,7 +388,6 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
                 diagnosis: appointment.diagnosis || '',
                 prescription: appointment.prescription || '',
             });
-            setView('details');
         }
     }, [appointment, form]);
 
@@ -269,84 +402,139 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
     };
 
     return (
+        <>
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
-                    <DialogTitle>{view === 'details' ? 'Clinical Overview' : 'Archiving Session'}</DialogTitle>
-                </DialogHeader>
-                
-                {view === 'details' ? (
-                    <div className="space-y-6 py-4">
-                        <div className="flex items-center gap-4 p-4 border rounded-lg bg-muted/20">
-                            <Avatar className="h-12 w-12">
-                                <AvatarFallback>{patient?.firstName?.[0]}</AvatarFallback>
-                            </Avatar>
-                            <div>
-                                <p className="font-bold text-lg">{patient?.firstName} {patient?.lastName}</p>
-                                <p className="text-sm text-muted-foreground">{patient?.email}</p>
-                            </div>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4 text-sm">
-                            <div className="space-y-1">
-                                <p className="text-muted-foreground">Date & Time</p>
-                                <p className="font-medium">{format(new Date(appointment.appointmentDateTime), "PPP p")}</p>
-                            </div>
-                            <div className="space-y-1">
-                                <p className="text-muted-foreground">Mode</p>
-                                <p className="font-medium capitalize">{appointment.appointmentType}</p>
-                            </div>
-                        </div>
-                        <div className="flex flex-col gap-2">
-                            <Button className="w-full h-12 font-bold" asChild>
-                                <Link href={`/consultation/${appointment.id}`}>
-                                    <Video className="mr-2 h-4 w-4" /> Start Tele-Consultation
-                                </Link>
-                            </Button>
-                            <Button variant="outline" className="w-full h-12 font-bold" onClick={() => setView('notes')}>
-                                Document Findings
-                            </Button>
-                        </div>
+            <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl">
+                <Tabs defaultValue="overview" className="w-full">
+                    <div className="bg-slate-900 p-6 text-white">
+                        <DialogTitle className="text-xl font-headline mb-4">Patient Management Hub</DialogTitle>
+                        <TabsList className="bg-white/10 border-none text-white w-full grid grid-cols-3">
+                            <TabsTrigger value="overview">Overview</TabsTrigger>
+                            <TabsTrigger value="history">Medical History</TabsTrigger>
+                            <TabsTrigger value="notes">Session Notes</TabsTrigger>
+                        </TabsList>
                     </div>
-                ) : (
-                    <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 py-4">
-                            <FormField
-                                control={form.control}
-                                name="diagnosis"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs font-bold uppercase opacity-60">Diagnosis</FormLabel>
-                                        <FormControl>
-                                            <Input placeholder="Initial findings..." {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="prescription"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel className="text-xs font-bold uppercase opacity-60">Treatment Plan</FormLabel>
-                                        <FormControl>
-                                            <Textarea placeholder="Prescription and clinical advice..." rows={5} {...field} />
-                                        </FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <DialogFooter>
-                                <Button type="button" variant="ghost" onClick={() => setView('details')}>Back</Button>
-                                <Button type="submit" disabled={form.formState.isSubmitting} className="px-8">
-                                    {form.formState.isSubmitting ? "Syncing..." : "Archive Session"}
+
+                    <div className="p-6">
+                        <TabsContent value="overview" className="mt-0 space-y-6">
+                            <div className="flex items-center gap-4 p-4 border rounded-2xl bg-muted/20">
+                                <Avatar className="h-14 w-14 border-2 border-white shadow-sm">
+                                    <AvatarFallback className="bg-primary text-white font-bold">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <p className="font-bold text-xl">{patient?.firstName} {patient?.lastName}</p>
+                                    <p className="text-sm text-muted-foreground">{patient?.email}</p>
+                                </div>
+                            </div>
+                            
+                            <div className="grid grid-cols-2 gap-6">
+                                <div className="space-y-1">
+                                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Scheduled Time</p>
+                                    <p className="font-semibold text-slate-700">{format(new Date(appointment.appointmentDateTime), "PPP p")}</p>
+                                </div>
+                                <div className="space-y-1">
+                                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Consultation Mode</p>
+                                    <Badge variant="outline" className="capitalize border-primary/20 text-primary">{appointment.appointmentType}</Badge>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-3 pt-4 border-t">
+                                <Button className="h-12 text-base font-bold shadow-lg shadow-primary/20" asChild>
+                                    <Link href={`/consultation/${appointment.id}`}>
+                                        <Video className="mr-2 h-5 w-5" /> Start Tele-Consultation
+                                    </Link>
                                 </Button>
-                            </DialogFooter>
-                        </form>
-                    </Form>
-                )}
+                                <div className="grid grid-cols-2 gap-3">
+                                    <Button variant="outline" className="h-12 font-bold" onClick={() => setIsPostponeOpen(true)}>
+                                        <RefreshCw className="mr-2 h-4 w-4" /> Postpone Session
+                                    </Button>
+                                    <Button variant="secondary" className="h-12 font-bold" disabled>
+                                        <MessageSquare className="mr-2 h-4 w-4" /> Pre-Session Chat
+                                    </Button>
+                                </div>
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="history" className="mt-0">
+                            <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                                {isLoadingHistory ? (
+                                    <div className="py-12 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
+                                ) : history && history.length > 0 ? (
+                                    history.map((record) => (
+                                        <div key={record.id} className="p-4 border rounded-xl bg-muted/10 space-y-2">
+                                            <div className="flex items-center justify-between">
+                                                <p className="text-xs font-bold text-primary">{format(new Date(record.appointmentDateTime), "MMM dd, yyyy")}</p>
+                                                <Badge variant="secondary" className="text-[9px] uppercase">Completed</Badge>
+                                            </div>
+                                            <div>
+                                                <p className="text-[10px] font-bold text-slate-500 uppercase">Diagnosis</p>
+                                                <p className="text-sm italic">{record.diagnosis || "No details"}</p>
+                                            </div>
+                                            <div className="pt-2 border-t border-dashed">
+                                                <p className="text-[10px] font-bold text-slate-500 uppercase">Prescription</p>
+                                                <p className="text-sm truncate opacity-70">{record.prescription || "No details"}</p>
+                                            </div>
+                                        </div>
+                                    ))
+                                ) : (
+                                    <div className="py-12 text-center text-muted-foreground italic">
+                                        <History className="h-10 w-10 mx-auto mb-2 opacity-10" />
+                                        <p className="text-sm">No historical clinical records for this patient.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </TabsContent>
+
+                        <TabsContent value="notes" className="mt-0">
+                            <Form {...form}>
+                                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                                    <FormField
+                                        control={form.control}
+                                        name="diagnosis"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Diagnosis</FormLabel>
+                                                <FormControl>
+                                                    <Input placeholder="Primary findings..." {...field} className="h-12 rounded-xl" />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name="prescription"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Treatment Plan</FormLabel>
+                                                <FormControl>
+                                                    <Textarea placeholder="Prescriptions, advice, and follow-up instructions..." rows={6} {...field} className="rounded-xl resize-none" />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <div className="pt-4 flex gap-3">
+                                        <Button type="submit" disabled={form.formState.isSubmitting} className="flex-1 h-12 text-base font-bold">
+                                            {form.formState.isSubmitting ? "Syncing..." : "Finalize & Archive Session"}
+                                        </Button>
+                                    </div>
+                                </form>
+                            </Form>
+                        </TabsContent>
+                    </div>
+                </Tabs>
             </DialogContent>
         </Dialog>
+        
+        {appointment && (
+            <PostponeDialog 
+                isOpen={isPostponeOpen} 
+                onOpenChange={setIsPostponeOpen} 
+                appointment={appointment} 
+            />
+        )}
+        </>
     );
 }
 
@@ -510,6 +698,8 @@ export default function DoctorPortalPage() {
         </div>
     );
 
+    const isViewingToday = isSameDay(viewDate, new Date());
+
     return (
         <main className="flex-grow bg-secondary/30 py-8">
             <div className="container mx-auto px-4 space-y-8">
@@ -624,6 +814,12 @@ export default function DoctorPortalPage() {
                                                 <Badge variant="outline" className="text-amber-600 border-amber-600 h-10 px-4 gap-2 bg-amber-50 font-bold">
                                                     <Clock className="h-4 w-4" /> Audit Pending
                                                 </Badge>
+                                            ) : isViewingToday ? (
+                                                <Button variant="outline" size="sm" className="h-10 gap-2 font-bold text-blue-600 hover:bg-blue-50 border-blue-200" asChild>
+                                                    <Link href="/doctor-portal/chat">
+                                                        <ShieldCheck className="h-4 w-4" /> Emergency Support
+                                                    </Link>
+                                                </Button>
                                             ) : (
                                                 <Button variant="outline" size="sm" className="h-10 gap-2 font-bold text-destructive hover:bg-red-50 border-destructive/20" onClick={() => setIsLeaveOpen(true)}>
                                                     <Moon className="h-4 w-4" /> Request Off
