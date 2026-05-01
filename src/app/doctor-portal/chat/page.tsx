@@ -6,8 +6,8 @@ import { collection, query, where, doc, addDoc, setDoc } from 'firebase/firestor
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, Shield, MessageSquare, Siren, Clock } from 'lucide-react';
-import { format } from 'date-fns';
+import { Loader2, Send, Shield, MessageSquare, Siren, Clock, Calendar as CalendarIcon } from 'lucide-react';
+import { format, addDays, startOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import {
@@ -22,6 +22,9 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useToast } from '@/hooks/use-toast';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Label } from '@/components/ui/label';
 
 export default function DoctorChatPage() {
   const { user } = useUserData();
@@ -30,6 +33,7 @@ export default function DoctorChatPage() {
   const [newMessage, setNewMessage] = useState('');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [emergencyReason, setEmergencyReason] = useState('');
+  const [requestedDate, setRequestedDate] = useState<Date>(addDays(new Date(), 1));
   const [isRequesting, setIsRequesting] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -94,12 +98,12 @@ export default function DoctorChatPage() {
   };
 
   const handleSubmitEmergencyRequest = () => {
-    if (!user || !firestore || !emergencyReason.trim()) return;
+    if (!user || !firestore || !emergencyReason.trim() || !requestedDate) return;
     setIsRequesting(true);
 
     const requestData = {
       doctorId: user.uid,
-      requestedDate: new Date().toISOString(), // Today
+      requestedDate: requestedDate.toISOString(),
       reason: `[EMERGENCY CHAT REQUEST] ${emergencyReason}`,
       status: 'pending',
       requestedAt: new Date().toISOString(),
@@ -114,7 +118,7 @@ export default function DoctorChatPage() {
       sessionId,
       senderId: user.uid,
       senderRole: 'doctor',
-      content: `I have submitted an emergency absence request for today. Reason: ${emergencyReason}`,
+      content: `I have submitted an emergency absence request for ${format(requestedDate, "PPP")}. Reason: ${emergencyReason}`,
       timestamp: new Date().toISOString(),
       isRead: false,
       doctorId: user.uid,
@@ -124,12 +128,13 @@ export default function DoctorChatPage() {
 
     toast({
       title: "Emergency Logged",
-      description: "Admin has been notified of your immediate unavailability.",
+      description: `Admin notified of your unavailability for ${format(requestedDate, "MMM dd")}.`,
     });
 
     setIsRequesting(false);
     setIsDialogOpen(false);
     setEmergencyReason('');
+    setRequestedDate(addDays(new Date(), 1));
   };
 
   return (
@@ -154,28 +159,64 @@ export default function DoctorChatPage() {
                         <Siren className="h-4 w-4" /> Request Emergency Off
                     </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="sm:max-w-[450px]">
                     <DialogHeader>
-                        <DialogTitle>Emergency Unavailability</DialogTitle>
+                        <DialogTitle>Emergency Absence Application</DialogTitle>
                         <DialogDescription>
-                            File an immediate clinical pause for today. This will notify admin for instant review.
+                            File an urgent clinical pause. Note: Policy requires leave to be logged at least 24h in advance.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-4 py-4">
-                        <div className="p-3 bg-destructive/10 text-destructive rounded-lg text-xs font-medium border border-destructive/20 flex gap-2">
-                            <Clock className="h-4 w-4 shrink-0" />
-                            Use this strictly for same-day clinical or personal emergencies.
+                    <div className="space-y-6 py-4">
+                        <div className="space-y-2">
+                            <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Step 1: Pick Clinical Date</Label>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                    <Button
+                                        variant={"outline"}
+                                        className={cn(
+                                            "w-full justify-start text-left font-normal h-12 rounded-xl border-2",
+                                            !requestedDate && "text-muted-foreground"
+                                        )}
+                                    >
+                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        {requestedDate ? format(requestedDate, "PPP") : <span>Select date</span>}
+                                    </Button>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                        mode="single"
+                                        selected={requestedDate}
+                                        onSelect={(date) => date && setRequestedDate(date)}
+                                        disabled={(date) => date <= startOfDay(new Date())}
+                                        initialFocus
+                                    />
+                                </PopoverContent>
+                            </Popover>
                         </div>
-                        <Textarea 
-                            placeholder="State the reason for this emergency pause..." 
-                            value={emergencyReason}
-                            onChange={(e) => setEmergencyReason(e.target.value)}
-                            rows={4}
-                        />
+
+                        <div className="space-y-2">
+                            <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Step 2: Emergency Context</Label>
+                            <Textarea 
+                                placeholder="Detail the urgent clinical or personal reason for this pause..." 
+                                value={emergencyReason}
+                                onChange={(e) => setEmergencyReason(e.target.value)}
+                                rows={4}
+                                className="resize-none rounded-xl border-2"
+                            />
+                        </div>
+
+                        <div className="p-3 bg-amber-50 text-amber-800 rounded-lg text-[10px] font-medium border border-amber-200 flex gap-2">
+                            <Clock className="h-4 w-4 shrink-0" />
+                            Same-day automated leave is blocked for patient safety. Select tomorrow or later for review.
+                        </div>
                     </div>
                     <DialogFooter>
                         <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
-                        <Button onClick={handleSubmitEmergencyRequest} disabled={!emergencyReason.trim() || isRequesting}>
+                        <Button 
+                            onClick={handleSubmitEmergencyRequest} 
+                            disabled={!emergencyReason.trim() || !requestedDate || isRequesting}
+                            className="bg-primary hover:bg-primary/90 font-bold"
+                        >
                             {isRequesting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit to Admin"}
                         </Button>
                     </DialogFooter>
