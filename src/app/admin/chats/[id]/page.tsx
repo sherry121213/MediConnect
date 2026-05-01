@@ -7,14 +7,18 @@ import { collection, query, where, doc, addDoc, setDoc } from 'firebase/firestor
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, ArrowLeft, User, ShieldCheck } from 'lucide-react';
-import { format } from 'date-fns';
+import { Loader2, Send, ArrowLeft, User, ShieldCheck, CheckCircle2, AlertCircle } from 'lucide-react';
+import { format, isSameDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import type { Patient } from '@/lib/types';
+import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { useToast } from '@/hooks/use-toast';
+import { Badge } from '@/components/ui/badge';
 
 export default function AdminSpecificChatPage() {
   const params = useParams();
   const router = useRouter();
+  const { toast } = useToast();
   const sessionId = params.id as string;
   const { user } = useUserData();
   const firestore = useFirestore();
@@ -42,6 +46,17 @@ export default function AdminSpecificChatPage() {
 
   const { data: messages, isLoading: isLoadingMessages } = useCollection<any>(messagesQuery);
 
+  // Fetch pending requests for THIS specific doctor to show in-chat approval
+  const requestsQuery = useMemoFirebase(() => {
+    if (!firestore || !session?.doctorId) return null;
+    return query(
+        collection(firestore, 'doctorUnavailabilityRequests'), 
+        where('doctorId', '==', session.doctorId),
+        where('status', '==', 'pending')
+    );
+  }, [firestore, session?.doctorId]);
+  const { data: pendingRequests } = useCollection<any>(requestsQuery);
+
   useEffect(() => {
     scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -57,7 +72,6 @@ export default function AdminSpecificChatPage() {
       content: newMessage,
       timestamp: new Date().toISOString(),
       isRead: false,
-      // Denormalized IDs for authorization compatibility
       doctorId: session.doctorId,
       adminUserId: user.uid
     };
@@ -71,73 +85,143 @@ export default function AdminSpecificChatPage() {
     setNewMessage('');
   };
 
+  const handleApproveLeave = (requestId: string) => {
+    if (!firestore) return;
+    const reqRef = doc(firestore, 'doctorUnavailabilityRequests', requestId);
+    updateDocumentNonBlocking(reqRef, { 
+      status: 'approved', 
+      processedAt: new Date().toISOString() 
+    });
+    
+    toast({
+      title: "Absence Approved",
+      description: "Doctor's unavailability has been activated.",
+    });
+  };
+
   if (isLoadingSession) return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
 
   return (
-    <div className="p-4 md:p-8 flex flex-col h-[calc(100vh-2rem)]">
-      <Button variant="ghost" onClick={() => router.push('/admin/chats')} className="mb-4 w-fit">
-        <ArrowLeft className="mr-2 h-4 w-4" /> Back to Messages
-      </Button>
+    <div className="p-4 md:p-8 flex flex-col h-[calc(100vh-2rem)] space-y-4">
+      <div className="flex items-center justify-between">
+        <Button variant="ghost" onClick={() => router.push('/admin/chats')} className="w-fit">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Messages
+        </Button>
+      </div>
 
-      <Card className="flex-1 flex flex-col shadow-2xl border-none overflow-hidden bg-white">
-        <CardHeader className="bg-slate-900 text-white p-4">
-          <div className="flex items-center gap-3">
-            <div className="h-12 w-12 rounded-full bg-slate-700 flex items-center justify-center text-white font-bold text-xl">
-              {doctor ? doctor.firstName[0] : <User className="h-6 w-6" />}
-            </div>
-            <div>
-              <CardTitle className="text-xl">
-                Chat with {doctor ? `Dr. ${doctor.firstName} ${doctor.lastName}` : 'Doctor'}
-              </CardTitle>
-              <div className="flex items-center gap-1 text-[10px] text-slate-400 uppercase font-bold">
-                <ShieldCheck className="h-3 w-3" /> Secure Administrative Session
-              </div>
-            </div>
-          </div>
-        </CardHeader>
-
-        <CardContent className="flex-1 overflow-y-auto p-6 bg-slate-50 custom-scrollbar space-y-4">
-          {isLoadingMessages ? (
-            <div className="h-full flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-          ) : messages && messages.length > 0 ? (
-            messages.sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((msg: any) => {
-              const isMe = msg.senderRole === 'admin';
-              return (
-                <div key={msg.id} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
-                  <div className={cn(
-                    "max-w-[70%] p-4 rounded-2xl text-sm shadow-sm",
-                    isMe ? "bg-slate-800 text-white rounded-br-none" : "bg-white border rounded-bl-none"
-                  )}>
-                    <p className="leading-relaxed">{msg.content}</p>
-                    <p className={cn("text-[10px] mt-1 opacity-50", isMe ? "text-right" : "")}>
-                      {format(new Date(msg.timestamp), "p")}
-                    </p>
-                  </div>
+      <div className="flex-1 flex gap-6 overflow-hidden">
+        {/* Chat Area */}
+        <Card className="flex-1 flex flex-col shadow-2xl border-none overflow-hidden bg-white">
+            <CardHeader className="bg-slate-900 text-white p-4">
+            <div className="flex items-center gap-3">
+                <div className="h-12 w-12 rounded-full bg-slate-700 flex items-center justify-center text-white font-bold text-xl">
+                {doctor ? doctor.firstName[0] : <User className="h-6 w-6" />}
                 </div>
-              );
-            })
-          ) : (
-            <div className="h-full flex flex-col items-center justify-center text-muted-foreground italic">
-              <p>No messages yet.</p>
+                <div>
+                <CardTitle className="text-xl">
+                    Chat with {doctor ? `Dr. ${doctor.firstName} ${doctor.lastName}` : 'Doctor'}
+                </CardTitle>
+                <div className="flex items-center gap-1 text-[10px] text-slate-400 uppercase font-bold">
+                    <ShieldCheck className="h-3 w-3" /> Secure Administrative Session
+                </div>
+                </div>
             </div>
-          )}
-          <div ref={scrollRef} />
-        </CardContent>
+            </CardHeader>
 
-        <CardFooter className="p-4 border-t bg-white">
-          <form onSubmit={handleSendMessage} className="w-full flex gap-3">
-            <Input 
-              placeholder="Send administrative response..." 
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              className="flex-1 bg-slate-50 border-slate-200"
-            />
-            <Button type="submit" disabled={!newMessage.trim()} className="bg-slate-900 hover:bg-slate-800 px-8">
-              <Send className="h-4 w-4 mr-2" /> Reply
-            </Button>
-          </form>
-        </CardFooter>
-      </Card>
+            <CardContent className="flex-1 overflow-y-auto p-6 bg-slate-50 custom-scrollbar space-y-4">
+            {isLoadingMessages ? (
+                <div className="h-full flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+            ) : messages && messages.length > 0 ? (
+                messages.sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((msg: any) => {
+                const isMe = msg.senderRole === 'admin';
+                return (
+                    <div key={msg.id} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
+                    <div className={cn(
+                        "max-w-[70%] p-4 rounded-2xl text-sm shadow-sm",
+                        isMe ? "bg-slate-800 text-white rounded-br-none" : "bg-white border rounded-bl-none"
+                    )}>
+                        <p className="leading-relaxed">{msg.content}</p>
+                        <p className={cn("text-[10px] mt-1 opacity-50", isMe ? "text-right" : "")}>
+                        {format(new Date(msg.timestamp), "p")}
+                        </p>
+                    </div>
+                    </div>
+                );
+                })
+            ) : (
+                <div className="h-full flex flex-col items-center justify-center text-muted-foreground italic">
+                <p>No messages yet.</p>
+                </div>
+            )}
+            <div ref={scrollRef} />
+            </CardContent>
+
+            <CardFooter className="p-4 border-t bg-white">
+            <form onSubmit={handleSendMessage} className="w-full flex gap-3">
+                <Input 
+                placeholder="Send administrative response..." 
+                value={newMessage}
+                onChange={(e) => setNewMessage(e.target.value)}
+                className="flex-1 bg-slate-50 border-slate-200"
+                />
+                <Button type="submit" disabled={!newMessage.trim()} className="bg-slate-900 hover:bg-slate-800 px-8">
+                <Send className="h-4 w-4 mr-2" /> Reply
+                </Button>
+            </form>
+            </CardFooter>
+        </Card>
+
+        {/* Sidebar for Emergency Actions */}
+        <div className="w-80 space-y-6 hidden lg:block">
+            <Card className="border-none shadow-lg overflow-hidden">
+                <CardHeader className="bg-primary/5 py-3">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                        <AlertCircle className="h-4 w-4 text-primary" /> Clinical Actions
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="p-4 space-y-4">
+                    <div>
+                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-2">Pending Emergency Requests</p>
+                        {pendingRequests && pendingRequests.length > 0 ? (
+                            <div className="space-y-3">
+                                {pendingRequests.map((req: any) => (
+                                    <div key={req.id} className="p-3 bg-muted/30 rounded-lg border text-xs space-y-2">
+                                        <div className="flex justify-between items-start">
+                                            <Badge variant="outline" className="text-[9px] bg-white">
+                                                {format(new Date(req.requestedDate), "MMM dd")}
+                                            </Badge>
+                                            {req.isEmergency && <Badge className="bg-red-500 text-[8px]">EMERGENCY</Badge>}
+                                        </div>
+                                        <p className="italic text-muted-foreground line-clamp-3">{req.reason}</p>
+                                        <Button 
+                                            size="sm" 
+                                            className="w-full h-8 text-[10px] font-bold"
+                                            onClick={() => handleApproveLeave(req.id)}
+                                        >
+                                            <CheckCircle2 className="h-3 w-3 mr-1" /> Approve Absence
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <p className="text-xs text-muted-foreground italic text-center py-4 bg-muted/20 rounded-lg border border-dashed">
+                                No pending leave requests from this doctor.
+                            </p>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
+
+            <Card className="bg-slate-900 text-white border-none shadow-lg">
+                <CardContent className="p-4 space-y-2">
+                    <h4 className="text-xs font-bold uppercase text-slate-400">Context Panel</h4>
+                    <p className="text-[11px] leading-relaxed text-slate-300">
+                        Use this area to approve immediate clinical pauses discussed in chat. Approval instantly blocks the doctor's calendar on the patient side.
+                    </p>
+                </CardContent>
+            </Card>
+        </div>
+      </div>
     </div>
   );
 }
