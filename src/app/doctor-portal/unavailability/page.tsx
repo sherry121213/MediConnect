@@ -12,7 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
-import { Calendar as CalendarIcon, Loader2, Clock, CheckCircle2, XCircle, AlertCircle, History, Info, Sparkles, ClipboardList, MessageSquare } from 'lucide-react';
+import { Calendar as CalendarIcon, Loader2, Clock, CheckCircle2, XCircle, AlertCircle, History, Info, Sparkles, ClipboardList, MessageSquare, ShieldCheck } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { format, addDays, startOfDay, isSameDay } from 'date-fns';
 import { cn } from '@/lib/utils';
@@ -91,15 +91,15 @@ export default function DoctorUnavailabilityPage() {
                <div className="h-10 w-1.5 bg-primary rounded-full" />
                Absence Audit Center
             </h1>
-            <p className="text-muted-foreground mt-1">Submit clinical pause requests for any future dates and track your professional audit trail.</p>
+            <p className="text-muted-foreground mt-1">Submit clinical pause requests for future dates. Minimum 24h notice required.</p>
           </div>
           <div className="bg-white border shadow-sm p-4 rounded-2xl flex items-center gap-4">
              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                <Sparkles className="h-5 w-5" />
+                <ShieldCheck className="h-5 w-5" />
              </div>
              <div className="text-sm">
-                <p className="font-bold text-xs uppercase text-muted-foreground tracking-wider">Earliest Possible Audit</p>
-                <p className="font-bold">{format(addDays(new Date(), 1), "EEEE, MMM dd")}</p>
+                <p className="font-bold text-xs uppercase text-muted-foreground tracking-wider">Planned Leave Policy</p>
+                <p className="font-bold text-primary">Next available: {format(addDays(new Date(), 1), "MMM dd")}</p>
              </div>
           </div>
         </div>
@@ -109,7 +109,7 @@ export default function DoctorUnavailabilityPage() {
             <Card className="h-fit border-none shadow-2xl overflow-hidden bg-white">
                 <CardHeader className="bg-slate-900 text-white text-center">
                     <CardTitle className="text-xl font-headline">Request Future Leave</CardTitle>
-                    <CardDescription className="text-slate-400">Automated audit for non-emergency dates.</CardDescription>
+                    <CardDescription className="text-slate-400">Formal audit for planned clinical absences.</CardDescription>
                 </CardHeader>
                 <CardContent className="p-6">
                 <Form {...form}>
@@ -119,13 +119,13 @@ export default function DoctorUnavailabilityPage() {
                         name="requestedDate"
                         render={({ field }) => (
                         <FormItem className="flex flex-col">
-                            <FormLabel className="text-[11px] uppercase font-bold tracking-[0.2em] opacity-60 mb-2">Step 1: Pick a Date</FormLabel>
+                            <FormLabel className="text-[11px] uppercase font-bold tracking-[0.2em] opacity-60 mb-2">Step 1: Pick a Clinical Date</FormLabel>
                             <div className="border rounded-2xl p-2 bg-muted/20">
                                 <Calendar
                                     mode="single"
                                     selected={field.value}
                                     onSelect={field.onChange}
-                                    disabled={(date) => isSameDay(date, new Date()) || date < startOfDay(new Date())}
+                                    disabled={(date) => date <= startOfDay(new Date())}
                                     className="rounded-xl border shadow-sm bg-white"
                                 />
                             </div>
@@ -138,10 +138,10 @@ export default function DoctorUnavailabilityPage() {
                         name="reason"
                         render={({ field }) => (
                         <FormItem>
-                            <FormLabel className="text-[11px] uppercase font-bold tracking-[0.2em] opacity-60 mb-2">Step 2: Justification</FormLabel>
+                            <FormLabel className="text-[11px] uppercase font-bold tracking-[0.2em] opacity-60 mb-2">Step 2: Detail Justification</FormLabel>
                             <FormControl>
                                 <Textarea 
-                                    placeholder="Briefly detail why you need a clinical pause (e.g. Personal travel, Training, etc.)" 
+                                    placeholder="Briefly detail why you need a clinical pause (e.g. Planned travel, Seminar, etc.)" 
                                     className="resize-none border-2 h-32 rounded-xl focus:border-primary transition-colors" 
                                     {...field} 
                                 />
@@ -155,12 +155,12 @@ export default function DoctorUnavailabilityPage() {
                         <div className="p-4 bg-muted/40 rounded-xl space-y-3 border-l-4 border-primary">
                             <div className="flex gap-3 text-[10px] text-muted-foreground uppercase font-bold tracking-tight">
                                 <Info className="h-3.5 w-3.5 text-primary shrink-0" />
-                                Clinical Audit Policy:
+                                Clinical Absence Policy:
                             </div>
                             <ul className="space-y-1.5 pl-4 list-disc text-[10px] text-muted-foreground italic">
-                                <li>Audit is required for all future clinical absences.</li>
-                                <li>Approved dates block patient bookings automatically.</li>
-                                <li>Same-day emergency requests require direct Admin chat.</li>
+                                <li>Planned leave must be logged at least 24 hours in advance.</li>
+                                <li>Approved dates block patient bookings immediately.</li>
+                                <li>Same-day absences require direct Emergency Admin Chat.</li>
                             </ul>
                         </div>
                         <Button type="submit" className="w-full h-14 text-base font-bold shadow-lg shadow-primary/20 rounded-xl" disabled={isSubmitting}>
@@ -175,12 +175,12 @@ export default function DoctorUnavailabilityPage() {
             <Card className="border-none shadow-xl bg-primary/5 border-primary/20">
                 <CardHeader>
                     <CardTitle className="text-sm flex items-center gap-2 font-bold">
-                        <MessageSquare className="h-4 w-4 text-primary" /> Emergency (Same-Day)
+                        <MessageSquare className="h-4 w-4 text-primary" /> Urgent/Emergency Off
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     <p className="text-xs text-muted-foreground leading-relaxed">
-                        Need an immediate clinical pause for today? Automated audit is restricted for active dates. Please contact Admin directly.
+                        Need an immediate clinical pause for today or tomorrow morning? Use the direct emergency channel for instant administrative review.
                     </p>
                     <Button variant="outline" className="w-full font-bold border-2 border-primary/20 rounded-xl" asChild>
                         <Link href="/doctor-portal/chat">Initiate Emergency Chat</Link>
@@ -240,7 +240,7 @@ export default function DoctorUnavailabilityPage() {
                 <div className="text-center py-32 text-muted-foreground">
                   <AlertCircle className="h-16 w-16 mx-auto mb-4 opacity-10" />
                   <p className="font-bold text-lg">No audit records found.</p>
-                  <p className="text-sm">Submit your first future leave request to begin the professional audit log.</p>
+                  <p className="text-sm">Submit your first planned leave request to begin the professional audit trail.</p>
                 </div>
               )}
             </CardContent>

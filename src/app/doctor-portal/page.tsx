@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, CheckCircle2, Info, Popover as PopoverIcon, CalendarDays, FileText, ArrowRight, RefreshCw } from "lucide-react";
+import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, CheckCircle2, Info, Popover as PopoverIcon, CalendarDays, FileText, ArrowRight, RefreshCw, Siren } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
@@ -277,7 +277,7 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
                     </div>
                     <DialogTitle className="text-center font-headline text-2xl">Absence Audit Request</DialogTitle>
                     <DialogDescription className="text-center">
-                        Request a clinical pause for administrative review.
+                        Formal audit for planned future clinical pauses.
                     </DialogDescription>
                 </DialogHeader>
                 
@@ -339,7 +339,7 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
 
                         <div className="p-3 bg-muted/30 rounded-lg text-[10px] text-muted-foreground italic leading-relaxed border border-dashed border-muted-foreground/20">
                             <Info className="h-3 w-3 inline mr-1 text-primary" /> 
-                            Automated audit is strictly for future dates (starting tomorrow). For same-day clinical issues, please contact Admin via the direct support chat.
+                            Automated audit is strictly for future dates (starting tomorrow). Minimum 24h notice is professionally required for planned leave.
                         </div>
 
                         <DialogFooter className="gap-2">
@@ -421,10 +421,12 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
                                 <Avatar className="h-14 w-14 border-2 border-white shadow-sm">
                                     <AvatarFallback className="bg-primary text-white font-bold">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback>
                                 </Avatar>
-                                <div>
-                                    <p className="font-bold text-xl">{patient?.firstName} {patient?.lastName}</p>
-                                    <p className="text-sm text-muted-foreground">{patient?.email}</p>
-                                </div>
+                                {patient && (
+                                    <div>
+                                        <p className="font-bold text-xl">{patient.firstName} {patient.lastName}</p>
+                                        <p className="text-sm text-muted-foreground">{patient.email}</p>
+                                    </div>
+                                )}
                             </div>
                             
                             <div className="grid grid-cols-2 gap-6">
@@ -817,7 +819,7 @@ export default function DoctorPortalPage() {
                                             ) : isViewingToday ? (
                                                 <Button variant="outline" size="sm" className="h-10 gap-2 font-bold text-blue-600 hover:bg-blue-50 border-blue-200" asChild>
                                                     <Link href="/doctor-portal/chat">
-                                                        <ShieldCheck className="h-4 w-4" /> Emergency Support
+                                                        <Siren className="h-4 w-4" /> Emergency Support
                                                     </Link>
                                                 </Button>
                                             ) : (
