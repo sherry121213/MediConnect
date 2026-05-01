@@ -6,7 +6,7 @@ import { collection, query, where, doc, addDoc, setDoc } from 'firebase/firestor
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, Shield, MessageSquare, AlertSiren, Clock } from 'lucide-react';
+import { Loader2, Send, Shield, MessageSquare, Siren, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -151,7 +151,7 @@ export default function DoctorChatPage() {
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
                     <Button variant="destructive" size="sm" className="font-bold gap-2">
-                        <AlertSiren className="h-4 w-4" /> Request Emergency Off
+                        <Siren className="h-4 w-4" /> Request Emergency Off
                     </Button>
                 </DialogTrigger>
                 <DialogContent>
