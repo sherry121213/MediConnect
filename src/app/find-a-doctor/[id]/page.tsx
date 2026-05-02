@@ -48,7 +48,6 @@ export default function DoctorDetailPage() {
     const [appointmentType, setAppointmentType] = useState<'Video Call' | 'Audio Call'>('Video Call');
     const [isBooking, setIsBooking] = useState(false);
     const [paymentReceipt, setPaymentReceipt] = useState<string | null>(null);
-    const [isUploading, setIsUploading] = useState(false);
     const [mounted, setMounted] = useState(false);
 
     useEffect(() => {
@@ -139,7 +138,14 @@ export default function DoctorDetailPage() {
         };
         
         addDocumentNonBlocking(collection(firestore, 'appointments'), newAppointment);
-        toast({ title: "Appointment Booked!", description: `Confirmed with Dr. ${doctor.firstName}.` });
+        
+        // Success Notification
+        toast({ 
+            title: "Receipt Submitted!", 
+            description: "Once your payment is approved your booking will be done. Please check your portal for status updates.",
+            duration: 6000
+        });
+
         setIsBooking(false);
         router.push('/patient-portal');
     };
@@ -355,4 +361,3 @@ export default function DoctorDetailPage() {
         </div>
     );
 }
-
