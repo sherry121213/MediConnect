@@ -17,61 +17,26 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { useUserData, useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where } from "firebase/firestore";
+import { useUserData, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase";
+import { collection, query, where, doc } from "firebase/firestore";
 import type { Appointment, Doctor } from "@/lib/types";
 import { useMemo, useState, useEffect } from "react";
 import { format, isAfter, subHours } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-export default function PatientPortalPage() {
-    const { user, userData, isUserLoading } = useUserData();
+const AppointmentCard = ({ apt, isUpcoming }: { apt: any, isUpcoming: boolean }) => {
     const firestore = useFirestore();
-    const [mounted, setMounted] = useState(false);
+    const doctorDocRef = useMemoFirebase(() => {
+        if (!firestore || !apt.doctorId) return null;
+        return doc(firestore, 'doctors', apt.doctorId);
+    }, [firestore, apt.doctorId]);
+    
+    const { data: doctor, isLoading: isLoadingDoctor } = useDoc<Doctor>(doctorDocRef);
+    const doctorImage = doctor ? PlaceHolderImages.find(p => p.id === doctor.profileImageId) : null;
+    const appointmentDate = new Date(apt.appointmentDateTime);
 
-    useEffect(() => {
-        setMounted(true);
-    }, []);
-
-    // Stable query for appointments
-    const appointmentsQuery = useMemoFirebase(() => {
-        if (!firestore || !user) return null;
-        return query(collection(firestore, 'appointments'), where('patientId', '==', user.uid));
-    }, [firestore, user]);
-    const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
-
-    // Stable query for doctors
-    const doctorsCollection = useMemoFirebase(() => {
-        if (!firestore) return null;
-        return collection(firestore, 'doctors');
-    }, [firestore]);
-    const { data: doctors, isLoading: isLoadingDoctors } = useCollection<Doctor>(doctorsCollection);
-
-    const { upcomingAppointments, recentPastAppointments } = useMemo(() => {
-        if (!mounted || !appointments || !doctors) return { upcomingAppointments: [], recentPastAppointments: [] };
-        
-        const now = new Date();
-        const threshold = subHours(now, 1); // Generous buffer to keep active sessions visible
-
-        const allMapped = appointments.map(apt => ({
-            ...apt,
-            doctor: doctors.find(d => d.id === apt.doctorId)
-        }));
-
-        const upcoming = allMapped
-            .filter(apt => isAfter(new Date(apt.appointmentDateTime), threshold) && apt.status !== 'cancelled' && apt.status !== 'completed')
-            .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
-
-        const past = allMapped
-            .filter(apt => !isAfter(new Date(apt.appointmentDateTime), threshold) || apt.status === 'completed')
-            .sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime())
-            .slice(0, 5);
-
-        return { upcomingAppointments: upcoming, recentPastAppointments: past };
-    }, [appointments, doctors, mounted]);
-
-    const JoinCallDialog = ({ apt }: { apt: any }) => (
+    const JoinCallDialog = () => (
         <AlertDialog>
             <AlertDialogTrigger asChild>
                 <Button className="w-full sm:w-auto font-bold">Join Session</Button>
@@ -80,7 +45,7 @@ export default function PatientPortalPage() {
                 <AlertDialogHeader>
                     <AlertDialogTitle className="text-xl font-headline">Clinical Connection</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Select your preferred method to connect with {apt.doctor ? `Dr. ${apt.doctor.firstName}` : 'your doctor'}.
+                        Select your preferred method to connect with {doctor ? `Dr. ${doctor.firstName}` : 'your doctor'}.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="grid grid-cols-1 gap-4 py-6">
@@ -139,62 +104,95 @@ export default function PatientPortalPage() {
         </AlertDialog>
     );
 
-    const AppointmentCard = ({ apt, isUpcoming }: { apt: any, isUpcoming: boolean }) => {
-        const doctorImage = apt.doctor ? PlaceHolderImages.find(p => p.id === apt.doctor.profileImageId) : null;
-        const appointmentDate = new Date(apt.appointmentDateTime);
-
-        return (
-            <Card className="hover:shadow-lg transition-all border-l-4 border-l-primary/40 bg-card/50 backdrop-blur-sm">
-                <CardContent className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-8">
-                    <div className="flex items-center gap-6 flex-1">
-                        <div className="relative h-16 w-16 shrink-0 shadow-inner rounded-full overflow-hidden">
-                            {apt.doctor?.photoURL || doctorImage ? (
-                                <Image
-                                    src={apt.doctor?.photoURL || doctorImage?.imageUrl || ''}
-                                    alt={apt.doctor?.firstName || 'Doctor'}
-                                    fill
-                                    className="object-cover border-2 border-primary/5"
-                                    data-ai-hint="doctor portrait"
-                                />
-                            ) : (
-                                <div className="h-full w-full bg-primary/10 flex items-center justify-center text-primary">
-                                    <Stethoscope className="h-8 w-8" />
-                                </div>
-                            )}
-                        </div>
-                        <div className="space-y-1">
-                            <div className="flex items-center gap-2">
-                                <p className="font-bold text-xl leading-tight tracking-tight">Dr. {apt.doctor?.firstName} {apt.doctor?.lastName}</p>
-                                <Badge variant="outline" className="text-[9px] h-4 border-primary/20 text-primary font-bold">{apt.appointmentType}</Badge>
-                            </div>
-                            <p className="text-sm text-primary font-bold uppercase tracking-wider opacity-80">{apt.doctor?.specialty || 'General Physician'}</p>
-                            <div className="flex items-center gap-4 pt-1">
-                                <Badge variant="secondary" className="bg-primary/5 text-primary-dark border-primary/10 flex items-center gap-1.5 px-2.5">
-                                    <Calendar className="w-3 h-3" /> {format(appointmentDate, "MMM dd, yyyy")}
-                                </Badge>
-                                <Badge variant="outline" className="flex items-center gap-1.5 px-2.5">
-                                    <Clock className="w-3 h-3" /> {format(appointmentDate, "p")}
-                                </Badge>
-                            </div>
-                        </div>
-                    </div>
-                    <div className="flex flex-col gap-2 shrink-0">
-                        {isUpcoming ? (
-                            <JoinCallDialog apt={apt}/>
+    return (
+        <Card className="hover:shadow-lg transition-all border-l-4 border-l-primary/40 bg-card/50 backdrop-blur-sm overflow-hidden">
+            <CardContent className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-8">
+                <div className="flex items-center gap-6 flex-1 min-w-0">
+                    <div className="relative h-16 w-16 shrink-0 shadow-inner rounded-full overflow-hidden bg-muted">
+                        {isLoadingDoctor ? (
+                             <div className="h-full w-full flex items-center justify-center"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+                        ) : doctor?.photoURL || doctorImage ? (
+                            <Image
+                                src={doctor?.photoURL || doctorImage?.imageUrl || ''}
+                                alt={doctor?.firstName || 'Doctor'}
+                                fill
+                                className="object-cover border-2 border-primary/5"
+                                data-ai-hint="doctor portrait"
+                            />
                         ) : (
-                            <Button variant="ghost" asChild className="gap-2 text-primary font-bold hover:bg-primary/5">
-                                <Link href={`/appointments/${apt.id}`}>
-                                    <FileText className="h-4 w-4" /> View Visit Summary
-                                </Link>
-                            </Button>
+                            <div className="h-full w-full bg-primary/10 flex items-center justify-center text-primary">
+                                <Stethoscope className="h-8 w-8" />
+                            </div>
                         )}
                     </div>
-                </CardContent>
-            </Card>
-        )
-    };
+                    <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                            <p className="font-bold text-xl leading-tight tracking-tight truncate">
+                                {isLoadingDoctor ? 'Loading Doctor...' : `Dr. ${doctor?.firstName} ${doctor?.lastName}`}
+                            </p>
+                            <Badge variant="outline" className="text-[9px] h-4 border-primary/20 text-primary font-bold shrink-0">{apt.appointmentType}</Badge>
+                        </div>
+                        <p className="text-sm text-primary font-bold uppercase tracking-wider opacity-80 truncate">{doctor?.specialty || 'General Physician'}</p>
+                        <div className="flex items-center gap-4 pt-1">
+                            <Badge variant="secondary" className="bg-primary/5 text-primary-dark border-primary/10 flex items-center gap-1.5 px-2.5">
+                                <Calendar className="w-3 h-3" /> {format(appointmentDate, "MMM dd, yyyy")}
+                            </Badge>
+                            <Badge variant="outline" className="flex items-center gap-1.5 px-2.5">
+                                <Clock className="w-3 h-3" /> {format(appointmentDate, "p")}
+                            </Badge>
+                        </div>
+                    </div>
+                </div>
+                <div className="flex flex-col gap-2 shrink-0">
+                    {isUpcoming ? (
+                        <JoinCallDialog />
+                    ) : (
+                        <Button variant="ghost" asChild className="gap-2 text-primary font-bold hover:bg-primary/5">
+                            <Link href={`/appointments/${apt.id}`}>
+                                <FileText className="h-4 w-4" /> View Visit Summary
+                            </Link>
+                        </Button>
+                    )}
+                </div>
+            </CardContent>
+        </Card>
+    )
+};
 
-    if (!mounted || isUserLoading || (user && isLoadingAppointments) || (user && isLoadingDoctors)) {
+export default function PatientPortalPage() {
+    const { user, userData, isUserLoading } = useUserData();
+    const firestore = useFirestore();
+    const [mounted, setMounted] = useState(false);
+
+    useEffect(() => {
+        setMounted(true);
+    }, []);
+
+    const appointmentsQuery = useMemoFirebase(() => {
+        if (!firestore || !user) return null;
+        return query(collection(firestore, 'appointments'), where('patientId', '==', user.uid));
+    }, [firestore, user]);
+    const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
+
+    const { upcomingAppointments, recentPastAppointments } = useMemo(() => {
+        if (!mounted || !appointments) return { upcomingAppointments: [], recentPastAppointments: [] };
+        
+        const now = new Date();
+        const threshold = subHours(now, 1); 
+
+        const upcoming = appointments
+            .filter(apt => isAfter(new Date(apt.appointmentDateTime), threshold) && apt.status !== 'cancelled' && apt.status !== 'completed')
+            .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
+
+        const past = appointments
+            .filter(apt => !isAfter(new Date(apt.appointmentDateTime), threshold) || apt.status === 'completed')
+            .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime())
+            .slice(0, 5);
+
+        return { upcomingAppointments: upcoming, recentPastAppointments: past };
+    }, [appointments, mounted]);
+
+    if (!mounted || isUserLoading) {
         return (
             <div className="flex-grow flex items-center justify-center bg-secondary/30">
                 <Loader2 className="h-10 w-10 animate-spin text-primary" />
@@ -259,7 +257,9 @@ export default function PatientPortalPage() {
                                 )}
                             </div>
                             
-                            {upcomingAppointments.length === 0 ? (
+                            {isLoadingAppointments ? (
+                                <div className="py-12 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary/30" /></div>
+                            ) : upcomingAppointments.length === 0 ? (
                                 <Card className="border-dashed border-2 bg-transparent">
                                     <CardContent className="py-16 text-center">
                                         <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
@@ -293,7 +293,9 @@ export default function PatientPortalPage() {
                                 )}
                             </div>
 
-                            {recentPastAppointments.length === 0 ? (
+                            {isLoadingAppointments ? (
+                                <div className="py-12 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary/30" /></div>
+                            ) : recentPastAppointments.length === 0 ? (
                                 <Card className="border-dashed border-2 bg-transparent">
                                     <CardContent className="py-16 text-center text-muted-foreground">
                                         <p className="font-medium">No historical clinical records detected.</p>
