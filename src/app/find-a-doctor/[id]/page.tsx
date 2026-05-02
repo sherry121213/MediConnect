@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck, Video, PhoneCall, Moon, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck, Video, PhoneCall, Moon, ShieldAlert, CreditCard } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -46,6 +46,7 @@ export default function DoctorDetailPage() {
     const [selectedDate, setSelectedDate] = useState(getNext7Days()[0].date);
     const [selectedTime, setSelectedTime] = useState<string | null>(null);
     const [appointmentType, setAppointmentType] = useState<'Video Call' | 'Audio Call'>('Video Call');
+    const [paymentMethod, setPaymentMethod] = useState<string>('Easypaisa');
     const [isBooking, setIsBooking] = useState(false);
     const [paymentReceipt, setPaymentReceipt] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
@@ -71,7 +72,6 @@ export default function DoctorDetailPage() {
 
     const { data: existingAppointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    // Unavailability audit check - ONLY approved leave blocks booking
     const unavailabilityQuery = useMemoFirebase(() => {
       if (!firestore || !doctorId) return null;
       return query(
@@ -135,11 +135,11 @@ export default function DoctorDetailPage() {
             amount: 1500,
             paymentReceiptUrl: paymentReceipt,
             paymentStatus: 'pending',
+            paymentMethod: paymentMethod,
         };
         
         addDocumentNonBlocking(collection(firestore, 'appointments'), newAppointment);
         
-        // Success Notification
         toast({ 
             title: "Receipt Submitted!", 
             description: "Once your payment is approved your booking will be done. Please check your portal for status updates.",
@@ -320,18 +320,61 @@ export default function DoctorDetailPage() {
                                                     Finalize Booking {selectedTime && `@ ${selectedTime}`}
                                                 </Button>
                                             </AlertDialogTrigger>
-                                            <AlertDialogContent className="rounded-3xl border-none shadow-2xl">
+                                            <AlertDialogContent className="rounded-3xl border-none shadow-2xl max-w-lg">
                                                 <AlertDialogHeader>
                                                     <AlertDialogTitle className="text-2xl font-headline">Clinical Confirmation</AlertDialogTitle>
-                                                    <AlertDialogDescription>Complete the consultation fee transfer of PKR 1,500 to finalize your session with Dr. {doctor.firstName}.</AlertDialogDescription>
+                                                    <AlertDialogDescription>Select a payment method and upload the transfer receipt to finalize your session.</AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <div className="space-y-6 py-6">
-                                                    <div className="bg-muted/30 p-6 rounded-2xl border border-dashed text-center">
+                                                    <div className="bg-muted/30 p-4 rounded-2xl border border-dashed text-center">
                                                         <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest mb-1">Total Fee Payable</p>
                                                         <p className="text-3xl font-bold text-primary">PKR 1,500</p>
                                                     </div>
+
+                                                    <div className="space-y-3">
+                                                        <Label className="text-xs font-bold uppercase opacity-60">Step 1: Select Payment Source</Label>
+                                                        <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid grid-cols-1 gap-2">
+                                                            <div className={cn("flex items-center space-x-3 p-3 rounded-xl border-2 transition-all cursor-pointer", paymentMethod === 'Easypaisa' ? "border-primary bg-primary/5" : "border-muted")}>
+                                                                <RadioGroupItem value="Easypaisa" id="ep" />
+                                                                <Label htmlFor="ep" className="flex-1 cursor-pointer flex items-center justify-between">
+                                                                    <div>
+                                                                        <p className="font-bold text-sm">Easypaisa</p>
+                                                                        <p className="text-[10px] text-muted-foreground">Account: 03120555772</p>
+                                                                    </div>
+                                                                    <div className="h-8 w-8 rounded bg-white p-1 border">
+                                                                        <CreditCard className="h-full w-full text-slate-400" />
+                                                                    </div>
+                                                                </Label>
+                                                            </div>
+                                                            <div className={cn("flex items-center space-x-3 p-3 rounded-xl border-2 transition-all cursor-pointer", paymentMethod === 'Jazzcash' ? "border-primary bg-primary/5" : "border-muted")}>
+                                                                <RadioGroupItem value="Jazzcash" id="jc" />
+                                                                <Label htmlFor="jc" className="flex-1 cursor-pointer flex items-center justify-between">
+                                                                    <div>
+                                                                        <p className="font-bold text-sm">Jazzcash</p>
+                                                                        <p className="text-[10px] text-muted-foreground">Account: 03120555772</p>
+                                                                    </div>
+                                                                    <div className="h-8 w-8 rounded bg-white p-1 border">
+                                                                        <CreditCard className="h-full w-full text-slate-400" />
+                                                                    </div>
+                                                                </Label>
+                                                            </div>
+                                                            <div className={cn("flex items-center space-x-3 p-3 rounded-xl border-2 transition-all cursor-pointer", paymentMethod === 'MasterCard' ? "border-primary bg-primary/5" : "border-muted")}>
+                                                                <RadioGroupItem value="MasterCard" id="mc" />
+                                                                <Label htmlFor="mc" className="flex-1 cursor-pointer flex items-center justify-between">
+                                                                    <div>
+                                                                        <p className="font-bold text-sm">MasterCard / IBAN</p>
+                                                                        <p className="text-[10px] text-muted-foreground">Account: pk013120555772</p>
+                                                                    </div>
+                                                                    <div className="h-8 w-8 rounded bg-white p-1 border">
+                                                                        <CreditCard className="h-full w-full text-slate-400" />
+                                                                    </div>
+                                                                </Label>
+                                                            </div>
+                                                        </RadioGroup>
+                                                    </div>
+
                                                     <div className="space-y-2">
-                                                        <Label className="text-xs font-bold uppercase opacity-60">Upload Payment Receipt</Label>
+                                                        <Label className="text-xs font-bold uppercase opacity-60">Step 2: Upload Payment Slip</Label>
                                                         <Input type="file" accept="image/*" className="rounded-xl border-2 h-14 pt-3.5" onChange={(e) => {
                                                             const file = e.target.files?.[0];
                                                             if (!file) return;

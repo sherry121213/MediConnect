@@ -60,4 +60,5 @@ export interface Appointment {
   amount?: number;
   paymentReceiptUrl?: string;
   paymentStatus?: 'pending' | 'approved' | 'rejected';
+  paymentMethod?: string;
 }

@@ -16,7 +16,7 @@ import { useMemo } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Eye, MoreHorizontal } from "lucide-react";
+import { Eye, MoreHorizontal, CreditCard } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -101,19 +101,25 @@ export default function AdminPaymentsPage() {
 
 
   return (
-    <div className="p-4 md:p-8">
-      <h1 className="text-3xl font-bold font-headline mb-6">Payment Management</h1>
-      <div className="border rounded-lg">
+    <div className="p-4 md:p-8 space-y-6">
+      <div className="flex items-center gap-3">
+        <div className="p-2 bg-primary/10 rounded-lg">
+          <CreditCard className="h-6 w-6 text-primary" />
+        </div>
+        <h1 className="text-3xl font-bold font-headline">Payment Audit Center</h1>
+      </div>
+
+      <div className="border rounded-xl shadow-sm bg-white overflow-hidden">
         <Table>
-          <TableHeader>
+          <TableHeader className="bg-muted/30">
             <TableRow>
               <TableHead>Patient</TableHead>
               <TableHead>Doctor</TableHead>
+              <TableHead className="hidden lg:table-cell">Source / Method</TableHead>
               <TableHead className="hidden lg:table-cell">Amount</TableHead>
               <TableHead className="hidden md:table-cell">Date</TableHead>
-              <TableHead className="hidden lg:table-cell">Apt. Status</TableHead>
-              <TableHead>Payment Status</TableHead>
-              <TableHead className="text-center">Receipt</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead className="text-center">Slip</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -123,31 +129,39 @@ export default function AdminPaymentsPage() {
                     <TableCell><Skeleton className="h-6 w-24"/></TableCell>
                     <TableCell><Skeleton className="h-6 w-24"/></TableCell>
                     <TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-24"/></TableCell>
+                    <TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-24"/></TableCell>
                     <TableCell className="hidden md:table-cell"><Skeleton className="h-6 w-24"/></TableCell>
-                    <TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-20"/></TableCell>
                     <TableCell><Skeleton className="h-6 w-20"/></TableCell>
                     <TableCell className="text-center"><Skeleton className="h-8 w-8 mx-auto"/></TableCell>
                     <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto"/></TableCell>
                 </TableRow>
             ))}
             {!isLoading && combinedData.map((payment) => (
-              <TableRow key={payment.id}>
-                <TableCell>{payment.patientName}</TableCell>
+              <TableRow key={payment.id} className="hover:bg-muted/5 transition-colors">
+                <TableCell className="font-medium">{payment.patientName}</TableCell>
                 <TableCell>{payment.doctorName}</TableCell>
-                <TableCell className="hidden lg:table-cell">PKR {payment.amount?.toLocaleString() || '1,500'}</TableCell>
-                <TableCell className="hidden md:table-cell">{new Date(payment.createdAt).toLocaleDateString()}</TableCell>
-                <TableCell className="hidden lg:table-cell">{getStatusBadge(payment.status)}</TableCell>
+                <TableCell className="hidden lg:table-cell">
+                   {payment.paymentMethod ? (
+                     <Badge variant="outline" className="font-bold border-primary/20 text-primary uppercase text-[10px]">
+                       {payment.paymentMethod}
+                     </Badge>
+                   ) : (
+                     <span className="text-xs text-muted-foreground italic">Legacy System</span>
+                   )}
+                </TableCell>
+                <TableCell className="hidden lg:table-cell font-mono">PKR {payment.amount?.toLocaleString() || '1,500'}</TableCell>
+                <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{new Date(payment.createdAt).toLocaleDateString()}</TableCell>
                 <TableCell>{getPaymentStatusBadge(payment.paymentStatus)}</TableCell>
                  <TableCell className="text-center">
                     {payment.paymentReceiptUrl ? (
-                         <Button asChild variant="ghost" size="icon">
+                         <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-primary">
                              <Link href={payment.paymentReceiptUrl} target="_blank" rel="noopener noreferrer">
-                                 <Eye className="h-5 w-5" />
+                                 <Eye className="h-4 w-4" />
                                  <span className="sr-only">View Receipt</span>
                              </Link>
                          </Button>
                     ) : (
-                        <span className="text-xs text-muted-foreground">N/A</span>
+                        <span className="text-xs text-muted-foreground italic">N/A</span>
                     )}
                 </TableCell>
                  <TableCell className="text-right">
@@ -160,7 +174,7 @@ export default function AdminPaymentsPage() {
                                 </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleUpdatePaymentStatus(payment.id, 'approved')}>
+                                <DropdownMenuItem onClick={() => handleUpdatePaymentStatus(payment.id, 'approved')} className="text-green-600 font-bold">
                                     Approve Payment
                                 </DropdownMenuItem>
                                 <DropdownMenuItem onClick={() => handleUpdatePaymentStatus(payment.id, 'rejected')} className="text-destructive">
@@ -174,7 +188,7 @@ export default function AdminPaymentsPage() {
             ))}
             {!isLoading && combinedData.length === 0 && (
                 <TableRow>
-                    <TableCell colSpan={8} className="text-center h-24">No payments found.</TableCell>
+                    <TableCell colSpan={8} className="text-center h-24 text-muted-foreground italic">No payment audit records detected.</TableCell>
                 </TableRow>
             )}
           </TableBody>
