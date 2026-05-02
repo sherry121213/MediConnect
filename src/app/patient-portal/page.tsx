@@ -180,8 +180,14 @@ export default function PatientPortalPage() {
         const now = new Date();
         const threshold = subHours(now, 1); 
 
+        // Only show upcoming appointments if the payment is APPROVED
         const upcoming = appointments
-            .filter(apt => isAfter(new Date(apt.appointmentDateTime), threshold) && apt.status !== 'cancelled' && apt.status !== 'completed')
+            .filter(apt => 
+                isAfter(new Date(apt.appointmentDateTime), threshold) && 
+                apt.status !== 'cancelled' && 
+                apt.status !== 'completed' &&
+                apt.paymentStatus === 'approved'
+            )
             .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
 
         const past = appointments
@@ -266,6 +272,7 @@ export default function PatientPortalPage() {
                                             <Clock className="h-8 w-8 text-muted-foreground/40" />
                                         </div>
                                         <p className="text-muted-foreground font-medium">Your current clinical queue is empty.</p>
+                                        <p className="text-xs text-muted-foreground mt-1">Pending payments will appear here once verified by admin.</p>
                                         <Button variant="link" asChild className="mt-2 text-primary font-bold">
                                             <Link href="/find-a-doctor">Find a specialist and book now</Link>
                                         </Button>
