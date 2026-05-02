@@ -4,7 +4,7 @@
 import { useFirestore, useUserData, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Loader2, MessageSquare, User, Search, History, Calendar, ArrowRight } from 'lucide-react';
+import { Loader2, MessageSquare, User, Search, History, Calendar, ArrowRight, Clock } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import Link from 'next/link';
 import { useState, useMemo } from 'react';
@@ -12,11 +12,11 @@ import { Input } from '@/components/ui/input';
 import { useDoc } from '@/firebase';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 const ConsultationMessageItem = ({ appointment }: { appointment: any }) => {
   const firestore = useFirestore();
   
-  // Safe document reference creation with validation
   const docRef = useMemoFirebase(() => {
     if (!firestore || !appointment?.doctorId) return null;
     return doc(firestore, 'doctors', appointment.doctorId);
@@ -24,14 +24,15 @@ const ConsultationMessageItem = ({ appointment }: { appointment: any }) => {
   
   const { data: doctor } = useDoc<any>(docRef);
 
-  // Safe date formatting to prevent crashes on invalid data
   const appointmentDate = appointment?.appointmentDateTime ? new Date(appointment.appointmentDateTime) : null;
   const formattedDate = appointmentDate && isValid(appointmentDate) 
     ? format(appointmentDate, "MMM dd, yyyy") 
     : 'Date TBD';
 
+  const isTimeReached = appointmentDate ? new Date().getTime() >= appointmentDate.getTime() : false;
+
   return (
-    <Card className="hover:shadow-lg transition-all border-l-4 border-l-primary/40 group overflow-hidden">
+    <Card className="hover:shadow-lg transition-all border-l-4 border-l-primary/40 group overflow-hidden bg-white">
       <CardContent className="p-0">
         <div className="flex flex-col sm:flex-row items-stretch">
           <div className="p-6 flex-1 flex items-center gap-4">
@@ -43,25 +44,30 @@ const ConsultationMessageItem = ({ appointment }: { appointment: any }) => {
                     <h3 className="font-bold text-lg truncate">
                         {doctor ? `Dr. ${doctor.firstName} ${doctor.lastName}` : 'Healthcare Provider'}
                     </h3>
-                    <Badge variant="outline" className="text-[9px] uppercase tracking-tighter h-4 font-bold border-primary/20 text-primary">Consultation Chat</Badge>
+                    <Badge variant="outline" className="text-[9px] uppercase tracking-tighter h-4 font-bold border-primary/20 text-primary">Verified Room</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground truncate max-w-[300px]">
-                    Consultation session for: {appointment.appointmentType || 'General Consultation'}
+                    Consultation mode: {appointment.appointmentType || 'General Consultation'}
                 </p>
                 <div className="flex items-center gap-4 mt-2">
                     <span className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
                         <Calendar className="h-3 w-3" /> {formattedDate}
                     </span>
+                    {!isTimeReached && (
+                         <span className="text-[10px] uppercase font-bold text-amber-600 flex items-center gap-1">
+                            <Clock className="h-3 w-3" /> Chat opens at {format(appointmentDate!, "p")}
+                        </span>
+                    )}
                 </div>
             </div>
           </div>
           <div className="bg-muted/30 p-6 flex flex-col justify-center items-center sm:items-end gap-2 shrink-0 border-t sm:border-t-0 sm:border-l border-dashed">
-            <Button asChild size="sm" className="font-bold group-hover:scale-105 transition-transform">
-                <Link href={`/consultation/${appointment.id}`}>
-                    Open Room <ArrowRight className="ml-2 h-4 w-4" />
+            <Button asChild size="sm" className="font-bold group-hover:scale-105 transition-transform" disabled={!isTimeReached}>
+                <Link href={isTimeReached ? `/consultation/${appointment.id}` : '#'}>
+                    {isTimeReached ? 'Open Chat & Room' : 'Awaiting Start Time'} <ArrowRight className="ml-2 h-4 w-4" />
                 </Link>
             </Button>
-            <p className="text-[9px] text-muted-foreground italic">Real-time messaging available</p>
+            <p className="text-[9px] text-muted-foreground italic">Clinical session link</p>
           </div>
         </div>
       </CardContent>
@@ -74,8 +80,6 @@ export default function PatientMessagesPage() {
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Simplified query: Removing orderBy here prevents "Missing Index" crashes.
-  // We handle sorting client-side for better reliability.
   const appointmentsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
@@ -86,12 +90,14 @@ export default function PatientMessagesPage() {
 
   const { data: appointments, isLoading } = useCollection<any>(appointmentsQuery);
 
-  // Implement client-side sorting and filtering
   const filteredAppointments = useMemo(() => {
     if (!appointments) return [];
     
     return appointments
       .filter(apt => {
+          // REQUIREMENT: Only verified payments are visible in the message center
+          if (apt.paymentStatus !== 'approved') return false;
+
           if (!searchTerm) return true;
           const searchLower = searchTerm.toLowerCase();
           return apt.appointmentType?.toLowerCase().includes(searchLower) ||
@@ -100,7 +106,7 @@ export default function PatientMessagesPage() {
       .sort((a, b) => {
           const dateA = a.appointmentDateTime ? new Date(a.appointmentDateTime).getTime() : 0;
           const dateB = b.appointmentDateTime ? new Date(b.appointmentDateTime).getTime() : 0;
-          return dateB - dateA; // Newest first
+          return dateB - dateA; 
       });
   }, [appointments, searchTerm]);
 
@@ -109,15 +115,15 @@ export default function PatientMessagesPage() {
       <div className="container mx-auto px-4 max-w-4xl space-y-8">
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
-                <h1 className="text-3xl font-bold font-headline tracking-tight">Message Center</h1>
+                <h1 className="text-3xl font-bold font-headline tracking-tight">Clinical Message Center</h1>
                 <p className="text-muted-foreground flex items-center gap-2 text-sm mt-1">
-                    <MessageSquare className="h-4 w-4 text-primary" /> View and manage responses from your doctors.
+                    <MessageSquare className="h-4 w-4 text-primary" /> Verified consultation channels and real-time guidance.
                 </p>
             </div>
             <div className="relative w-full md:w-80">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input 
-                    placeholder="Search consultations..." 
+                    placeholder="Search verified sessions..." 
                     className="pl-9 bg-white"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -135,9 +141,10 @@ export default function PatientMessagesPage() {
           ) : (
             <div className="text-center py-24 bg-white rounded-2xl shadow-sm border border-dashed">
               <MessageSquare className="h-12 w-12 mx-auto mb-4 text-slate-200" />
-              <p className="text-muted-foreground font-medium">No consultation sessions detected.</p>
-              <Button asChild variant="link" className="mt-2 text-primary font-bold">
-                <Link href="/find-a-doctor">Book your first medical consultation</Link>
+              <p className="text-muted-foreground font-medium">No verified consultations found.</p>
+              <p className="text-xs text-muted-foreground mt-1">Chat sessions appear here once your payment receipt is approved.</p>
+              <Button asChild variant="link" className="mt-4 text-primary font-bold">
+                <Link href="/patient-portal">Check Pending Verifications</Link>
               </Button>
             </div>
           )}
@@ -148,9 +155,9 @@ export default function PatientMessagesPage() {
                 <History className="text-primary h-6 w-6" />
             </div>
             <div>
-                <h4 className="font-bold text-primary-dark">Continuous Care Policy</h4>
+                <h4 className="font-bold text-primary-dark">Confidentiality Shield</h4>
                 <p className="text-sm text-muted-foreground leading-relaxed mt-1">
-                    Chat rooms remain active for 48 hours post-consultation to ensure you can receive necessary follow-up guidance from your doctor.
+                    Direct messaging is exclusively available for confirmed appointments. All clinical history and chat transcripts are archived for your safety and medical audit.
                 </p>
             </div>
         </div>

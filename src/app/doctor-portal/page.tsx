@@ -110,7 +110,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                                             </FormControl>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar
+                                            <DayPickerCalendar
                                                 mode="single"
                                                 selected={field.value}
                                                 onSelect={field.onChange}
@@ -402,6 +402,9 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
         onOpenChange(false);
     };
 
+    const appointmentDate = new Date(appointment.appointmentDateTime);
+    const isTimeReached = new Date().getTime() >= appointmentDate.getTime();
+
     return (
         <>
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -433,7 +436,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
                             <div className="grid grid-cols-2 gap-6">
                                 <div className="space-y-1">
                                     <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Scheduled Time</p>
-                                    <p className="font-semibold text-slate-700">{format(new Date(appointment.appointmentDateTime), "PPP p")}</p>
+                                    <p className="font-semibold text-slate-700">{format(appointmentDate, "PPP p")}</p>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Consultation Mode</p>
@@ -442,9 +445,9 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
                             </div>
 
                             <div className="flex flex-col gap-3 pt-4 border-t">
-                                <Button className="h-12 text-base font-bold shadow-lg shadow-primary/20" asChild>
-                                    <Link href={`/consultation/${appointment.id}`}>
-                                        <Video className="mr-2 h-5 w-5" /> Start Tele-Consultation
+                                <Button className="h-12 text-base font-bold shadow-lg shadow-primary/20" asChild disabled={!isTimeReached}>
+                                    <Link href={isTimeReached ? `/consultation/${appointment.id}` : '#'}>
+                                        <Video className="mr-2 h-5 w-5" /> {isTimeReached ? 'Start Tele-Consultation' : 'Session Not Ready'}
                                     </Link>
                                 </Button>
                                 <div className="grid grid-cols-2 gap-3">
@@ -455,6 +458,11 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
                                         <MessageSquare className="mr-2 h-4 w-4" /> Pre-Session Chat
                                     </Button>
                                 </div>
+                                {!isTimeReached && (
+                                    <p className="text-[10px] text-center text-amber-600 font-bold uppercase tracking-widest">
+                                        <Clock className="inline h-3 w-3 mr-1" /> Session entry opens at {format(appointmentDate, "p")}
+                                    </p>
+                                )}
                             </div>
                         </TabsContent>
 

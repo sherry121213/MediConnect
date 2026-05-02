@@ -228,11 +228,15 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone }: { apt: any, isUpcoming
     const { data: doctor, isLoading: isLoadingDoctor } = useDoc<Doctor>(doctorDocRef);
     const doctorImage = doctor ? PlaceHolderImages.find(p => p.id === doctor.profileImageId) : null;
     const appointmentDate = new Date(apt.appointmentDateTime);
+    
+    const isTimeReached = new Date().getTime() >= appointmentDate.getTime();
 
     const JoinCallDialog = () => (
         <AlertDialog>
             <AlertDialogTrigger asChild>
-                <Button className="w-full sm:w-auto font-bold">Join Session</Button>
+                <Button className="w-full sm:w-auto font-bold" disabled={!isTimeReached}>
+                    {isTimeReached ? 'Join Session' : 'Not Started Yet'}
+                </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
