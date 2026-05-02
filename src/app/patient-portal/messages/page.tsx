@@ -2,12 +2,12 @@
 'use client';
 
 import { useFirestore, useUserData, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, orderBy } from 'firebase/firestore';
+import { collection, query, where, doc } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Loader2, MessageSquare, User, Search, History, Calendar, ArrowRight } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
 import { useDoc } from '@/firebase';
 import { Badge } from '@/components/ui/badge';
@@ -15,11 +15,20 @@ import { Button } from '@/components/ui/button';
 
 const ConsultationMessageItem = ({ appointment }: { appointment: any }) => {
   const firestore = useFirestore();
+  
+  // Safe document reference creation with validation
   const docRef = useMemoFirebase(() => {
-    if (!firestore) return null;
+    if (!firestore || !appointment?.doctorId) return null;
     return doc(firestore, 'doctors', appointment.doctorId);
-  }, [firestore, appointment.doctorId]);
+  }, [firestore, appointment?.doctorId]);
+  
   const { data: doctor } = useDoc<any>(docRef);
+
+  // Safe date formatting to prevent crashes on invalid data
+  const appointmentDate = appointment?.appointmentDateTime ? new Date(appointment.appointmentDateTime) : null;
+  const formattedDate = appointmentDate && isValid(appointmentDate) 
+    ? format(appointmentDate, "MMM dd, yyyy") 
+    : 'Date TBD';
 
   return (
     <Card className="hover:shadow-lg transition-all border-l-4 border-l-primary/40 group overflow-hidden">
@@ -37,11 +46,11 @@ const ConsultationMessageItem = ({ appointment }: { appointment: any }) => {
                     <Badge variant="outline" className="text-[9px] uppercase tracking-tighter h-4 font-bold border-primary/20 text-primary">Consultation Chat</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground truncate max-w-[300px]">
-                    Consultation session for: {appointment.appointmentType}
+                    Consultation session for: {appointment.appointmentType || 'General Consultation'}
                 </p>
                 <div className="flex items-center gap-4 mt-2">
                     <span className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
-                        <Calendar className="h-3 w-3" /> {format(new Date(appointment.appointmentDateTime), "MMM dd, yyyy")}
+                        <Calendar className="h-3 w-3" /> {formattedDate}
                     </span>
                 </div>
             </div>
@@ -65,16 +74,35 @@ export default function PatientMessagesPage() {
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
 
+  // Simplified query: Removing orderBy here prevents "Missing Index" crashes.
+  // We handle sorting client-side for better reliability.
   const appointmentsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(
         collection(firestore, 'appointments'), 
-        where('patientId', '==', user.uid),
-        orderBy('appointmentDateTime', 'desc')
+        where('patientId', '==', user.uid)
     );
   }, [firestore, user]);
 
   const { data: appointments, isLoading } = useCollection<any>(appointmentsQuery);
+
+  // Implement client-side sorting and filtering
+  const filteredAppointments = useMemo(() => {
+    if (!appointments) return [];
+    
+    return appointments
+      .filter(apt => {
+          if (!searchTerm) return true;
+          const searchLower = searchTerm.toLowerCase();
+          return apt.appointmentType?.toLowerCase().includes(searchLower) ||
+                 apt.id.toLowerCase().includes(searchLower);
+      })
+      .sort((a, b) => {
+          const dateA = a.appointmentDateTime ? new Date(a.appointmentDateTime).getTime() : 0;
+          const dateB = b.appointmentDateTime ? new Date(b.appointmentDateTime).getTime() : 0;
+          return dateB - dateA; // Newest first
+      });
+  }, [appointments, searchTerm]);
 
   return (
     <main className="flex-grow bg-secondary/30 py-8">
@@ -100,8 +128,8 @@ export default function PatientMessagesPage() {
         <div className="space-y-4">
           {isUserLoading || isLoading ? (
             <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-          ) : appointments && appointments.length > 0 ? (
-            appointments.map((apt: any) => (
+          ) : filteredAppointments.length > 0 ? (
+            filteredAppointments.map((apt: any) => (
               <ConsultationMessageItem key={apt.id} appointment={apt} />
             ))
           ) : (
