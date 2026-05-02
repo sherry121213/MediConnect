@@ -144,7 +144,11 @@ const AppointmentCard = ({ apt, isUpcoming }: { apt: any, isUpcoming: boolean })
                     </div>
                 </div>
                 <div className="flex flex-col gap-2 shrink-0">
-                    {isUpcoming ? (
+                    {apt.paymentStatus === 'pending' ? (
+                        <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 px-4 py-2 font-bold whitespace-nowrap">
+                            <Clock className="w-3 h-3 mr-2" /> Pending Verification
+                        </Badge>
+                    ) : isUpcoming ? (
                         <JoinCallDialog />
                     ) : (
                         <Button variant="ghost" asChild className="gap-2 text-primary font-bold hover:bg-primary/5">
@@ -174,8 +178,8 @@ export default function PatientPortalPage() {
     }, [firestore, user]);
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    const { upcomingAppointments, recentPastAppointments } = useMemo(() => {
-        if (!mounted || !appointments) return { upcomingAppointments: [], recentPastAppointments: [] };
+    const { upcomingAppointments, pendingVerificationAppointments, recentPastAppointments } = useMemo(() => {
+        if (!mounted || !appointments) return { upcomingAppointments: [], pendingVerificationAppointments: [], recentPastAppointments: [] };
         
         const now = new Date();
         const threshold = subHours(now, 1); 
@@ -190,12 +194,21 @@ export default function PatientPortalPage() {
             )
             .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
 
+        // Appointments awaiting payment verification
+        const pending = appointments
+            .filter(apt => 
+                isAfter(new Date(apt.appointmentDateTime), threshold) && 
+                apt.status !== 'cancelled' && 
+                apt.paymentStatus === 'pending'
+            )
+            .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
+
         const past = appointments
             .filter(apt => !isAfter(new Date(apt.appointmentDateTime), threshold) || apt.status === 'completed')
-            .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime())
+            .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime())
             .slice(0, 5);
 
-        return { upcomingAppointments: upcoming, recentPastAppointments: past };
+        return { upcomingAppointments: upcoming, pendingVerificationAppointments: pending, recentPastAppointments: past };
     }, [appointments, mounted]);
 
     if (!mounted || isUserLoading) {
@@ -269,13 +282,10 @@ export default function PatientPortalPage() {
                                 <Card className="border-dashed border-2 bg-transparent">
                                     <CardContent className="py-16 text-center">
                                         <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                                            <Clock className="h-8 w-8 text-muted-foreground/40" />
+                                            <Calendar className="h-8 w-8 text-muted-foreground/40" />
                                         </div>
-                                        <p className="text-muted-foreground font-medium">Your current clinical queue is empty.</p>
-                                        <p className="text-xs text-muted-foreground mt-1">Pending payments will appear here once verified by admin.</p>
-                                        <Button variant="link" asChild className="mt-2 text-primary font-bold">
-                                            <Link href="/find-a-doctor">Find a specialist and book now</Link>
-                                        </Button>
+                                        <p className="text-muted-foreground font-medium">No verified consultations scheduled.</p>
+                                        <p className="text-xs text-muted-foreground mt-1">Pending payments will appear in the verification section below.</p>
                                     </CardContent>
                                 </Card>
                             ) : (
@@ -284,6 +294,26 @@ export default function PatientPortalPage() {
                                 </div>
                             )}
                         </section>
+
+                        {pendingVerificationAppointments.length > 0 && (
+                            <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
+                                <div className="flex items-center justify-between mb-6">
+                                    <h2 className="text-2xl font-bold font-headline flex items-center gap-3">
+                                        <div className="h-8 w-1 bg-amber-500 rounded-full"></div>
+                                        Verification in progress
+                                    </h2>
+                                    <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 px-3 py-1 font-bold">
+                                        {pendingVerificationAppointments.length} Awaiting Audit
+                                    </Badge>
+                                </div>
+                                <div className="space-y-5 opacity-90">
+                                    {pendingVerificationAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={true} />)}
+                                </div>
+                                <p className="text-[11px] text-muted-foreground italic mt-4 text-center">
+                                    Admins review receipts during standard business hours. Once verified, these will move to your active schedule.
+                                </p>
+                            </section>
+                        )}
 
                         <section>
                             <div className="flex items-center justify-between mb-6">
