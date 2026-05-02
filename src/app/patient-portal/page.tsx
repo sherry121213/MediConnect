@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, PhoneCall } from "lucide-react";
+import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, PhoneCall, RefreshCw, CalendarIcon } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
@@ -21,11 +21,204 @@ import { useUserData, useFirestore, useCollection, useMemoFirebase, useDoc } fro
 import { collection, query, where, doc } from "firebase/firestore";
 import type { Appointment, Doctor } from "@/lib/types";
 import { useMemo, useState, useEffect } from "react";
-import { format, isAfter, subHours } from "date-fns";
+import { format, isAfter, subHours, isSameDay, startOfDay, isBefore } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { useToast } from "@/hooks/use-toast";
+import { getNext7Days, timeSlots } from "@/lib/time";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as DayPickerCalendar } from "@/components/ui/calendar";
 
-const AppointmentCard = ({ apt, isUpcoming }: { apt: any, isUpcoming: boolean }) => {
+const postponeSchema = z.object({
+  newDate: z.date({ required_error: "Please select a new date." }),
+  newTime: z.string().min(1, "Please select a new time."),
+});
+type PostponeFormValues = z.infer<typeof postponeSchema>;
+
+function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: any }) {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    const [isSaving, setIsSaving] = useState(false);
+
+    const doctorDocRef = useMemoFirebase(() => {
+        if (!firestore || !appointment?.doctorId) return null;
+        return doc(firestore, 'doctors', appointment.doctorId);
+    }, [firestore, appointment?.doctorId]);
+    const { data: doctor } = useDoc<Doctor>(doctorDocRef);
+
+    const appointmentsQuery = useMemoFirebase(() => {
+        if (!firestore || !appointment?.doctorId) return null;
+        return query(collection(firestore, 'appointments'), where('doctorId', '==', appointment.doctorId));
+    }, [firestore, appointment?.doctorId]);
+    const { data: doctorAppointments } = useCollection<Appointment>(appointmentsQuery);
+
+    const unavailabilityQuery = useMemoFirebase(() => {
+        if (!firestore || !appointment?.doctorId) return null;
+        return query(
+            collection(firestore, 'doctorUnavailabilityRequests'),
+            where('doctorId', '==', appointment.doctorId),
+            where('status', '==', 'approved')
+        );
+    }, [firestore, appointment?.doctorId]);
+    const { data: approvedLeave } = useCollection<any>(unavailabilityQuery);
+
+    const form = useForm<PostponeFormValues>({
+        resolver: zodResolver(postponeSchema),
+        defaultValues: {
+            newDate: undefined,
+            newTime: "",
+        }
+    });
+
+    const selectedDate = form.watch("newDate");
+
+    const isDayOffByAdmin = useMemo(() => {
+        if (!approvedLeave || !selectedDate) return false;
+        return approvedLeave.some((leave: any) => isSameDay(new Date(leave.requestedDate), selectedDate));
+    }, [approvedLeave, selectedDate]);
+
+    const bookedTimes = useMemo(() => {
+        if (!doctorAppointments || !selectedDate) return [];
+        return doctorAppointments
+            .filter(apt => isSameDay(new Date(apt.appointmentDateTime), selectedDate) && apt.status !== 'cancelled' && apt.id !== appointment.id)
+            .map(apt => format(new Date(apt.appointmentDateTime), "hh:mm a"));
+    }, [doctorAppointments, selectedDate, appointment.id]);
+
+    const isTimeSlotPast = (time: string, date: Date) => {
+        const now = new Date();
+        const isToday = date.toDateString() === now.toDateString();
+        if (!isToday) return false;
+        const [timePart, ampm] = time.split(' ');
+        const [hours, minutes] = timePart.split(':');
+        let numericHours = parseInt(hours);
+        if (ampm === 'PM' && numericHours !== 12) numericHours += 12;
+        if (ampm === 'AM' && numericHours === 12) numericHours = 0;
+        const timeSlotDateTime = new Date(date);
+        timeSlotDateTime.setHours(numericHours, parseInt(minutes), 0, 0);
+        return timeSlotDateTime < now;
+    };
+
+    const onSubmit = async (values: PostponeFormValues) => {
+        if (!firestore) return;
+        setIsSaving(true);
+
+        const newDateTime = new Date(values.newDate);
+        const [hours, minutesPart] = values.newTime.split(':');
+        const [minutes, ampm] = minutesPart.split(' ');
+        let numericHours = parseInt(hours);
+        if (ampm === 'PM' && numericHours !== 12) numericHours += 12;
+        if (ampm === 'AM' && numericHours === 12) numericHours = 0;
+        newDateTime.setHours(numericHours, parseInt(minutes), 0, 0);
+
+        const appointmentRef = doc(firestore, 'appointments', appointment.id);
+        updateDocumentNonBlocking(appointmentRef, {
+            appointmentDateTime: newDateTime.toISOString(),
+            updatedAt: new Date().toISOString()
+        });
+
+        toast({ title: "Appointment Rescheduled", description: `Session moved to ${format(newDateTime, "PPP p")}` });
+        setIsSaving(false);
+        onOpenChange(false);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-[450px]">
+                <DialogHeader>
+                    <DialogTitle className="flex items-center gap-2">
+                        <RefreshCw className="h-5 w-5 text-primary" /> Reschedule Consultation
+                    </DialogTitle>
+                    <DialogDescription>Select a new time for your session with {doctor ? `Dr. ${doctor.firstName}` : 'your doctor'}.</DialogDescription>
+                </DialogHeader>
+                
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 py-4">
+                        <FormField
+                            control={form.control}
+                            name="newDate"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel>Pick New Date</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button variant="outline" className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                    {field.value ? format(field.value, "PPP") : <span>Select date</span>}
+                                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <DayPickerCalendar
+                                                mode="single"
+                                                selected={field.value}
+                                                onSelect={field.onChange}
+                                                disabled={(date) => isBefore(date, startOfDay(new Date()))}
+                                                initialFocus
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+
+                        {selectedDate && !isDayOffByAdmin && (
+                            <div className="space-y-3">
+                                <Label className="text-xs font-bold uppercase opacity-60">Available Slots</Label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => {
+                                        const isPast = isTimeSlotPast(time, selectedDate);
+                                        const isBooked = bookedTimes.includes(time);
+                                        const isDisabledByDoctor = doctor?.availability?.disabledSlots?.includes(time);
+                                        const isDisabled = isPast || isBooked || isDisabledByDoctor;
+
+                                        if (isDisabledByDoctor && !isBooked) return null;
+
+                                        return (
+                                            <Button 
+                                                key={time} 
+                                                type="button"
+                                                variant={form.getValues("newTime") === time ? "default" : "outline"}
+                                                size="sm"
+                                                className="text-[10px] font-bold"
+                                                disabled={isDisabled}
+                                                onClick={() => form.setValue("newTime", time)}
+                                            >
+                                                {time}
+                                            </Button>
+                                        );
+                                    })}
+                                </div>
+                            </div>
+                        )}
+
+                        {isDayOffByAdmin && (
+                            <div className="p-4 bg-destructive/5 text-destructive rounded-lg text-xs text-center border border-destructive/10">
+                                Doctor is unavailable on this date. Please select another day.
+                            </div>
+                        )}
+
+                        <DialogFooter>
+                            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
+                            <Button type="submit" disabled={isSaving || !form.getValues("newTime")}>
+                                {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Confirm New Slot"}
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+const AppointmentCard = ({ apt, isUpcoming, onPostpone }: { apt: any, isUpcoming: boolean, onPostpone: (a: any) => void }) => {
     const firestore = useFirestore();
     const doctorDocRef = useMemoFirebase(() => {
         if (!firestore || !apt.doctorId) return null;
@@ -143,13 +336,18 @@ const AppointmentCard = ({ apt, isUpcoming }: { apt: any, isUpcoming: boolean })
                         </div>
                     </div>
                 </div>
-                <div className="flex flex-col gap-2 shrink-0">
+                <div className="flex flex-col sm:flex-row gap-2 shrink-0">
                     {apt.paymentStatus === 'pending' ? (
                         <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 px-4 py-2 font-bold whitespace-nowrap">
                             <Clock className="w-3 h-3 mr-2" /> Pending Verification
                         </Badge>
                     ) : isUpcoming ? (
-                        <JoinCallDialog />
+                        <>
+                            <Button variant="outline" size="sm" className="font-bold border-2" onClick={() => onPostpone(apt)}>
+                                <RefreshCw className="mr-2 h-4 w-4" /> Postpone
+                            </Button>
+                            <JoinCallDialog />
+                        </>
                     ) : (
                         <Button variant="ghost" asChild className="gap-2 text-primary font-bold hover:bg-primary/5">
                             <Link href={`/appointments/${apt.id}`}>
@@ -167,6 +365,8 @@ export default function PatientPortalPage() {
     const { user, userData, isUserLoading } = useUserData();
     const firestore = useFirestore();
     const [mounted, setMounted] = useState(false);
+    const [selectedApt, setSelectedApt] = useState<any>(null);
+    const [isPostponeOpen, setIsPostponeOpen] = useState(false);
 
     useEffect(() => {
         setMounted(true);
@@ -210,6 +410,11 @@ export default function PatientPortalPage() {
 
         return { upcomingAppointments: upcoming, pendingVerificationAppointments: pending, recentPastAppointments: past };
     }, [appointments, mounted]);
+
+    const handlePostpone = (apt: any) => {
+        setSelectedApt(apt);
+        setIsPostponeOpen(true);
+    };
 
     if (!mounted || isUserLoading) {
         return (
@@ -290,7 +495,7 @@ export default function PatientPortalPage() {
                                 </Card>
                             ) : (
                                 <div className="space-y-5">
-                                    {upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={true} />)}
+                                    {upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={true} onPostpone={handlePostpone} />)}
                                 </div>
                             )}
                         </section>
@@ -307,7 +512,7 @@ export default function PatientPortalPage() {
                                     </Badge>
                                 </div>
                                 <div className="space-y-5 opacity-90">
-                                    {pendingVerificationAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={true} />)}
+                                    {pendingVerificationAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={true} onPostpone={handlePostpone} />)}
                                 </div>
                                 <p className="text-[11px] text-muted-foreground italic mt-4 text-center">
                                     Admins review receipts during standard business hours. Once verified, these will move to your active schedule.
@@ -340,13 +545,19 @@ export default function PatientPortalPage() {
                                 </Card>
                             ) : (
                                 <div className="space-y-5">
-                                    {recentPastAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={false} />)}
+                                    {recentPastAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={false} onPostpone={handlePostpone} />)}
                                 </div>
                             )}
                         </section>
                     </div>
                 </div>
             </div>
+
+            <PostponeDialog 
+                isOpen={isPostponeOpen} 
+                onOpenChange={setIsPostponeOpen} 
+                appointment={selectedApt} 
+            />
         </main>
     )
 }

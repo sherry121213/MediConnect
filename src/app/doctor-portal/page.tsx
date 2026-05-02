@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
@@ -309,7 +310,7 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
                                             </FormControl>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-auto p-0" align="start">
-                                            <Calendar
+                                            <DayPickerCalendar
                                                 mode="single"
                                                 selected={field.value}
                                                 onSelect={field.onChange}
@@ -670,9 +671,17 @@ export default function DoctorPortalPage() {
         };
 
         const alerts: any[] = [];
-        appointments.filter(a => isAfter(new Date(a.createdAt), yesterday)).forEach(a => {
-            alerts.push({ id: `apt-${a.id}`, msg: `New Patient: ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary' });
+        appointments.forEach(a => {
+            const isNew = isAfter(new Date(a.createdAt), yesterday);
+            const isRescheduled = a.updatedAt && a.updatedAt !== a.createdAt && isAfter(new Date(a.updatedAt), yesterday);
+            
+            if (isNew) {
+                alerts.push({ id: `new-${a.id}`, msg: `New Patient: ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary' });
+            } else if (isRescheduled) {
+                alerts.push({ id: `upd-${a.id}`, msg: `Patient Rescheduled: ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: RefreshCw, color: 'text-blue-500' });
+            }
         });
+        
         chatSessions?.filter(s => s.lastMessageSenderRole === 'admin').forEach(s => {
             alerts.push({ id: `chat-${s.id}`, msg: "New Administrative Message.", icon: MessageSquare, color: 'text-blue-500', link: '/doctor-portal/chat' });
         });
@@ -684,7 +693,7 @@ export default function DoctorPortalPage() {
             todayAppointments: today,
             stats: { today: today.length, pending: pending, revenue },
             masterSchedule: { morning: filterSlots(timeSlots.morning), afternoon: filterSlots(timeSlots.afternoon), evening: filterSlots(timeSlots.evening) },
-            notifications: alerts,
+            notifications: alerts.sort((a,b) => b.id.localeCompare(a.id)),
             currentDayLeaveStatus: leaveStatus
         };
     }, [appointments, mounted, viewDate, userData, chatSessions, requests]);
