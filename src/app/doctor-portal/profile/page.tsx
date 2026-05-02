@@ -12,7 +12,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, FileText, X, Plus, ExternalLink, RefreshCw, BadgeCheck, GraduationCap } from 'lucide-react';
+import { Loader2, FileText, X, Plus, ExternalLink, RefreshCw, BadgeCheck, GraduationCap, ShieldAlert } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -97,7 +97,6 @@ export default function DoctorProfilePage() {
   const [isUploading, setIsUploading] = useState(false);
   const [overallProgress, setOverallProgress] = useState(0);
   const [cropperImage, setCropperImage] = useState<string | null>(null);
-  const [isResending, setIsResending] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [, setTick] = useState(0); 
   
@@ -212,23 +211,6 @@ export default function DoctorProfilePage() {
 
   const removeFileFromQueue = (id: string) => {
     setUploadQueue(prev => prev.filter(item => item.id !== id));
-  };
-
-  const removeExistingDoc = (url: string) => {
-    setExistingDocs(prev => prev.filter(d => d !== url));
-  };
-
-  const handleResendVerification = async () => {
-    if (!user) return;
-    setIsResending(true);
-    try {
-      await sendEmailVerification(user);
-      toast({ title: "Verification Email Sent", description: "Check your inbox for the link." });
-    } catch (error) {
-      toast({ variant: 'destructive', title: 'Error', description: 'Failed to send verification email.' });
-    } finally {
-      setIsResending(false);
-    }
   };
 
   const handleRefreshStatus = async () => {
@@ -393,7 +375,13 @@ export default function DoctorProfilePage() {
 
                                 <div className="space-y-4 border-t pt-6">
                                     <FormLabel className="text-base">Educational Documents & Certifications</FormLabel>
-                                    <p className="text-xs text-muted-foreground">Upload multiple degrees or specialized certificates. Admins will review these for verification.</p>
+                                    <div className="bg-primary/5 p-4 rounded-lg flex gap-3 border border-primary/10 mb-4">
+                                        <ShieldAlert className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                                        <p className="text-xs text-muted-foreground leading-relaxed">
+                                            <span className="font-bold text-primary block mb-1">Audit Policy:</span>
+                                            Verified degrees and certificates are preserved as permanent clinical records. You can add new achievements, but previously saved documents cannot be removed for audit integrity.
+                                        </p>
+                                    </div>
                                     
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                         {existingDocs.map((url, idx) => (
@@ -402,14 +390,9 @@ export default function DoctorProfilePage() {
                                                     <FileText className="h-4 w-4 text-primary shrink-0" />
                                                     <span className="text-xs truncate">Degree/Cert {idx + 1}</span>
                                                 </div>
-                                                <div className="flex items-center gap-1">
-                                                    <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                                                        <a href={url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-3 w-3" /></a>
-                                                    </Button>
-                                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeExistingDoc(url)} disabled={isSubmitting}>
-                                                        <X className="h-3 w-3" />
-                                                    </Button>
-                                                </div>
+                                                <Button variant="ghost" size="icon" className="h-7 w-7 text-primary" asChild>
+                                                    <a href={url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" /></a>
+                                                </Button>
                                             </div>
                                         ))}
                                     </div>
@@ -436,8 +419,8 @@ export default function DoctorProfilePage() {
                                             <Button type="button" variant="outline" className="w-full border-dashed py-8 bg-muted/5 hover:bg-muted/10" asChild>
                                                 <label htmlFor="multi-doc-upload" className="cursor-pointer flex flex-col items-center gap-2">
                                                     <Plus className="h-6 w-6 text-primary" /> 
-                                                    <span className="text-sm">Click to add degrees or certificates</span>
-                                                    <span className="text-[10px] text-muted-foreground">PDF, JPG, PNG (Max 5MB per file)</span>
+                                                    <span className="text-sm">Add New Achievement</span>
+                                                    <span className="text-[10px] text-muted-foreground">PDF, JPG, PNG (Max 5MB)</span>
                                                 </label>
                                             </Button>
                                             <Input id="multi-doc-upload" type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileSelection} className="absolute inset-0 opacity-0 cursor-pointer" disabled={isSubmitting} />
@@ -456,7 +439,7 @@ export default function DoctorProfilePage() {
                                 )}
 
                                 <Button type="submit" className="w-full h-12 text-base font-bold" disabled={isSubmitting || isUploading || !isEmailVerified}>
-                                    {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving Changes...</> : "Save Professional Profile"}
+                                    {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Syncing Credentials...</> : "Save Professional Profile"}
                                 </Button>
                             </form>
                         </Form>
