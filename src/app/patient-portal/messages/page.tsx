@@ -1,20 +1,17 @@
-
 'use client';
 
-import { useFirestore, useUserData, useCollection, useMemoFirebase } from '@/firebase';
+import { useFirestore, useUserData, useCollection, useMemoFirebase, useDoc } from '@/firebase';
 import { collection, query, where, doc } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Loader2, MessageSquare, User, Search, History, Calendar, ArrowRight, Clock } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import Link from 'next/link';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
-import { useDoc } from '@/firebase';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
 
-const ConsultationMessageItem = ({ appointment }: { appointment: any }) => {
+const ConsultationMessageItem = ({ appointment, isMounted }: { appointment: any, isMounted: boolean }) => {
   const firestore = useFirestore();
   
   const docRef = useMemoFirebase(() => {
@@ -25,11 +22,15 @@ const ConsultationMessageItem = ({ appointment }: { appointment: any }) => {
   const { data: doctor } = useDoc<any>(docRef);
 
   const appointmentDate = appointment?.appointmentDateTime ? new Date(appointment.appointmentDateTime) : null;
-  const formattedDate = appointmentDate && isValid(appointmentDate) 
+  const isDateValid = appointmentDate && isValid(appointmentDate);
+  const formattedDate = isDateValid 
     ? format(appointmentDate, "MMM dd, yyyy") 
     : 'Date TBD';
 
-  const isTimeReached = appointmentDate ? new Date().getTime() >= appointmentDate.getTime() : false;
+  // Hydration-safe timing check
+  const isTimeReached = isMounted && appointmentDate && isDateValid 
+    ? new Date().getTime() >= appointmentDate.getTime() 
+    : false;
 
   return (
     <Card className="hover:shadow-lg transition-all border-l-4 border-l-primary/40 group overflow-hidden bg-white">
@@ -53,20 +54,26 @@ const ConsultationMessageItem = ({ appointment }: { appointment: any }) => {
                     <span className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
                         <Calendar className="h-3 w-3" /> {formattedDate}
                     </span>
-                    {!isTimeReached && (
+                    {!isTimeReached && isDateValid && (
                          <span className="text-[10px] uppercase font-bold text-amber-600 flex items-center gap-1">
-                            <Clock className="h-3 w-3" /> Chat opens at {format(appointmentDate!, "p")}
+                            <Clock className="h-3 w-3" /> Chat opens at {format(appointmentDate, "p")}
                         </span>
                     )}
                 </div>
             </div>
           </div>
           <div className="bg-muted/30 p-6 flex flex-col justify-center items-center sm:items-end gap-2 shrink-0 border-t sm:border-t-0 sm:border-l border-dashed">
-            <Button asChild size="sm" className="font-bold group-hover:scale-105 transition-transform" disabled={!isTimeReached}>
-                <Link href={isTimeReached ? `/consultation/${appointment.id}` : '#'}>
-                    {isTimeReached ? 'Open Chat & Room' : 'Awaiting Start Time'} <ArrowRight className="ml-2 h-4 w-4" />
-                </Link>
-            </Button>
+            {isTimeReached ? (
+                <Button asChild size="sm" className="font-bold group-hover:scale-105 transition-transform">
+                    <Link href={`/consultation/${appointment.id}`}>
+                        Open Chat & Room <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                </Button>
+            ) : (
+                <Button size="sm" variant="secondary" className="font-bold cursor-not-allowed opacity-70" disabled>
+                    Awaiting Start Time <Clock className="ml-2 h-4 w-4" />
+                </Button>
+            )}
             <p className="text-[9px] text-muted-foreground italic">Clinical session link</p>
           </div>
         </div>
@@ -79,6 +86,11 @@ export default function PatientMessagesPage() {
   const { user, isUserLoading } = useUserData();
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const appointmentsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
@@ -100,13 +112,15 @@ export default function PatientMessagesPage() {
 
           if (!searchTerm) return true;
           const searchLower = searchTerm.toLowerCase();
-          return apt.appointmentType?.toLowerCase().includes(searchLower) ||
-                 apt.id.toLowerCase().includes(searchLower);
+          return (apt.appointmentType?.toLowerCase() || '').includes(searchLower) ||
+                 (apt.id?.toLowerCase() || '').includes(searchLower);
       })
       .sort((a, b) => {
           const dateA = a.appointmentDateTime ? new Date(a.appointmentDateTime).getTime() : 0;
           const dateB = b.appointmentDateTime ? new Date(b.appointmentDateTime).getTime() : 0;
-          return dateB - dateA; 
+          const timeA = isNaN(dateA) ? 0 : dateA;
+          const timeB = isNaN(dateB) ? 0 : dateB;
+          return timeB - timeA; 
       });
   }, [appointments, searchTerm]);
 
@@ -136,7 +150,7 @@ export default function PatientMessagesPage() {
             <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
           ) : filteredAppointments.length > 0 ? (
             filteredAppointments.map((apt: any) => (
-              <ConsultationMessageItem key={apt.id} appointment={apt} />
+              <ConsultationMessageItem key={apt.id} appointment={apt} isMounted={isMounted} />
             ))
           ) : (
             <div className="text-center py-24 bg-white rounded-2xl shadow-sm border border-dashed">
@@ -152,7 +166,7 @@ export default function PatientMessagesPage() {
         
         <div className="bg-primary/5 p-6 rounded-2xl border border-primary/10 flex gap-4 items-start">
             <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                <History className="text-primary h-6 w-6" />
+                <History className="text-primary h-6 world-6" />
             </div>
             <div>
                 <h4 className="font-bold text-primary-dark">Confidentiality Shield</h4>

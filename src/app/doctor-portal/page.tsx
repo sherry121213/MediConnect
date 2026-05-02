@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
@@ -27,6 +26,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Calendar as DayPickerCalendar } from "@/components/ui/calendar";
 
 const notesSchema = z.object({
   diagnosis: z.string().min(3, "Diagnosis is required."),
@@ -356,7 +356,7 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
     );
 }
 
-function ConsultationDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment | null }) {
+function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment | null, isMounted: boolean }) {
     const firestore = useFirestore();
     const { toast } = useToast();
     const [isPostponeOpen, setIsPostponeOpen] = useState(false);
@@ -403,7 +403,8 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
     };
 
     const appointmentDate = new Date(appointment.appointmentDateTime);
-    const isTimeReached = new Date().getTime() >= appointmentDate.getTime();
+    // Hydration-safe timing check
+    const isTimeReached = isMounted && new Date().getTime() >= appointmentDate.getTime();
 
     return (
         <>
@@ -445,11 +446,17 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
                             </div>
 
                             <div className="flex flex-col gap-3 pt-4 border-t">
-                                <Button className="h-12 text-base font-bold shadow-lg shadow-primary/20" asChild disabled={!isTimeReached}>
-                                    <Link href={isTimeReached ? `/consultation/${appointment.id}` : '#'}>
-                                        <Video className="mr-2 h-5 w-5" /> {isTimeReached ? 'Start Tele-Consultation' : 'Session Not Ready'}
-                                    </Link>
-                                </Button>
+                                {isTimeReached ? (
+                                    <Button className="h-12 text-base font-bold shadow-lg shadow-primary/20" asChild>
+                                        <Link href={`/consultation/${appointment.id}`}>
+                                            <Video className="mr-2 h-5 w-5" /> Start Tele-Consultation
+                                        </Link>
+                                    </Button>
+                                ) : (
+                                    <Button className="h-12 text-base font-bold opacity-70 cursor-not-allowed" disabled>
+                                        Session Not Ready <Clock className="ml-2 h-4 w-4" />
+                                    </Button>
+                                )}
                                 <div className="grid grid-cols-2 gap-3">
                                     <Button variant="outline" className="h-12 font-bold" onClick={() => setIsPostponeOpen(true)}>
                                         <RefreshCw className="mr-2 h-4 w-4" /> Postpone Session
@@ -927,6 +934,7 @@ export default function DoctorPortalPage() {
                     isOpen={isConsultOpen} 
                     onOpenChange={setIsConsultOpen} 
                     appointment={selectedAppointment} 
+                    isMounted={mounted}
                 />
 
                 {userData && (

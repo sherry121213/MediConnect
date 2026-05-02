@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -218,7 +217,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
     );
 }
 
-const AppointmentCard = ({ apt, isUpcoming, onPostpone }: { apt: any, isUpcoming: boolean, onPostpone: (a: any) => void }) => {
+const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any, isUpcoming: boolean, onPostpone: (a: any) => void, isMounted: boolean }) => {
     const firestore = useFirestore();
     const doctorDocRef = useMemoFirebase(() => {
         if (!firestore || !apt.doctorId) return null;
@@ -229,14 +228,21 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone }: { apt: any, isUpcoming
     const doctorImage = doctor ? PlaceHolderImages.find(p => p.id === doctor.profileImageId) : null;
     const appointmentDate = new Date(apt.appointmentDateTime);
     
-    const isTimeReached = new Date().getTime() >= appointmentDate.getTime();
+    // Hydration-safe timing check
+    const isTimeReached = isMounted && new Date().getTime() >= appointmentDate.getTime();
 
     const JoinCallDialog = () => (
         <AlertDialog>
             <AlertDialogTrigger asChild>
-                <Button className="w-full sm:w-auto font-bold" disabled={!isTimeReached}>
-                    {isTimeReached ? 'Join Session' : 'Not Started Yet'}
-                </Button>
+                {isTimeReached ? (
+                    <Button className="w-full sm:w-auto font-bold">
+                        Join Session
+                    </Button>
+                ) : (
+                    <Button className="w-full sm:w-auto font-bold opacity-70 cursor-not-allowed" disabled>
+                        Not Started Yet <Clock className="ml-2 h-3 w-3" />
+                    </Button>
+                )}
             </AlertDialogTrigger>
             <AlertDialogContent>
                 <AlertDialogHeader>
@@ -499,7 +505,7 @@ export default function PatientPortalPage() {
                                 </Card>
                             ) : (
                                 <div className="space-y-5">
-                                    {upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={true} onPostpone={handlePostpone} />)}
+                                    {upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={true} onPostpone={handlePostpone} isMounted={mounted} />)}
                                 </div>
                             )}
                         </section>
@@ -516,7 +522,7 @@ export default function PatientPortalPage() {
                                     </Badge>
                                 </div>
                                 <div className="space-y-5 opacity-90">
-                                    {pendingVerificationAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={true} onPostpone={handlePostpone} />)}
+                                    {pendingVerificationAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={true} onPostpone={handlePostpone} isMounted={mounted} />)}
                                 </div>
                                 <p className="text-[11px] text-muted-foreground italic mt-4 text-center">
                                     Admins review receipts during standard business hours. Once verified, these will move to your active schedule.
@@ -549,7 +555,7 @@ export default function PatientPortalPage() {
                                 </Card>
                             ) : (
                                 <div className="space-y-5">
-                                    {recentPastAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={false} onPostpone={handlePostpone} />)}
+                                    {recentPastAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={false} onPostpone={handlePostpone} isMounted={mounted} />)}
                                 </div>
                             )}
                         </section>
