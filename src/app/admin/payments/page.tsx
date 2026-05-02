@@ -52,7 +52,7 @@ export default function AdminPaymentsPage() {
   const combinedData = useMemo(() => {
       if (!appointments || !patients || !doctors) return [];
       return appointments
-          .filter(apt => apt !== null)
+          .filter(apt => apt !== null && apt.id)
           .map(apt => {
               const patient = patients.find(p => p.id === apt.patientId);
               const doctor = doctors.find(d => d.id === apt.doctorId);
@@ -104,7 +104,7 @@ export default function AdminPaymentsPage() {
             <TableRow>
               <TableHead>Patient</TableHead>
               <TableHead>Doctor</TableHead>
-              <TableHead className="hidden lg:table-cell">Payment Chain</TableHead>
+              <TableHead className="hidden md:table-cell">Payment Chain</TableHead>
               <TableHead className="hidden lg:table-cell">Amount</TableHead>
               <TableHead className="hidden md:table-cell">Date</TableHead>
               <TableHead>Status</TableHead>
@@ -117,7 +117,7 @@ export default function AdminPaymentsPage() {
                 <TableRow key={i}>
                     <TableCell><Skeleton className="h-6 w-24"/></TableCell>
                     <TableCell><Skeleton className="h-6 w-24"/></TableCell>
-                    <TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-24"/></TableCell>
+                    <TableCell className="hidden md:table-cell"><Skeleton className="h-6 w-24"/></TableCell>
                     <TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-24"/></TableCell>
                     <TableCell className="hidden md:table-cell"><Skeleton className="h-6 w-24"/></TableCell>
                     <TableCell><Skeleton className="h-6 w-20"/></TableCell>
@@ -129,7 +129,7 @@ export default function AdminPaymentsPage() {
               <TableRow key={payment.id} className="hover:bg-muted/5 transition-colors">
                 <TableCell className="font-medium">{payment.patientName}</TableCell>
                 <TableCell>{payment.doctorName}</TableCell>
-                <TableCell className="hidden lg:table-cell">
+                <TableCell className="hidden md:table-cell">
                    {payment.paymentMethod ? (
                      <div className="flex items-center gap-2">
                         <Share2 className="h-3 w-3 text-muted-foreground" />
