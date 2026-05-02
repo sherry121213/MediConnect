@@ -83,11 +83,11 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
     }, [approvedLeave, selectedDate]);
 
     const bookedTimes = useMemo(() => {
-        if (!doctorAppointments || !selectedDate) return [];
+        if (!doctorAppointments || !selectedDate || !appointment) return [];
         return doctorAppointments
             .filter(apt => isSameDay(new Date(apt.appointmentDateTime), selectedDate) && apt.status !== 'cancelled' && apt.id !== appointment.id)
             .map(apt => format(new Date(apt.appointmentDateTime), "hh:mm a"));
-    }, [doctorAppointments, selectedDate, appointment.id]);
+    }, [doctorAppointments, selectedDate, appointment?.id]);
 
     const isTimeSlotPast = (time: string, date: Date) => {
         const now = new Date();
@@ -104,7 +104,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
     };
 
     const onSubmit = async (values: PostponeFormValues) => {
-        if (!firestore) return;
+        if (!firestore || !appointment) return;
         setIsSaving(true);
 
         const newDateTime = new Date(values.newDate);
@@ -125,6 +125,8 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
         setIsSaving(false);
         onOpenChange(false);
     };
+
+    if (!appointment) return null;
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -563,11 +565,13 @@ export default function PatientPortalPage() {
                 </div>
             </div>
 
-            <PostponeDialog 
-                isOpen={isPostponeOpen} 
-                onOpenChange={setIsPostponeOpen} 
-                appointment={selectedApt} 
-            />
+            {selectedApt && (
+                <PostponeDialog 
+                    isOpen={isPostponeOpen} 
+                    onOpenChange={setIsPostponeOpen} 
+                    appointment={selectedApt} 
+                />
+            )}
         </main>
     )
 }

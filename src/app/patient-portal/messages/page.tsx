@@ -107,6 +107,7 @@ export default function PatientMessagesPage() {
     
     return appointments
       .filter(apt => {
+          if (!apt) return false;
           // REQUIREMENT: Only verified payments are visible in the message center
           if (apt.paymentStatus !== 'approved') return false;
 
@@ -116,6 +117,7 @@ export default function PatientMessagesPage() {
                  (apt.id?.toLowerCase() || '').includes(searchLower);
       })
       .sort((a, b) => {
+          if (!a || !b) return 0;
           const dateA = a.appointmentDateTime ? new Date(a.appointmentDateTime).getTime() : 0;
           const dateB = b.appointmentDateTime ? new Date(b.appointmentDateTime).getTime() : 0;
           const timeA = isNaN(dateA) ? 0 : dateA;
