@@ -16,7 +16,7 @@ import { useMemo } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Eye, MoreHorizontal, CreditCard } from "lucide-react";
+import { Eye, MoreHorizontal, CreditCard, Share2 } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,15 +51,17 @@ export default function AdminPaymentsPage() {
 
   const combinedData = useMemo(() => {
       if (!appointments || !patients || !doctors) return [];
-      return appointments.map(apt => {
-          const patient = patients.find(p => p.id === apt.patientId);
-          const doctor = doctors.find(d => d.id === apt.doctorId);
-          return {
-              ...apt,
-              patientName: patient ? `${patient.firstName} ${patient.lastName}` : 'N/A',
-              doctorName: doctor ? `Dr. ${doctor.firstName}` : 'N/A',
-          }
-      }).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      return appointments
+          .filter(apt => apt !== null)
+          .map(apt => {
+              const patient = patients.find(p => p.id === apt.patientId);
+              const doctor = doctors.find(d => d.id === apt.doctorId);
+              return {
+                  ...apt,
+                  patientName: patient ? `${patient.firstName} ${patient.lastName}` : 'N/A',
+                  doctorName: doctor ? `Dr. ${doctor.firstName}` : 'N/A',
+              }
+          }).sort((a,b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   }, [appointments, patients, doctors]);
 
   const isLoading = isLoadingAppointments || isLoadingPatients || isLoadingDoctors;
@@ -72,19 +74,6 @@ export default function AdminPaymentsPage() {
         title: "Payment Updated",
         description: `The payment has been marked as ${status}.`,
     });
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'scheduled':
-        return <Badge className="bg-blue-100 text-blue-800">Scheduled</Badge>;
-      case 'completed':
-        return <Badge className="bg-green-100 text-green-800">Completed</Badge>;
-      case 'cancelled':
-        return <Badge variant="destructive">Cancelled</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
-    }
   };
 
   const getPaymentStatusBadge = (status?: string) => {
@@ -115,7 +104,7 @@ export default function AdminPaymentsPage() {
             <TableRow>
               <TableHead>Patient</TableHead>
               <TableHead>Doctor</TableHead>
-              <TableHead className="hidden lg:table-cell">Source / Method</TableHead>
+              <TableHead className="hidden lg:table-cell">Payment Chain</TableHead>
               <TableHead className="hidden lg:table-cell">Amount</TableHead>
               <TableHead className="hidden md:table-cell">Date</TableHead>
               <TableHead>Status</TableHead>
@@ -142,9 +131,12 @@ export default function AdminPaymentsPage() {
                 <TableCell>{payment.doctorName}</TableCell>
                 <TableCell className="hidden lg:table-cell">
                    {payment.paymentMethod ? (
-                     <Badge variant="outline" className="font-bold border-primary/20 text-primary uppercase text-[10px]">
-                       {payment.paymentMethod}
-                     </Badge>
+                     <div className="flex items-center gap-2">
+                        <Share2 className="h-3 w-3 text-muted-foreground" />
+                        <Badge variant="outline" className="font-bold border-primary/20 text-primary uppercase text-[10px]">
+                        {payment.paymentMethod}
+                        </Badge>
+                     </div>
                    ) : (
                      <span className="text-xs text-muted-foreground italic">Legacy System</span>
                    )}

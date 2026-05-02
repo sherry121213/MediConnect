@@ -91,7 +91,7 @@ export default function DoctorDetailPage() {
     const bookedTimes = useMemo(() => {
         if (!existingAppointments || !selectedDate || !mounted) return [];
         return existingAppointments
-            .filter(apt => isSameDay(new Date(apt.appointmentDateTime), selectedDate) && apt.status !== 'cancelled')
+            .filter(apt => apt && isSameDay(new Date(apt.appointmentDateTime), selectedDate) && apt.status !== 'cancelled')
             .map(apt => format(new Date(apt.appointmentDateTime), "hh:mm a"));
     }, [existingAppointments, selectedDate, mounted]);
 
@@ -332,7 +332,7 @@ export default function DoctorDetailPage() {
                                                     </div>
 
                                                     <div className="space-y-3">
-                                                        <Label className="text-xs font-bold uppercase opacity-60">Step 1: Select Payment Source</Label>
+                                                        <Label className="text-xs font-bold uppercase opacity-60">Step 1: Select Payment Source (Chain)</Label>
                                                         <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid grid-cols-1 gap-2">
                                                             <div className={cn("flex items-center space-x-3 p-3 rounded-xl border-2 transition-all cursor-pointer", paymentMethod === 'Easypaisa' ? "border-primary bg-primary/5" : "border-muted")}>
                                                                 <RadioGroupItem value="Easypaisa" id="ep" />

@@ -33,6 +33,7 @@ import { useToast } from "@/hooks/use-toast";
 import { getNext7Days, timeSlots } from "@/lib/time";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as DayPickerCalendar } from "@/components/ui/calendar";
+import { Label } from "@/components/ui/label";
 
 const postponeSchema = z.object({
   newDate: z.date({ required_error: "Please select a new date." }),
@@ -85,7 +86,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
     const bookedTimes = useMemo(() => {
         if (!doctorAppointments || !selectedDate || !appointment) return [];
         return doctorAppointments
-            .filter(apt => isSameDay(new Date(apt.appointmentDateTime), selectedDate) && apt.status !== 'cancelled' && apt.id !== appointment.id)
+            .filter(apt => apt && isSameDay(new Date(apt.appointmentDateTime), selectedDate) && apt.status !== 'cancelled' && apt.id !== appointment.id)
             .map(apt => format(new Date(apt.appointmentDateTime), "hh:mm a"));
     }, [doctorAppointments, selectedDate, appointment?.id]);
 
@@ -222,16 +223,16 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
 const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any, isUpcoming: boolean, onPostpone: (a: any) => void, isMounted: boolean }) => {
     const firestore = useFirestore();
     const doctorDocRef = useMemoFirebase(() => {
-        if (!firestore || !apt.doctorId) return null;
+        if (!firestore || !apt?.doctorId) return null;
         return doc(firestore, 'doctors', apt.doctorId);
-    }, [firestore, apt.doctorId]);
+    }, [firestore, apt?.doctorId]);
     
     const { data: doctor, isLoading: isLoadingDoctor } = useDoc<Doctor>(doctorDocRef);
     const doctorImage = doctor ? PlaceHolderImages.find(p => p.id === doctor.profileImageId) : null;
-    const appointmentDate = new Date(apt.appointmentDateTime);
+    const appointmentDate = apt?.appointmentDateTime ? new Date(apt.appointmentDateTime) : new Date();
     
     // Hydration-safe timing check
-    const isTimeReached = isMounted && new Date().getTime() >= appointmentDate.getTime();
+    const isTimeReached = isMounted && apt?.appointmentDateTime && new Date().getTime() >= new Date(apt.appointmentDateTime).getTime();
 
     const JoinCallDialog = () => (
         <AlertDialog>
@@ -258,16 +259,16 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                         variant="outline" 
                         className={cn(
                             "justify-start h-16 border-2 group",
-                            apt.appointmentType === 'Video Call' ? "border-primary bg-primary/5" : "hover:border-primary"
+                            apt?.appointmentType === 'Video Call' ? "border-primary bg-primary/5" : "hover:border-primary"
                         )} 
                         asChild
                     >
-                        <Link href={`/consultation/${apt.id}`}>
+                        <Link href={`/consultation/${apt?.id}`}>
                             <Video className="mr-4 h-6 w-6 text-primary group-hover:scale-110 transition-transform"/> 
                             <div className="text-left">
                                 <div className="flex items-center gap-2">
                                     <p className="font-bold text-foreground">Secure Video Room</p>
-                                    {apt.appointmentType === 'Video Call' && <Badge variant="secondary" className="h-4 text-[8px] bg-primary text-white">Direct Integration</Badge>}
+                                    {apt?.appointmentType === 'Video Call' && <Badge variant="secondary" className="h-4 text-[8px] bg-primary text-white">Direct Integration</Badge>}
                                 </div>
                                 <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">HD Video & Internal Audio</p>
                             </div>
@@ -277,23 +278,23 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                         variant="outline" 
                         className={cn(
                             "justify-start h-16 border-2 group",
-                            apt.appointmentType === 'Audio Call' ? "border-primary bg-primary/5" : "hover:border-primary"
+                            apt?.appointmentType === 'Audio Call' ? "border-primary bg-primary/5" : "hover:border-primary"
                         )} 
                         asChild
                     >
-                        <Link href={`/consultation/${apt.id}`}>
+                        <Link href={`/consultation/${apt?.id}`}>
                             <PhoneCall className="mr-4 h-6 w-6 text-primary group-hover:scale-110 transition-transform"/> 
                             <div className="text-left">
                                  <div className="flex items-center gap-2">
                                     <p className="font-bold text-foreground">Secure Audio Room</p>
-                                    {apt.appointmentType === 'Audio Call' && <Badge variant="secondary" className="h-4 text-[8px] bg-primary text-white">Direct Integration</Badge>}
+                                    {apt?.appointmentType === 'Audio Call' && <Badge variant="secondary" className="h-4 text-[8px] bg-primary text-white">Direct Integration</Badge>}
                                 </div>
                                 <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Voice Consultation</p>
                             </div>
                         </Link>
                     </Button>
                     <Button variant="outline" className="justify-start h-16 border-2 hover:border-primary group" asChild>
-                        <Link href={`/consultation/${apt.id}`}>
+                        <Link href={`/consultation/${apt?.id}`}>
                             <MessageSquare className="mr-4 h-6 w-6 text-primary group-hover:scale-110 transition-transform"/>
                             <div className="text-left">
                                 <p className="font-bold text-foreground">Interactive Chat Room</p>
@@ -308,6 +309,8 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
             </AlertDialogContent>
         </AlertDialog>
     );
+
+    if (!apt) return null;
 
     return (
         <Card className="hover:shadow-lg transition-all border-l-4 border-l-primary/40 bg-card/50 backdrop-blur-sm overflow-hidden">
@@ -350,9 +353,14 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 shrink-0">
                     {apt.paymentStatus === 'pending' ? (
-                        <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 px-4 py-2 font-bold whitespace-nowrap">
-                            <Clock className="w-3 h-3 mr-2" /> Pending Verification
-                        </Badge>
+                        <div className="flex flex-col gap-1 items-center">
+                            <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 px-4 py-2 font-bold whitespace-nowrap">
+                                <Clock className="w-3 h-3 mr-2" /> Pending Verification
+                            </Badge>
+                            {apt.paymentMethod && (
+                                <span className="text-[9px] font-bold text-muted-foreground uppercase">{apt.paymentMethod} Chain</span>
+                            )}
+                        </div>
                     ) : isUpcoming ? (
                         <>
                             <Button variant="outline" size="sm" className="font-bold border-2" onClick={() => onPostpone(apt)}>
@@ -396,8 +404,11 @@ export default function PatientPortalPage() {
         const now = new Date();
         const threshold = subHours(now, 1); 
 
+        // Safe filtering to avoid null property access
+        const validAppointments = appointments.filter(apt => apt !== null && apt.id);
+
         // Only show upcoming appointments if the payment is APPROVED
-        const upcoming = appointments
+        const upcoming = validAppointments
             .filter(apt => 
                 isAfter(new Date(apt.appointmentDateTime), threshold) && 
                 apt.status !== 'cancelled' && 
@@ -407,7 +418,7 @@ export default function PatientPortalPage() {
             .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
 
         // Appointments awaiting payment verification
-        const pending = appointments
+        const pending = validAppointments
             .filter(apt => 
                 isAfter(new Date(apt.appointmentDateTime), threshold) && 
                 apt.status !== 'cancelled' && 
@@ -415,9 +426,9 @@ export default function PatientPortalPage() {
             )
             .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
 
-        const past = appointments
+        const past = validAppointments
             .filter(apt => !isAfter(new Date(apt.appointmentDateTime), threshold) || apt.status === 'completed')
-            .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime())
+            .sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime())
             .slice(0, 5);
 
         return { upcomingAppointments: upcoming, pendingVerificationAppointments: pending, recentPastAppointments: past };

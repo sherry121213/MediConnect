@@ -10,6 +10,7 @@ import { useState, useMemo, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
 
 const ConsultationMessageItem = ({ appointment, isMounted }: { appointment: any, isMounted: boolean }) => {
   const firestore = useFirestore();
@@ -125,6 +126,8 @@ export default function PatientMessagesPage() {
           return timeB - timeA; 
       });
   }, [appointments, searchTerm]);
+
+  if (!isMounted) return null;
 
   return (
     <main className="flex-grow bg-secondary/30 py-8">
