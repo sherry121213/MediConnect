@@ -1,15 +1,14 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, addDoc, serverTimestamp, setDoc, query, orderBy } from 'firebase/firestore';
+import { collection, doc, addDoc, query, orderBy } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, User } from 'lucide-react';
-import { format } from 'date-fns';
+import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, User, Clock } from 'lucide-react';
+import { format, addMinutes, isAfter } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -39,6 +38,30 @@ export default function ConsultationRoomPage() {
   }, [firestore, appointmentId]);
 
   const { data: appointment, isLoading: isLoadingAppointment } = useDoc<any>(appointmentDocRef);
+
+  // Enforcement: 50 Minute Session Limit
+  useEffect(() => {
+    if (!appointment || isEnding) return;
+
+    const startTime = new Date(appointment.appointmentDateTime).getTime();
+    const endTime = startTime + (50 * 60 * 1000); // 50 minutes window
+
+    const checkSessionValidity = () => {
+      if (Date.now() > endTime) {
+        setIsEnding(true);
+        toast({
+          title: "Session Concluded",
+          description: "The 50-minute clinical window has ended automatically.",
+        });
+        router.push(userData?.role === 'doctor' ? '/doctor-portal' : '/patient-portal');
+      }
+    };
+
+    const interval = setInterval(checkSessionValidity, 10000); // Check every 10s
+    checkSessionValidity(); // Initial check
+
+    return () => clearInterval(interval);
+  }, [appointment, router, userData, toast, isEnding]);
 
   // Get Peer Data
   const peerId = appointment ? (user?.uid === appointment.patientId ? appointment.doctorId : appointment.patientId) : null;
@@ -112,18 +135,17 @@ export default function ConsultationRoomPage() {
 
   const handleEndSession = () => {
     setIsEnding(true);
-    // In a real app, we'd update status to 'completed'
     toast({ title: "Session Concluded", description: "The consultation has ended." });
     setTimeout(() => {
       router.push(userData?.role === 'doctor' ? '/doctor-portal' : '/patient-portal');
-    }, 1500);
+    }, 1000);
   };
 
   if (isUserLoading || isLoadingAppointment) {
     return <div className="flex h-screen items-center justify-center bg-slate-950 text-white"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
 
-  if (!appointment) return <div className="p-8 text-center">Consultation session not found.</div>;
+  if (!appointment) return <div className="p-8 text-center text-white bg-slate-950 h-screen">Consultation session not found.</div>;
 
   return (
     <div className="flex flex-col h-screen bg-slate-950 overflow-hidden">
@@ -213,7 +235,7 @@ export default function ConsultationRoomPage() {
                 <Alert variant="destructive" className="max-w-md bg-slate-900 border-red-500/50">
                     <AlertTitle>Camera Access Required</AlertTitle>
                     <AlertDescription>
-                        Please allow camera and microphone access to participate in this consultation. This is required for our direct audio/video integration.
+                        Please allow camera and microphone access to participate in this consultation.
                     </AlertDescription>
                 </Alert>
              </div>
@@ -222,9 +244,14 @@ export default function ConsultationRoomPage() {
 
         {/* Chat Area */}
         <aside className="w-full lg:w-[400px] border-l border-white/10 bg-slate-900/30 backdrop-blur-md flex flex-col">
-          <div className="p-4 border-b border-white/10 flex items-center gap-2">
-            <MessageSquare className="text-primary h-4 w-4" />
-            <h3 className="text-sm font-bold text-white uppercase tracking-wider">Session Chat</h3>
+          <div className="p-4 border-b border-white/10 flex items-center justify-between">
+            <div className="flex items-center gap-2">
+                <MessageSquare className="text-primary h-4 w-4" />
+                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Session Chat</h3>
+            </div>
+            <Badge variant="outline" className="text-[9px] text-amber-500 border-amber-500/30 font-bold">
+                <Clock className="h-3 w-3 mr-1" /> 50m LIMIT
+            </Badge>
           </div>
           
           <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
@@ -248,7 +275,7 @@ export default function ConsultationRoomPage() {
             ) : (
                 <div className="h-full flex flex-col items-center justify-center text-slate-500 italic text-xs text-center p-8">
                     <MessageSquare className="h-12 w-12 opacity-10 mb-4" />
-                    <p>Chat with your {userData?.role === 'doctor' ? 'patient' : 'doctor'} here during the session.</p>
+                    <p>Session started. You can now chat with your {userData?.role === 'doctor' ? 'patient' : 'doctor'}.</p>
                 </div>
             )}
             <div ref={chatScrollRef} />

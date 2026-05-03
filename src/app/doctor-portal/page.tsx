@@ -89,7 +89,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                     <DialogTitle className="flex items-center gap-2">
                         <RefreshCw className="h-5 w-5 text-amber-500" /> Reschedule Session
                     </DialogTitle>
-                    <DialogDescription>Select a new clinical date and time for this patient.</DialogDescription>
+                    <DialogDescription>Select a new hourly slot for this patient.</DialogDescription>
                 </DialogHeader>
                 
                 <Form {...form}>
@@ -129,7 +129,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                             name="newTime"
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Select New Slot</FormLabel>
+                                    <FormLabel>Select New Hourly Slot</FormLabel>
                                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                         {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => (
                                             <Button 
@@ -190,10 +190,10 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
             <DialogContent className="sm:max-w-[600px] max-h-[85vh] overflow-y-auto border-none shadow-2xl">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2 text-xl font-headline">
-                        <Settings2 className="h-5 w-5 text-primary" /> Session Slot Control
+                        <Settings2 className="h-5 w-5 text-primary" /> Hourly Slot Control
                     </DialogTitle>
                     <DialogDescription>
-                        Manage individual clinical slots. Unchecked slots will be hidden from patients for booking.
+                        Manage individual clinical hours. Unchecked slots will be hidden from patients.
                     </DialogDescription>
                 </DialogHeader>
                 
@@ -340,7 +340,7 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
 
                         <div className="p-3 bg-muted/30 rounded-lg text-[10px] text-muted-foreground italic leading-relaxed border border-dashed border-muted-foreground/20">
                             <Info className="h-3 w-3 inline mr-1 text-primary" /> 
-                            Automated audit is strictly for future dates (starting tomorrow). Minimum 24h notice is professionally required for planned leave.
+                            Minimum 24h notice is required for planned leave.
                         </div>
 
                         <DialogFooter className="gap-2">
@@ -403,7 +403,12 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
     };
 
     const appointmentDate = new Date(appointment.appointmentDateTime);
-    const isTimeReached = isMounted && new Date().getTime() >= appointmentDate.getTime();
+    const now = isMounted ? new Date().getTime() : 0;
+    const startTime = appointmentDate.getTime();
+    const endTime = startTime + (50 * 60 * 1000); // 50m duration
+    
+    const isTimeReached = isMounted && now >= startTime && now < endTime;
+    const isExpired = isMounted && now >= endTime;
 
     return (
         <>
@@ -439,8 +444,8 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
                                     <p className="font-semibold text-slate-700 text-sm sm:text-base">{format(appointmentDate, "PPP p")}</p>
                                 </div>
                                 <div className="space-y-1">
-                                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Consultation Mode</p>
-                                    <Badge variant="outline" className="capitalize border-primary/20 text-primary">{appointment.appointmentType}</Badge>
+                                    <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Duration</p>
+                                    <Badge variant="outline" className="capitalize border-primary/20 text-primary">50 Minutes Window</Badge>
                                 </div>
                             </div>
 
@@ -451,20 +456,26 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
                                             <Video className="mr-2 h-5 w-5" /> Start Tele-Consultation
                                         </Link>
                                     </Button>
+                                ) : isExpired ? (
+                                    <Button className="h-12 text-base font-bold opacity-50 cursor-not-allowed w-full" disabled>
+                                        Slot Expired <AlertCircle className="ml-2 h-4 w-4" />
+                                    </Button>
                                 ) : (
                                     <Button className="h-12 text-base font-bold opacity-70 cursor-not-allowed w-full" disabled>
                                         Session Not Ready <Clock className="ml-2 h-4 w-4" />
                                     </Button>
                                 )}
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                    <Button variant="outline" className="h-12 font-bold w-full" onClick={() => setIsPostponeOpen(true)}>
-                                        <RefreshCw className="mr-2 h-4 w-4" /> Postpone Session
-                                    </Button>
+                                    {!isExpired && (
+                                        <Button variant="outline" className="h-12 font-bold w-full" onClick={() => setIsPostponeOpen(true)}>
+                                            <RefreshCw className="mr-2 h-4 w-4" /> Postpone Session
+                                        </Button>
+                                    )}
                                     <Button variant="secondary" className="h-12 font-bold w-full" disabled>
                                         <MessageSquare className="mr-2 h-4 w-4" /> Pre-Session Chat
                                     </Button>
                                 </div>
-                                {!isTimeReached && (
+                                {!isTimeReached && !isExpired && (
                                     <p className="text-[10px] text-center text-amber-600 font-bold uppercase tracking-widest">
                                         <Clock className="inline h-3 w-3 mr-1" /> Session entry opens at {format(appointmentDate, "p")}
                                     </p>
@@ -487,16 +498,12 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
                                                 <p className="text-[10px] font-bold text-slate-500 uppercase">Diagnosis</p>
                                                 <p className="text-sm italic">{record.diagnosis || "No details"}</p>
                                             </div>
-                                            <div className="pt-2 border-t border-dashed">
-                                                <p className="text-[10px] font-bold text-slate-500 uppercase">Prescription</p>
-                                                <p className="text-sm truncate opacity-70">{record.prescription || "No details"}</p>
-                                            </div>
                                         </div>
                                     ))
                                 ) : (
                                     <div className="py-12 text-center text-muted-foreground italic">
                                         <History className="h-10 w-10 mx-auto mb-2 opacity-10" />
-                                        <p className="text-sm">No historical clinical records for this patient.</p>
+                                        <p className="text-sm">No historical clinical records.</p>
                                     </div>
                                 )}
                             </div>
@@ -525,7 +532,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
                                             <FormItem>
                                                 <FormLabel className="text-[10px] font-bold uppercase text-slate-500">Treatment Plan</FormLabel>
                                                 <FormControl>
-                                                    <Textarea placeholder="Prescriptions, advice, and follow-up instructions..." rows={6} {...field} className="rounded-xl resize-none" />
+                                                    <Textarea placeholder="Prescriptions and advice..." rows={6} {...field} className="rounded-xl resize-none" />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
@@ -572,7 +579,7 @@ const AppointmentRow = ({ apt, onSelect }: { apt: Appointment, onSelect: (a: App
                 <div className="min-w-0">
                     <p className="font-bold text-sm truncate">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
                     <p className="text-[10px] text-muted-foreground flex items-center gap-1 uppercase font-bold tracking-tighter truncate">
-                        <Clock className="h-2.5 w-2.5 shrink-0" /> {format(new Date(apt.appointmentDateTime), "p")} • {apt.appointmentType}
+                        <Clock className="h-2.5 w-2.5 shrink-0" /> {format(new Date(apt.appointmentDateTime), "p")} • 50m
                     </p>
                 </div>
             </div>
@@ -612,7 +619,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled }: { time: strin
             </div>
             {appointment ? (
                 <Button size="sm" variant="ghost" className="h-7 px-2 sm:px-3 text-[10px] font-bold uppercase tracking-wider hover:bg-primary/10 shrink-0" onClick={() => onSelect(appointment)}>
-                    View
+                    Manage
                 </Button>
             ) : (
                 <Badge variant="outline" className="text-[9px] sm:text-[10px] font-bold text-muted-foreground border-dashed shrink-0">{isDisabled ? "Closed" : "Free"}</Badge>
@@ -687,20 +694,13 @@ export default function DoctorPortalPage() {
         const alerts: any[] = [];
         appointments.forEach(a => {
             const isNew = isAfter(new Date(a.createdAt), yesterday);
-            const isRescheduled = a.updatedAt && a.updatedAt !== a.createdAt && isAfter(new Date(a.updatedAt), yesterday);
-            
             if (isNew) {
-                alerts.push({ id: `new-${a.id}`, msg: `New Patient: ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary' });
-            } else if (isRescheduled) {
-                alerts.push({ id: `upd-${a.id}`, msg: `Patient Rescheduled: ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: RefreshCw, color: 'text-blue-500' });
+                alerts.push({ id: `new-${a.id}`, msg: `New Appointment: ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary' });
             }
         });
         
         chatSessions?.filter(s => s.lastMessageSenderRole === 'admin').forEach(s => {
             alerts.push({ id: `chat-${s.id}`, msg: "New Administrative Message.", icon: MessageSquare, color: 'text-blue-500', link: '/doctor-portal/chat' });
-        });
-        requests?.filter(r => r.status !== 'pending' && isAfter(new Date(r.processedAt || 0), yesterday)).forEach(r => {
-            alerts.push({ id: `req-${r.id}`, msg: `Audit for ${format(new Date(r.requestedDate), "PP")} ${r.status}.`, icon: r.status === 'approved' ? CheckCircle2 : AlertCircle, color: r.status === 'approved' ? 'text-green-500' : 'text-destructive' });
         });
 
         return { 
@@ -733,7 +733,7 @@ export default function DoctorPortalPage() {
                     <div>
                         <h1 className="text-2xl sm:text-3xl font-bold font-headline tracking-tight text-foreground">Clinical Command Center</h1>
                         <p className="text-muted-foreground flex items-center gap-2 text-xs sm:text-sm mt-1">
-                            <Activity className="h-4 world-4 text-primary" /> Monitoring operations for Dr. {userData?.firstName}.
+                            <Activity className="h-4 world-4 text-primary" /> 50-Minute Hourly Protocol Active.
                         </p>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full md:w-auto">
@@ -744,10 +744,6 @@ export default function DoctorPortalPage() {
                         <Card className="p-3 bg-background border-none shadow-sm">
                             <p className="text-[9px] sm:text-[10px] font-bold uppercase text-muted-foreground">Today's Patients</p>
                             <p className="text-lg sm:text-2xl font-bold text-primary">{stats.today}</p>
-                        </Card>
-                        <Card className="p-3 bg-background border-none shadow-sm hidden sm:block">
-                            <p className="text-[9px] sm:text-[10px] font-bold uppercase text-muted-foreground">Scheduled</p>
-                            <p className="text-lg sm:text-2xl font-bold">{stats.pending}</p>
                         </Card>
                     </div>
                 </div>
@@ -766,11 +762,6 @@ export default function DoctorPortalPage() {
                                         <n.icon className={cn("h-4 w-4 shrink-0 mt-0.5", n.color)} />
                                         <div className="flex-1">
                                             <p className="leading-tight font-medium text-slate-700">{n.msg}</p>
-                                            {n.link && (
-                                                <Button variant="link" asChild className="h-auto p-0 text-[10px] font-bold mt-1">
-                                                    <Link href={n.link}>Resolve</Link>
-                                                </Button>
-                                            )}
                                         </div>
                                     </div>
                                 )) : (
@@ -783,7 +774,7 @@ export default function DoctorPortalPage() {
                             <CardHeader className="bg-background pb-3 border-b px-4">
                                 <div className="flex items-center justify-between">
                                     <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-tighter">
-                                        <ClipboardCheck className="h-5 w-5 text-primary" /> Active Queue
+                                        <ClipboardCheck className="h-5 w-5 text-primary" /> Today's hourly Queue
                                     </CardTitle>
                                     <Badge variant="outline" className="text-[10px] font-bold border-primary/20 text-primary">LIVE</Badge>
                                 </div>
@@ -813,9 +804,9 @@ export default function DoctorPortalPage() {
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                     <div className="space-y-1">
                                         <CardTitle className="text-lg sm:text-xl font-headline flex items-center gap-2">
-                                            <Clock className="h-6 w-6 text-primary" /> Clinical Master Schedule
+                                            <Clock className="h-6 w-6 text-primary" /> Hourly clinical schedule
                                         </CardTitle>
-                                        <CardDescription className="text-[10px] sm:text-xs">Manage individual slot availability and audit log.</CardDescription>
+                                        <CardDescription className="text-[10px] sm:text-xs">Each session is 50 mins. Entry ends at T+50.</CardDescription>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2">
                                         <div className="flex items-center gap-1 bg-white p-1 rounded-xl border shadow-sm w-full sm:w-auto justify-between sm:justify-start">
@@ -831,28 +822,8 @@ export default function DoctorPortalPage() {
                                         </div>
                                         
                                         <div className="flex items-center gap-2 w-full sm:w-auto">
-                                            {currentDayLeaveStatus === 'approved' ? (
-                                                <Badge className="bg-green-100 text-green-800 border-green-200 h-10 px-4 gap-2 font-bold w-full sm:w-auto justify-center">
-                                                    <CheckCircle2 className="h-4 w-4" /> Approved Leave
-                                                </Badge>
-                                            ) : currentDayLeaveStatus === 'pending' ? (
-                                                <Badge variant="outline" className="text-amber-600 border-amber-600 h-10 px-4 gap-2 bg-amber-50 font-bold w-full sm:w-auto justify-center">
-                                                    <Clock className="h-4 w-4" /> Audit Pending
-                                                </Badge>
-                                            ) : isViewingToday ? (
-                                                <Button variant="outline" size="sm" className="h-10 gap-2 font-bold text-blue-600 hover:bg-blue-50 border-blue-200 w-full sm:w-auto justify-center" asChild>
-                                                    <Link href="/doctor-portal/chat">
-                                                        <Siren className="h-4 w-4" /> Emergency Support
-                                                    </Link>
-                                                </Button>
-                                            ) : (
-                                                <Button variant="outline" size="sm" className="h-10 gap-2 font-bold text-destructive hover:bg-red-50 border-destructive/20 w-full sm:w-auto justify-center" onClick={() => setIsLeaveOpen(true)}>
-                                                    <Moon className="h-4 w-4" /> Request Off
-                                                </Button>
-                                            )}
-                                            
                                             <Button variant="outline" size="sm" className="h-10 gap-2 font-bold w-full sm:w-auto justify-center" onClick={() => setIsAvailabilityOpen(true)}>
-                                                <Settings2 className="h-4 w-4" />
+                                                <Settings2 className="h-4 w-4" /> Hours
                                             </Button>
                                         </div>
                                     </div>
@@ -861,14 +832,11 @@ export default function DoctorPortalPage() {
                             <CardContent className="p-4 sm:p-10">
                                 {currentDayLeaveStatus === 'approved' && (
                                     <div className="absolute inset-x-0 bottom-0 top-[120px] sm:top-[100px] z-20 bg-white/90 backdrop-blur-[4px] flex items-center justify-center rounded-b-2xl">
-                                        <div className="bg-white p-8 sm:p-10 rounded-3xl shadow-2xl border-2 text-center max-w-[90%] sm:max-w-sm space-y-6 animate-in zoom-in-95">
+                                        <div className="bg-white p-8 sm:p-10 rounded-3xl shadow-2xl border-2 text-center max-w-[90%] sm:max-w-sm space-y-6">
                                             <div className="h-16 w-16 sm:h-20 sm:w-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
                                                 <ShieldCheck className="h-10 w-10 sm:h-12 sm:w-12" />
                                             </div>
-                                            <div className="space-y-2">
-                                                <h4 className="text-xl sm:text-2xl font-bold tracking-tight">Practice Closed</h4>
-                                                <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">Admin has approved your clinical pause for {format(viewDate, "PPP")}. No bookings possible.</p>
-                                            </div>
+                                            <h4 className="text-xl sm:text-2xl font-bold tracking-tight">Practice Closed</h4>
                                         </div>
                                     </div>
                                 )}
@@ -952,21 +920,6 @@ export default function DoctorPortalPage() {
                         doctorId={user.uid} 
                     />
                 )}
-
-                <div className="fixed bottom-4 right-4 sm:bottom-8 sm:right-8 z-[100] group">
-                    <div className="absolute right-full mr-4 top-1/2 -translate-y-1/2 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap hidden sm:block">
-                        Administrative Support
-                    </div>
-                    <Button 
-                        asChild
-                        className="h-14 w-14 sm:h-16 sm:w-16 rounded-full shadow-2xl hover:scale-110 transition-transform bg-slate-900 hover:bg-slate-800 border-2 border-white/20 p-0"
-                        size="icon"
-                    >
-                        <Link href="/doctor-portal/chat" className="flex items-center justify-center">
-                            <MessageSquare className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
-                        </Link>
-                    </Button>
-                </div>
             </div>
         </main>
     );

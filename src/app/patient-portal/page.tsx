@@ -230,7 +230,14 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
     const { data: doctor, isLoading: isLoadingDoctor } = useDoc<Doctor>(doctorDocRef);
     const doctorImage = doctor ? PlaceHolderImages.find(p => p.id === doctor.profileImageId) : null;
     const appointmentDate = apt?.appointmentDateTime ? new Date(apt.appointmentDateTime) : new Date();
-    const isTimeReached = isMounted && apt?.appointmentDateTime && new Date().getTime() >= new Date(apt.appointmentDateTime).getTime();
+    
+    // Enforcement: Session is 50 minutes. ENTRY permitted between T and T+50.
+    const now = isMounted ? new Date().getTime() : 0;
+    const startTime = appointmentDate.getTime();
+    const endTime = startTime + (50 * 60 * 1000);
+    
+    const isTimeReached = isMounted && now >= startTime && now < endTime;
+    const isExpired = isMounted && now >= endTime;
 
     const JoinCallDialog = () => (
         <AlertDialog>
@@ -238,6 +245,10 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                 {isTimeReached ? (
                     <Button className="w-full sm:w-auto font-bold h-10 sm:h-9">
                         Join Session
+                    </Button>
+                ) : isExpired ? (
+                    <Button variant="secondary" className="w-full sm:w-auto font-bold h-10 sm:h-9 opacity-50 cursor-not-allowed" disabled>
+                        Session Expired
                     </Button>
                 ) : (
                     <Button className="w-full sm:w-auto font-bold opacity-70 cursor-not-allowed h-10 sm:h-9" disabled>
@@ -249,43 +260,16 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                 <AlertDialogHeader>
                     <AlertDialogTitle className="text-xl font-headline">Clinical Connection</AlertDialogTitle>
                     <AlertDialogDescription>
-                        Select your preferred method to connect with {doctor ? `Dr. ${doctor.firstName}` : 'your doctor'}.
+                        Select your preferred method to connect with {doctor ? `Dr. ${doctor.firstName}` : 'your doctor'}. Session ends automatically at {format(new Date(endTime), "p")}.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
                 <div className="grid grid-cols-1 gap-4 py-4 sm:py-6">
-                    <Button 
-                        variant="outline" 
-                        className={cn(
-                            "justify-start h-20 sm:h-16 border-2 group",
-                            apt?.appointmentType === 'Video Call' ? "border-primary bg-primary/5" : "hover:border-primary"
-                        )} 
-                        asChild
-                    >
+                    <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group" asChild>
                         <Link href={`/consultation/${apt?.id}`}>
                             <Video className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/> 
                             <div className="text-left min-w-0">
-                                <div className="flex items-center gap-2">
-                                    <p className="font-bold text-foreground truncate">Secure Video Room</p>
-                                </div>
+                                <p className="font-bold text-foreground truncate">Secure Video Room</p>
                                 <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">HD Video & Internal Audio</p>
-                            </div>
-                        </Link>
-                    </Button>
-                    <Button 
-                        variant="outline" 
-                        className={cn(
-                            "justify-start h-20 sm:h-16 border-2 group",
-                            apt?.appointmentType === 'Audio Call' ? "border-primary bg-primary/5" : "hover:border-primary"
-                        )} 
-                        asChild
-                    >
-                        <Link href={`/consultation/${apt?.id}`}>
-                            <PhoneCall className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/> 
-                            <div className="text-left min-w-0">
-                                 <div className="flex items-center gap-2">
-                                    <p className="font-bold text-foreground truncate">Secure Audio Room</p>
-                                </div>
-                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">Voice Consultation</p>
                             </div>
                         </Link>
                     </Button>
@@ -334,7 +318,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                             <p className="font-bold text-lg sm:text-xl leading-tight tracking-tight truncate max-w-full">
                                 {isLoadingDoctor ? 'Loading...' : `Dr. ${doctor?.firstName} ${doctor?.lastName}`}
                             </p>
-                            <Badge variant="outline" className="text-[9px] h-4 border-primary/20 text-primary font-bold shrink-0">{apt.appointmentType}</Badge>
+                            <Badge variant="outline" className="text-[9px] h-4 border-primary/20 text-primary font-bold shrink-0">50m Slot</Badge>
                         </div>
                         <p className="text-xs sm:text-sm text-primary font-bold uppercase tracking-wider opacity-80 truncate">{doctor?.specialty || 'General Physician'}</p>
                         <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -356,9 +340,11 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                         </div>
                     ) : isUpcoming ? (
                         <>
-                            <Button variant="outline" size="sm" className="font-bold border-2 w-full sm:w-auto h-10 sm:h-9" onClick={() => onPostpone(apt)}>
-                                <RefreshCw className="mr-2 h-4 w-4" /> Postpone
-                            </Button>
+                            {!isExpired && (
+                                <Button variant="outline" size="sm" className="font-bold border-2 w-full sm:w-auto h-10 sm:h-9" onClick={() => onPostpone(apt)}>
+                                    <RefreshCw className="mr-2 h-4 w-4" /> Postpone
+                                </Button>
+                            )}
                             <JoinCallDialog />
                         </>
                     ) : (
@@ -471,7 +457,7 @@ export default function PatientPortalPage() {
                                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Clinical Wellness Tip</p>
                                     <div className="bg-primary/5 p-4 sm:p-5 rounded-2xl border border-primary/10">
                                         <p className="text-xs sm:text-sm text-primary-dark italic leading-relaxed font-medium">
-                                            "Maintaining a consistent sleep schedule of 7-9 hours per night significantly boosts your immune system's efficacy."
+                                            "A 50-minute focused session provides the optimal balance for clinical review and guidance."
                                         </p>
                                     </div>
                                 </div>
@@ -526,9 +512,6 @@ export default function PatientPortalPage() {
                                 <div className="space-y-4 sm:space-y-5 opacity-90">
                                     {pendingVerificationAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={true} onPostpone={handlePostpone} isMounted={mounted} />)}
                                 </div>
-                                <p className="text-[10px] sm:text-[11px] text-muted-foreground italic mt-4 text-center px-4">
-                                    Admins review receipts during standard business hours. Once verified, these move to your active schedule.
-                                </p>
                             </section>
                         )}
 
