@@ -4,7 +4,7 @@ service cloud.firestore {
 
     /**
      * MediConnect Security Rules - UNRESTRICTED DEVELOPMENT MODE
-     * FORCE REDEPLOYMENT: 2025-05-20_T12:00:00 (Global Permissive Mode)
+     * FORCE REDEPLOYMENT: 2025-05-21_T10:00:00 (Final Global Permissive)
      * 
      * This mode allows ALL users (including unauthenticated ones) to read and write to all collections.
      * This is intended to resolve all "missing or insufficient permissions" errors

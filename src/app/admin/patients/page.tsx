@@ -49,8 +49,9 @@ export default function AdminPatientsPage() {
 
         // Map patients to doctors based on appointments
         appointments.forEach(apt => {
-            const patient = patients.find(p => p.id === apt.patientId);
-            const doctor = doctors.find(d => d.id === apt.doctorId);
+            if (!apt) return;
+            const patient = patients.find(p => p && p.id === apt.patientId);
+            const doctor = doctors.find(d => d && d.id === apt.doctorId);
 
             if (patient && doctor) {
                 if (!groups[doctor.id]) {
@@ -64,7 +65,7 @@ export default function AdminPatientsPage() {
         });
 
         // Patients with no clinical history yet
-        const unassigned = patients.filter(p => !assignedPatientIds.has(p.id));
+        const unassigned = patients.filter(p => p && !assignedPatientIds.has(p.id));
 
         return { grouped: groups, unassigned };
     }, [patients, doctors, appointments]);
@@ -147,7 +148,6 @@ export default function AdminPatientsPage() {
                         <CardContent className="p-0">
                             <PatientTable patients={groupedData.unassigned} />
                         </CardContent>
-                    </Card>
                 )}
 
                 {patients?.length === 0 && (
@@ -163,48 +163,50 @@ export default function AdminPatientsPage() {
 
 function PatientTable({ patients }: { patients: Patient[] }) {
     return (
-        <Table>
-            <TableHeader className="bg-muted/10">
-                <TableRow>
-                    <TableHead className="w-16 hidden sm:table-cell text-center">#</TableHead>
-                    <TableHead>Patient Identity</TableHead>
-                    <TableHead>Contact Information</TableHead>
-                    <TableHead className="hidden md:table-cell">Status</TableHead>
-                    <TableHead className="text-right">Joined Date</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {patients.map((patient, index) => (
-                    <TableRow key={patient.id} className="hover:bg-muted/5 transition-colors">
-                        <TableCell className="hidden sm:table-cell text-center font-mono text-[10px] text-muted-foreground">
-                            {index + 1}
-                        </TableCell>
-                        <TableCell>
-                            <div className="flex items-center gap-3">
-                                <div className="h-8 w-8 rounded-full bg-primary/5 flex items-center justify-center text-primary text-xs font-bold border border-primary/10">
-                                    {patient.firstName[0]}{patient.lastName[0]}
-                                </div>
-                                <div>
-                                    <p className="font-bold text-sm">{patient.firstName} {patient.lastName}</p>
-                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">ID: {patient.id.slice(0, 8)}...</p>
-                                </div>
-                            </div>
-                        </TableCell>
-                        <TableCell>
-                            <p className="text-sm font-medium">{patient.email}</p>
-                            <p className="text-xs text-muted-foreground">{patient.phone || 'No phone logged'}</p>
-                        </TableCell>
-                        <TableCell className="hidden md:table-cell">
-                            <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200 font-bold text-[10px]">
-                                ACTIVE
-                            </Badge>
-                        </TableCell>
-                        <TableCell className="text-right text-xs font-medium text-muted-foreground">
-                            {new Date(patient.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}
-                        </TableCell>
+        <div className="overflow-x-auto">
+            <Table>
+                <TableHeader className="bg-muted/10">
+                    <TableRow>
+                        <TableHead className="w-16 hidden sm:table-cell text-center">#</TableHead>
+                        <TableHead>Patient Identity</TableHead>
+                        <TableHead>Contact Information</TableHead>
+                        <TableHead className="hidden md:table-cell">Status</TableHead>
+                        <TableHead className="text-right">Joined Date</TableHead>
                     </TableRow>
-                ))}
-            </TableBody>
-        </Table>
+                </TableHeader>
+                <TableBody>
+                    {patients.map((patient, index) => (
+                        <TableRow key={patient.id} className="hover:bg-muted/5 transition-colors">
+                            <TableCell className="hidden sm:table-cell text-center font-mono text-[10px] text-muted-foreground">
+                                {index + 1}
+                            </TableCell>
+                            <TableCell>
+                                <div className="flex items-center gap-3">
+                                    <div className="h-8 w-8 rounded-full bg-primary/5 flex items-center justify-center text-primary text-xs font-bold border border-primary/10">
+                                        {patient.firstName[0]}{patient.lastName[0]}
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-sm">{patient.firstName} {patient.lastName}</p>
+                                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">ID: {patient.id.slice(0, 8)}...</p>
+                                    </div>
+                                </div>
+                            </TableCell>
+                            <TableCell>
+                                <p className="text-sm font-medium">{patient.email}</p>
+                                <p className="text-xs text-muted-foreground">{patient.phone || 'No phone logged'}</p>
+                            </TableCell>
+                            <TableCell className="hidden md:table-cell">
+                                <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200 font-bold text-[10px]">
+                                    ACTIVE
+                                </Badge>
+                            </TableCell>
+                            <TableCell className="text-right text-xs font-medium text-muted-foreground">
+                                {new Date(patient.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+                            </TableCell>
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
     );
 }

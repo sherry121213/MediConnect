@@ -85,13 +85,13 @@ export default function DoctorDetailPage() {
 
     const isDayOffByAdmin = useMemo(() => {
       if (!approvedLeave || !selectedDate) return false;
-      return approvedLeave.some((leave: any) => isSameDay(new Date(leave.requestedDate), selectedDate));
+      return approvedLeave.some((leave: any) => leave && leave.requestedDate && isSameDay(new Date(leave.requestedDate), selectedDate));
     }, [approvedLeave, selectedDate]);
 
     const bookedTimes = useMemo(() => {
         if (!existingAppointments || !selectedDate || !mounted) return [];
         return existingAppointments
-            .filter(apt => apt && isSameDay(new Date(apt.appointmentDateTime), selectedDate) && apt.status !== 'cancelled')
+            .filter(apt => apt && apt.appointmentDateTime && isSameDay(new Date(apt.appointmentDateTime), selectedDate) && apt.status !== 'cancelled')
             .map(apt => format(new Date(apt.appointmentDateTime), "hh:mm a"));
     }, [existingAppointments, selectedDate, mounted]);
 
@@ -321,92 +321,92 @@ export default function DoctorDetailPage() {
                                                 </Button>
                                             </AlertDialogTrigger>
                                             <AlertDialogContent className="rounded-3xl border-none shadow-2xl max-w-lg max-h-[95vh] overflow-y-auto custom-scrollbar p-0">
-                                                <div className="p-6 sm:p-8 space-y-6">
+                                                <div className="p-4 sm:p-8 space-y-4 sm:space-y-6">
                                                     <AlertDialogHeader>
-                                                        <AlertDialogTitle className="text-2xl font-headline">Secure Payment Gateway</AlertDialogTitle>
-                                                        <AlertDialogDescription>Select your preferred financial channel to complete the consultation fee transfer.</AlertDialogDescription>
+                                                        <AlertDialogTitle className="text-xl sm:text-2xl font-headline">Secure Payment Gateway</AlertDialogTitle>
+                                                        <AlertDialogDescription className="text-xs sm:text-sm">Complete your consultation fee transfer to confirm booking.</AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     
-                                                    <div className="space-y-6 py-2">
-                                                        <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10 text-center">
-                                                            <p className="text-[10px] uppercase font-bold text-primary tracking-widest mb-1">Fee for Professional Session</p>
-                                                            <p className="text-4xl font-bold text-foreground">PKR 1,500</p>
+                                                    <div className="space-y-4 sm:space-y-6 py-1">
+                                                        <div className="bg-primary/5 p-3 sm:p-4 rounded-2xl border border-primary/10 text-center">
+                                                            <p className="text-[9px] uppercase font-bold text-primary tracking-widest mb-1">Consultation Fee</p>
+                                                            <p className="text-3xl sm:text-4xl font-bold text-foreground">PKR 1,500</p>
                                                         </div>
 
-                                                        <div className="space-y-3">
-                                                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Step 1: Select Channel</Label>
-                                                            <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid grid-cols-1 gap-3">
+                                                        <div className="space-y-2 sm:space-y-3">
+                                                            <Label className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Step 1: Select Channel</Label>
+                                                            <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid grid-cols-1 gap-2 sm:gap-3">
                                                                 <div className={cn(
-                                                                    "relative flex items-center gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer group",
+                                                                    "relative flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-2xl border-2 transition-all cursor-pointer group",
                                                                     paymentMethod === 'Easypaisa' ? "border-primary bg-primary/5" : "border-slate-100 hover:border-slate-200"
                                                                 )}>
                                                                     <RadioGroupItem value="Easypaisa" id="ep" className="sr-only" />
                                                                     <div className={cn(
-                                                                        "h-12 w-12 rounded-xl flex items-center justify-center transition-colors shadow-sm",
+                                                                        "h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center transition-colors shadow-sm",
                                                                         paymentMethod === 'Easypaisa' ? "bg-primary text-white" : "bg-slate-50 text-slate-400 group-hover:bg-slate-100"
                                                                     )}>
-                                                                        <Wallet className="h-6 w-6" />
+                                                                        <Wallet className="h-5 w-5 sm:h-6 sm:w-6" />
                                                                     </div>
                                                                     <Label htmlFor="ep" className="flex-1 cursor-pointer">
                                                                         <div className="flex justify-between items-center">
-                                                                            <p className="font-bold text-base">Easypaisa Mobile</p>
-                                                                            {paymentMethod === 'Easypaisa' && <CheckCircle2 className="h-5 w-5 text-primary" />}
+                                                                            <p className="font-bold text-sm sm:text-base">Easypaisa</p>
+                                                                            {paymentMethod === 'Easypaisa' && <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />}
                                                                         </div>
-                                                                        <p className="text-xs font-mono text-muted-foreground mt-0.5">Account: 03120555772</p>
+                                                                        <p className="text-[10px] sm:text-xs font-mono text-muted-foreground">03120555772</p>
                                                                     </Label>
                                                                 </div>
 
                                                                 <div className={cn(
-                                                                    "relative flex items-center gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer group",
+                                                                    "relative flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-2xl border-2 transition-all cursor-pointer group",
                                                                     paymentMethod === 'Jazzcash' ? "border-primary bg-primary/5" : "border-slate-100 hover:border-slate-200"
                                                                 )}>
                                                                     <RadioGroupItem value="Jazzcash" id="jc" className="sr-only" />
                                                                     <div className={cn(
-                                                                        "h-12 w-12 rounded-xl flex items-center justify-center transition-colors shadow-sm",
+                                                                        "h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center transition-colors shadow-sm",
                                                                         paymentMethod === 'Jazzcash' ? "bg-primary text-white" : "bg-slate-50 text-slate-400 group-hover:bg-slate-100"
                                                                     )}>
-                                                                        <Wallet className="h-6 w-6" />
+                                                                        <Wallet className="h-5 w-5 sm:h-6 sm:w-6" />
                                                                     </div>
                                                                     <Label htmlFor="jc" className="flex-1 cursor-pointer">
                                                                         <div className="flex justify-between items-center">
-                                                                            <p className="font-bold text-base">Jazzcash Wallet</p>
-                                                                            {paymentMethod === 'Jazzcash' && <CheckCircle2 className="h-5 w-5 text-primary" />}
+                                                                            <p className="font-bold text-sm sm:text-base">Jazzcash</p>
+                                                                            {paymentMethod === 'Jazzcash' && <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />}
                                                                         </div>
-                                                                        <p className="text-xs font-mono text-muted-foreground mt-0.5">Account: 03120555772</p>
+                                                                        <p className="text-[10px] sm:text-xs font-mono text-muted-foreground">03120555772</p>
                                                                     </Label>
                                                                 </div>
 
                                                                 <div className={cn(
-                                                                    "relative flex items-center gap-4 p-4 rounded-2xl border-2 transition-all cursor-pointer group",
+                                                                    "relative flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-2xl border-2 transition-all cursor-pointer group",
                                                                     paymentMethod === 'MasterCard' ? "border-primary bg-primary/5" : "border-slate-100 hover:border-slate-200"
                                                                 )}>
                                                                     <RadioGroupItem value="MasterCard" id="mc" className="sr-only" />
                                                                     <div className={cn(
-                                                                        "h-12 w-12 rounded-xl flex items-center justify-center transition-colors shadow-sm",
+                                                                        "h-10 w-10 sm:h-12 sm:w-12 rounded-xl flex items-center justify-center transition-colors shadow-sm",
                                                                         paymentMethod === 'MasterCard' ? "bg-primary text-white" : "bg-slate-50 text-slate-400 group-hover:bg-slate-100"
                                                                     )}>
-                                                                        <Landmark className="h-6 w-6" />
+                                                                        <Landmark className="h-5 w-5 sm:h-6 sm:w-6" />
                                                                     </div>
                                                                     <Label htmlFor="mc" className="flex-1 cursor-pointer">
                                                                         <div className="flex justify-between items-center">
-                                                                            <p className="font-bold text-base">Bank Transfer / IBAN</p>
-                                                                            {paymentMethod === 'MasterCard' && <CheckCircle2 className="h-5 w-5 text-primary" />}
+                                                                            <p className="font-bold text-sm sm:text-base">Bank Transfer</p>
+                                                                            {paymentMethod === 'MasterCard' && <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 text-primary" />}
                                                                         </div>
-                                                                        <p className="text-[10px] font-mono text-muted-foreground mt-0.5">pk013120555772</p>
+                                                                        <p className="text-[9px] sm:text-[10px] font-mono text-muted-foreground">pk013120555772</p>
                                                                     </Label>
                                                                 </div>
                                                             </RadioGroup>
                                                         </div>
 
                                                         <div className="space-y-2">
-                                                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Step 2: Upload Proof of Transfer</Label>
+                                                            <Label className="text-[9px] sm:text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Step 2: Upload Proof</Label>
                                                             <div className="relative group">
                                                                 <div className="flex items-center justify-center w-full">
-                                                                    <label htmlFor="receipt-upload" className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-2xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors border-slate-200 group-hover:border-primary/50">
-                                                                        <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                                                            <Landmark className="w-8 h-8 mb-4 text-slate-400 group-hover:text-primary transition-colors" />
-                                                                            <p className="mb-2 text-sm text-slate-500"><span className="font-semibold text-primary">Click to upload</span> or drag and drop</p>
-                                                                            <p className="text-xs text-slate-400 uppercase font-bold tracking-tight">Receipt Screenshot (JPG, PNG)</p>
+                                                                    <label htmlFor="receipt-upload" className="flex flex-col items-center justify-center w-full h-28 sm:h-32 border-2 border-dashed rounded-2xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors border-slate-200 group-hover:border-primary/50">
+                                                                        <div className="flex flex-col items-center justify-center pt-4 pb-5">
+                                                                            <Landmark className="w-6 h-6 sm:w-8 sm:h-8 mb-2 text-slate-400 group-hover:text-primary transition-colors" />
+                                                                            <p className="mb-1 text-xs sm:text-sm text-slate-500"><span className="font-semibold text-primary">Click to upload</span></p>
+                                                                            <p className="text-[8px] sm:text-[9px] text-slate-400 uppercase font-bold tracking-tight">Receipt Screenshot</p>
                                                                         </div>
                                                                         <Input 
                                                                             id="receipt-upload"
@@ -424,20 +424,20 @@ export default function DoctorDetailPage() {
                                                                     </label>
                                                                 </div>
                                                                 {paymentReceipt && (
-                                                                    <div className="mt-2 flex items-center gap-2 p-2 bg-green-50 rounded-lg border border-green-100">
-                                                                        <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                                                        <span className="text-[10px] font-bold text-green-700 uppercase">Receipt attached successfully</span>
+                                                                    <div className="mt-2 flex items-center gap-2 p-1.5 bg-green-50 rounded-lg border border-green-100">
+                                                                        <CheckCircle2 className="h-3 w-3 sm:h-4 sm:w-4 text-green-600" />
+                                                                        <span className="text-[8px] sm:text-[9px] font-bold text-green-700 uppercase">Attached</span>
                                                                     </div>
                                                                 )}
                                                             </div>
                                                         </div>
                                                     </div>
                                                     
-                                                    <AlertDialogFooter className="flex flex-col sm:flex-row gap-3 pt-6 pb-2">
-                                                        <AlertDialogCancel className="rounded-2xl h-14 border-2 w-full sm:w-auto">Cancel Process</AlertDialogCancel>
-                                                        <AlertDialogAction onClick={handleConfirmBooking} disabled={!paymentReceipt || isBooking} className="rounded-2xl h-14 bg-primary font-bold shadow-lg shadow-primary/20 w-full sm:flex-1">
-                                                            {isBooking ? <Loader2 className="animate-spin mr-2 h-5 w-5" /> : null}
-                                                            Finalize & Notify Professional
+                                                    <AlertDialogFooter className="flex flex-col sm:flex-row gap-2 pt-4 pb-2">
+                                                        <AlertDialogCancel className="rounded-xl h-12 text-sm sm:h-14 border-2 w-full sm:w-auto">Back</AlertDialogCancel>
+                                                        <AlertDialogAction onClick={handleConfirmBooking} disabled={!paymentReceipt || isBooking} className="rounded-xl h-12 text-sm sm:h-14 bg-primary font-bold shadow-lg shadow-primary/20 w-full sm:flex-1">
+                                                            {isBooking ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null}
+                                                            Complete Booking
                                                         </AlertDialogAction>
                                                     </AlertDialogFooter>
                                                 </div>
