@@ -1,14 +1,14 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, addDoc, query, orderBy } from 'firebase/firestore';
+import { collection, doc, addDoc, query } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, User, Clock } from 'lucide-react';
-import { format, addMinutes, isAfter } from 'date-fns';
+import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -71,16 +71,19 @@ export default function ConsultationRoomPage() {
   }, [firestore, peerId]);
   const { data: peer } = useDoc<any>(peerDocRef);
 
-  // Chat logic
+  // Chat logic - Simplified query to avoid index issues/permission friction
   const messagesQuery = useMemoFirebase(() => {
     if (!firestore || !appointmentId) return null;
-    return query(
-      collection(firestore, 'consultationSessions', appointmentId, 'messages'),
-      orderBy('timestamp', 'asc')
-    );
+    return collection(firestore, 'consultationSessions', appointmentId, 'messages');
   }, [firestore, appointmentId]);
 
-  const { data: messages } = useCollection<any>(messagesQuery);
+  const { data: messagesData } = useCollection<any>(messagesQuery);
+  
+  // Sort messages client-side for maximum stability
+  const messages = useMemo(() => {
+    if (!messagesData) return [];
+    return [...messagesData].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+  }, [messagesData]);
 
   // Camera Permission Effect
   useEffect(() => {
