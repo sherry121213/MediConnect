@@ -131,7 +131,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[450px]">
+            <DialogContent className="sm:max-w-[450px] w-[95vw] sm:w-full">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <RefreshCw className="h-5 w-5 text-primary" /> Reschedule Consultation
@@ -174,7 +174,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                         {selectedDate && !isDayOffByAdmin && (
                             <div className="space-y-3">
                                 <Label className="text-xs font-bold uppercase opacity-60">Available Slots</Label>
-                                <div className="grid grid-cols-3 gap-2">
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                     {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => {
                                         const isPast = isTimeSlotPast(time, selectedDate);
                                         const isBooked = bookedTimes.includes(time);
@@ -207,9 +207,9 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                             </div>
                         )}
 
-                        <DialogFooter>
-                            <Button type="button" variant="ghost" onClick={() => onOpenChange(false)}>Cancel</Button>
-                            <Button type="submit" disabled={isSaving || !form.getValues("newTime")}>
+                        <DialogFooter className="flex flex-col sm:flex-row gap-2">
+                            <Button type="button" variant="ghost" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>Cancel</Button>
+                            <Button type="submit" className="w-full sm:w-auto" disabled={isSaving || !form.getValues("newTime")}>
                                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Confirm New Slot"}
                             </Button>
                         </DialogFooter>
@@ -230,81 +230,77 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
     const { data: doctor, isLoading: isLoadingDoctor } = useDoc<Doctor>(doctorDocRef);
     const doctorImage = doctor ? PlaceHolderImages.find(p => p.id === doctor.profileImageId) : null;
     const appointmentDate = apt?.appointmentDateTime ? new Date(apt.appointmentDateTime) : new Date();
-    
-    // Hydration-safe timing check
     const isTimeReached = isMounted && apt?.appointmentDateTime && new Date().getTime() >= new Date(apt.appointmentDateTime).getTime();
 
     const JoinCallDialog = () => (
         <AlertDialog>
             <AlertDialogTrigger asChild>
                 {isTimeReached ? (
-                    <Button className="w-full sm:w-auto font-bold">
+                    <Button className="w-full sm:w-auto font-bold h-10 sm:h-9">
                         Join Session
                     </Button>
                 ) : (
-                    <Button className="w-full sm:w-auto font-bold opacity-70 cursor-not-allowed" disabled>
-                        Not Started Yet <Clock className="ml-2 h-3 w-3" />
+                    <Button className="w-full sm:w-auto font-bold opacity-70 cursor-not-allowed h-10 sm:h-9" disabled>
+                        Not Started <Clock className="ml-2 h-3 w-3" />
                     </Button>
                 )}
             </AlertDialogTrigger>
-            <AlertDialogContent>
+            <AlertDialogContent className="w-[95vw] sm:max-w-lg rounded-2xl">
                 <AlertDialogHeader>
                     <AlertDialogTitle className="text-xl font-headline">Clinical Connection</AlertDialogTitle>
                     <AlertDialogDescription>
                         Select your preferred method to connect with {doctor ? `Dr. ${doctor.firstName}` : 'your doctor'}.
                     </AlertDialogDescription>
                 </AlertDialogHeader>
-                <div className="grid grid-cols-1 gap-4 py-6">
+                <div className="grid grid-cols-1 gap-4 py-4 sm:py-6">
                     <Button 
                         variant="outline" 
                         className={cn(
-                            "justify-start h-16 border-2 group",
+                            "justify-start h-20 sm:h-16 border-2 group",
                             apt?.appointmentType === 'Video Call' ? "border-primary bg-primary/5" : "hover:border-primary"
                         )} 
                         asChild
                     >
                         <Link href={`/consultation/${apt?.id}`}>
-                            <Video className="mr-4 h-6 w-6 text-primary group-hover:scale-110 transition-transform"/> 
-                            <div className="text-left">
+                            <Video className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/> 
+                            <div className="text-left min-w-0">
                                 <div className="flex items-center gap-2">
-                                    <p className="font-bold text-foreground">Secure Video Room</p>
-                                    {apt?.appointmentType === 'Video Call' && <Badge variant="secondary" className="h-4 text-[8px] bg-primary text-white">Direct Integration</Badge>}
+                                    <p className="font-bold text-foreground truncate">Secure Video Room</p>
                                 </div>
-                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">HD Video & Internal Audio</p>
+                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">HD Video & Internal Audio</p>
                             </div>
                         </Link>
                     </Button>
                     <Button 
                         variant="outline" 
                         className={cn(
-                            "justify-start h-16 border-2 group",
+                            "justify-start h-20 sm:h-16 border-2 group",
                             apt?.appointmentType === 'Audio Call' ? "border-primary bg-primary/5" : "hover:border-primary"
                         )} 
                         asChild
                     >
                         <Link href={`/consultation/${apt?.id}`}>
-                            <PhoneCall className="mr-4 h-6 w-6 text-primary group-hover:scale-110 transition-transform"/> 
-                            <div className="text-left">
+                            <PhoneCall className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/> 
+                            <div className="text-left min-w-0">
                                  <div className="flex items-center gap-2">
-                                    <p className="font-bold text-foreground">Secure Audio Room</p>
-                                    {apt?.appointmentType === 'Audio Call' && <Badge variant="secondary" className="h-4 text-[8px] bg-primary text-white">Direct Integration</Badge>}
+                                    <p className="font-bold text-foreground truncate">Secure Audio Room</p>
                                 </div>
-                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Voice Consultation</p>
+                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">Voice Consultation</p>
                             </div>
                         </Link>
                     </Button>
-                    <Button variant="outline" className="justify-start h-16 border-2 hover:border-primary group" asChild>
+                    <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group" asChild>
                         <Link href={`/consultation/${apt?.id}`}>
-                            <MessageSquare className="mr-4 h-6 w-6 text-primary group-hover:scale-110 transition-transform"/>
-                            <div className="text-left">
-                                <p className="font-bold text-foreground">Interactive Chat Room</p>
-                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Integrated Real-time messaging</p>
+                            <MessageSquare className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/>
+                            <div className="text-left min-w-0">
+                                <p className="font-bold text-foreground truncate">Interactive Chat</p>
+                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">Integrated messaging</p>
                             </div>
                         </Link>
                     </Button>
                 </div>
                 <AlertDialogFooter>
-                    <AlertDialogCancel>Back</AlertDialogCancel>
+                    <AlertDialogCancel className="w-full sm:w-auto">Back</AlertDialogCancel>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
@@ -314,9 +310,9 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
 
     return (
         <Card className="hover:shadow-lg transition-all border-l-4 border-l-primary/40 bg-card/50 backdrop-blur-sm overflow-hidden">
-            <CardContent className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-8">
-                <div className="flex items-center gap-6 flex-1 min-w-0">
-                    <div className="relative h-16 w-16 shrink-0 shadow-inner rounded-full overflow-hidden bg-muted">
+            <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6 sm:gap-8">
+                <div className="flex items-center gap-4 sm:gap-6 flex-1 min-w-0">
+                    <div className="relative h-14 w-14 sm:h-16 sm:w-16 shrink-0 shadow-inner rounded-full overflow-hidden bg-muted">
                         {isLoadingDoctor ? (
                              <div className="h-full w-full flex items-center justify-center"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
                         ) : doctor?.photoURL || doctorImage ? (
@@ -329,23 +325,23 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                             />
                         ) : (
                             <div className="h-full w-full bg-primary/10 flex items-center justify-center text-primary">
-                                <Stethoscope className="h-8 w-8" />
+                                <Stethoscope className="h-6 w-6 sm:h-8 sm:w-8" />
                             </div>
                         )}
                     </div>
                     <div className="space-y-1 min-w-0">
-                        <div className="flex items-center gap-2">
-                            <p className="font-bold text-xl leading-tight tracking-tight truncate">
-                                {isLoadingDoctor ? 'Loading Doctor...' : `Dr. ${doctor?.firstName} ${doctor?.lastName}`}
+                        <div className="flex flex-wrap items-center gap-2">
+                            <p className="font-bold text-lg sm:text-xl leading-tight tracking-tight truncate max-w-full">
+                                {isLoadingDoctor ? 'Loading...' : `Dr. ${doctor?.firstName} ${doctor?.lastName}`}
                             </p>
                             <Badge variant="outline" className="text-[9px] h-4 border-primary/20 text-primary font-bold shrink-0">{apt.appointmentType}</Badge>
                         </div>
-                        <p className="text-sm text-primary font-bold uppercase tracking-wider opacity-80 truncate">{doctor?.specialty || 'General Physician'}</p>
-                        <div className="flex items-center gap-4 pt-1">
-                            <Badge variant="secondary" className="bg-primary/5 text-primary-dark border-primary/10 flex items-center gap-1.5 px-2.5">
+                        <p className="text-xs sm:text-sm text-primary font-bold uppercase tracking-wider opacity-80 truncate">{doctor?.specialty || 'General Physician'}</p>
+                        <div className="flex flex-wrap items-center gap-2 pt-1">
+                            <Badge variant="secondary" className="bg-primary/5 text-primary-dark border-primary/10 flex items-center gap-1.5 px-2 text-[10px] sm:text-xs">
                                 <Calendar className="w-3 h-3" /> {format(appointmentDate, "MMM dd, yyyy")}
                             </Badge>
-                            <Badge variant="outline" className="flex items-center gap-1.5 px-2.5">
+                            <Badge variant="outline" className="flex items-center gap-1.5 px-2 text-[10px] sm:text-xs">
                                 <Clock className="w-3 h-3" /> {format(appointmentDate, "p")}
                             </Badge>
                         </div>
@@ -353,25 +349,22 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                 </div>
                 <div className="flex flex-col sm:flex-row gap-2 shrink-0">
                     {apt.paymentStatus === 'pending' ? (
-                        <div className="flex flex-col gap-1 items-center">
-                            <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 px-4 py-2 font-bold whitespace-nowrap">
+                        <div className="flex flex-col gap-1 items-center w-full">
+                            <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 px-4 py-2 font-bold whitespace-nowrap w-full justify-center">
                                 <Clock className="w-3 h-3 mr-2" /> Pending Verification
                             </Badge>
-                            {apt.paymentMethod && (
-                                <span className="text-[9px] font-bold text-muted-foreground uppercase">{apt.paymentMethod} Chain</span>
-                            )}
                         </div>
                     ) : isUpcoming ? (
                         <>
-                            <Button variant="outline" size="sm" className="font-bold border-2" onClick={() => onPostpone(apt)}>
+                            <Button variant="outline" size="sm" className="font-bold border-2 w-full sm:w-auto h-10 sm:h-9" onClick={() => onPostpone(apt)}>
                                 <RefreshCw className="mr-2 h-4 w-4" /> Postpone
                             </Button>
                             <JoinCallDialog />
                         </>
                     ) : (
-                        <Button variant="ghost" asChild className="gap-2 text-primary font-bold hover:bg-primary/5">
+                        <Button variant="ghost" asChild className="gap-2 text-primary font-bold hover:bg-primary/5 w-full sm:w-auto justify-center h-10 sm:h-9">
                             <Link href={`/appointments/${apt.id}`}>
-                                <FileText className="h-4 w-4" /> View Visit Summary
+                                <FileText className="h-4 w-4" /> Visit Summary
                             </Link>
                         </Button>
                     )}
@@ -403,11 +396,8 @@ export default function PatientPortalPage() {
         
         const now = new Date();
         const threshold = subHours(now, 1); 
-
-        // Safe filtering to avoid null property access
         const validAppointments = appointments.filter(apt => apt !== null && apt.id);
 
-        // Only show upcoming appointments if the payment is APPROVED
         const upcoming = validAppointments
             .filter(apt => 
                 isAfter(new Date(apt.appointmentDateTime), threshold) && 
@@ -417,7 +407,6 @@ export default function PatientPortalPage() {
             )
             .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
 
-        // Appointments awaiting payment verification
         const pending = validAppointments
             .filter(apt => 
                 isAfter(new Date(apt.appointmentDateTime), threshold) && 
@@ -448,40 +437,40 @@ export default function PatientPortalPage() {
     }
 
     return (
-        <main className="flex-grow bg-secondary/30 py-10">
+        <main className="flex-grow bg-secondary/30 py-6 sm:py-10">
             <div className="container mx-auto px-4">
-                <div className="grid lg:grid-cols-12 gap-10">
+                <div className="grid lg:grid-cols-12 gap-8 lg:gap-10">
                     
                     <div className="lg:col-span-4 space-y-6">
                         <Card className="overflow-hidden border-none shadow-2xl bg-white/80 backdrop-blur-md">
-                            <CardHeader className="bg-primary text-primary-foreground pb-10 pt-10">
-                                <CardTitle className="text-sm font-bold uppercase tracking-widest opacity-80">Patient Command Center</CardTitle>
-                                <CardDescription className="text-3xl font-bold font-headline text-white mt-2">
+                            <CardHeader className="bg-primary text-primary-foreground pb-8 pt-8 sm:pb-10 sm:pt-10 px-6 sm:px-8">
+                                <CardTitle className="text-[10px] sm:text-xs font-bold uppercase tracking-widest opacity-80">Patient Command Center</CardTitle>
+                                <CardDescription className="text-2xl sm:text-3xl font-bold font-headline text-white mt-2">
                                     Hello, {userData?.firstName}
                                 </CardDescription>
                             </CardHeader>
-                            <CardContent className="pt-8 space-y-6">
+                            <CardContent className="pt-6 sm:pt-8 space-y-6 px-6 sm:px-8">
                                 <div className="space-y-3">
                                     <Button className="w-full justify-start h-14 text-base font-bold shadow-lg shadow-primary/20" asChild>
                                         <Link href="/find-a-doctor">
-                                            <PlusCircle className="mr-3 h-5 w-5" /> Book Medical Consultation
+                                            <PlusCircle className="mr-3 h-5 w-5 shrink-0" /> Book Consultation
                                         </Link>
                                     </Button>
                                     <Button variant="outline" className="w-full justify-start h-14 text-base font-bold border-2" asChild>
                                         <Link href="/patient-portal/messages">
-                                            <MessageSquare className="mr-3 h-5 w-5 text-primary" /> Clinical Message Center
+                                            <MessageSquare className="mr-3 h-5 w-5 text-primary shrink-0" /> Message Center
                                         </Link>
                                     </Button>
                                     <Button variant="outline" className="w-full justify-start h-14 text-base font-bold border-2" asChild>
                                         <Link href="/patient-portal/history">
-                                            <History className="mr-3 h-5 w-5 text-primary" /> Audit Medical Records
+                                            <History className="mr-3 h-5 w-5 text-primary shrink-0" /> Medical Records
                                         </Link>
                                     </Button>
                                 </div>
                                 <div className="mt-8 pt-8 border-t space-y-4">
                                     <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Clinical Wellness Tip</p>
-                                    <div className="bg-primary/5 p-5 rounded-2xl border border-primary/10">
-                                        <p className="text-sm text-primary-dark italic leading-relaxed font-medium">
+                                    <div className="bg-primary/5 p-4 sm:p-5 rounded-2xl border border-primary/10">
+                                        <p className="text-xs sm:text-sm text-primary-dark italic leading-relaxed font-medium">
                                             "Maintaining a consistent sleep schedule of 7-9 hours per night significantly boosts your immune system's efficacy."
                                         </p>
                                     </div>
@@ -490,15 +479,15 @@ export default function PatientPortalPage() {
                         </Card>
                     </div>
 
-                    <div className="lg:col-span-8 space-y-12">
+                    <div className="lg:col-span-8 space-y-8 sm:space-y-12">
                         <section>
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-2xl font-bold font-headline flex items-center gap-3">
-                                    <div className="h-8 w-1 bg-primary rounded-full"></div>
+                            <div className="flex items-center justify-between mb-4 sm:mb-6">
+                                <h2 className="text-xl sm:text-2xl font-bold font-headline flex items-center gap-3">
+                                    <div className="h-6 sm:h-8 w-1 bg-primary rounded-full"></div>
                                     Scheduled consultations
                                 </h2>
                                 {upcomingAppointments.length > 0 && (
-                                    <Badge className="bg-primary/10 text-primary hover:bg-primary/20 transition-colors px-3 py-1 font-bold">
+                                    <Badge className="bg-primary/10 text-primary px-2 sm:px-3 py-1 font-bold text-[10px] sm:text-xs">
                                         {upcomingAppointments.length} Active
                                     </Badge>
                                 )}
@@ -508,16 +497,16 @@ export default function PatientPortalPage() {
                                 <div className="py-12 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary/30" /></div>
                             ) : upcomingAppointments.length === 0 ? (
                                 <Card className="border-dashed border-2 bg-transparent">
-                                    <CardContent className="py-16 text-center">
-                                        <div className="h-16 w-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
-                                            <Calendar className="h-8 w-8 text-muted-foreground/40" />
+                                    <CardContent className="py-12 sm:py-16 text-center px-4">
+                                        <div className="h-12 w-12 sm:h-16 sm:w-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
+                                            <Calendar className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground/40" />
                                         </div>
-                                        <p className="text-muted-foreground font-medium">No verified consultations scheduled.</p>
-                                        <p className="text-xs text-muted-foreground mt-1">Pending payments will appear in the verification section below.</p>
+                                        <p className="text-muted-foreground font-medium text-sm sm:text-base">No verified consultations scheduled.</p>
+                                        <p className="text-[10px] sm:text-xs text-muted-foreground mt-1">Pending payments appear in the verification section below.</p>
                                     </CardContent>
                                 </Card>
                             ) : (
-                                <div className="space-y-5">
+                                <div className="space-y-4 sm:space-y-5">
                                     {upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={true} onPostpone={handlePostpone} isMounted={mounted} />)}
                                 </div>
                             )}
@@ -525,32 +514,32 @@ export default function PatientPortalPage() {
 
                         {pendingVerificationAppointments.length > 0 && (
                             <section className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-                                <div className="flex items-center justify-between mb-6">
-                                    <h2 className="text-2xl font-bold font-headline flex items-center gap-3">
-                                        <div className="h-8 w-1 bg-amber-500 rounded-full"></div>
+                                <div className="flex items-center justify-between mb-4 sm:mb-6">
+                                    <h2 className="text-xl sm:text-2xl font-bold font-headline flex items-center gap-3">
+                                        <div className="h-6 sm:h-8 w-1 bg-amber-500 rounded-full"></div>
                                         Verification in progress
                                     </h2>
-                                    <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 px-3 py-1 font-bold">
+                                    <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 px-2 sm:px-3 py-1 font-bold text-[10px] sm:text-xs">
                                         {pendingVerificationAppointments.length} Awaiting Audit
                                     </Badge>
                                 </div>
-                                <div className="space-y-5 opacity-90">
+                                <div className="space-y-4 sm:space-y-5 opacity-90">
                                     {pendingVerificationAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={true} onPostpone={handlePostpone} isMounted={mounted} />)}
                                 </div>
-                                <p className="text-[11px] text-muted-foreground italic mt-4 text-center">
-                                    Admins review receipts during standard business hours. Once verified, these will move to your active schedule.
+                                <p className="text-[10px] sm:text-[11px] text-muted-foreground italic mt-4 text-center px-4">
+                                    Admins review receipts during standard business hours. Once verified, these move to your active schedule.
                                 </p>
                             </section>
                         )}
 
                         <section>
-                            <div className="flex items-center justify-between mb-6">
-                                <h2 className="text-2xl font-bold font-headline flex items-center gap-3">
-                                     <div className="h-8 w-1 bg-muted rounded-full"></div>
+                            <div className="flex items-center justify-between mb-4 sm:mb-6">
+                                <h2 className="text-xl sm:text-2xl font-bold font-headline flex items-center gap-3">
+                                     <div className="h-6 sm:h-8 w-1 bg-muted rounded-full"></div>
                                     Clinical History
                                 </h2>
                                 {recentPastAppointments.length > 0 && (
-                                    <Button variant="ghost" size="sm" asChild className="text-primary hover:text-primary font-bold group">
+                                    <Button variant="ghost" size="sm" asChild className="text-primary hover:text-primary font-bold group text-xs">
                                         <Link href="/patient-portal/history" className="flex items-center gap-1">
                                             View Audit <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform" />
                                         </Link>
@@ -562,12 +551,12 @@ export default function PatientPortalPage() {
                                 <div className="py-12 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary/30" /></div>
                             ) : recentPastAppointments.length === 0 ? (
                                 <Card className="border-dashed border-2 bg-transparent">
-                                    <CardContent className="py-16 text-center text-muted-foreground">
+                                    <CardContent className="py-12 sm:py-16 text-center text-muted-foreground px-4 text-sm sm:text-base">
                                         <p className="font-medium">No historical clinical records detected.</p>
                                     </CardContent>
                                 </Card>
                             ) : (
-                                <div className="space-y-5">
+                                <div className="space-y-4 sm:space-y-5">
                                     {recentPastAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={false} onPostpone={handlePostpone} isMounted={mounted} />)}
                                 </div>
                             )}

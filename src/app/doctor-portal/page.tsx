@@ -130,7 +130,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                             render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Select New Slot</FormLabel>
-                                    <div className="grid grid-cols-3 gap-2">
+                                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                         {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => (
                                             <Button 
                                                 key={time} 
@@ -403,41 +403,40 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
     };
 
     const appointmentDate = new Date(appointment.appointmentDateTime);
-    // Hydration-safe timing check
     const isTimeReached = isMounted && new Date().getTime() >= appointmentDate.getTime();
 
     return (
         <>
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl">
+            <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full">
                 <Tabs defaultValue="overview" className="w-full">
                     <div className="bg-slate-900 p-6 text-white">
                         <DialogTitle className="text-xl font-headline mb-4">Patient Management Hub</DialogTitle>
                         <TabsList className="bg-white/10 border-none text-white w-full grid grid-cols-3">
                             <TabsTrigger value="overview">Overview</TabsTrigger>
-                            <TabsTrigger value="history">Medical History</TabsTrigger>
-                            <TabsTrigger value="notes">Session Notes</TabsTrigger>
+                            <TabsTrigger value="history">History</TabsTrigger>
+                            <TabsTrigger value="notes">Notes</TabsTrigger>
                         </TabsList>
                     </div>
 
-                    <div className="p-6">
+                    <div className="p-4 sm:p-6">
                         <TabsContent value="overview" className="mt-0 space-y-6">
                             <div className="flex items-center gap-4 p-4 border rounded-2xl bg-muted/20">
-                                <Avatar className="h-14 w-14 border-2 border-white shadow-sm">
+                                <Avatar className="h-12 w-12 sm:h-14 sm:w-14 border-2 border-white shadow-sm">
                                     <AvatarFallback className="bg-primary text-white font-bold">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback>
                                 </Avatar>
                                 {patient && (
-                                    <div>
-                                        <p className="font-bold text-xl">{patient.firstName} {patient.lastName}</p>
-                                        <p className="text-sm text-muted-foreground">{patient.email}</p>
+                                    <div className="min-w-0">
+                                        <p className="font-bold text-lg sm:text-xl truncate">{patient.firstName} {patient.lastName}</p>
+                                        <p className="text-xs sm:text-sm text-muted-foreground truncate">{patient.email}</p>
                                     </div>
                                 )}
                             </div>
                             
-                            <div className="grid grid-cols-2 gap-6">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6">
                                 <div className="space-y-1">
                                     <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Scheduled Time</p>
-                                    <p className="font-semibold text-slate-700">{format(appointmentDate, "PPP p")}</p>
+                                    <p className="font-semibold text-slate-700 text-sm sm:text-base">{format(appointmentDate, "PPP p")}</p>
                                 </div>
                                 <div className="space-y-1">
                                     <p className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Consultation Mode</p>
@@ -447,21 +446,21 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
 
                             <div className="flex flex-col gap-3 pt-4 border-t">
                                 {isTimeReached ? (
-                                    <Button className="h-12 text-base font-bold shadow-lg shadow-primary/20" asChild>
+                                    <Button className="h-12 text-base font-bold shadow-lg shadow-primary/20 w-full" asChild>
                                         <Link href={`/consultation/${appointment.id}`}>
                                             <Video className="mr-2 h-5 w-5" /> Start Tele-Consultation
                                         </Link>
                                     </Button>
                                 ) : (
-                                    <Button className="h-12 text-base font-bold opacity-70 cursor-not-allowed" disabled>
+                                    <Button className="h-12 text-base font-bold opacity-70 cursor-not-allowed w-full" disabled>
                                         Session Not Ready <Clock className="ml-2 h-4 w-4" />
                                     </Button>
                                 )}
-                                <div className="grid grid-cols-2 gap-3">
-                                    <Button variant="outline" className="h-12 font-bold" onClick={() => setIsPostponeOpen(true)}>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <Button variant="outline" className="h-12 font-bold w-full" onClick={() => setIsPostponeOpen(true)}>
                                         <RefreshCw className="mr-2 h-4 w-4" /> Postpone Session
                                     </Button>
-                                    <Button variant="secondary" className="h-12 font-bold" disabled>
+                                    <Button variant="secondary" className="h-12 font-bold w-full" disabled>
                                         <MessageSquare className="mr-2 h-4 w-4" /> Pre-Session Chat
                                     </Button>
                                 </div>
@@ -566,18 +565,18 @@ const AppointmentRow = ({ apt, onSelect }: { apt: Appointment, onSelect: (a: App
 
     return (
         <div className="flex items-center justify-between p-4 hover:bg-muted/50 rounded-xl transition-all border-b last:border-0 group cursor-pointer" onClick={() => onSelect(apt)}>
-            <div className="flex items-center gap-3">
-                <Avatar className="h-10 w-10 border-2 border-background shadow-sm">
+            <div className="flex items-center gap-3 min-w-0">
+                <Avatar className="h-10 w-10 border-2 border-background shadow-sm shrink-0">
                     <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback>
                 </Avatar>
-                <div>
-                    <p className="font-bold text-sm">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
-                    <p className="text-[10px] text-muted-foreground flex items-center gap-1 uppercase font-bold tracking-tighter">
-                        <Clock className="h-2.5 w-2.5" /> {format(new Date(apt.appointmentDateTime), "p")} • {apt.appointmentType}
+                <div className="min-w-0">
+                    <p className="font-bold text-sm truncate">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
+                    <p className="text-[10px] text-muted-foreground flex items-center gap-1 uppercase font-bold tracking-tighter truncate">
+                        <Clock className="h-2.5 w-2.5 shrink-0" /> {format(new Date(apt.appointmentDateTime), "p")} • {apt.appointmentType}
                     </p>
                 </div>
             </div>
-            <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={apt.status === 'completed' ? 'bg-green-100 text-green-800' : 'text-primary border-primary/20'}>
+            <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("ml-2 shrink-0 text-[10px]", apt.status === 'completed' ? 'bg-green-100 text-green-800' : 'text-primary border-primary/20')}>
                 {apt.status === 'scheduled' ? 'Upcoming' : apt.status}
             </Badge>
         </div>
@@ -598,25 +597,25 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled }: { time: strin
             appointment ? "bg-primary/5 border-primary/20 shadow-sm" : "bg-muted/20 border-transparent opacity-60",
             isDisabled && !appointment && "grayscale opacity-30"
         )}>
-            <div className="flex items-center gap-4">
-                <p className="text-xs font-bold text-muted-foreground w-16">{time}</p>
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                <p className="text-[10px] sm:text-xs font-bold text-muted-foreground w-14 sm:w-16 shrink-0">{time}</p>
                 {appointment ? (
-                    <div className="flex items-center gap-3">
-                        <div className="h-6 w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                            <User className="h-3 w-3" />
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                        <div className="h-5 w-5 sm:h-6 sm:w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                            <User className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                         </div>
-                        <p className="text-sm font-semibold">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
+                        <p className="text-xs sm:text-sm font-semibold truncate">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
                     </div>
                 ) : (
-                    <p className="text-xs italic text-muted-foreground">{isDisabled ? "Off" : "Open"}</p>
+                    <p className="text-[10px] sm:text-xs italic text-muted-foreground truncate">{isDisabled ? "Off" : "Open"}</p>
                 )}
             </div>
             {appointment ? (
-                <Button size="sm" variant="ghost" className="h-7 text-[10px] font-bold uppercase tracking-wider hover:bg-primary/10" onClick={() => onSelect(appointment)}>
+                <Button size="sm" variant="ghost" className="h-7 px-2 sm:px-3 text-[10px] font-bold uppercase tracking-wider hover:bg-primary/10 shrink-0" onClick={() => onSelect(appointment)}>
                     View
                 </Button>
             ) : (
-                <Badge variant="outline" className="text-[10px] font-bold text-muted-foreground border-dashed">{isDisabled ? "Closed" : "Free"}</Badge>
+                <Badge variant="outline" className="text-[9px] sm:text-[10px] font-bold text-muted-foreground border-dashed shrink-0">{isDisabled ? "Closed" : "Free"}</Badge>
             )}
         </div>
     );
@@ -727,33 +726,33 @@ export default function DoctorPortalPage() {
     const isViewingToday = isSameDay(viewDate, new Date());
 
     return (
-        <main className="flex-grow bg-secondary/30 py-8">
-            <div className="container mx-auto px-4 space-y-8">
+        <main className="flex-grow bg-secondary/30 py-4 sm:py-8">
+            <div className="container mx-auto px-4 space-y-6 sm:space-y-8">
                 
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
                     <div>
-                        <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Clinical Command Center</h1>
-                        <p className="text-muted-foreground flex items-center gap-2 text-sm mt-1">
+                        <h1 className="text-2xl sm:text-3xl font-bold font-headline tracking-tight text-foreground">Clinical Command Center</h1>
+                        <p className="text-muted-foreground flex items-center gap-2 text-xs sm:text-sm mt-1">
                             <Activity className="h-4 world-4 text-primary" /> Monitoring operations for Dr. {userData?.firstName}.
                         </p>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full md:w-auto">
                         <Card className="p-3 bg-primary text-primary-foreground border-none shadow-lg shadow-primary/20">
-                            <p className="text-[10px] font-bold uppercase opacity-80">Total Revenue</p>
-                            <p className="text-2xl font-bold">PKR {stats.revenue.toLocaleString()}</p>
+                            <p className="text-[9px] sm:text-[10px] font-bold uppercase opacity-80">Total Revenue</p>
+                            <p className="text-lg sm:text-2xl font-bold">PKR {stats.revenue.toLocaleString()}</p>
                         </Card>
                         <Card className="p-3 bg-background border-none shadow-sm">
-                            <p className="text-[10px] font-bold uppercase text-muted-foreground">Today's Patients</p>
-                            <p className="text-2xl font-bold text-primary">{stats.today}</p>
+                            <p className="text-[9px] sm:text-[10px] font-bold uppercase text-muted-foreground">Today's Patients</p>
+                            <p className="text-lg sm:text-2xl font-bold text-primary">{stats.today}</p>
                         </Card>
                         <Card className="p-3 bg-background border-none shadow-sm hidden sm:block">
-                            <p className="text-[10px] font-bold uppercase text-muted-foreground">Scheduled</p>
-                            <p className="text-2xl font-bold">{stats.pending}</p>
+                            <p className="text-[9px] sm:text-[10px] font-bold uppercase text-muted-foreground">Scheduled</p>
+                            <p className="text-lg sm:text-2xl font-bold">{stats.pending}</p>
                         </Card>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
                     <div className="lg:col-span-4 space-y-6">
                         <Card className="border-none shadow-xl bg-white">
                              <CardHeader className="pb-2 border-b">
@@ -781,7 +780,7 @@ export default function DoctorPortalPage() {
                         </Card>
 
                         <Card className="border-none shadow-xl overflow-hidden bg-white">
-                            <CardHeader className="bg-background pb-3 border-b">
+                            <CardHeader className="bg-background pb-3 border-b px-4">
                                 <div className="flex items-center justify-between">
                                     <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-tighter">
                                         <ClipboardCheck className="h-5 w-5 text-primary" /> Active Queue
@@ -793,7 +792,7 @@ export default function DoctorPortalPage() {
                                 {isLoadingAppointments ? (
                                     <div className="p-12 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
                                 ) : todayAppointments.length > 0 ? (
-                                    <div className="divide-y max-h-[400px] overflow-y-auto custom-scrollbar">
+                                    <div className="divide-y max-h-[400px] overflow-y-auto custom-scrollbar px-2 sm:px-0">
                                         {todayAppointments.map(apt => (
                                             <AppointmentRow key={apt.id} apt={apt} onSelect={handleSelectApt} />
                                         ))}
@@ -810,16 +809,16 @@ export default function DoctorPortalPage() {
 
                     <div className="lg:col-span-8 space-y-6">
                         <Card className="border-none shadow-2xl relative bg-white">
-                            <CardHeader className="border-b bg-muted/5 z-10">
-                                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <CardHeader className="border-b bg-muted/5 z-10 p-4 sm:p-6">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                     <div className="space-y-1">
-                                        <CardTitle className="text-xl font-headline flex items-center gap-2">
+                                        <CardTitle className="text-lg sm:text-xl font-headline flex items-center gap-2">
                                             <Clock className="h-6 w-6 text-primary" /> Clinical Master Schedule
                                         </CardTitle>
-                                        <CardDescription className="text-xs">Manage individual slot availability and audit log.</CardDescription>
+                                        <CardDescription className="text-[10px] sm:text-xs">Manage individual slot availability and audit log.</CardDescription>
                                     </div>
-                                    <div className="flex items-center gap-2">
-                                        <div className="flex items-center gap-1 bg-white p-1 rounded-xl border shadow-sm">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <div className="flex items-center gap-1 bg-white p-1 rounded-xl border shadow-sm w-full sm:w-auto justify-between sm:justify-start">
                                             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setViewDate(addDays(viewDate, -1))}>
                                                 <ChevronLeft className="h-4 w-4" />
                                             </Button>
@@ -831,49 +830,49 @@ export default function DoctorPortalPage() {
                                             </Button>
                                         </div>
                                         
-                                        <div className="flex items-center gap-2 ml-2">
+                                        <div className="flex items-center gap-2 w-full sm:w-auto">
                                             {currentDayLeaveStatus === 'approved' ? (
-                                                <Badge className="bg-green-100 text-green-800 border-green-200 h-10 px-4 gap-2 font-bold">
+                                                <Badge className="bg-green-100 text-green-800 border-green-200 h-10 px-4 gap-2 font-bold w-full sm:w-auto justify-center">
                                                     <CheckCircle2 className="h-4 w-4" /> Approved Leave
                                                 </Badge>
                                             ) : currentDayLeaveStatus === 'pending' ? (
-                                                <Badge variant="outline" className="text-amber-600 border-amber-600 h-10 px-4 gap-2 bg-amber-50 font-bold">
+                                                <Badge variant="outline" className="text-amber-600 border-amber-600 h-10 px-4 gap-2 bg-amber-50 font-bold w-full sm:w-auto justify-center">
                                                     <Clock className="h-4 w-4" /> Audit Pending
                                                 </Badge>
                                             ) : isViewingToday ? (
-                                                <Button variant="outline" size="sm" className="h-10 gap-2 font-bold text-blue-600 hover:bg-blue-50 border-blue-200" asChild>
+                                                <Button variant="outline" size="sm" className="h-10 gap-2 font-bold text-blue-600 hover:bg-blue-50 border-blue-200 w-full sm:w-auto justify-center" asChild>
                                                     <Link href="/doctor-portal/chat">
                                                         <Siren className="h-4 w-4" /> Emergency Support
                                                     </Link>
                                                 </Button>
                                             ) : (
-                                                <Button variant="outline" size="sm" className="h-10 gap-2 font-bold text-destructive hover:bg-red-50 border-destructive/20" onClick={() => setIsLeaveOpen(true)}>
+                                                <Button variant="outline" size="sm" className="h-10 gap-2 font-bold text-destructive hover:bg-red-50 border-destructive/20 w-full sm:w-auto justify-center" onClick={() => setIsLeaveOpen(true)}>
                                                     <Moon className="h-4 w-4" /> Request Off
                                                 </Button>
                                             )}
                                             
-                                            <Button variant="outline" size="sm" className="h-10 gap-2 font-bold" onClick={() => setIsAvailabilityOpen(true)}>
-                                                <Settings2 className="h-4 w-4" /> Availability
+                                            <Button variant="outline" size="sm" className="h-10 gap-2 font-bold w-full sm:w-auto justify-center" onClick={() => setIsAvailabilityOpen(true)}>
+                                                <Settings2 className="h-4 w-4" />
                                             </Button>
                                         </div>
                                     </div>
                                 </div>
                             </CardHeader>
-                            <CardContent className="p-6 md:p-10">
+                            <CardContent className="p-4 sm:p-10">
                                 {currentDayLeaveStatus === 'approved' && (
-                                    <div className="absolute inset-x-0 bottom-0 top-[100px] z-20 bg-white/90 backdrop-blur-[4px] flex items-center justify-center rounded-b-2xl">
-                                        <div className="bg-white p-10 rounded-3xl shadow-2xl border-2 text-center max-w-sm space-y-6 animate-in zoom-in-95">
-                                            <div className="h-20 w-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
-                                                <ShieldCheck className="h-12 w-12" />
+                                    <div className="absolute inset-x-0 bottom-0 top-[120px] sm:top-[100px] z-20 bg-white/90 backdrop-blur-[4px] flex items-center justify-center rounded-b-2xl">
+                                        <div className="bg-white p-8 sm:p-10 rounded-3xl shadow-2xl border-2 text-center max-w-[90%] sm:max-w-sm space-y-6 animate-in zoom-in-95">
+                                            <div className="h-16 w-16 sm:h-20 sm:w-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto shadow-inner">
+                                                <ShieldCheck className="h-10 w-10 sm:h-12 sm:w-12" />
                                             </div>
                                             <div className="space-y-2">
-                                                <h4 className="text-2xl font-bold tracking-tight">Practice Closed</h4>
-                                                <p className="text-muted-foreground text-sm leading-relaxed">Admin has approved your clinical pause for {format(viewDate, "PPP")}. No bookings possible.</p>
+                                                <h4 className="text-xl sm:text-2xl font-bold tracking-tight">Practice Closed</h4>
+                                                <p className="text-muted-foreground text-xs sm:text-sm leading-relaxed">Admin has approved your clinical pause for {format(viewDate, "PPP")}. No bookings possible.</p>
                                             </div>
                                         </div>
                                     </div>
                                 )}
-                                <div className="grid md:grid-cols-3 gap-10">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-10">
                                     <div className="space-y-4">
                                         <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary flex items-center gap-2">
                                             <div className="h-2 w-2 rounded-full bg-amber-400" /> Morning
@@ -954,17 +953,17 @@ export default function DoctorPortalPage() {
                     />
                 )}
 
-                <div className="fixed bottom-8 right-8 z-[100] group">
-                    <div className="absolute right-full mr-4 top-1/2 -translate-y-1/2 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap">
+                <div className="fixed bottom-4 right-4 sm:bottom-8 sm:right-8 z-[100] group">
+                    <div className="absolute right-full mr-4 top-1/2 -translate-y-1/2 px-4 py-2 bg-slate-900 text-white text-xs font-bold rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap hidden sm:block">
                         Administrative Support
                     </div>
                     <Button 
                         asChild
-                        className="h-16 w-16 rounded-full shadow-2xl hover:scale-110 transition-transform bg-slate-900 hover:bg-slate-800 border-2 border-white/20 p-0"
+                        className="h-14 w-14 sm:h-16 sm:w-16 rounded-full shadow-2xl hover:scale-110 transition-transform bg-slate-900 hover:bg-slate-800 border-2 border-white/20 p-0"
                         size="icon"
                     >
                         <Link href="/doctor-portal/chat" className="flex items-center justify-center">
-                            <MessageSquare className="h-7 w-7 text-white" />
+                            <MessageSquare className="h-6 w-6 sm:h-7 sm:w-7 text-white" />
                         </Link>
                     </Button>
                 </div>

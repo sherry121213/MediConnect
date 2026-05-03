@@ -16,7 +16,7 @@ import { useMemo } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Eye, MoreHorizontal, CreditCard, Share2, Wallet, Landmark, ShieldCheck } from "lucide-react";
+import { Eye, MoreHorizontal, CreditCard, Wallet, Landmark, ShieldCheck } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +25,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
-
+import { cn } from "@/lib/utils";
 
 export default function AdminPaymentsPage() {
   const firestore = useFirestore();
@@ -100,112 +100,114 @@ export default function AdminPaymentsPage() {
             <div className="p-2.5 bg-primary text-white rounded-xl shadow-lg shadow-primary/20">
             <CreditCard className="h-6 w-6" />
             </div>
-            <h1 className="text-3xl font-bold font-headline tracking-tight">Payment Audit Center</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold font-headline tracking-tight">Payment Audit Center</h1>
         </div>
-        <div className="flex items-center gap-2 bg-muted/40 px-4 py-2 rounded-lg border border-dashed text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+        <div className="flex items-center gap-2 bg-muted/40 px-4 py-2 rounded-lg border border-dashed text-[10px] font-bold uppercase tracking-wider text-muted-foreground w-fit">
             <div className="h-2 w-2 rounded-full bg-primary animate-pulse" /> Live Settlement Stream
         </div>
       </div>
 
       <div className="border rounded-2xl shadow-sm bg-white overflow-hidden">
-        <Table>
-          <TableHeader className="bg-muted/30">
-            <TableRow>
-              <TableHead className="py-4">Patient</TableHead>
-              <TableHead>Doctor</TableHead>
-              <TableHead>Payment Chain</TableHead>
-              <TableHead className="hidden lg:table-cell">Fee Amount</TableHead>
-              <TableHead className="hidden md:table-cell">Transaction Date</TableHead>
-              <TableHead>Approval State</TableHead>
-              <TableHead className="text-center">Evidence</TableHead>
-              <TableHead className="text-right">Settlement</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading && Array.from({length: 5}).map((_, i) => (
-                <TableRow key={i}>
-                    <TableCell><Skeleton className="h-6 w-24"/></TableCell>
-                    <TableCell><Skeleton className="h-6 w-24"/></TableCell>
-                    <TableCell><Skeleton className="h-6 w-24"/></TableCell>
-                    <TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-24"/></TableCell>
-                    <TableCell className="hidden md:table-cell"><Skeleton className="h-6 w-24"/></TableCell>
-                    <TableCell><Skeleton className="h-6 w-20"/></TableCell>
-                    <TableCell className="text-center"><Skeleton className="h-8 w-8 mx-auto"/></TableCell>
-                    <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto"/></TableCell>
-                </TableRow>
-            ))}
-            {!isLoading && combinedData.map((payment) => (
-              <TableRow key={payment.id} className="hover:bg-muted/5 transition-all group">
-                <TableCell className="font-bold py-5">{payment.patientName}</TableCell>
-                <TableCell className="text-slate-600">{payment.doctorName}</TableCell>
-                <TableCell>
-                   {payment.paymentMethod ? (
-                     <div className="flex items-center gap-2">
-                        <div className={cn(
-                            "h-7 w-7 rounded-lg flex items-center justify-center border",
-                            payment.paymentMethod === 'MasterCard' ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-green-50 text-green-600 border-green-100"
-                        )}>
-                            {getChannelIcon(payment.paymentMethod)}
-                        </div>
-                        <Badge variant="outline" className="font-bold border-slate-200 text-slate-700 uppercase text-[10px]">
-                        {payment.paymentMethod}
-                        </Badge>
-                     </div>
-                   ) : (
-                     <span className="text-[10px] text-muted-foreground font-bold uppercase opacity-40">System Legacy</span>
-                   )}
-                </TableCell>
-                <TableCell className="hidden lg:table-cell font-mono font-bold text-slate-800">PKR {payment.amount?.toLocaleString() || '1,500'}</TableCell>
-                <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
-                    <p className="font-medium text-slate-600">{new Date(payment.createdAt).toLocaleDateString()}</p>
-                    <p className="text-[9px] uppercase">{new Date(payment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
-                </TableCell>
-                <TableCell>{getPaymentStatusBadge(payment.paymentStatus)}</TableCell>
-                 <TableCell className="text-center">
-                    {payment.paymentReceiptUrl ? (
-                         <Button asChild variant="ghost" size="icon" className="h-9 w-9 text-primary hover:bg-primary/10 rounded-xl">
-                             <Link href={payment.paymentReceiptUrl} target="_blank" rel="noopener noreferrer">
-                                 <Eye className="h-5 w-5" />
-                                 <span className="sr-only">View Receipt</span>
-                             </Link>
-                         </Button>
-                    ) : (
-                        <span className="text-[10px] text-muted-foreground italic font-bold opacity-30">N/A</span>
-                    )}
-                </TableCell>
-                 <TableCell className="text-right">
-                    {payment.paymentStatus === 'pending' && (
-                         <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-9 w-9 p-0 rounded-xl hover:bg-slate-100">
-                                    <span className="sr-only">Open menu</span>
-                                    <MoreHorizontal className="h-5 w-5" />
-                                </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48 rounded-xl border-2">
-                                <DropdownMenuItem onClick={() => handleUpdatePaymentStatus(payment.id, 'approved')} className="text-green-600 font-bold py-2.5">
-                                    <ShieldCheck className="mr-2 h-4 w-4" /> Approve Payment
-                                </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleUpdatePaymentStatus(payment.id, 'rejected')} className="text-destructive font-bold py-2.5">
-                                    Reject Payment
-                                </DropdownMenuItem>
-                            </DropdownMenuContent>
-                        </DropdownMenu>
-                    )}
-                </TableCell>
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader className="bg-muted/30">
+              <TableRow>
+                <TableHead className="py-4 min-w-[150px]">Patient</TableHead>
+                <TableHead className="min-w-[120px]">Doctor</TableHead>
+                <TableHead className="min-w-[150px]">Payment Chain</TableHead>
+                <TableHead className="hidden lg:table-cell">Fee Amount</TableHead>
+                <TableHead className="hidden md:table-cell">Transaction Date</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-center">Evidence</TableHead>
+                <TableHead className="text-right">Settlement</TableHead>
               </TableRow>
-            ))}
-            {!isLoading && combinedData.length === 0 && (
-                <TableRow>
-                    <TableCell colSpan={8} className="text-center h-48 text-muted-foreground">
-                        <Landmark className="h-12 w-12 mx-auto mb-4 opacity-10" />
-                        <p className="font-bold text-lg">No audit records found</p>
-                        <p className="text-sm">Patient transactions will appear here for verification.</p>
-                    </TableCell>
+            </TableHeader>
+            <TableBody>
+              {isLoading && Array.from({length: 5}).map((_, i) => (
+                  <TableRow key={i}>
+                      <TableCell><Skeleton className="h-6 w-24"/></TableCell>
+                      <TableCell><Skeleton className="h-6 w-24"/></TableCell>
+                      <TableCell><Skeleton className="h-6 w-24"/></TableCell>
+                      <TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-24"/></TableCell>
+                      <TableCell className="hidden md:table-cell"><Skeleton className="h-6 w-24"/></TableCell>
+                      <TableCell><Skeleton className="h-6 w-20"/></TableCell>
+                      <TableCell className="text-center"><Skeleton className="h-8 w-8 mx-auto"/></TableCell>
+                      <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto"/></TableCell>
+                  </TableRow>
+              ))}
+              {!isLoading && combinedData.map((payment) => (
+                <TableRow key={payment.id} className="hover:bg-muted/5 transition-all group">
+                  <TableCell className="font-bold py-5 truncate max-w-[150px]">{payment.patientName}</TableCell>
+                  <TableCell className="text-slate-600 truncate max-w-[120px]">{payment.doctorName}</TableCell>
+                  <TableCell>
+                    {payment.paymentMethod ? (
+                      <div className="flex items-center gap-2">
+                          <div className={cn(
+                              "h-7 w-7 rounded-lg flex items-center justify-center border shrink-0",
+                              payment.paymentMethod === 'MasterCard' ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-green-50 text-green-600 border-green-100"
+                          )}>
+                              {getChannelIcon(payment.paymentMethod)}
+                          </div>
+                          <Badge variant="outline" className="font-bold border-slate-200 text-slate-700 uppercase text-[10px] whitespace-nowrap">
+                          {payment.paymentMethod}
+                          </Badge>
+                      </div>
+                    ) : (
+                      <span className="text-[10px] text-muted-foreground font-bold uppercase opacity-40">System Legacy</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell font-mono font-bold text-slate-800">PKR {payment.amount?.toLocaleString() || '1,500'}</TableCell>
+                  <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
+                      <p className="font-medium text-slate-600">{new Date(payment.createdAt).toLocaleDateString()}</p>
+                      <p className="text-[9px] uppercase">{new Date(payment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                  </TableCell>
+                  <TableCell>{getPaymentStatusBadge(payment.paymentStatus)}</TableCell>
+                  <TableCell className="text-center">
+                      {payment.paymentReceiptUrl ? (
+                          <Button asChild variant="ghost" size="icon" className="h-9 w-9 text-primary hover:bg-primary/10 rounded-xl">
+                              <Link href={payment.paymentReceiptUrl} target="_blank" rel="noopener noreferrer">
+                                  <Eye className="h-5 w-5" />
+                                  <span className="sr-only">View Receipt</span>
+                              </Link>
+                          </Button>
+                      ) : (
+                          <span className="text-[10px] text-muted-foreground italic font-bold opacity-30">N/A</span>
+                      )}
+                  </TableCell>
+                  <TableCell className="text-right">
+                      {payment.paymentStatus === 'pending' && (
+                          <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" className="h-9 w-9 p-0 rounded-xl hover:bg-slate-100">
+                                      <span className="sr-only">Open menu</span>
+                                      <MoreHorizontal className="h-5 w-5" />
+                                  </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="w-48 rounded-xl border-2">
+                                  <DropdownMenuItem onClick={() => handleUpdatePaymentStatus(payment.id, 'approved')} className="text-green-600 font-bold py-2.5 cursor-pointer">
+                                      <ShieldCheck className="mr-2 h-4 w-4" /> Approve Payment
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleUpdatePaymentStatus(payment.id, 'rejected')} className="text-destructive font-bold py-2.5 cursor-pointer">
+                                      Reject Payment
+                                  </DropdownMenuItem>
+                              </DropdownMenuContent>
+                          </DropdownMenu>
+                      )}
+                  </TableCell>
                 </TableRow>
-            )}
-          </TableBody>
-        </Table>
+              ))}
+              {!isLoading && combinedData.length === 0 && (
+                  <TableRow>
+                      <TableCell colSpan={8} className="text-center h-48 text-muted-foreground">
+                          <Landmark className="h-12 w-12 mx-auto mb-4 opacity-10" />
+                          <p className="font-bold text-lg">No audit records found</p>
+                          <p className="text-sm px-4">Patient transactions will appear here for verification.</p>
+                      </TableCell>
+                  </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
     </div>
   );
