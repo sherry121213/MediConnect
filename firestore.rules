@@ -3,43 +3,23 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * MediConnect Security Rules - Lenient Development Mode
+     * MediConnect Security Rules - UNRESTRICTED DEVELOPMENT MODE
      * 
-     * To resolve "missing or insufficient permissions" errors, we allow 
-     * authenticated users to read and write to all collections. 
-     * Admin-specific actions are still conceptually protected.
+     * This mode allows all authenticated users to read and write to all collections.
+     * This is intended to resolve all "missing or insufficient permissions" errors
+     * during the prototyping and testing phase.
      */
 
-    function isSignedIn() {
-      return request.auth != null;
+    match /{document=**} {
+      allow read, write: if request.auth != null;
     }
 
-    function isAdmin() {
-      return isSignedIn() && exists(/databases/$(database)/documents/roles_admin/$(request.auth.uid));
-    }
-
-    // Publicly readable clinical data (Doctors & Specialties)
-    // This allows unauthenticated users to see the doctor list and landing page
+    // Explicitly allow public read for doctors and specialties so landing pages work
     match /doctors/{doctorId} {
       allow read: if true;
-      allow write: if isSignedIn() && (request.auth.uid == doctorId || isAdmin());
     }
-
     match /specialties/{specialtyId} {
       allow read: if true;
-      allow write: if isAdmin();
-    }
-
-    // Global match for all other documents (Chat, Appointments, Leave Requests)
-    // Ensures features work without interruption for signed-in users
-    match /{document=**} {
-      allow read, write: if isSignedIn();
-    }
-
-    // Explicitly allow roles check for all signed-in users
-    match /roles_admin/{userId} {
-      allow get: if isSignedIn();
-      allow list, create, update, delete: if isAdmin();
     }
   }
 }
