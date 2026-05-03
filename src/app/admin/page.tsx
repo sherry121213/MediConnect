@@ -1,4 +1,3 @@
-
 "use client"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { 
@@ -8,7 +7,7 @@ import {
 import { 
   BookOpen, Stethoscope, UserPlus, DollarSign, Loader2, 
   TrendingUp, TrendingDown, Calendar, History, Activity, 
-  Wallet, Users as UsersIcon, Zap, Target, Globe
+  Wallet, Users as UsersIcon, Zap, Target, Globe, AlertCircle, ArrowRight
 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
@@ -26,6 +25,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 
 const COLORS = ['hsl(var(--primary))', 'hsl(var(--accent))', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6'];
 
@@ -58,23 +58,18 @@ export default function AdminDashboardPage() {
   
   const isLoading = isLoadingAppointments || isLoadingDoctors || isLoadingPatients || !mounted;
 
-  // Stats Logic
-  const stats = useMemo(() => {
+  // Stats & Alert Logic
+  const { stats, pendingPaymentCount } = useMemo(() => {
     if (!appointments || !doctors || !patients) return {
-        totalRevenue: 0,
-        totalBookings: 0,
-        verifiedDoctors: 0,
-        totalPatients: 0,
-        todayRevenue: 0,
-        todayBookings: 0,
-        weeklyRevenue: 0,
-        specialtyData: []
+        stats: { totalRevenue: 0, totalBookings: 0, verifiedDoctors: 0, totalPatients: 0, todayRevenue: 0, todayBookings: 0, weeklyRevenue: 0, specialtyData: [] },
+        pendingPaymentCount: 0
     };
 
     const today = startOfDay(new Date());
     const sevenDaysAgo = subDays(today, 7);
 
     const approvedApts = appointments.filter(apt => apt.paymentStatus === 'approved');
+    const pendingApts = appointments.filter(apt => apt.paymentStatus === 'pending' && apt.paymentReceiptUrl);
     
     const todayApts = appointments.filter(apt => apt.createdAt && isSameDay(new Date(apt.createdAt), today));
     const todayRev = todayApts.filter(a => a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
@@ -92,14 +87,17 @@ export default function AdminDashboardPage() {
     const specialtyData = Object.entries(specialtyCounts).map(([name, value]) => ({ name, value })).slice(0, 5);
 
     return {
-        totalRevenue: approvedApts.reduce((sum, a) => sum + (a.amount || 1500), 0),
-        totalBookings: appointments.length,
-        verifiedDoctors: doctors.filter(d => d.verified).length,
-        totalPatients: patients.length,
-        todayRevenue: todayRev,
-        todayBookings: todayApts.length,
-        weeklyRevenue: weeklyRev,
-        specialtyData
+        stats: {
+            totalRevenue: approvedApts.reduce((sum, a) => sum + (a.amount || 1500), 0),
+            totalBookings: appointments.length,
+            verifiedDoctors: doctors.filter(d => d.verified).length,
+            totalPatients: patients.length,
+            todayRevenue: todayRev,
+            todayBookings: todayApts.length,
+            weeklyRevenue: weeklyRev,
+            specialtyData
+        },
+        pendingPaymentCount: pendingApts.length
     };
   }, [appointments, doctors, patients]);
 
@@ -315,8 +313,34 @@ export default function AdminDashboardPage() {
             </div>
         </div>
 
-        {/* Right Side: Weekly Intelligence Report (Unique) */}
+        {/* Right Side: Operational Alerts & Weekly Intelligence Report */}
         <div className="lg:col-span-4 space-y-8">
+            {/* Operational Priority Alert (New) */}
+            {!isLoading && pendingPaymentCount > 0 && (
+                <Card className="border-none shadow-2xl bg-amber-50 border-amber-200 animate-in fade-in slide-in-from-right-4 duration-500">
+                    <CardContent className="p-6">
+                        <div className="flex items-start gap-4">
+                            <div className="p-3 bg-amber-100 text-amber-600 rounded-2xl shadow-inner">
+                                <AlertCircle className="h-6 w-6" />
+                            </div>
+                            <div className="space-y-3 flex-1">
+                                <div>
+                                    <h4 className="text-sm font-bold text-amber-900 uppercase tracking-tight">Priority Verification</h4>
+                                    <p className="text-xs text-amber-800/70 font-medium leading-relaxed mt-1">
+                                        There are {pendingPaymentCount} new consultation receipts awaiting administrative approval.
+                                    </p>
+                                </div>
+                                <Button size="sm" className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold gap-2" asChild>
+                                    <Link href="/admin/payments">
+                                        Audit Settlements <ArrowRight className="h-4 w-4" />
+                                    </Link>
+                                </Button>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
             <Card className="border-none shadow-2xl bg-white h-full flex flex-col">
                 <CardHeader className="bg-slate-900 text-white rounded-t-xl">
                     <div className="flex items-center gap-3">

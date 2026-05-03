@@ -49,12 +49,19 @@ export default function AdminSidebar() {
   }, [firestore]);
   const { data: unreadChats } = useCollection(chatsQuery);
 
+  // New listener for pending payments to notify admin of new bookings awaiting verification
+  const paymentsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'appointments'), where('paymentStatus', '==', 'pending'));
+  }, [firestore]);
+  const { data: pendingPayments } = useCollection(paymentsQuery);
+
   const adminNavItems = [
     { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/admin/doctors', label: 'Doctors', icon: Stethoscope },
     { href: '/admin/patients', label: 'Patients', icon: Users },
     { href: '/admin/requests', label: 'Clinical Requests', icon: CalendarClock, badge: pendingRequests?.length },
-    { href: '/admin/payments', label: 'Payments', icon: CreditCard },
+    { href: '/admin/payments', label: 'Payments', icon: CreditCard, badge: pendingPayments?.length },
     { href: '/admin/chats', label: 'Messages', icon: MessageCircle, badge: unreadChats?.length },
   ];
 
@@ -87,7 +94,7 @@ export default function AdminSidebar() {
                 >
                   <item.icon />
                   <span>{item.label}</span>
-                  {item.badge ? (
+                  {item.badge && item.badge > 0 ? (
                     <Badge className="ml-auto bg-primary h-5 min-w-5 flex items-center justify-center p-0 text-[10px] rounded-full">
                         {item.badge}
                     </Badge>
