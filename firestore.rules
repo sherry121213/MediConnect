@@ -5,21 +5,13 @@ service cloud.firestore {
     /**
      * MediConnect Security Rules - UNRESTRICTED DEVELOPMENT MODE
      * 
-     * This mode allows all authenticated users to read and write to all collections.
+     * This mode allows ALL users (including unauthenticated ones) to read and write to all collections.
      * This is intended to resolve all "missing or insufficient permissions" errors
-     * during the prototyping and testing phase.
+     * permanently during the prototyping and testing phase.
      */
 
     match /{document=**} {
-      allow read, write: if request.auth != null;
-    }
-
-    // Explicitly allow public read for doctors and specialties so landing pages work
-    match /doctors/{doctorId} {
-      allow read: if true;
-    }
-    match /specialties/{specialtyId} {
-      allow read: if true;
+      allow read, write: if true;
     }
   }
 }
