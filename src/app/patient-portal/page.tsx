@@ -251,7 +251,10 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
     if (!apt || !appointmentDate) return null;
 
     return (
-        <Card className="hover:shadow-lg transition-all border-l-4 border-l-primary/40 bg-card/50 backdrop-blur-sm overflow-hidden">
+        <Card className={cn(
+            "hover:shadow-lg transition-all border-l-4 bg-card/50 backdrop-blur-sm overflow-hidden",
+            isTimeReached ? "border-l-red-500 bg-red-50/10 shadow-md scale-[1.01]" : "border-l-primary/40"
+        )}>
             <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6 sm:gap-8">
                 <div className="flex items-center gap-4 sm:gap-6 flex-1 min-w-0">
                     <div className="relative h-14 w-14 sm:h-16 sm:w-16 shrink-0 shadow-inner rounded-full overflow-hidden bg-muted">
@@ -276,7 +279,12 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                             <p className="font-bold text-lg sm:text-xl leading-tight tracking-tight truncate max-w-full">
                                 {isLoadingDoctor ? 'Loading...' : `Dr. ${doctor?.firstName} ${doctor?.lastName}`}
                             </p>
-                            <Badge variant="outline" className="text-[9px] h-4 border-primary/20 text-primary font-bold shrink-0">50m Slot</Badge>
+                            {isTimeReached && (
+                                <Badge className="bg-red-600 text-white animate-pulse h-4 text-[8px] sm:text-[9px]">LIVE SESSION</Badge>
+                            )}
+                            {!isTimeReached && !isExpired && (
+                                <Badge variant="outline" className="text-[9px] h-4 border-primary/20 text-primary font-bold shrink-0">50m Slot</Badge>
+                            )}
                         </div>
                         <p className="text-xs sm:text-sm text-primary font-bold uppercase tracking-wider opacity-80 truncate">{doctor?.specialty || 'General Physician'}</p>
                         <div className="flex flex-wrap items-center gap-2 pt-1">
@@ -298,7 +306,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                         </div>
                     ) : isUpcoming ? (
                         <>
-                            {!isExpired && (
+                            {!isExpired && !isTimeReached && (
                                 <Button variant="outline" size="sm" className="font-bold border-2 w-full sm:w-auto h-10 sm:h-9" onClick={() => onPostpone(apt)}>
                                     <RefreshCw className="mr-2 h-4 w-4" /> Postpone
                                 </Button>
@@ -306,8 +314,8 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     {isTimeReached ? (
-                                        <Button className="w-full sm:w-auto font-bold h-10 sm:h-9 shadow-lg shadow-primary/20">
-                                            Join Session
+                                        <Button className="w-full sm:w-auto font-bold h-10 sm:h-9 shadow-lg shadow-primary/20 bg-red-600 hover:bg-red-700 animate-pulse">
+                                            Join Session Now
                                         </Button>
                                     ) : isExpired ? (
                                         <Button variant="secondary" className="w-full sm:w-auto font-bold h-10 sm:h-9 opacity-50 cursor-not-allowed" disabled>
@@ -315,7 +323,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                                         </Button>
                                     ) : (
                                         <Button className="w-full sm:w-auto font-bold opacity-70 cursor-not-allowed h-10 sm:h-9" disabled>
-                                            Not Started <Clock className="ml-2 h-3 w-3" />
+                                            Upcoming <Clock className="ml-2 h-3 w-3" />
                                         </Button>
                                     )}
                                 </AlertDialogTrigger>

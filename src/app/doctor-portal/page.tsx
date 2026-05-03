@@ -376,7 +376,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
             orderBy('appointmentDateTime', 'desc')
         );
     }, [firestore, appointment]);
-    const { data: history, isLoading: isLoadingHistory } = useCollection<Appointment>(historyQuery);
+    const { data: history, isLoadingHistory } = useCollection<Appointment>(historyQuery);
 
     const form = useForm<NotesFormValues>({
         resolver: zodResolver(notesSchema),
@@ -451,9 +451,9 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
 
                             <div className="flex flex-col gap-3 pt-4 border-t">
                                 {isTimeReached ? (
-                                    <Button className="h-12 text-base font-bold shadow-lg shadow-primary/20 w-full" asChild>
+                                    <Button className="h-12 text-base font-bold shadow-lg shadow-primary/20 w-full animate-pulse bg-red-600 hover:bg-red-700" asChild>
                                         <Link href={`/consultation/${appointment.id}`}>
-                                            <Video className="mr-2 h-5 w-5" /> Start Tele-Consultation
+                                            <Video className="mr-2 h-5 w-5" /> Start Tele-Consultation Now
                                         </Link>
                                     </Button>
                                 ) : isExpired ? (
@@ -562,7 +562,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
     );
 }
 
-const AppointmentRow = ({ apt, onSelect }: { apt: Appointment, onSelect: (a: Appointment) => void }) => {
+const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSelect: (a: Appointment) => void, isMounted: boolean }) => {
     const firestore = useFirestore();
     const patientDocRef = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -570,8 +570,17 @@ const AppointmentRow = ({ apt, onSelect }: { apt: Appointment, onSelect: (a: App
     }, [firestore, apt.patientId]);
     const { data: patient } = useDoc<Patient>(patientDocRef);
 
+    const appointmentDate = new Date(apt.appointmentDateTime);
+    const now = isMounted ? new Date().getTime() : 0;
+    const startTime = appointmentDate.getTime();
+    const endTime = startTime + (50 * 60 * 1000);
+    const isLive = isMounted && now >= startTime && now < endTime;
+
     return (
-        <div className="flex items-center justify-between p-4 hover:bg-muted/50 rounded-xl transition-all border-b last:border-0 group cursor-pointer" onClick={() => onSelect(apt)}>
+        <div className={cn(
+            "flex items-center justify-between p-4 hover:bg-muted/50 rounded-xl transition-all border-b last:border-0 group cursor-pointer",
+            isLive && "bg-primary/5 border-primary/20"
+        )} onClick={() => onSelect(apt)}>
             <div className="flex items-center gap-3 min-w-0">
                 <Avatar className="h-10 w-10 border-2 border-background shadow-sm shrink-0">
                     <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback>
@@ -579,18 +588,23 @@ const AppointmentRow = ({ apt, onSelect }: { apt: Appointment, onSelect: (a: App
                 <div className="min-w-0">
                     <p className="font-bold text-sm truncate">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
                     <p className="text-[10px] text-muted-foreground flex items-center gap-1 uppercase font-bold tracking-tighter truncate">
-                        <Clock className="h-2.5 w-2.5 shrink-0" /> {format(new Date(apt.appointmentDateTime), "p")} • 50m
+                        <Clock className="h-2.5 w-2.5 shrink-0" /> {format(appointmentDate, "p")} • 50m
                     </p>
                 </div>
             </div>
-            <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("ml-2 shrink-0 text-[10px]", apt.status === 'completed' ? 'bg-green-100 text-green-800' : 'text-primary border-primary/20')}>
-                {apt.status === 'scheduled' ? 'Upcoming' : apt.status}
-            </Badge>
+            <div className="flex items-center gap-2">
+                {isLive && (
+                    <Badge className="bg-red-600 text-white animate-pulse text-[8px] h-4">LIVE NOW</Badge>
+                )}
+                <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("ml-2 shrink-0 text-[10px]", apt.status === 'completed' ? 'bg-green-100 text-green-800' : 'text-primary border-primary/20')}>
+                    {apt.status === 'scheduled' ? (isLive ? 'Start Session' : 'Upcoming') : apt.status}
+                </Badge>
+            </div>
         </div>
     );
 };
 
-const ScheduleSlot = ({ time, appointment, onSelect, isDisabled }: { time: string, appointment?: Appointment, onSelect: (a: Appointment) => void, isDisabled?: boolean }) => {
+const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { time: string, appointment?: Appointment, onSelect: (a: Appointment) => void, isDisabled?: boolean, isMounted: boolean }) => {
     const firestore = useFirestore();
     const patientDocRef = useMemoFirebase(() => {
         if (!firestore || !appointment) return null;
@@ -598,10 +612,19 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled }: { time: strin
     }, [firestore, appointment]);
     const { data: patient } = useDoc<Patient>(patientDocRef);
 
+    const isLive = useMemo(() => {
+        if (!appointment || !isMounted) return false;
+        const aptDate = new Date(appointment.appointmentDateTime);
+        const now = new Date().getTime();
+        const startTime = aptDate.getTime();
+        const endTime = startTime + (50 * 60 * 1000);
+        return now >= startTime && now < endTime;
+    }, [appointment, isMounted]);
+
     return (
         <div className={cn(
             "flex items-center justify-between p-3 rounded-lg border transition-all mb-2",
-            appointment ? "bg-primary/5 border-primary/20 shadow-sm" : "bg-muted/20 border-transparent opacity-60",
+            appointment ? (isLive ? "bg-primary/10 border-primary shadow-md scale-[1.02]" : "bg-primary/5 border-primary/20 shadow-sm") : "bg-muted/20 border-transparent opacity-60",
             isDisabled && !appointment && "grayscale opacity-30"
         )}>
             <div className="flex items-center gap-3 sm:gap-4 min-w-0">
@@ -618,8 +641,16 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled }: { time: strin
                 )}
             </div>
             {appointment ? (
-                <Button size="sm" variant="ghost" className="h-7 px-2 sm:px-3 text-[10px] font-bold uppercase tracking-wider hover:bg-primary/10 shrink-0" onClick={() => onSelect(appointment)}>
-                    Manage
+                <Button 
+                    size="sm" 
+                    variant={isLive ? "default" : "ghost"} 
+                    className={cn(
+                        "h-7 px-2 sm:px-3 text-[10px] font-bold uppercase tracking-wider shrink-0",
+                        isLive ? "bg-red-600 hover:bg-red-700 animate-pulse" : "hover:bg-primary/10"
+                    )} 
+                    onClick={() => onSelect(appointment)}
+                >
+                    {isLive ? "Start Session" : "Manage"}
                 </Button>
             ) : (
                 <Badge variant="outline" className="text-[9px] sm:text-[10px] font-bold text-muted-foreground border-dashed shrink-0">{isDisabled ? "Closed" : "Free"}</Badge>
@@ -697,6 +728,22 @@ export default function DoctorPortalPage() {
             if (isNew) {
                 alerts.push({ id: `new-${a.id}`, msg: `New Appointment: ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary' });
             }
+
+            // JOIN REMINDER: If a session has started and status is scheduled (not completed/cancelled)
+            const aptDate = new Date(a.appointmentDateTime);
+            const startTime = aptDate.getTime();
+            const endTime = startTime + (50 * 60 * 1000);
+            const currentTime = now.getTime();
+            
+            if (currentTime >= startTime && currentTime < endTime && a.status === 'scheduled') {
+                alerts.unshift({ 
+                    id: `reminder-${a.id}`, 
+                    msg: "SESSION STARTED - JOIN NOW", 
+                    icon: Siren, 
+                    color: 'text-red-500 animate-pulse font-bold',
+                    isReminder: true
+                });
+            }
         });
         
         chatSessions?.filter(s => s.lastMessageSenderRole === 'admin').forEach(s => {
@@ -707,7 +754,7 @@ export default function DoctorPortalPage() {
             todayAppointments: today,
             stats: { today: today.length, pending: pending, revenue },
             masterSchedule: { morning: filterSlots(timeSlots.morning), afternoon: filterSlots(timeSlots.afternoon), evening: filterSlots(timeSlots.evening) },
-            notifications: alerts.sort((a,b) => b.id.localeCompare(a.id)),
+            notifications: alerts,
             currentDayLeaveStatus: leaveStatus
         };
     }, [appointments, mounted, viewDate, userData, chatSessions, requests]);
@@ -733,7 +780,7 @@ export default function DoctorPortalPage() {
                     <div>
                         <h1 className="text-2xl sm:text-3xl font-bold font-headline tracking-tight text-foreground">Clinical Command Center</h1>
                         <p className="text-muted-foreground flex items-center gap-2 text-xs sm:text-sm mt-1">
-                            <Activity className="h-4 world-4 text-primary" /> 50-Minute Hourly Protocol Active.
+                            <Activity className="h-4 w-4 text-primary" /> 50-Minute Hourly Protocol Active.
                         </p>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full md:w-auto">
@@ -758,10 +805,13 @@ export default function DoctorPortalPage() {
                             </CardHeader>
                             <CardContent className="space-y-3 p-4 max-h-[300px] overflow-y-auto custom-scrollbar">
                                 {notifications.length > 0 ? notifications.map(n => (
-                                    <div key={n.id} className="p-3 rounded-xl bg-muted/20 border border-muted/50 text-[11px] flex gap-3 items-start animate-in fade-in slide-in-from-right-2">
+                                    <div key={n.id} className={cn(
+                                        "p-3 rounded-xl border text-[11px] flex gap-3 items-start animate-in fade-in slide-in-from-right-2",
+                                        n.isReminder ? "bg-red-50 border-red-200" : "bg-muted/20 border-muted/50"
+                                    )}>
                                         <n.icon className={cn("h-4 w-4 shrink-0 mt-0.5", n.color)} />
                                         <div className="flex-1">
-                                            <p className="leading-tight font-medium text-slate-700">{n.msg}</p>
+                                            <p className={cn("leading-tight font-medium", n.isReminder ? "text-red-700" : "text-slate-700")}>{n.msg}</p>
                                         </div>
                                     </div>
                                 )) : (
@@ -785,7 +835,7 @@ export default function DoctorPortalPage() {
                                 ) : todayAppointments.length > 0 ? (
                                     <div className="divide-y max-h-[400px] overflow-y-auto custom-scrollbar px-2 sm:px-0">
                                         {todayAppointments.map(apt => (
-                                            <AppointmentRow key={apt.id} apt={apt} onSelect={handleSelectApt} />
+                                            <AppointmentRow key={apt.id} apt={apt} onSelect={handleSelectApt} isMounted={mounted} />
                                         ))}
                                     </div>
                                 ) : (
@@ -859,6 +909,7 @@ export default function DoctorPortalPage() {
                                                     appointment={slot.appointment} 
                                                     onSelect={handleSelectApt} 
                                                     isDisabled={slot.isDisabled}
+                                                    isMounted={mounted}
                                                 />
                                             ))}
                                         </div>
@@ -876,6 +927,7 @@ export default function DoctorPortalPage() {
                                                     appointment={slot.appointment} 
                                                     onSelect={handleSelectApt} 
                                                     isDisabled={slot.isDisabled}
+                                                    isMounted={mounted}
                                                 />
                                             ))}
                                         </div>
@@ -893,6 +945,7 @@ export default function DoctorPortalPage() {
                                                     appointment={slot.appointment} 
                                                     onSelect={handleSelectApt} 
                                                     isDisabled={slot.isDisabled}
+                                                    isMounted={mounted}
                                                 />
                                             ))}
                                         </div>
