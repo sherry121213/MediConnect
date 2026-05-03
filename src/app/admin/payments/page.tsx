@@ -16,7 +16,7 @@ import { useMemo } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Eye, MoreHorizontal, CreditCard, Share2 } from "lucide-react";
+import { Eye, MoreHorizontal, CreditCard, Share2, Wallet, Landmark, ShieldCheck } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -79,37 +79,46 @@ export default function AdminPaymentsPage() {
   const getPaymentStatusBadge = (status?: string) => {
     switch (status) {
       case 'approved':
-        return <Badge className="bg-green-100 text-green-800">Approved</Badge>;
+        return <Badge className="bg-green-100 text-green-800 border-green-200 gap-1.5"><ShieldCheck className="h-3 w-3" /> Approved</Badge>;
       case 'rejected':
         return <Badge variant="destructive">Rejected</Badge>;
       case 'pending':
       default:
-        return <Badge className="bg-amber-100 text-amber-800">Pending</Badge>;
+        return <Badge className="bg-amber-100 text-amber-800 border-amber-200">Pending Review</Badge>;
     }
   };
 
+  const getChannelIcon = (method?: string) => {
+      if (method === 'MasterCard') return <Landmark className="h-3.5 w-3.5" />;
+      return <Wallet className="h-3.5 w-3.5" />;
+  }
 
   return (
     <div className="p-4 md:p-8 space-y-6">
-      <div className="flex items-center gap-3">
-        <div className="p-2 bg-primary/10 rounded-lg">
-          <CreditCard className="h-6 w-6 text-primary" />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-primary text-white rounded-xl shadow-lg shadow-primary/20">
+            <CreditCard className="h-6 w-6" />
+            </div>
+            <h1 className="text-3xl font-bold font-headline tracking-tight">Payment Audit Center</h1>
         </div>
-        <h1 className="text-3xl font-bold font-headline">Payment Audit Center</h1>
+        <div className="flex items-center gap-2 bg-muted/40 px-4 py-2 rounded-lg border border-dashed text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+            <div className="h-2 w-2 rounded-full bg-primary animate-pulse" /> Live Settlement Stream
+        </div>
       </div>
 
-      <div className="border rounded-xl shadow-sm bg-white overflow-hidden">
+      <div className="border rounded-2xl shadow-sm bg-white overflow-hidden">
         <Table>
           <TableHeader className="bg-muted/30">
             <TableRow>
-              <TableHead>Patient</TableHead>
+              <TableHead className="py-4">Patient</TableHead>
               <TableHead>Doctor</TableHead>
-              <TableHead className="table-cell">Payment Chain</TableHead>
-              <TableHead className="hidden lg:table-cell">Amount</TableHead>
-              <TableHead className="hidden md:table-cell">Date</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-center">Slip</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
+              <TableHead>Payment Chain</TableHead>
+              <TableHead className="hidden lg:table-cell">Fee Amount</TableHead>
+              <TableHead className="hidden md:table-cell">Transaction Date</TableHead>
+              <TableHead>Approval State</TableHead>
+              <TableHead className="text-center">Evidence</TableHead>
+              <TableHead className="text-right">Settlement</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -117,7 +126,7 @@ export default function AdminPaymentsPage() {
                 <TableRow key={i}>
                     <TableCell><Skeleton className="h-6 w-24"/></TableCell>
                     <TableCell><Skeleton className="h-6 w-24"/></TableCell>
-                    <TableCell className="table-cell"><Skeleton className="h-6 w-24"/></TableCell>
+                    <TableCell><Skeleton className="h-6 w-24"/></TableCell>
                     <TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-24"/></TableCell>
                     <TableCell className="hidden md:table-cell"><Skeleton className="h-6 w-24"/></TableCell>
                     <TableCell><Skeleton className="h-6 w-20"/></TableCell>
@@ -126,50 +135,58 @@ export default function AdminPaymentsPage() {
                 </TableRow>
             ))}
             {!isLoading && combinedData.map((payment) => (
-              <TableRow key={payment.id} className="hover:bg-muted/5 transition-colors">
-                <TableCell className="font-medium">{payment.patientName}</TableCell>
-                <TableCell>{payment.doctorName}</TableCell>
-                <TableCell className="table-cell">
+              <TableRow key={payment.id} className="hover:bg-muted/5 transition-all group">
+                <TableCell className="font-bold py-5">{payment.patientName}</TableCell>
+                <TableCell className="text-slate-600">{payment.doctorName}</TableCell>
+                <TableCell>
                    {payment.paymentMethod ? (
                      <div className="flex items-center gap-2">
-                        <Share2 className="h-3 w-3 text-muted-foreground" />
-                        <Badge variant="outline" className="font-bold border-primary/20 text-primary uppercase text-[10px]">
+                        <div className={cn(
+                            "h-7 w-7 rounded-lg flex items-center justify-center border",
+                            payment.paymentMethod === 'MasterCard' ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-green-50 text-green-600 border-green-100"
+                        )}>
+                            {getChannelIcon(payment.paymentMethod)}
+                        </div>
+                        <Badge variant="outline" className="font-bold border-slate-200 text-slate-700 uppercase text-[10px]">
                         {payment.paymentMethod}
                         </Badge>
                      </div>
                    ) : (
-                     <span className="text-xs text-muted-foreground italic">Legacy System</span>
+                     <span className="text-[10px] text-muted-foreground font-bold uppercase opacity-40">System Legacy</span>
                    )}
                 </TableCell>
-                <TableCell className="hidden lg:table-cell font-mono">PKR {payment.amount?.toLocaleString() || '1,500'}</TableCell>
-                <TableCell className="hidden md:table-cell text-xs text-muted-foreground">{new Date(payment.createdAt).toLocaleDateString()}</TableCell>
+                <TableCell className="hidden lg:table-cell font-mono font-bold text-slate-800">PKR {payment.amount?.toLocaleString() || '1,500'}</TableCell>
+                <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
+                    <p className="font-medium text-slate-600">{new Date(payment.createdAt).toLocaleDateString()}</p>
+                    <p className="text-[9px] uppercase">{new Date(payment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
+                </TableCell>
                 <TableCell>{getPaymentStatusBadge(payment.paymentStatus)}</TableCell>
                  <TableCell className="text-center">
                     {payment.paymentReceiptUrl ? (
-                         <Button asChild variant="ghost" size="icon" className="h-8 w-8 text-primary">
+                         <Button asChild variant="ghost" size="icon" className="h-9 w-9 text-primary hover:bg-primary/10 rounded-xl">
                              <Link href={payment.paymentReceiptUrl} target="_blank" rel="noopener noreferrer">
-                                 <Eye className="h-4 w-4" />
+                                 <Eye className="h-5 w-5" />
                                  <span className="sr-only">View Receipt</span>
                              </Link>
                          </Button>
                     ) : (
-                        <span className="text-xs text-muted-foreground italic">N/A</span>
+                        <span className="text-[10px] text-muted-foreground italic font-bold opacity-30">N/A</span>
                     )}
                 </TableCell>
                  <TableCell className="text-right">
                     {payment.paymentStatus === 'pending' && (
                          <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" className="h-8 w-8 p-0">
+                                <Button variant="ghost" className="h-9 w-9 p-0 rounded-xl hover:bg-slate-100">
                                     <span className="sr-only">Open menu</span>
-                                    <MoreHorizontal className="h-4 w-4" />
+                                    <MoreHorizontal className="h-5 w-5" />
                                 </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end">
-                                <DropdownMenuItem onClick={() => handleUpdatePaymentStatus(payment.id, 'approved')} className="text-green-600 font-bold">
-                                    Approve Payment
+                            <DropdownMenuContent align="end" className="w-48 rounded-xl border-2">
+                                <DropdownMenuItem onClick={() => handleUpdatePaymentStatus(payment.id, 'approved')} className="text-green-600 font-bold py-2.5">
+                                    <ShieldCheck className="mr-2 h-4 w-4" /> Approve Payment
                                 </DropdownMenuItem>
-                                <DropdownMenuItem onClick={() => handleUpdatePaymentStatus(payment.id, 'rejected')} className="text-destructive">
+                                <DropdownMenuItem onClick={() => handleUpdatePaymentStatus(payment.id, 'rejected')} className="text-destructive font-bold py-2.5">
                                     Reject Payment
                                 </DropdownMenuItem>
                             </DropdownMenuContent>
@@ -180,7 +197,11 @@ export default function AdminPaymentsPage() {
             ))}
             {!isLoading && combinedData.length === 0 && (
                 <TableRow>
-                    <TableCell colSpan={8} className="text-center h-24 text-muted-foreground italic">No payment audit records detected.</TableCell>
+                    <TableCell colSpan={8} className="text-center h-48 text-muted-foreground">
+                        <Landmark className="h-12 w-12 mx-auto mb-4 opacity-10" />
+                        <p className="font-bold text-lg">No audit records found</p>
+                        <p className="text-sm">Patient transactions will appear here for verification.</p>
+                    </TableCell>
                 </TableRow>
             )}
           </TableBody>
