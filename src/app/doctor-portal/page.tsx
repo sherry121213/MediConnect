@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, CheckCircle2, Info, Popover as PopoverIcon, CalendarDays, FileText, ArrowRight, RefreshCw, Siren } from "lucide-react";
+import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, CheckCircle2, Info, Popover as PopoverIcon, CalendarDays, FileText, ArrowRight, RefreshCw, Siren, LogOut } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
@@ -825,6 +825,9 @@ export default function DoctorPortalPage() {
                                             <Button variant="outline" size="sm" className="h-10 gap-2 font-bold w-full sm:w-auto justify-center" onClick={() => setIsAvailabilityOpen(true)}>
                                                 <Settings2 className="h-4 w-4" /> Hours
                                             </Button>
+                                            <Button size="sm" className="h-10 gap-2 font-bold w-full sm:w-auto justify-center" onClick={() => setIsLeaveOpen(true)}>
+                                                <Moon className="h-4 w-4" /> Request Leave
+                                            </Button>
                                         </div>
                                     </div>
                                 </div>
@@ -837,6 +840,9 @@ export default function DoctorPortalPage() {
                                                 <ShieldCheck className="h-10 w-10 sm:h-12 sm:w-12" />
                                             </div>
                                             <h4 className="text-xl sm:text-2xl font-bold tracking-tight">Practice Closed</h4>
+                                            <p className="text-sm text-muted-foreground leading-relaxed">
+                                                Absence audit approved for this date. Clinical activity is restricted to maintain platform safety standards.
+                                            </p>
                                         </div>
                                     </div>
                                 )}
