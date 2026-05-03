@@ -3,16 +3,26 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * MediConnect Security Rules - UNRESTRICTED DEVELOPMENT MODE
-     * FORCE REDEPLOYMENT: 2025-05-21_T10:30:00 (Global Permissive Sync)
+     * MediConnect Security Rules - ABSOLUTE PERMISSIVE OVERRIDE
+     * DEPLOYMENT_SIG: FORCE_GLOBAL_UNLOCK_2025_05_21_T11_45
      * 
-     * This mode allows ALL users (including unauthenticated ones) to read and write to all collections.
-     * This is intended to resolve all "missing or insufficient permissions" errors
-     * permanently during the prototyping and testing phase.
+     * This ruleset provides unrestricted access to ALL collections.
+     * This is intended to resolve persistent "missing or insufficient permissions"
+     * errors occurring during the prototyping and testing phase.
      */
 
     match /{document=**} {
       allow read, write: if true;
     }
+
+    // Explicit collection overrides to ensure engine clarity
+    match /appointments/{id} { allow read, write: if true; }
+    match /patients/{id} { allow read, write: if true; }
+    match /doctors/{id} { allow read, write: if true; }
+    match /consultationSessions/{id} { allow read, write: if true; }
+    match /doctorUnavailabilityRequests/{id} { allow read, write: if true; }
+    match /adminDoctorChatSessions/{id} { allow read, write: if true; }
+    match /roles_admin/{id} { allow read, write: if true; }
+    match /contacts/{id} { allow read, write: if true; }
   }
 }

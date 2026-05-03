@@ -60,7 +60,6 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
 
     const unavailabilityQuery = useMemoFirebase(() => {
         if (!firestore || !appointment?.doctorId) return null;
-        // Simplified query to avoid composite index requirements
         return query(collection(firestore, 'doctorUnavailabilityRequests'), where('doctorId', '==', appointment.doctorId));
     }, [firestore, appointment?.doctorId]);
     const { data: allRequests } = useCollection<any>(unavailabilityQuery);
@@ -89,7 +88,10 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
         if (!doctorAppointments || !selectedDate || !appointment) return [];
         return doctorAppointments
             .filter(apt => apt && apt.appointmentDateTime && isSameDay(new Date(apt.appointmentDateTime), selectedDate) && apt.status !== 'cancelled' && apt.id !== appointment.id)
-            .map(apt => format(new Date(apt.appointmentDateTime), "hh:mm a"));
+            .map(apt => {
+                const d = new Date(apt.appointmentDateTime);
+                return isValid(d) ? format(d, "hh:mm a") : null;
+            }).filter(Boolean) as string[];
     }, [doctorAppointments, selectedDate, appointment?.id]);
 
     const isTimeSlotPast = (time: string, date: Date) => {
@@ -133,7 +135,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[450px] w-[95vw] sm:w-full">
+            <DialogContent className="sm:max-w-[450px] w-[95vw] sm:w-full border-none shadow-2xl">
                 <DialogHeader>
                     <DialogTitle className="flex items-center gap-2">
                         <RefreshCw className="h-5 w-5 text-primary" /> Reschedule Consultation
@@ -148,11 +150,11 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                             name="newDate"
                             render={({ field }) => (
                                 <FormItem className="flex flex-col">
-                                    <FormLabel>Pick New Date</FormLabel>
+                                    <FormLabel className="text-[10px] uppercase font-bold tracking-widest opacity-60">Step 1: Pick New Date</FormLabel>
                                     <Popover>
                                         <PopoverTrigger asChild>
                                             <FormControl>
-                                                <Button variant="outline" className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                                <Button variant="outline" className={cn("w-full pl-3 text-left font-normal h-12 rounded-xl", !field.value && "text-muted-foreground")}>
                                                     {field.value ? format(field.value, "PPP") : <span>Select date</span>}
                                                     <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
                                                 </Button>
@@ -175,7 +177,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
 
                         {selectedDate && !isDayOffByAdmin && (
                             <div className="space-y-3">
-                                <Label className="text-xs font-bold uppercase opacity-60">Available Slots</Label>
+                                <Label className="text-[10px] uppercase font-bold tracking-widest opacity-60">Step 2: Available Slots</Label>
                                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                                     {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => {
                                         const isPast = isTimeSlotPast(time, selectedDate);
@@ -191,7 +193,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                                                 type="button"
                                                 variant={form.getValues("newTime") === time ? "default" : "outline"}
                                                 size="sm"
-                                                className="text-[10px] font-bold"
+                                                className="text-[10px] font-bold rounded-lg h-9"
                                                 disabled={isDisabled}
                                                 onClick={() => form.setValue("newTime", time)}
                                             >
@@ -204,14 +206,14 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                         )}
 
                         {isDayOffByAdmin && (
-                            <div className="p-4 bg-destructive/5 text-destructive rounded-lg text-xs text-center border border-destructive/10">
-                                Doctor is unavailable on this date. Please select another day.
+                            <div className="p-6 bg-destructive/5 text-destructive rounded-xl text-xs text-center border border-destructive/10 italic">
+                                Doctor is officially unavailable on this date.
                             </div>
                         )}
 
                         <DialogFooter className="flex flex-col sm:flex-row gap-2">
-                            <Button type="button" variant="ghost" className="w-full sm:w-auto" onClick={() => onOpenChange(false)}>Cancel</Button>
-                            <Button type="submit" className="w-full sm:w-auto" disabled={isSaving || !form.getValues("newTime")}>
+                            <Button type="button" variant="ghost" className="w-full sm:w-auto h-12" onClick={() => onOpenChange(false)}>Cancel</Button>
+                            <Button type="submit" className="w-full sm:w-auto h-12 px-8 font-bold shadow-lg shadow-primary/20" disabled={isSaving || !form.getValues("newTime")}>
                                 {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : "Confirm New Slot"}
                             </Button>
                         </DialogFooter>
@@ -233,20 +235,20 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
     const doctorImage = doctor ? PlaceHolderImages.find(p => p.id === doctor.profileImageId) : null;
     
     const appointmentDate = useMemo(() => {
-        if (!apt?.appointmentDateTime) return new Date();
+        if (!apt?.appointmentDateTime) return null;
         const d = new Date(apt.appointmentDateTime);
-        return isValid(d) ? d : new Date();
+        return isValid(d) ? d : null;
     }, [apt?.appointmentDateTime]);
     
     // Enforcement: Session is 50 minutes. ENTRY permitted between T and T+50.
     const now = isMounted ? new Date().getTime() : 0;
-    const startTime = appointmentDate.getTime();
+    const startTime = appointmentDate ? appointmentDate.getTime() : 0;
     const endTime = startTime + (50 * 60 * 1000);
     
     const isTimeReached = isMounted && now >= startTime && now < endTime;
     const isExpired = isMounted && now >= endTime;
 
-    if (!apt) return null;
+    if (!apt || !appointmentDate) return null;
 
     return (
         <Card className="hover:shadow-lg transition-all border-l-4 border-l-primary/40 bg-card/50 backdrop-blur-sm overflow-hidden">
@@ -278,10 +280,10 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                         </div>
                         <p className="text-xs sm:text-sm text-primary font-bold uppercase tracking-wider opacity-80 truncate">{doctor?.specialty || 'General Physician'}</p>
                         <div className="flex flex-wrap items-center gap-2 pt-1">
-                            <Badge variant="secondary" className="bg-primary/5 text-primary-dark border-primary/10 flex items-center gap-1.5 px-2 text-[10px] sm:text-xs">
+                            <Badge variant="secondary" className="bg-primary/5 text-primary-dark border-primary/10 flex items-center gap-1.5 px-2 text-[10px] sm:text-xs font-bold">
                                 <Calendar className="w-3 h-3" /> {format(appointmentDate, "MMM dd, yyyy")}
                             </Badge>
-                            <Badge variant="outline" className="flex items-center gap-1.5 px-2 text-[10px] sm:text-xs">
+                            <Badge variant="outline" className="flex items-center gap-1.5 px-2 text-[10px] sm:text-xs font-bold">
                                 <Clock className="w-3 h-3" /> {format(appointmentDate, "p")}
                             </Badge>
                         </div>
@@ -304,7 +306,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     {isTimeReached ? (
-                                        <Button className="w-full sm:w-auto font-bold h-10 sm:h-9">
+                                        <Button className="w-full sm:w-auto font-bold h-10 sm:h-9 shadow-lg shadow-primary/20">
                                             Join Session
                                         </Button>
                                     ) : isExpired ? (
@@ -317,7 +319,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                                         </Button>
                                     )}
                                 </AlertDialogTrigger>
-                                <AlertDialogContent className="w-[95vw] sm:max-w-lg rounded-2xl">
+                                <AlertDialogContent className="w-[95vw] sm:max-w-lg rounded-2xl border-none shadow-2xl">
                                     <AlertDialogHeader>
                                         <AlertDialogTitle className="text-xl font-headline">Clinical Connection</AlertDialogTitle>
                                         <AlertDialogDescription>
@@ -325,7 +327,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <div className="grid grid-cols-1 gap-4 py-4 sm:py-6">
-                                        <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group" asChild>
+                                        <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group bg-muted/5" asChild>
                                             <Link href={`/consultation/${apt?.id}`}>
                                                 <Video className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/> 
                                                 <div className="text-left min-w-0">
@@ -334,18 +336,18 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                                                 </div>
                                             </Link>
                                         </Button>
-                                        <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group" asChild>
+                                        <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group bg-muted/5" asChild>
                                             <Link href={`/consultation/${apt?.id}`}>
                                                 <MessageSquare className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/>
                                                 <div className="text-left min-w-0">
                                                     <p className="font-bold text-foreground truncate">Interactive Chat</p>
-                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">Integrated messaging</p>
+                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">Integrated clinical messaging</p>
                                                 </div>
                                             </Link>
                                         </Button>
                                     </div>
                                     <AlertDialogFooter>
-                                        <AlertDialogCancel className="w-full sm:w-auto">Back</AlertDialogCancel>
+                                        <AlertDialogCancel className="w-full sm:w-auto rounded-xl">Back</AlertDialogCancel>
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
@@ -385,27 +387,35 @@ export default function PatientPortalPage() {
         
         const now = new Date();
         const threshold = subHours(now, 1); 
-        const validAppointments = appointments.filter(apt => apt !== null && apt.id);
+        const validAppointments = appointments.filter(apt => apt !== null && apt.id && apt.appointmentDateTime);
 
         const upcoming = validAppointments
-            .filter(apt => 
-                isAfter(new Date(apt.appointmentDateTime), threshold) && 
-                apt.status !== 'cancelled' && 
-                apt.status !== 'completed' &&
-                apt.paymentStatus === 'approved'
-            )
+            .filter(apt => {
+                const d = new Date(apt.appointmentDateTime);
+                if (!isValid(d)) return false;
+                return isAfter(d, threshold) && 
+                       apt.status !== 'cancelled' && 
+                       apt.status !== 'completed' &&
+                       apt.paymentStatus === 'approved';
+            })
             .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
 
         const pending = validAppointments
-            .filter(apt => 
-                isAfter(new Date(apt.appointmentDateTime), threshold) && 
-                apt.status !== 'cancelled' && 
-                apt.paymentStatus === 'pending'
-            )
+            .filter(apt => {
+                const d = new Date(apt.appointmentDateTime);
+                if (!isValid(d)) return false;
+                return isAfter(d, threshold) && 
+                       apt.status !== 'cancelled' && 
+                       apt.paymentStatus === 'pending';
+            })
             .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
 
         const past = validAppointments
-            .filter(apt => !isAfter(new Date(apt.appointmentDateTime), threshold) || apt.status === 'completed')
+            .filter(apt => {
+                const d = new Date(apt.appointmentDateTime);
+                if (!isValid(d)) return false;
+                return !isAfter(d, threshold) || apt.status === 'completed';
+            })
             .sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime())
             .slice(0, 5);
 
@@ -440,17 +450,17 @@ export default function PatientPortalPage() {
                             </CardHeader>
                             <CardContent className="pt-6 sm:pt-8 space-y-6 px-6 sm:px-8">
                                 <div className="space-y-3">
-                                    <Button className="w-full justify-start h-14 text-base font-bold shadow-lg shadow-primary/20" asChild>
+                                    <Button className="w-full justify-start h-14 text-base font-bold shadow-lg shadow-primary/20 rounded-xl" asChild>
                                         <Link href="/find-a-doctor">
                                             <PlusCircle className="mr-3 h-5 w-5 shrink-0" /> Book Consultation
                                         </Link>
                                     </Button>
-                                    <Button variant="outline" className="w-full justify-start h-14 text-base font-bold border-2" asChild>
+                                    <Button variant="outline" className="w-full justify-start h-14 text-base font-bold border-2 rounded-xl" asChild>
                                         <Link href="/patient-portal/messages">
                                             <MessageSquare className="mr-3 h-5 w-5 text-primary shrink-0" /> Message Center
                                         </Link>
                                     </Button>
-                                    <Button variant="outline" className="w-full justify-start h-14 text-base font-bold border-2" asChild>
+                                    <Button variant="outline" className="w-full justify-start h-14 text-base font-bold border-2 rounded-xl" asChild>
                                         <Link href="/patient-portal/history">
                                             <History className="mr-3 h-5 w-5 text-primary shrink-0" /> Medical Records
                                         </Link>
@@ -485,7 +495,7 @@ export default function PatientPortalPage() {
                             {isLoadingAppointments ? (
                                 <div className="py-12 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary/30" /></div>
                             ) : upcomingAppointments.length === 0 ? (
-                                <Card className="border-dashed border-2 bg-transparent">
+                                <Card className="border-dashed border-2 bg-transparent rounded-2xl">
                                     <CardContent className="py-12 sm:py-16 text-center px-4">
                                         <div className="h-12 w-12 sm:h-16 sm:w-16 bg-muted rounded-full flex items-center justify-center mx-auto mb-4">
                                             <Calendar className="h-6 w-6 sm:h-8 sm:w-8 text-muted-foreground/40" />
@@ -536,7 +546,7 @@ export default function PatientPortalPage() {
                             {isLoadingAppointments ? (
                                 <div className="py-12 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary/30" /></div>
                             ) : recentPastAppointments.length === 0 ? (
-                                <Card className="border-dashed border-2 bg-transparent">
+                                <Card className="border-dashed border-2 bg-transparent rounded-2xl">
                                     <CardContent className="py-12 sm:py-16 text-center text-muted-foreground px-4 text-sm sm:text-base">
                                         <p className="font-medium">No historical clinical records detected.</p>
                                     </CardContent>
@@ -551,7 +561,7 @@ export default function PatientPortalPage() {
                 </div>
             </div>
 
-            {selectedApt && (
+            {isPostponeOpen && selectedApt && (
                 <PostponeDialog 
                     isOpen={isPostponeOpen} 
                     onOpenChange={setIsPostponeOpen} 
