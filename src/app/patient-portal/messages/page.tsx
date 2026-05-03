@@ -28,10 +28,13 @@ const ConsultationMessageItem = ({ appointment, isMounted }: { appointment: any,
     ? format(appointmentDate, "MMM dd, yyyy") 
     : 'Date TBD';
 
-  // Hydration-safe timing check
-  const isTimeReached = isMounted && appointmentDate && isDateValid 
-    ? new Date().getTime() >= appointmentDate.getTime() 
-    : false;
+  // Enforcement: 50 Minute Session Limit (T to T+50)
+  const nowTime = isMounted ? new Date().getTime() : 0;
+  const startTime = appointmentDate && isDateValid ? appointmentDate.getTime() : 0;
+  const endTime = startTime + (50 * 60 * 1000);
+
+  const isTimeReached = isMounted && nowTime >= startTime && nowTime < endTime;
+  const isExpired = isMounted && nowTime >= endTime;
 
   return (
     <Card className="hover:shadow-lg transition-all border-l-4 border-l-primary/40 group overflow-hidden bg-white">
@@ -55,9 +58,14 @@ const ConsultationMessageItem = ({ appointment, isMounted }: { appointment: any,
                     <span className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
                         <Calendar className="h-3 w-3" /> {formattedDate}
                     </span>
-                    {!isTimeReached && isDateValid && (
+                    {!isTimeReached && isDateValid && !isExpired && (
                          <span className="text-[10px] uppercase font-bold text-amber-600 flex items-center gap-1">
                             <Clock className="h-3 w-3" /> Chat opens at {format(appointmentDate, "p")}
+                        </span>
+                    )}
+                    {isExpired && (
+                        <span className="text-[10px] uppercase font-bold text-destructive flex items-center gap-1">
+                            <Clock className="h-3 w-3" /> Session Window Closed
                         </span>
                     )}
                 </div>
@@ -65,14 +73,18 @@ const ConsultationMessageItem = ({ appointment, isMounted }: { appointment: any,
           </div>
           <div className="bg-muted/30 p-6 flex flex-col justify-center items-center sm:items-end gap-2 shrink-0 border-t sm:border-t-0 sm:border-l border-dashed">
             {isTimeReached ? (
-                <Button asChild size="sm" className="font-bold group-hover:scale-105 transition-transform">
+                <Button asChild size="sm" className="font-bold group-hover:scale-105 transition-transform w-full sm:w-auto">
                     <Link href={`/consultation/${appointment.id}`}>
                         Open Chat & Room <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
                 </Button>
+            ) : isExpired ? (
+                <Button size="sm" variant="secondary" className="font-bold opacity-50 cursor-not-allowed w-full sm:w-auto" disabled>
+                    Session Expired <Clock className="ml-2 h-4 w-4" />
+                </Button>
             ) : (
-                <Button size="sm" variant="secondary" className="font-bold cursor-not-allowed opacity-70" disabled>
-                    Awaiting Start Time <Clock className="ml-2 h-4 w-4" />
+                <Button size="sm" variant="secondary" className="font-bold cursor-not-allowed opacity-70 w-full sm:w-auto" disabled>
+                    Awaiting Start <Clock className="ml-2 h-4 w-4" />
                 </Button>
             )}
             <p className="text-[9px] text-muted-foreground italic">Clinical session link</p>

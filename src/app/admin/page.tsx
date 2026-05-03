@@ -5,21 +5,20 @@ import {
   AreaChart, Area, CartesianGrid, PieChart, Pie, Cell, Legend
 } from "recharts";
 import { 
-  BookOpen, Stethoscope, UserPlus, DollarSign, Loader2, 
+  Stethoscope, DollarSign, Loader2, 
   TrendingUp, TrendingDown, Calendar, History, Activity, 
-  Wallet, Users as UsersIcon, Zap, Target, Globe, AlertCircle, ArrowRight
+  Users as UsersIcon, Zap, Target, Globe, AlertCircle, ArrowRight
 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, where } from "firebase/firestore";
 import type { Doctor, Appointment, Patient } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
-import { format, isSameDay, startOfDay, subDays, isAfter, isBefore } from "date-fns";
+import { format, isSameDay, startOfDay, subDays, isAfter } from "date-fns";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -68,19 +67,19 @@ export default function AdminDashboardPage() {
     const today = startOfDay(new Date());
     const sevenDaysAgo = subDays(today, 7);
 
-    const approvedApts = appointments.filter(apt => apt.paymentStatus === 'approved');
-    const pendingApts = appointments.filter(apt => apt.paymentStatus === 'pending' && apt.paymentReceiptUrl);
+    const approvedApts = appointments.filter(apt => apt && apt.paymentStatus === 'approved');
+    const pendingApts = appointments.filter(apt => apt && apt.paymentStatus === 'pending' && apt.paymentReceiptUrl);
     
-    const todayApts = appointments.filter(apt => apt.createdAt && isSameDay(new Date(apt.createdAt), today));
+    const todayApts = appointments.filter(apt => apt && apt.createdAt && isSameDay(new Date(apt.createdAt), today));
     const todayRev = todayApts.filter(a => a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
     
-    const weeklyApts = appointments.filter(apt => apt.createdAt && isAfter(new Date(apt.createdAt), sevenDaysAgo));
+    const weeklyApts = appointments.filter(apt => apt && apt.createdAt && isAfter(new Date(apt.createdAt), sevenDaysAgo));
     const weeklyRev = weeklyApts.filter(a => a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
 
     // Specialty Breakdown
     const specialtyCounts: Record<string, number> = {};
     doctors.forEach(d => {
-        if (d.specialty) {
+        if (d && d.specialty) {
             specialtyCounts[d.specialty] = (specialtyCounts[d.specialty] || 0) + 1;
         }
     });
@@ -90,7 +89,7 @@ export default function AdminDashboardPage() {
         stats: {
             totalRevenue: approvedApts.reduce((sum, a) => sum + (a.amount || 1500), 0),
             totalBookings: appointments.length,
-            verifiedDoctors: doctors.filter(d => d.verified).length,
+            verifiedDoctors: doctors.filter(d => d && d.verified).length,
             totalPatients: patients.length,
             todayRevenue: todayRev,
             todayBookings: todayApts.length,
@@ -110,7 +109,7 @@ export default function AdminDashboardPage() {
       stats[key] = { date: format(d, 'MMM dd'), revenue: 0, bookings: 0 };
     }
     appointments.forEach(apt => {
-      if (!apt.createdAt) return;
+      if (!apt || !apt.createdAt) return;
       const key = apt.createdAt.split('T')[0];
       if (stats[key]) {
         stats[key].bookings += 1;
@@ -315,7 +314,7 @@ export default function AdminDashboardPage() {
 
         {/* Right Side: Operational Alerts & Weekly Intelligence Report */}
         <div className="lg:col-span-4 space-y-8">
-            {/* Operational Priority Alert (New) */}
+            {/* Operational Priority Alert */}
             {!isLoading && pendingPaymentCount > 0 && (
                 <Card className="border-none shadow-2xl bg-amber-50 border-amber-200 animate-in fade-in slide-in-from-right-4 duration-500">
                     <CardContent className="p-6">
