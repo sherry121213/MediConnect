@@ -20,7 +20,7 @@ import { useUserData, useFirestore, useCollection, useMemoFirebase, useDoc } fro
 import { collection, query, where, doc } from "firebase/firestore";
 import type { Appointment, Doctor } from "@/lib/types";
 import { useMemo, useState, useEffect } from "react";
-import { format, isAfter, subHours, isSameDay, startOfDay, isBefore } from "date-fns";
+import { format, isAfter, subHours, isSameDay, startOfDay, isBefore, isValid } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
@@ -60,13 +60,10 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
 
     const unavailabilityQuery = useMemoFirebase(() => {
         if (!firestore || !appointment?.doctorId) return null;
-        return query(
-            collection(firestore, 'doctorUnavailabilityRequests'),
-            where('doctorId', '==', appointment.doctorId),
-            where('status', '==', 'approved')
-        );
+        // Simplified query to avoid composite index requirements
+        return query(collection(firestore, 'doctorUnavailabilityRequests'), where('doctorId', '==', appointment.doctorId));
     }, [firestore, appointment?.doctorId]);
-    const { data: approvedLeave } = useCollection<any>(unavailabilityQuery);
+    const { data: allRequests } = useCollection<any>(unavailabilityQuery);
 
     const form = useForm<PostponeFormValues>({
         resolver: zodResolver(postponeSchema),
@@ -79,14 +76,19 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
     const selectedDate = form.watch("newDate");
 
     const isDayOffByAdmin = useMemo(() => {
-        if (!approvedLeave || !selectedDate) return false;
-        return approvedLeave.some((leave: any) => isSameDay(new Date(leave.requestedDate), selectedDate));
-    }, [approvedLeave, selectedDate]);
+        if (!allRequests || !selectedDate) return false;
+        return allRequests.some((leave: any) => 
+            leave && 
+            leave.status === 'approved' && 
+            leave.requestedDate && 
+            isSameDay(new Date(leave.requestedDate), selectedDate)
+        );
+    }, [allRequests, selectedDate]);
 
     const bookedTimes = useMemo(() => {
         if (!doctorAppointments || !selectedDate || !appointment) return [];
         return doctorAppointments
-            .filter(apt => apt && isSameDay(new Date(apt.appointmentDateTime), selectedDate) && apt.status !== 'cancelled' && apt.id !== appointment.id)
+            .filter(apt => apt && apt.appointmentDateTime && isSameDay(new Date(apt.appointmentDateTime), selectedDate) && apt.status !== 'cancelled' && apt.id !== appointment.id)
             .map(apt => format(new Date(apt.appointmentDateTime), "hh:mm a"));
     }, [doctorAppointments, selectedDate, appointment?.id]);
 
@@ -229,7 +231,12 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
     
     const { data: doctor, isLoading: isLoadingDoctor } = useDoc<Doctor>(doctorDocRef);
     const doctorImage = doctor ? PlaceHolderImages.find(p => p.id === doctor.profileImageId) : null;
-    const appointmentDate = apt?.appointmentDateTime ? new Date(apt.appointmentDateTime) : new Date();
+    
+    const appointmentDate = useMemo(() => {
+        if (!apt?.appointmentDateTime) return new Date();
+        const d = new Date(apt.appointmentDateTime);
+        return isValid(d) ? d : new Date();
+    }, [apt?.appointmentDateTime]);
     
     // Enforcement: Session is 50 minutes. ENTRY permitted between T and T+50.
     const now = isMounted ? new Date().getTime() : 0;
@@ -238,57 +245,6 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
     
     const isTimeReached = isMounted && now >= startTime && now < endTime;
     const isExpired = isMounted && now >= endTime;
-
-    const JoinCallDialog = () => (
-        <AlertDialog>
-            <AlertDialogTrigger asChild>
-                {isTimeReached ? (
-                    <Button className="w-full sm:w-auto font-bold h-10 sm:h-9">
-                        Join Session
-                    </Button>
-                ) : isExpired ? (
-                    <Button variant="secondary" className="w-full sm:w-auto font-bold h-10 sm:h-9 opacity-50 cursor-not-allowed" disabled>
-                        Session Expired
-                    </Button>
-                ) : (
-                    <Button className="w-full sm:w-auto font-bold opacity-70 cursor-not-allowed h-10 sm:h-9" disabled>
-                        Not Started <Clock className="ml-2 h-3 w-3" />
-                    </Button>
-                )}
-            </AlertDialogTrigger>
-            <AlertDialogContent className="w-[95vw] sm:max-w-lg rounded-2xl">
-                <AlertDialogHeader>
-                    <AlertDialogTitle className="text-xl font-headline">Clinical Connection</AlertDialogTitle>
-                    <AlertDialogDescription>
-                        Select your preferred method to connect with {doctor ? `Dr. ${doctor.firstName}` : 'your doctor'}. Session ends automatically at {format(new Date(endTime), "p")}.
-                    </AlertDialogDescription>
-                </AlertDialogHeader>
-                <div className="grid grid-cols-1 gap-4 py-4 sm:py-6">
-                    <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group" asChild>
-                        <Link href={`/consultation/${apt?.id}`}>
-                            <Video className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/> 
-                            <div className="text-left min-w-0">
-                                <p className="font-bold text-foreground truncate">Secure Video Room</p>
-                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">HD Video & Internal Audio</p>
-                            </div>
-                        </Link>
-                    </Button>
-                    <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group" asChild>
-                        <Link href={`/consultation/${apt?.id}`}>
-                            <MessageSquare className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/>
-                            <div className="text-left min-w-0">
-                                <p className="font-bold text-foreground truncate">Interactive Chat</p>
-                                <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">Integrated messaging</p>
-                            </div>
-                        </Link>
-                    </Button>
-                </div>
-                <AlertDialogFooter>
-                    <AlertDialogCancel className="w-full sm:w-auto">Back</AlertDialogCancel>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-    );
 
     if (!apt) return null;
 
@@ -345,7 +301,54 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                                     <RefreshCw className="mr-2 h-4 w-4" /> Postpone
                                 </Button>
                             )}
-                            <JoinCallDialog />
+                            <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                    {isTimeReached ? (
+                                        <Button className="w-full sm:w-auto font-bold h-10 sm:h-9">
+                                            Join Session
+                                        </Button>
+                                    ) : isExpired ? (
+                                        <Button variant="secondary" className="w-full sm:w-auto font-bold h-10 sm:h-9 opacity-50 cursor-not-allowed" disabled>
+                                            Session Expired
+                                        </Button>
+                                    ) : (
+                                        <Button className="w-full sm:w-auto font-bold opacity-70 cursor-not-allowed h-10 sm:h-9" disabled>
+                                            Not Started <Clock className="ml-2 h-3 w-3" />
+                                        </Button>
+                                    )}
+                                </AlertDialogTrigger>
+                                <AlertDialogContent className="w-[95vw] sm:max-w-lg rounded-2xl">
+                                    <AlertDialogHeader>
+                                        <AlertDialogTitle className="text-xl font-headline">Clinical Connection</AlertDialogTitle>
+                                        <AlertDialogDescription>
+                                            Select your preferred method to connect with {doctor ? `Dr. ${doctor.firstName}` : 'your doctor'}. Session ends automatically at {format(new Date(endTime), "p")}.
+                                        </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <div className="grid grid-cols-1 gap-4 py-4 sm:py-6">
+                                        <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group" asChild>
+                                            <Link href={`/consultation/${apt?.id}`}>
+                                                <Video className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/> 
+                                                <div className="text-left min-w-0">
+                                                    <p className="font-bold text-foreground truncate">Secure Video Room</p>
+                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">HD Video & Internal Audio</p>
+                                                </div>
+                                            </Link>
+                                        </Button>
+                                        <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group" asChild>
+                                            <Link href={`/consultation/${apt?.id}`}>
+                                                <MessageSquare className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/>
+                                                <div className="text-left min-w-0">
+                                                    <p className="font-bold text-foreground truncate">Interactive Chat</p>
+                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">Integrated messaging</p>
+                                                </div>
+                                            </Link>
+                                        </Button>
+                                    </div>
+                                    <AlertDialogFooter>
+                                        <AlertDialogCancel className="w-full sm:w-auto">Back</AlertDialogCancel>
+                                    </AlertDialogFooter>
+                                </AlertDialogContent>
+                            </AlertDialog>
                         </>
                     ) : (
                         <Button variant="ghost" asChild className="gap-2 text-primary font-bold hover:bg-primary/5 w-full sm:w-auto justify-center h-10 sm:h-9">

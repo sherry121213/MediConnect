@@ -74,19 +74,24 @@ export default function DoctorDetailPage() {
 
     const unavailabilityQuery = useMemoFirebase(() => {
       if (!firestore || !doctorId) return null;
+      // Simplified query to avoid composite index requirements
       return query(
         collection(firestore, 'doctorUnavailabilityRequests'),
-        where('doctorId', '==', doctorId),
-        where('status', '==', 'approved')
+        where('doctorId', '==', doctorId)
       );
     }, [firestore, doctorId]);
 
-    const { data: approvedLeave } = useCollection<any>(unavailabilityQuery);
+    const { data: allLeaveRequests } = useCollection<any>(unavailabilityQuery);
 
     const isDayOffByAdmin = useMemo(() => {
-      if (!approvedLeave || !selectedDate) return false;
-      return approvedLeave.some((leave: any) => leave && leave.requestedDate && isSameDay(new Date(leave.requestedDate), selectedDate));
-    }, [approvedLeave, selectedDate]);
+      if (!allLeaveRequests || !selectedDate) return false;
+      return allLeaveRequests.some((leave: any) => 
+        leave && 
+        leave.status === 'approved' && 
+        leave.requestedDate && 
+        isSameDay(new Date(leave.requestedDate), selectedDate)
+      );
+    }, [allLeaveRequests, selectedDate]);
 
     const bookedTimes = useMemo(() => {
         if (!existingAppointments || !selectedDate || !mounted) return [];
