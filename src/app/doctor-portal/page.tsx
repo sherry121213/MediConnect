@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, CheckCircle2, Info, Popover as PopoverIcon, CalendarDays, FileText, ArrowRight, RefreshCw, Siren, LogOut } from "lucide-react";
+import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, CheckCircle2, Info, Popover as PopoverIcon, CalendarDays, FileText, ArrowRight, RefreshCw, Siren, LogOut, DollarSign } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
@@ -666,6 +666,7 @@ export default function DoctorPortalPage() {
     const [isConsultOpen, setIsConsultOpen] = useState(false);
     const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(false);
     const [isLeaveOpen, setIsLeaveOpen] = useState(false);
+    const [isAuditOpen, setIsAuditOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [viewDate, setViewDate] = useState(new Date());
 
@@ -694,7 +695,7 @@ export default function DoctorPortalPage() {
     const { todayAppointments, stats, masterSchedule, notifications, currentDayLeaveStatus } = useMemo(() => {
         if (!mounted || !appointments) return { 
             todayAppointments: [], 
-            stats: { today: 0, pending: 0, revenue: 0 }, 
+            stats: { today: 0, pending: 0, todayRevenue: 0, totalRevenue: 0, totalConsults: 0 }, 
             masterSchedule: { morning: [], afternoon: [], evening: [] },
             notifications: [],
             currentDayLeaveStatus: null as 'pending' | 'approved' | null
@@ -705,7 +706,10 @@ export default function DoctorPortalPage() {
 
         const today = appointments.filter(apt => isSameDay(new Date(apt.appointmentDateTime), now));
         const pending = appointments.filter(apt => apt.status === 'scheduled').length;
-        const revenue = appointments.filter(apt => apt.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
+        
+        const todayRev = today.filter(a => a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
+        const lifetimeRev = appointments.filter(a => a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
+        const totalCompleted = appointments.filter(a => a.status === 'completed').length;
 
         const activeRequest = requests?.find(r => isSameDay(new Date(r.requestedDate), viewDate));
         const leaveStatus = activeRequest?.status || null;
@@ -752,7 +756,13 @@ export default function DoctorPortalPage() {
 
         return { 
             todayAppointments: today,
-            stats: { today: today.length, pending: pending, revenue },
+            stats: { 
+                today: today.length, 
+                pending: pending, 
+                todayRevenue: todayRev, 
+                totalRevenue: lifetimeRev,
+                totalConsults: totalCompleted
+            },
             masterSchedule: { morning: filterSlots(timeSlots.morning), afternoon: filterSlots(timeSlots.afternoon), evening: filterSlots(timeSlots.evening) },
             notifications: alerts,
             currentDayLeaveStatus: leaveStatus
@@ -785,13 +795,43 @@ export default function DoctorPortalPage() {
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full md:w-auto">
                         <Card className="p-3 bg-primary text-primary-foreground border-none shadow-lg shadow-primary/20">
-                            <p className="text-[9px] sm:text-[10px] font-bold uppercase opacity-80">Total Revenue</p>
-                            <p className="text-lg sm:text-2xl font-bold">PKR {stats.revenue.toLocaleString()}</p>
+                            <p className="text-[9px] sm:text-[10px] font-bold uppercase opacity-80">Today's Revenue</p>
+                            <p className="text-lg sm:text-2xl font-bold">PKR {stats.todayRevenue.toLocaleString()}</p>
                         </Card>
                         <Card className="p-3 bg-background border-none shadow-sm">
                             <p className="text-[9px] sm:text-[10px] font-bold uppercase text-muted-foreground">Today's Patients</p>
                             <p className="text-lg sm:text-2xl font-bold text-primary">{stats.today}</p>
                         </Card>
+                        <div className="col-span-2 sm:col-span-1">
+                            <Dialog open={isAuditOpen} onOpenChange={setIsAuditOpen}>
+                                <DialogTrigger asChild>
+                                    <Button variant="outline" className="w-full h-full font-bold gap-2 border-2 border-primary/20 hover:bg-primary/5 shadow-sm">
+                                        <DollarSign className="h-4 w-4 text-primary" /> Audit Summary
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[400px] border-none shadow-2xl">
+                                    <DialogHeader>
+                                        <DialogTitle className="flex items-center gap-2 text-xl font-headline">
+                                            <History className="h-5 w-5 text-primary" /> Lifetime Performance
+                                        </DialogTitle>
+                                        <DialogDescription>Overview of your archived clinical activity.</DialogDescription>
+                                    </DialogHeader>
+                                    <div className="grid grid-cols-1 gap-4 py-6">
+                                        <div className="p-5 rounded-2xl bg-muted/30 border border-muted/50 space-y-1 text-center">
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Total Earnings</p>
+                                            <p className="text-3xl font-bold text-primary">PKR {stats.totalRevenue.toLocaleString()}</p>
+                                        </div>
+                                        <div className="p-5 rounded-2xl bg-muted/30 border border-muted/50 space-y-1 text-center">
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Completed Visits</p>
+                                            <p className="text-3xl font-bold">{stats.totalConsults}</p>
+                                        </div>
+                                    </div>
+                                    <DialogFooter>
+                                        <Button variant="secondary" className="w-full h-12 font-bold" onClick={() => setIsAuditOpen(false)}>Close Summary</Button>
+                                    </DialogFooter>
+                                </DialogContent>
+                            </Dialog>
+                        </div>
                     </div>
                 </div>
 
