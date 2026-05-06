@@ -3,26 +3,16 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * MediConnect Security Rules - ABSOLUTE PERMISSIVE OVERRIDE
-     * DEPLOYMENT_SIG: FORCE_GLOBAL_UNLOCK_2025_05_21_T11_45
+     * MediConnect Global Access Policy - PROTOTYPE UNLOCK
+     * DEPLOYMENT_SIG: REFRESH_PERMISSIONS_2025_05_21_T14_30
      * 
-     * This ruleset provides unrestricted access to ALL collections.
-     * This is intended to resolve persistent "missing or insufficient permissions"
-     * errors occurring during the prototyping and testing phase.
+     * This policy allows unrestricted access to all collections to resolve 
+     * persistent "missing or insufficient permissions" errors during the 
+     * rapid prototyping and testing phase.
      */
 
     match /{document=**} {
       allow read, write: if true;
     }
-
-    // Explicit collection overrides to ensure engine clarity
-    match /appointments/{id} { allow read, write: if true; }
-    match /patients/{id} { allow read, write: if true; }
-    match /doctors/{id} { allow read, write: if true; }
-    match /consultationSessions/{id} { allow read, write: if true; }
-    match /doctorUnavailabilityRequests/{id} { allow read, write: if true; }
-    match /adminDoctorChatSessions/{id} { allow read, write: if true; }
-    match /roles_admin/{id} { allow read, write: if true; }
-    match /contacts/{id} { allow read, write: if true; }
   }
 }

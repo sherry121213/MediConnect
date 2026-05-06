@@ -3,13 +3,13 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, CheckCircle2, Info, Popover as PopoverIcon, CalendarDays, FileText, ArrowRight, RefreshCw, Siren, LogOut, DollarSign } from "lucide-react";
+import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Info, RefreshCw, Siren, DollarSign } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
-import { collection, query, where, doc, addDoc, orderBy } from "firebase/firestore";
+import { collection, query, where, doc, orderBy } from "firebase/firestore";
 import type { Appointment, Patient, Doctor } from "@/lib/types";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -18,12 +18,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
-import { format, isSameDay, startOfDay, addDays, isAfter, subDays, isBefore } from "date-fns";
+import { format, isSameDay, startOfDay, addDays, subDays, isBefore, isValid, isAfter } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { timeSlots } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar as DayPickerCalendar } from "@/components/ui/calendar";
@@ -45,6 +44,103 @@ const leaveRequestSchema = z.object({
   reason: z.string().min(5, "Please provide a professional reason."),
 });
 type LeaveFormValues = z.infer<typeof leaveRequestSchema>;
+
+const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSelect: (a: Appointment) => void, isMounted: boolean }) => {
+    const firestore = useFirestore();
+    const patientDocRef = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return doc(firestore, 'patients', apt.patientId);
+    }, [firestore, apt.patientId]);
+    const { data: patient } = useDoc<Patient>(patientDocRef);
+
+    const appointmentDate = new Date(apt.appointmentDateTime);
+    const now = isMounted ? new Date().getTime() : 0;
+    const startTime = appointmentDate.getTime();
+    const endTime = startTime + (50 * 60 * 1000);
+    const isLive = isMounted && now >= startTime && now < endTime;
+
+    return (
+        <div className={cn(
+            "flex items-center justify-between p-4 hover:bg-muted/50 rounded-xl transition-all border-b last:border-0 group cursor-pointer",
+            isLive && "bg-primary/5 border-primary/20"
+        )} onClick={() => onSelect(apt)}>
+            <div className="flex items-center gap-3 min-w-0">
+                <Avatar className="h-10 w-10 border-2 border-background shadow-sm shrink-0">
+                    <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback>
+                </Avatar>
+                <div className="min-w-0">
+                    <p className="font-bold text-sm truncate">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
+                    <p className="text-[10px] text-muted-foreground flex items-center gap-1 uppercase font-bold tracking-tighter truncate">
+                        <Clock className="h-2.5 w-2.5 shrink-0" /> {format(appointmentDate, "p")} • 50m
+                    </p>
+                </div>
+            </div>
+            <div className="flex items-center gap-2">
+                {isLive && (
+                    <Badge className="bg-red-600 text-white animate-pulse text-[8px] h-4">LIVE NOW</Badge>
+                )}
+                <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("ml-2 shrink-0 text-[10px]", apt.status === 'completed' ? 'bg-green-100 text-green-800' : 'text-primary border-primary/20')}>
+                    {apt.status === 'scheduled' ? (isLive ? 'Start Session' : 'Upcoming') : apt.status}
+                </Badge>
+            </div>
+        </div>
+    );
+};
+
+const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { time: string, appointment?: Appointment, onSelect: (a: Appointment) => void, isDisabled?: boolean, isMounted: boolean }) => {
+    const firestore = useFirestore();
+    const patientDocRef = useMemoFirebase(() => {
+        if (!firestore || !appointment) return null;
+        return doc(firestore, 'patients', appointment.patientId);
+    }, [firestore, appointment]);
+    const { data: patient } = useDoc<Patient>(patientDocRef);
+
+    const isLive = useMemo(() => {
+        if (!appointment || !isMounted) return false;
+        const aptDate = new Date(appointment.appointmentDateTime);
+        const now = new Date().getTime();
+        const startTime = aptDate.getTime();
+        const endTime = startTime + (50 * 60 * 1000);
+        return now >= startTime && now < endTime;
+    }, [appointment, isMounted]);
+
+    return (
+        <div className={cn(
+            "flex items-center justify-between p-3 rounded-lg border transition-all mb-2",
+            appointment ? (isLive ? "bg-primary/10 border-primary shadow-md scale-[1.02]" : "bg-primary/5 border-primary/20 shadow-sm") : "bg-muted/20 border-transparent opacity-60",
+            isDisabled && !appointment && "grayscale opacity-30"
+        )}>
+            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                <p className="text-[10px] sm:text-xs font-bold text-muted-foreground w-14 sm:w-16 shrink-0">{time}</p>
+                {appointment ? (
+                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+                        <div className="h-5 w-5 sm:h-6 sm:w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                            <User className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                        </div>
+                        <p className="text-xs sm:text-sm font-semibold truncate">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
+                    </div>
+                ) : (
+                    <p className="text-[10px] sm:text-xs italic text-muted-foreground truncate">{isDisabled ? "Off" : "Open"}</p>
+                )}
+            </div>
+            {appointment ? (
+                <Button 
+                    size="sm" 
+                    variant={isLive ? "default" : "ghost"} 
+                    className={cn(
+                        "h-7 px-2 sm:px-3 text-[10px] font-bold uppercase tracking-wider shrink-0",
+                        isLive ? "bg-red-600 hover:bg-red-700 animate-pulse" : "hover:bg-primary/10"
+                    )} 
+                    onClick={() => onSelect(appointment)}
+                >
+                    {isLive ? "Start Session" : "Manage"}
+                </Button>
+            ) : (
+                <Badge variant="outline" className="text-[9px] sm:text-[10px] font-bold text-muted-foreground border-dashed shrink-0">{isDisabled ? "Closed" : "Free"}</Badge>
+            )}
+        </div>
+    );
+}
 
 function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment }) {
     const firestore = useFirestore();
@@ -562,103 +658,6 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
     );
 }
 
-const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSelect: (a: Appointment) => void, isMounted: boolean }) => {
-    const firestore = useFirestore();
-    const patientDocRef = useMemoFirebase(() => {
-        if (!firestore) return null;
-        return doc(firestore, 'patients', apt.patientId);
-    }, [firestore, apt.patientId]);
-    const { data: patient } = useDoc<Patient>(patientDocRef);
-
-    const appointmentDate = new Date(apt.appointmentDateTime);
-    const now = isMounted ? new Date().getTime() : 0;
-    const startTime = appointmentDate.getTime();
-    const endTime = startTime + (50 * 60 * 1000);
-    const isLive = isMounted && now >= startTime && now < endTime;
-
-    return (
-        <div className={cn(
-            "flex items-center justify-between p-4 hover:bg-muted/50 rounded-xl transition-all border-b last:border-0 group cursor-pointer",
-            isLive && "bg-primary/5 border-primary/20"
-        )} onClick={() => onSelect(apt)}>
-            <div className="flex items-center gap-3 min-w-0">
-                <Avatar className="h-10 w-10 border-2 border-background shadow-sm shrink-0">
-                    <AvatarFallback className="bg-primary/5 text-primary text-xs font-bold">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback>
-                </Avatar>
-                <div className="min-w-0">
-                    <p className="font-bold text-sm truncate">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
-                    <p className="text-[10px] text-muted-foreground flex items-center gap-1 uppercase font-bold tracking-tighter truncate">
-                        <Clock className="h-2.5 w-2.5 shrink-0" /> {format(appointmentDate, "p")} • 50m
-                    </p>
-                </div>
-            </div>
-            <div className="flex items-center gap-2">
-                {isLive && (
-                    <Badge className="bg-red-600 text-white animate-pulse text-[8px] h-4">LIVE NOW</Badge>
-                )}
-                <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("ml-2 shrink-0 text-[10px]", apt.status === 'completed' ? 'bg-green-100 text-green-800' : 'text-primary border-primary/20')}>
-                    {apt.status === 'scheduled' ? (isLive ? 'Start Session' : 'Upcoming') : apt.status}
-                </Badge>
-            </div>
-        </div>
-    );
-};
-
-const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { time: string, appointment?: Appointment, onSelect: (a: Appointment) => void, isDisabled?: boolean, isMounted: boolean }) => {
-    const firestore = useFirestore();
-    const patientDocRef = useMemoFirebase(() => {
-        if (!firestore || !appointment) return null;
-        return doc(firestore, 'patients', appointment.patientId);
-    }, [firestore, appointment]);
-    const { data: patient } = useDoc<Patient>(patientDocRef);
-
-    const isLive = useMemo(() => {
-        if (!appointment || !isMounted) return false;
-        const aptDate = new Date(appointment.appointmentDateTime);
-        const now = new Date().getTime();
-        const startTime = aptDate.getTime();
-        const endTime = startTime + (50 * 60 * 1000);
-        return now >= startTime && now < endTime;
-    }, [appointment, isMounted]);
-
-    return (
-        <div className={cn(
-            "flex items-center justify-between p-3 rounded-lg border transition-all mb-2",
-            appointment ? (isLive ? "bg-primary/10 border-primary shadow-md scale-[1.02]" : "bg-primary/5 border-primary/20 shadow-sm") : "bg-muted/20 border-transparent opacity-60",
-            isDisabled && !appointment && "grayscale opacity-30"
-        )}>
-            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <p className="text-[10px] sm:text-xs font-bold text-muted-foreground w-14 sm:w-16 shrink-0">{time}</p>
-                {appointment ? (
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                        <div className="h-5 w-5 sm:h-6 sm:w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
-                            <User className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
-                        </div>
-                        <p className="text-xs sm:text-sm font-semibold truncate">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
-                    </div>
-                ) : (
-                    <p className="text-[10px] sm:text-xs italic text-muted-foreground truncate">{isDisabled ? "Off" : "Open"}</p>
-                )}
-            </div>
-            {appointment ? (
-                <Button 
-                    size="sm" 
-                    variant={isLive ? "default" : "ghost"} 
-                    className={cn(
-                        "h-7 px-2 sm:px-3 text-[10px] font-bold uppercase tracking-wider shrink-0",
-                        isLive ? "bg-red-600 hover:bg-red-700 animate-pulse" : "hover:bg-primary/10"
-                    )} 
-                    onClick={() => onSelect(appointment)}
-                >
-                    {isLive ? "Start Session" : "Manage"}
-                </Button>
-            ) : (
-                <Badge variant="outline" className="text-[9px] sm:text-[10px] font-bold text-muted-foreground border-dashed shrink-0">{isDisabled ? "Closed" : "Free"}</Badge>
-            )}
-        </div>
-    );
-}
-
 export default function DoctorPortalPage() {
     const { user, userData, isUserLoading } = useUserData();
     const firestore = useFirestore();
@@ -733,7 +732,6 @@ export default function DoctorPortalPage() {
                 alerts.push({ id: `new-${a.id}`, msg: `New Appointment: ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary' });
             }
 
-            // JOIN REMINDER: If a session has started and status is scheduled (not completed/cancelled)
             const aptDate = new Date(a.appointmentDateTime);
             const startTime = aptDate.getTime();
             const endTime = startTime + (50 * 60 * 1000);
@@ -775,12 +773,10 @@ export default function DoctorPortalPage() {
     };
 
     if (!mounted || isUserLoading) return (
-        <div className="flex-grow flex items-center justify-center bg-secondary/30">
+        <div className="flex min-h-screen items-center justify-center bg-secondary/30">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
     );
-
-    const isViewingToday = isSameDay(viewDate, new Date());
 
     return (
         <main className="flex-grow bg-secondary/30 py-4 sm:py-8">
@@ -813,7 +809,7 @@ export default function DoctorPortalPage() {
                                     <DialogHeader>
                                         <DialogTitle className="flex items-center gap-2 text-xl font-headline">
                                             <History className="h-5 w-5 text-primary" /> Lifetime Performance
-                                        </DialogTitle>
+                                        </History>
                                         <DialogDescription>Overview of your archived clinical activity.</DialogDescription>
                                     </DialogHeader>
                                     <div className="grid grid-cols-1 gap-4 py-6">
