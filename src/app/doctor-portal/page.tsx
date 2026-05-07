@@ -140,7 +140,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
             )}
         </div>
     );
-}
+};
 
 function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment }) {
     const firestore = useFirestore();
@@ -809,7 +809,7 @@ export default function DoctorPortalPage() {
                                     <DialogHeader>
                                         <DialogTitle className="flex items-center gap-2 text-xl font-headline">
                                             <History className="h-5 w-5 text-primary" /> Lifetime Performance
-                                        </History>
+                                        </DialogTitle>
                                         <DialogDescription>Overview of your archived clinical activity.</DialogDescription>
                                     </DialogHeader>
                                     <div className="grid grid-cols-1 gap-4 py-6">

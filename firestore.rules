@@ -4,7 +4,7 @@ service cloud.firestore {
 
     /**
      * MediConnect Global Access Policy - PROTOTYPE UNLOCK
-     * DEPLOYMENT_SIG: REFRESH_PERMISSIONS_2025_05_21_T14_30
+     * DEPLOYMENT_SIG: REFRESH_PERMISSIONS_2025_05_21_T14_45
      * 
      * This policy allows unrestricted access to all collections to resolve 
      * persistent "missing or insufficient permissions" errors during the 
