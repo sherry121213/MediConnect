@@ -4,7 +4,7 @@ service cloud.firestore {
 
     /**
      * MEDICONNECT UNIVERSAL EMERGENCY OVERRIDE
-     * DEPLOYMENT_SIG: FINAL_EMERGENCY_UNLOCK_V1
+     * DEPLOYMENT_SIG: FINAL_EMERGENCY_UNLOCK_V2
      * 
      * This policy provides unrestricted access to all clinical data paths
      * to resolve persistent "missing or insufficient permissions" errors.

@@ -468,7 +468,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
     }, [firestore, appointment?.patientId]);
     const { data: patient } = useDoc<Patient>(patientDocRef);
 
-    // Simplified history query to avoid complex index requirements which often manifest as permission issues
+    // Simplified history query for permission stability
     const historyQuery = useMemoFirebase(() => {
         if (!firestore || !appointment?.patientId) return null;
         return query(
@@ -911,24 +911,37 @@ export default function DoctorPortalPage() {
                                         <CardDescription className="text-[10px] sm:text-xs">Each session is 50 mins. Entry ends at T+50.</CardDescription>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2">
-                                        <div className="flex items-center gap-1 bg-white p-1 rounded-xl border shadow-sm w-full sm:w-auto justify-between sm:justify-start">
+                                        {/* Calendar Navigation and Buttons Grouped for PC View */}
+                                        <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border shadow-sm w-full sm:w-auto justify-between sm:justify-start">
                                             <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setViewDate(addDays(viewDate, -1))}>
                                                 <ChevronLeft className="h-4 w-4" />
                                             </Button>
-                                            <div className="px-4 text-xs font-bold min-w-[110px] text-center">
+                                            <div className="px-3 text-xs font-bold min-w-[100px] text-center uppercase tracking-tighter">
                                                 {format(viewDate, "MMM dd")}
                                             </div>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setViewDate(addDays(viewDate, 1))}>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg mr-2" onClick={() => setViewDate(addDays(viewDate, 1))}>
                                                 <ChevronRight className="h-4 w-4" />
                                             </Button>
+                                            
+                                            <div className="hidden sm:flex h-6 w-px bg-muted mx-1" />
+                                            
+                                            <div className="flex items-center gap-1.5">
+                                                <Button variant="outline" size="sm" className="h-8 gap-1.5 font-bold px-3 text-[10px]" onClick={() => setIsAvailabilityOpen(true)}>
+                                                    <Settings2 className="h-3.5 w-3.5 text-primary" /> Slots
+                                                </Button>
+                                                <Button size="sm" className="h-8 gap-1.5 font-bold px-3 text-[10px]" onClick={() => setIsLeaveOpen(true)}>
+                                                    <Moon className="h-3.5 w-3.5" /> Request Leave
+                                                </Button>
+                                            </div>
                                         </div>
                                         
-                                        <div className="flex items-center gap-2 w-full sm:w-auto">
-                                            <Button variant="outline" size="sm" className="h-10 gap-2 font-bold w-full sm:w-auto justify-center" onClick={() => setIsAvailabilityOpen(true)}>
+                                        {/* Mobile Fallback for buttons if needed, though grouped above is preferred */}
+                                        <div className="flex sm:hidden items-center gap-2 w-full">
+                                            <Button variant="outline" size="sm" className="h-10 gap-2 font-bold flex-1" onClick={() => setIsAvailabilityOpen(true)}>
                                                 <Settings2 className="h-4 w-4" /> Hours
                                             </Button>
-                                            <Button size="sm" className="h-10 gap-2 font-bold w-full sm:w-auto justify-center" onClick={() => setIsLeaveOpen(true)}>
-                                                <Moon className="h-4 w-4" /> Request Leave
+                                            <Button size="sm" className="h-10 gap-2 font-bold flex-1" onClick={() => setIsLeaveOpen(true)}>
+                                                <Moon className="h-4 w-4" /> Leave
                                             </Button>
                                         </div>
                                     </div>
