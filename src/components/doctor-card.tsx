@@ -11,6 +11,7 @@ import { useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Avatar, AvatarFallback } from './ui/avatar';
+import { cn } from '@/lib/utils';
 
 interface DoctorCardProps {
   doctor: Doctor;

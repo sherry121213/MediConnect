@@ -115,3 +115,20 @@
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
   background: hsl(var(--primary));
 }
+
+/* Desktop Mode Override */
+.force-desktop {
+  min-width: 1280px !important;
+  overflow-x: auto !important;
+}
+
+.force-desktop body {
+  min-width: 1280px !important;
+  overflow-x: visible !important;
+}
+
+.force-desktop header, 
+.force-desktop main, 
+.force-desktop footer {
+  min-width: 1280px !important;
+}

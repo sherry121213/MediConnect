@@ -15,6 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 // A list of major cities in Pakistan for the dropdown.
 const locations = ["Islamabad", "Rawalpindi", "Lahore", "Karachi", "Peshawar"];
@@ -32,8 +33,6 @@ export default function FindADoctorPage() {
 
   const doctorsCollection = useMemoFirebase(() => {
     if (!firestore) return null;
-    // We fetch the collection without complex filters to avoid missing index errors.
-    // Filtering for 'verified', 'profileComplete', and 'isActive' is done client-side.
     return collection(firestore, 'doctors');
   }, [firestore]);
 
@@ -84,7 +83,6 @@ export default function FindADoctorPage() {
   const filteredDoctors = useMemo(() => {
     if (!doctors) return [];
     return doctors.filter(doctor => {
-      // Primary visibility requirements: Verified, Active, and Complete Profile
       const isVisible = doctor.verified === true && doctor.isActive !== false && doctor.profileComplete === true;
       if (!isVisible) return false;
 

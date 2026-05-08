@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
@@ -188,11 +187,9 @@ export default function DoctorPortalPage() {
             });
 
             for (const apt of missedAppointments) {
-                // 1. Update Appointment Status
                 const aptRef = doc(firestore, 'appointments', apt.id);
                 updateDocumentNonBlocking(aptRef, { status: 'expired', updatedAt: new Date().toISOString() });
 
-                // 2. Notify Admin via Audit Log
                 const auditRef = collection(firestore, 'missedSessionAudits');
                 addDocumentNonBlocking(auditRef, {
                     appointmentId: apt.id,
@@ -227,7 +224,6 @@ export default function DoctorPortalPage() {
         const now = new Date();
         const yesterday = subDays(now, 1);
 
-        // REQUIREMENT: Session missed will be removed from section in upcoming
         const today = appointments.filter(apt => {
             if (!apt || !apt.appointmentDateTime) return false;
             const aptDate = new Date(apt.appointmentDateTime);
@@ -471,7 +467,6 @@ export default function DoctorPortalPage() {
 function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment | null, isMounted: boolean }) {
     const firestore = useFirestore();
     const { toast } = useToast();
-    const [isPostponeOpen, setIsPostponeOpen] = useState(false);
     
     const patientDocRef = useMemoFirebase(() => {
         if (!firestore || !appointment?.patientId) return null;
@@ -501,7 +496,6 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
     const isTimeReached = isMounted && now >= startTime && now < endTime;
 
     return (
-        <>
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full">
                 <Tabs defaultValue="overview" className="w-full">
@@ -541,42 +535,6 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
                         </TabsContent>
                     </div>
                 </Tabs>
-            </DialogContent>
-        </Dialog>
-        </>
-    );
-}
-
-// --- Rest of Dialogs (Postpone, Availability, Leave) omitted for brevity but preserved in final file ---
-function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment }) {
-    const firestore = useFirestore();
-    const { toast } = useToast();
-    const [isSaving, setIsSaving] = useState(false);
-    const form = useForm({ resolver: zodResolver(z.object({ newDate: z.date(), newTime: z.string().min(1) })), defaultValues: { newDate: addDays(new Date(), 1), newTime: "" }});
-    const onSubmit = async (values: any) => {
-        if (!firestore || !appointment) return;
-        setIsSaving(true);
-        const newDateTime = new Date(values.newDate);
-        const [hours, minutesPart] = values.newTime.split(':');
-        const [minutes, ampm] = minutesPart.split(' ');
-        let h = parseInt(hours);
-        if (ampm === 'PM' && h !== 12) h += 12;
-        if (ampm === 'AM' && h === 12) h = 0;
-        newDateTime.setHours(h, parseInt(minutes), 0, 0);
-        updateDocumentNonBlocking(doc(firestore, 'appointments', appointment.id), { appointmentDateTime: newDateTime.toISOString(), updatedAt: new Date().toISOString() });
-        toast({ title: "Postponed", description: `Moved to ${format(newDateTime, "PPP p")}` });
-        setIsSaving(false);
-        onOpenChange(false);
-    };
-    return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader><DialogTitle>Reschedule Session</DialogTitle></DialogHeader>
-                <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    <FormField control={form.control} name="newDate" render={({ field }) => (<FormItem><FormLabel>New Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className="w-full">{field.value ? format(field.value, "PPP") : "Select date"}</Button></FormControl></PopoverTrigger><PopoverContent><DayPickerCalendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(d) => isBefore(d, startOfDay(new Date()))} initialFocus/></PopoverContent></Popover></FormItem>)}/>
-                    <FormField control={form.control} name="newTime" render={({ field }) => (<FormItem><FormLabel>New Slot</FormLabel><div className="grid grid-cols-3 gap-2">{[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(t => (<Button key={t} type="button" variant={field.value === t ? "default" : "outline"} size="sm" onClick={() => field.onChange(t)}>{t}</Button>))}</div></FormItem>)}/>
-                    <Button type="submit" className="w-full" disabled={isSaving}>{isSaving ? <Loader2 className="animate-spin h-4 w-4"/> : "Confirm"}</Button>
-                </form></Form>
             </DialogContent>
         </Dialog>
     );
@@ -634,5 +592,4 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
                 </form></Form>
             </DialogContent>
         </Dialog>
-    );
 }
