@@ -7,7 +7,7 @@ import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Clock, History
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
-import { collection, query, where, doc, orderBy } from "firebase/firestore";
+import { collection, query, where, doc } from "firebase/firestore";
 import type { Appointment, Patient, Doctor } from "@/lib/types";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -18,7 +18,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
-import { format, isSameDay, startOfDay, addDays, subDays, isBefore, isValid, isAfter } from "date-fns";
+import { format, isSameDay, startOfDay, addDays, subDays, isBefore, isAfter } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { timeSlots } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -51,9 +51,9 @@ type LeaveFormValues = z.infer<typeof leaveRequestSchema>;
 const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSelect: (a: Appointment) => void, isMounted: boolean }) => {
     const firestore = useFirestore();
     const patientDocRef = useMemoFirebase(() => {
-        if (!firestore) return null;
+        if (!firestore || !apt?.patientId) return null;
         return doc(firestore, 'patients', apt.patientId);
-    }, [firestore, apt.patientId]);
+    }, [firestore, apt?.patientId]);
     const { data: patient } = useDoc<Patient>(patientDocRef);
 
     const appointmentDate = new Date(apt.appointmentDateTime);
@@ -93,9 +93,9 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
 const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { time: string, appointment?: Appointment, onSelect: (a: Appointment) => void, isDisabled?: boolean, isMounted: boolean }) => {
     const firestore = useFirestore();
     const patientDocRef = useMemoFirebase(() => {
-        if (!firestore || !appointment) return null;
+        if (!firestore || !appointment?.patientId) return null;
         return doc(firestore, 'patients', appointment.patientId);
-    }, [firestore, appointment]);
+    }, [firestore, appointment?.patientId]);
     const { data: patient } = useDoc<Patient>(patientDocRef);
 
     const isLive = useMemo(() => {
@@ -161,7 +161,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
     });
 
     const onSubmit = async (values: PostponeFormValues) => {
-        if (!firestore) return;
+        if (!firestore || !appointment) return;
         setIsSaving(true);
 
         const newDateTime = new Date(values.newDate);
@@ -266,7 +266,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
 function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean, onOpenChange: (open: boolean) => void, doctor: Doctor }) {
     const firestore = useFirestore();
     const { toast } = useToast();
-    const [disabledSlots, setDisabledSlots] = useState<string[]>(doctor.availability?.disabledSlots || []);
+    const [disabledSlots, setDisabledSlots] = useState<string[]>(doctor?.availability?.disabledSlots || []);
     const [isSaving, setIsSaving] = useState(false);
 
     const handleToggleSlot = (slot: string) => {
@@ -274,7 +274,7 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
     };
 
     const handleSave = async () => {
-        if (!firestore) return;
+        if (!firestore || !doctor) return;
         setIsSaving(true);
         const doctorRef = doc(firestore, 'doctors', doctor.id);
         updateDocumentNonBlocking(doctorRef, {
@@ -463,21 +463,28 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
     const [isPostponeOpen, setIsPostponeOpen] = useState(false);
     
     const patientDocRef = useMemoFirebase(() => {
-        if (!firestore || !appointment) return null;
+        if (!firestore || !appointment?.patientId) return null;
         return doc(firestore, 'patients', appointment.patientId);
-    }, [firestore, appointment]);
+    }, [firestore, appointment?.patientId]);
     const { data: patient } = useDoc<Patient>(patientDocRef);
 
+    // Simplified history query to avoid complex index requirements which often manifest as permission issues
     const historyQuery = useMemoFirebase(() => {
-        if (!firestore || !appointment) return null;
+        if (!firestore || !appointment?.patientId) return null;
         return query(
             collection(firestore, 'appointments'),
-            where('patientId', '==', appointment.patientId),
-            where('status', '==', 'completed'),
-            orderBy('appointmentDateTime', 'desc')
+            where('patientId', '==', appointment.patientId)
         );
-    }, [firestore, appointment]);
-    const { data: history, isLoadingHistory } = useCollection<Appointment>(historyQuery);
+    }, [firestore, appointment?.patientId]);
+    
+    const { data: rawHistory, isLoading: isLoadingHistory } = useCollection<Appointment>(historyQuery);
+
+    const filteredHistory = useMemo(() => {
+        if (!rawHistory) return [];
+        return rawHistory
+            .filter(a => a.status === 'completed' && a.id !== appointment?.id)
+            .sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime());
+    }, [rawHistory, appointment?.id]);
 
     const form = useForm<NotesFormValues>({
         resolver: zodResolver(notesSchema),
@@ -506,7 +513,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
     const appointmentDate = new Date(appointment.appointmentDateTime);
     const now = isMounted ? new Date().getTime() : 0;
     const startTime = appointmentDate.getTime();
-    const endTime = startTime + (50 * 60 * 1000); // 50m duration
+    const endTime = startTime + (50 * 60 * 1000); 
     
     const isTimeReached = isMounted && now >= startTime && now < endTime;
     const isExpired = isMounted && now >= endTime;
@@ -588,8 +595,8 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
                             <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                                 {isLoadingHistory ? (
                                     <div className="py-12 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
-                                ) : history && history.length > 0 ? (
-                                    history.map((record) => (
+                                ) : filteredHistory.length > 0 ? (
+                                    filteredHistory.map((record) => (
                                         <div key={record.id} className="p-4 border rounded-xl bg-muted/10 space-y-2">
                                             <div className="flex items-center justify-between">
                                                 <p className="text-xs font-bold text-primary">{format(new Date(record.appointmentDateTime), "MMM dd, yyyy")}</p>

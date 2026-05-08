@@ -3,25 +3,24 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * MediConnect Absolute Permissive Policy
-     * DEPLOYMENT_SIG: FINAL_PERMISSION_SYNC_2025_05_21_T17_15
+     * MEDICONNECT UNIVERSAL EMERGENCY OVERRIDE
+     * DEPLOYMENT_SIG: FINAL_EMERGENCY_UNLOCK_V1
      * 
-     * This policy allows unrestricted access to ALL collections and documents
-     * to definitively resolve any "missing or insufficient permissions" errors
-     * during the clinical testing phase.
+     * This policy provides unrestricted access to all clinical data paths
+     * to resolve persistent "missing or insufficient permissions" errors.
      */
 
     match /{document=**} {
       allow read, write: if true;
     }
 
-    // Explicit recursive matches for critical clinical paths to ensure 'list' and 'get' operations are cleared
-    match /appointments/{any=**} { allow read, write: if true; }
-    match /patients/{any=**} { allow read, write: if true; }
-    match /doctors/{any=**} { allow read, write: if true; }
-    match /consultationSessions/{any=**} { allow read, write: if true; }
-    match /doctorUnavailabilityRequests/{any=**} { allow read, write: if true; }
-    match /adminDoctorChatSessions/{any=**} { allow read, write: if true; }
-    match /roles_admin/{any=**} { allow read, write: if true; }
+    // Redundant explicit matches for core clinical collections
+    match /appointments/{doc=**} { allow read, write: if true; }
+    match /patients/{doc=**} { allow read, write: if true; }
+    match /doctors/{doc=**} { allow read, write: if true; }
+    match /consultationSessions/{doc=**} { allow read, write: if true; }
+    match /doctorUnavailabilityRequests/{doc=**} { allow read, write: if true; }
+    match /adminDoctorChatSessions/{doc=**} { allow read, write: if true; }
+    match /roles_admin/{doc=**} { allow read, write: if true; }
   }
 }
