@@ -340,7 +340,7 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
     const firestore = useFirestore();
     const { toast } = useToast();
     
-    const form = useForm<LeaveFormValues>({
+    const form = useForm<LeaveRequestValues>({
         resolver: zodResolver(leaveRequestSchema),
         defaultValues: { 
             reason: '',
@@ -355,7 +355,7 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
         }
     }, [isOpen, defaultDate, form]);
 
-    const onSubmit = (values: LeaveFormValues) => {
+    const onSubmit = (values: LeaveRequestValues) => {
         if (!firestore) return;
         const colRef = collection(firestore, 'doctorUnavailabilityRequests');
         addDocumentNonBlocking(colRef, {
@@ -468,7 +468,6 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
     }, [firestore, appointment?.patientId]);
     const { data: patient } = useDoc<Patient>(patientDocRef);
 
-    // Simplified history query for permission stability
     const historyQuery = useMemoFirebase(() => {
         if (!firestore || !appointment?.patientId) return null;
         return query(
@@ -535,7 +534,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
                     <div className="p-4 sm:p-6">
                         <TabsContent value="overview" className="mt-0 space-y-6">
                             <div className="flex items-center gap-4 p-4 border rounded-2xl bg-muted/20">
-                                <Avatar className="h-12 w-12 sm:h-14 sm:w-14 border-2 border-white shadow-sm">
+                                <Avatar className="h-12 w-12 sm:h-14 sm:w-14 border-2 border-white shadow-sm shrink-0">
                                     <AvatarFallback className="bg-primary text-white font-bold">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback>
                                 </Avatar>
                                 {patient && (
@@ -901,7 +900,7 @@ export default function DoctorPortalPage() {
                     </div>
 
                     <div className="lg:col-span-8 space-y-6">
-                        <Card className="border-none shadow-2xl relative bg-white">
+                        <Card className="border-none shadow-2xl relative bg-white overflow-hidden">
                             <CardHeader className="border-b bg-muted/5 z-10 p-4 sm:p-6">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                                     <div className="space-y-1">
@@ -911,38 +910,28 @@ export default function DoctorPortalPage() {
                                         <CardDescription className="text-[10px] sm:text-xs">Each session is 50 mins. Entry ends at T+50.</CardDescription>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-2">
-                                        {/* Calendar Navigation and Buttons Grouped for PC View */}
+                                        {/* Calendar Navigation and Buttons Grouped for PC & Mobile */}
                                         <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border shadow-sm w-full sm:w-auto justify-between sm:justify-start">
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg" onClick={() => setViewDate(addDays(viewDate, -1))}>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg shrink-0" onClick={() => setViewDate(addDays(viewDate, -1))}>
                                                 <ChevronLeft className="h-4 w-4" />
                                             </Button>
-                                            <div className="px-3 text-xs font-bold min-w-[100px] text-center uppercase tracking-tighter">
+                                            <div className="px-3 text-xs font-bold min-w-[80px] sm:min-w-[100px] text-center uppercase tracking-tighter">
                                                 {format(viewDate, "MMM dd")}
                                             </div>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg mr-2" onClick={() => setViewDate(addDays(viewDate, 1))}>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg mr-1 sm:mr-2 shrink-0" onClick={() => setViewDate(addDays(viewDate, 1))}>
                                                 <ChevronRight className="h-4 w-4" />
                                             </Button>
                                             
                                             <div className="hidden sm:flex h-6 w-px bg-muted mx-1" />
                                             
-                                            <div className="flex items-center gap-1.5">
-                                                <Button variant="outline" size="sm" className="h-8 gap-1.5 font-bold px-3 text-[10px]" onClick={() => setIsAvailabilityOpen(true)}>
-                                                    <Settings2 className="h-3.5 w-3.5 text-primary" /> Slots
+                                            <div className="flex items-center gap-1.5 shrink-0">
+                                                <Button variant="outline" size="sm" className="h-8 gap-1.5 font-bold px-2 sm:px-3 text-[10px]" onClick={() => setIsAvailabilityOpen(true)}>
+                                                    <Settings2 className="h-3.5 w-3.5 text-primary" /> <span className="hidden xs:inline">Slots</span>
                                                 </Button>
-                                                <Button size="sm" className="h-8 gap-1.5 font-bold px-3 text-[10px]" onClick={() => setIsLeaveOpen(true)}>
-                                                    <Moon className="h-3.5 w-3.5" /> Request Leave
+                                                <Button size="sm" className="h-8 gap-1.5 font-bold px-2 sm:px-3 text-[10px]" onClick={() => setIsLeaveOpen(true)}>
+                                                    <Moon className="h-3.5 w-3.5" /> <span className="hidden xs:inline">Leave</span>
                                                 </Button>
                                             </div>
-                                        </div>
-                                        
-                                        {/* Mobile Fallback for buttons if needed, though grouped above is preferred */}
-                                        <div className="flex sm:hidden items-center gap-2 w-full">
-                                            <Button variant="outline" size="sm" className="h-10 gap-2 font-bold flex-1" onClick={() => setIsAvailabilityOpen(true)}>
-                                                <Settings2 className="h-4 w-4" /> Hours
-                                            </Button>
-                                            <Button size="sm" className="h-10 gap-2 font-bold flex-1" onClick={() => setIsLeaveOpen(true)}>
-                                                <Moon className="h-4 w-4" /> Leave
-                                            </Button>
                                         </div>
                                     </div>
                                 </div>
@@ -1048,3 +1037,8 @@ export default function DoctorPortalPage() {
         </main>
     );
 }
+
+type LeaveRequestValues = {
+  requestedDate: Date;
+  reason: string;
+};

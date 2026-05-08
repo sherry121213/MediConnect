@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MoreHorizontal, PlusCircle, UserX, UserCheck } from "lucide-react";
+import { MoreHorizontal, PlusCircle, UserX, UserCheck, Stethoscope } from "lucide-react";
 import Image from "next/image";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
@@ -105,7 +105,7 @@ export default function AdminDoctorsPage() {
             specialty: values.specialty,
             location: values.location,
             verified: false,
-            isActive: true, // Default to active
+            isActive: true, 
             rating: 0,
             reviews: 0,
             profileImageId: 'doctor' + (Math.floor(Math.random() * 8) + 1),
@@ -127,14 +127,12 @@ export default function AdminDoctorsPage() {
     const handleVerifyDoctor = async (doctorId: string) => {
         if (!firestore) return;
         const doctorDocRef = doc(firestore, 'doctors', doctorId);
-        // Once verified by admin, we also mark profile as complete so they can access the portal immediately
         updateDocumentNonBlocking(doctorDocRef, { 
             verified: true, 
             profileComplete: true, 
             updatedAt: new Date().toISOString() 
         });
 
-        // Also update the patients collection which is the source of truth for user data and portal routing
         const patientDocRef = doc(firestore, 'patients', doctorId);
         updateDocumentNonBlocking(patientDocRef, {
             verified: true,
@@ -160,12 +158,15 @@ export default function AdminDoctorsPage() {
     };
 
     return (
-    <div className="p-4 md:p-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold font-headline">Manage Doctors</h1>
+    <div className="p-4 md:p-8 space-y-6">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div>
+            <h1 className="text-2xl sm:text-3xl font-bold font-headline">Manage Doctors</h1>
+            <p className="text-muted-foreground text-sm">Review and manage professional identities.</p>
+        </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="w-full sm:w-auto">
               <PlusCircle className="mr-2 h-4 w-4" />
               Add Doctor
             </Button>
@@ -246,13 +247,13 @@ export default function AdminDoctorsPage() {
                             </FormItem>
                         )}
                     />
-                    <DialogFooter>
+                    <DialogFooter className="gap-2">
                         <DialogClose asChild>
-                            <Button type="button" variant="secondary">
+                            <Button type="button" variant="secondary" className="w-full sm:w-auto">
                                 Cancel
                             </Button>
                         </DialogClose>
-                        <Button type="submit" disabled={form.formState.isSubmitting}>
+                        <Button type="submit" disabled={form.formState.isSubmitting} className="w-full sm:w-auto">
                             {form.formState.isSubmitting ? "Adding..." : "Add Doctor"}
                         </Button>
                     </DialogFooter>
@@ -261,123 +262,131 @@ export default function AdminDoctorsPage() {
           </DialogContent>
         </Dialog>
       </div>
-      <div className="border rounded-lg">
-         <AlertDialog>
-            <Table>
-            <TableHeader>
-                <TableRow>
-                <TableHead>Doctor</TableHead>
-                <TableHead>Specialty</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead className="hidden md:table-cell">Location</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-            </TableHeader>
-            <TableBody>
-                {isLoadingDoctors && Array.from({length: 5}).map((_, i) => (
-                    <TableRow key={i}>
-                        <TableCell><Skeleton className="h-10 w-48"/></TableCell>
-                        <TableCell><Skeleton className="h-6 w-24"/></TableCell>
-                        <TableCell><Skeleton className="h-6 w-20"/></TableCell>
-                        <TableCell className="hidden md:table-cell"><Skeleton className="h-6 w-24"/></TableCell>
-                        <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto"/></TableCell>
-                    </TableRow>
-                ))}
-                {doctors && doctors.map((doctor: Doctor) => {
-                const doctorImage = placeholderImages.find(p => p.id === doctor.profileImageId);
-                const name = `${doctor.firstName} ${doctor.lastName}`;
-                const isActive = doctor.isActive !== false; // Handle undefined as active
 
-                return (
-                <TableRow key={doctor.id} className={!isActive ? "opacity-60 bg-muted/30" : ""}>
-                    <TableCell className="font-medium">
-                    <div className="flex items-center gap-3">
-                        {doctorImage && (
-                            <Image
-                                src={doctorImage.imageUrl}
-                                alt={name}
-                                width={40}
-                                height={40}
-                                className="rounded-full"
-                                data-ai-hint={doctorImage.imageHint}
-                            />
-                        )}
-                        <span className="truncate">{name}</span>
-                    </div>
-                    </TableCell>
-                    <TableCell>{doctor.specialty}</TableCell>
-                    <TableCell>
-                        <div className="flex flex-col gap-1">
-                            <Badge variant={doctor.verified ? "secondary" : "destructive"} className={doctor.verified ? "bg-green-100 text-green-800" : ""}>
-                                {doctor.verified ? "Verified" : "Pending"}
-                            </Badge>
-                            {!isActive && (
-                                <Badge variant="outline" className="border-destructive text-destructive">
-                                    Disabled
-                                </Badge>
-                            )}
-                        </div>
-                    </TableCell>
-                    <TableCell className="hidden md:table-cell">{doctor.location}</TableCell>
-                    <TableCell className="text-right">
-                    <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" className="h-8 w-8 p-0">
-                            <span className="sr-only">Open menu</span>
-                            <MoreHorizontal className="h-4 w-4" />
-                        </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                        {doctor.verified === false && <DropdownMenuItem onClick={() => handleVerifyDoctor(doctor.id)}>Verify</DropdownMenuItem>}
-                        <DropdownMenuItem asChild>
-                           <Link href={`/admin/doctors/${doctor.id}`}>View Profile</Link>
-                        </DropdownMenuItem>
-                        
-                        <AlertDialogTrigger asChild>
-                            <DropdownMenuItem className={isActive ? "text-destructive" : "text-primary"} onSelect={(e) => e.preventDefault()}>
-                                {isActive ? "Disable Account" : "Enable Account"}
-                            </DropdownMenuItem>
-                        </AlertDialogTrigger>
-                        </DropdownMenuContent>
-                    </DropdownMenu>
-                    <AlertDialogContent>
-                        <AlertDialogHeader>
-                            <AlertDialogTitle>{isActive ? "Disable Doctor Account?" : "Enable Doctor Account?"}</AlertDialogTitle>
-                            <AlertDialogDescription>
-                                {isActive 
-                                    ? "Disabling this account will prevent the doctor from logging in, accessing their portal, and being visible to patients."
-                                    : "Enabling this account will restore access for the doctor and make them visible to patients again."}
-                            </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                            <AlertDialogCancel>Cancel</AlertDialogCancel>
-                            <AlertDialogAction 
-                                onClick={() => handleToggleDoctorStatus(doctor.id, isActive)} 
-                                className={isActive ? "bg-destructive hover:bg-destructive/90" : "bg-primary hover:bg-primary/90"}
-                            >
-                                {isActive ? "Disable" : "Enable"}
-                            </AlertDialogAction>
-                        </AlertDialogFooter>
-                    </AlertDialogContent>
-                    </TableCell>
-                </TableRow>
-                )})}
-                {!isLoadingDoctors && doctors?.length === 0 && (
+      <div className="border rounded-xl shadow-sm bg-white overflow-hidden">
+         <AlertDialog>
+            <div className="overflow-x-auto">
+                <Table>
+                <TableHeader className="bg-muted/30">
                     <TableRow>
-                        <TableCell colSpan={5} className="text-center h-24">No doctors found.</TableCell>
+                    <TableHead className="py-4">Doctor</TableHead>
+                    <TableHead>Specialty</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="hidden lg:table-cell">Location</TableHead>
+                    <TableHead className="text-right pr-6">Actions</TableHead>
                     </TableRow>
-                )}
-                {error && (
-                    <TableRow>
-                        <TableCell colSpan={5} className="text-center h-24 text-destructive">
-                            Error loading doctors: {error.message}
+                </TableHeader>
+                <TableBody>
+                    {isLoadingDoctors && Array.from({length: 5}).map((_, i) => (
+                        <TableRow key={i}>
+                            <TableCell><Skeleton className="h-10 w-48"/></TableCell>
+                            <TableCell><Skeleton className="h-6 w-24"/></TableCell>
+                            <TableCell><Skeleton className="h-6 w-20"/></TableCell>
+                            <TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-24"/></TableCell>
+                            <TableCell className="text-right pr-6"><Skeleton className="h-8 w-8 ml-auto"/></TableCell>
+                        </TableRow>
+                    ))}
+                    {doctors && doctors.map((doctor: Doctor) => {
+                    const doctorImage = placeholderImages.find(p => p.id === doctor.profileImageId);
+                    const name = `${doctor.firstName} ${doctor.lastName}`;
+                    const isActive = doctor.isActive !== false;
+
+                    return (
+                    <TableRow key={doctor.id} className={!isActive ? "opacity-60 bg-muted/30" : "hover:bg-muted/5 transition-colors"}>
+                        <TableCell className="font-bold py-4">
+                        <div className="flex items-center gap-3">
+                            <div className="relative h-10 w-10 shrink-0">
+                                {doctorImage ? (
+                                    <Image
+                                        src={doctorImage.imageUrl}
+                                        alt={name}
+                                        fill
+                                        className="rounded-full object-cover border-2 border-primary/10"
+                                        data-ai-hint={doctorImage.imageHint}
+                                    />
+                                ) : (
+                                    <div className="h-full w-full rounded-full bg-primary/5 flex items-center justify-center text-primary font-bold">
+                                        {doctor.firstName[0]}
+                                    </div>
+                                )}
+                            </div>
+                            <span className="truncate max-w-[150px]">{name}</span>
+                        </div>
+                        </TableCell>
+                        <TableCell>
+                            <Badge variant="outline" className="font-bold text-[10px] uppercase tracking-tighter border-primary/20 text-primary">
+                                {doctor.specialty}
+                            </Badge>
+                        </TableCell>
+                        <TableCell>
+                            <div className="flex flex-col gap-1">
+                                <Badge variant={doctor.verified ? "secondary" : "destructive"} className={doctor.verified ? "bg-green-100 text-green-800 border-green-200" : ""}>
+                                    {doctor.verified ? "Verified" : "Pending"}
+                                </Badge>
+                                {!isActive && (
+                                    <Badge variant="outline" className="border-destructive text-destructive text-[9px] h-4">
+                                        Disabled
+                                    </Badge>
+                                )}
+                            </div>
+                        </TableCell>
+                        <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">{doctor.location}</TableCell>
+                        <TableCell className="text-right pr-6">
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" className="h-9 w-9 p-0 rounded-xl hover:bg-slate-100">
+                                <span className="sr-only">Open menu</span>
+                                <MoreHorizontal className="h-4 w-4" />
+                            </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48 rounded-xl border-2">
+                            <DropdownMenuLabel>Account Control</DropdownMenuLabel>
+                            {doctor.verified === false && <DropdownMenuItem onClick={() => handleVerifyDoctor(doctor.id)} className="font-bold text-green-600">Approve Profile</DropdownMenuItem>}
+                            <DropdownMenuItem asChild>
+                               <Link href={`/admin/doctors/${doctor.id}`} className="cursor-pointer">View Professional File</Link>
+                            </DropdownMenuItem>
+                            
+                            <AlertDialogTrigger asChild>
+                                <DropdownMenuItem className={isActive ? "text-destructive" : "text-primary"} onSelect={(e) => e.preventDefault()}>
+                                    {isActive ? "Deactivate Account" : "Re-activate Account"}
+                                </DropdownMenuItem>
+                            </AlertDialogTrigger>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                        <AlertDialogContent className="rounded-2xl border-none shadow-2xl">
+                            <AlertDialogHeader>
+                                <AlertDialogTitle>{isActive ? "Suspend Doctor Access?" : "Restore Doctor Access?"}</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                    {isActive 
+                                        ? "Suspending this account will block portal access and hide the doctor from search results immediately."
+                                        : "Restoring access will allow the doctor to resume clinical sessions and patient bookings."}
+                                </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter className="gap-2">
+                                <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                                <AlertDialogAction 
+                                    onClick={() => handleToggleDoctorStatus(doctor.id, isActive)} 
+                                    className={cn("rounded-xl font-bold", isActive ? "bg-destructive hover:bg-destructive/90" : "bg-primary hover:bg-primary/90")}
+                                >
+                                    {isActive ? "Confirm Suspension" : "Confirm Restoration"}
+                                </AlertDialogAction>
+                            </AlertDialogFooter>
+                        </AlertDialogContent>
                         </TableCell>
                     </TableRow>
-                )}
-            </TableBody>
-            </Table>
-        </AlertDialog>
+                    )})}
+                    {!isLoadingDoctors && doctors?.length === 0 && (
+                        <TableRow>
+                            <TableCell colSpan={5} className="text-center py-24 text-muted-foreground italic">
+                                <Stethoscope className="h-12 w-12 mx-auto mb-4 opacity-10" />
+                                No clinical professionals found.
+                            </TableCell>
+                        </TableRow>
+                    )}
+                </TableBody>
+                </Table>
+            </div>
+         </AlertDialog>
       </div>
     </div>
   );

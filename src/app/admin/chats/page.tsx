@@ -25,28 +25,28 @@ const DoctorListItem = ({ session }: { session: any }) => {
   return (
     <Link href={`/admin/chats/${session.id}`}>
       <div className={`flex items-center justify-between p-4 hover:bg-muted/50 transition-colors border-b last:border-0 ${isUnread ? 'bg-primary/5' : ''}`}>
-        <div className="flex items-center gap-4">
-          <div className="relative">
+        <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+          <div className="relative shrink-0">
             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold">
                 {doctor ? doctor.firstName[0] : <User className="h-5 w-5" />}
             </div>
             {isUnread && <span className="absolute -top-1 -right-1 flex h-3 w-3 rounded-full bg-primary border-2 border-white" />}
           </div>
-          <div>
-            <p className={`font-bold ${isUnread ? 'text-primary' : ''}`}>
+          <div className="min-w-0">
+            <p className={`font-bold text-sm sm:text-base truncate ${isUnread ? 'text-primary' : ''}`}>
                 {doctor ? `Dr. ${doctor.firstName} ${doctor.lastName}` : 'Loading...'}
             </p>
-            <p className="text-xs text-muted-foreground truncate max-w-[200px]">
+            <p className="text-xs text-muted-foreground truncate max-w-[150px] sm:max-w-[200px]">
                 {session.lastMessageContent || doctor?.email}
             </p>
           </div>
         </div>
-        <div className="text-right">
-          <p className="text-[10px] uppercase font-bold text-muted-foreground">Last Active</p>
-          <p className="text-xs">
-            {session.lastMessageAt ? format(new Date(session.lastMessageAt), "MMM dd, p") : format(new Date(session.createdAt), "MMM dd, p")}
+        <div className="text-right shrink-0">
+          <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-tighter">Last Active</p>
+          <p className="text-[10px] sm:text-xs font-medium">
+            {session.lastMessageAt ? format(new Date(session.lastMessageAt), "MMM dd") : format(new Date(session.createdAt), "MMM dd")}
           </p>
-          {isUnread && <Badge variant="secondary" className="h-4 text-[8px] bg-primary text-white mt-1">NEW REPLY</Badge>}
+          {isUnread && <Badge variant="secondary" className="h-4 text-[7px] bg-primary text-white mt-1 px-1.5 uppercase font-bold">New Reply</Badge>}
         </div>
       </div>
     </Link>
@@ -77,24 +77,24 @@ export default function AdminChatsPage() {
 
   return (
     <div className="p-4 md:p-8 space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold font-headline">Clinical Support Center</h1>
-          <p className="text-muted-foreground">Manage ongoing conversations with healthcare providers.</p>
+          <h1 className="text-2xl sm:text-3xl font-bold font-headline">Support Center</h1>
+          <p className="text-muted-foreground text-sm">Manage communications with verified providers.</p>
         </div>
-        <div className="relative w-full md:w-80">
+        <div className="relative w-full sm:w-80">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input 
             placeholder="Search sessions..." 
-            className="pl-9"
+            className="pl-9 h-11 sm:h-10"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
       </div>
 
-      <Card className="max-w-4xl border-none shadow-lg">
-        <CardHeader className="bg-primary/5">
+      <Card className="max-w-4xl border-none shadow-xl bg-white overflow-hidden rounded-2xl">
+        <CardHeader className="bg-primary/5 border-b">
           <CardTitle className="text-lg flex items-center gap-2">
             <MessageSquare className="h-5 w-5 text-primary" /> Active Sessions
           </CardTitle>
@@ -109,7 +109,7 @@ export default function AdminChatsPage() {
               ))}
             </div>
           ) : (
-            <div className="text-center py-24 text-muted-foreground">
+            <div className="text-center py-24 text-muted-foreground italic">
               <Shield className="h-12 w-12 mx-auto mb-4 opacity-10" />
               <p>No active support sessions found.</p>
             </div>

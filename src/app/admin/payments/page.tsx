@@ -79,12 +79,12 @@ export default function AdminPaymentsPage() {
   const getPaymentStatusBadge = (status?: string) => {
     switch (status) {
       case 'approved':
-        return <Badge className="bg-green-100 text-green-800 border-green-200 gap-1.5"><ShieldCheck className="h-3 w-3" /> Approved</Badge>;
+        return <Badge className="bg-green-100 text-green-800 border-green-200 gap-1.5 font-bold text-[9px] uppercase"><ShieldCheck className="h-3 w-3" /> Approved</Badge>;
       case 'rejected':
-        return <Badge variant="destructive">Rejected</Badge>;
+        return <Badge variant="destructive" className="font-bold text-[9px] uppercase">Rejected</Badge>;
       case 'pending':
       default:
-        return <Badge className="bg-amber-100 text-amber-800 border-amber-200">Pending Review</Badge>;
+        return <Badge className="bg-amber-100 text-amber-800 border-amber-200 font-bold text-[9px] uppercase">Review</Badge>;
     }
   };
 
@@ -95,7 +95,7 @@ export default function AdminPaymentsPage() {
 
   return (
     <div className="p-4 md:p-8 space-y-6">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">
             <div className="p-2.5 bg-primary text-white rounded-xl shadow-lg shadow-primary/20">
             <CreditCard className="h-6 w-6" />
@@ -119,7 +119,7 @@ export default function AdminPaymentsPage() {
                 <TableHead className="hidden md:table-cell">Transaction Date</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead className="text-center">Evidence</TableHead>
-                <TableHead className="text-right">Settlement</TableHead>
+                <TableHead className="text-right pr-6">Settlement</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -132,7 +132,7 @@ export default function AdminPaymentsPage() {
                       <TableCell className="hidden md:table-cell"><Skeleton className="h-6 w-24"/></TableCell>
                       <TableCell><Skeleton className="h-6 w-20"/></TableCell>
                       <TableCell className="text-center"><Skeleton className="h-8 w-8 mx-auto"/></TableCell>
-                      <TableCell className="text-right"><Skeleton className="h-8 w-8 ml-auto"/></TableCell>
+                      <TableCell className="text-right pr-6"><Skeleton className="h-8 w-8 ml-auto"/></TableCell>
                   </TableRow>
               ))}
               {!isLoading && combinedData.map((payment) => (
@@ -148,7 +148,7 @@ export default function AdminPaymentsPage() {
                           )}>
                               {getChannelIcon(payment.paymentMethod)}
                           </div>
-                          <Badge variant="outline" className="font-bold border-slate-200 text-slate-700 uppercase text-[10px] whitespace-nowrap">
+                          <Badge variant="outline" className="font-bold border-slate-200 text-slate-700 uppercase text-[9px] whitespace-nowrap">
                           {payment.paymentMethod}
                           </Badge>
                       </div>
@@ -156,7 +156,7 @@ export default function AdminPaymentsPage() {
                       <span className="text-[10px] text-muted-foreground font-bold uppercase opacity-40">System Legacy</span>
                     )}
                   </TableCell>
-                  <TableCell className="hidden lg:table-cell font-mono font-bold text-slate-800">PKR {payment.amount?.toLocaleString() || '1,500'}</TableCell>
+                  <TableCell className="hidden lg:table-cell font-mono font-bold text-slate-800 text-sm">PKR {payment.amount?.toLocaleString() || '1,500'}</TableCell>
                   <TableCell className="hidden md:table-cell text-xs text-muted-foreground">
                       <p className="font-medium text-slate-600">{new Date(payment.createdAt).toLocaleDateString()}</p>
                       <p className="text-[9px] uppercase">{new Date(payment.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</p>
@@ -174,7 +174,7 @@ export default function AdminPaymentsPage() {
                           <span className="text-[10px] text-muted-foreground italic font-bold opacity-30">N/A</span>
                       )}
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right pr-6">
                       {payment.paymentStatus === 'pending' && (
                           <DropdownMenu>
                               <DropdownMenuTrigger asChild>
@@ -198,7 +198,7 @@ export default function AdminPaymentsPage() {
               ))}
               {!isLoading && combinedData.length === 0 && (
                   <TableRow>
-                      <TableCell colSpan={8} className="text-center h-48 text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center h-48 text-muted-foreground italic">
                           <Landmark className="h-12 w-12 mx-auto mb-4 opacity-10" />
                           <p className="font-bold text-lg">No audit records found</p>
                           <p className="text-sm px-4">Patient transactions will appear here for verification.</p>

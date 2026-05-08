@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, PhoneCall, RefreshCw, CalendarIcon } from "lucide-react";
+import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, PhoneCall, RefreshCw, CalendarIcon, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
@@ -254,9 +254,9 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
             "hover:shadow-lg transition-all border-l-4 bg-card/50 backdrop-blur-sm overflow-hidden",
             isTimeReached ? "border-l-red-500 bg-red-50/10 shadow-md scale-[1.01]" : "border-l-primary/40"
         )}>
-            <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-6 sm:gap-8">
+            <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-8">
                 <div className="flex items-center gap-4 sm:gap-6 flex-1 min-w-0">
-                    <div className="relative h-14 w-14 sm:h-16 sm:w-16 shrink-0 shadow-inner rounded-full overflow-hidden bg-muted">
+                    <div className="relative h-12 w-12 sm:h-16 sm:w-16 shrink-0 shadow-inner rounded-full overflow-hidden bg-muted">
                         {isLoadingDoctor ? (
                              <div className="h-full w-full flex items-center justify-center"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
                         ) : doctor?.photoURL || doctorImage ? (
@@ -269,60 +269,58 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                             />
                         ) : (
                             <div className="h-full w-full bg-primary/10 flex items-center justify-center text-primary">
-                                <Stethoscope className="h-6 w-6 sm:h-8 sm:w-8" />
+                                <Stethoscope className="h-5 w-5 sm:h-8 sm:w-8" />
                             </div>
                         )}
                     </div>
                     <div className="space-y-1 min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <p className="font-bold text-lg sm:text-xl leading-tight tracking-tight truncate max-w-full">
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
+                            <p className="font-bold text-base sm:text-lg leading-tight tracking-tight truncate max-w-full">
                                 {isLoadingDoctor ? 'Loading...' : `Dr. ${doctor?.firstName} ${doctor?.lastName}`}
                             </p>
                             {isTimeReached && (
-                                <Badge className="bg-red-600 text-white animate-pulse h-4 text-[8px] sm:text-[9px]">LIVE SESSION</Badge>
+                                <Badge className="bg-red-600 text-white animate-pulse h-4 text-[7px] sm:text-[9px] px-1.5 uppercase font-bold">LIVE</Badge>
                             )}
                             {!isTimeReached && !isExpired && (
-                                <Badge variant="outline" className="text-[9px] h-4 border-primary/20 text-primary font-bold shrink-0">50m Slot</Badge>
+                                <Badge variant="outline" className="text-[7px] sm:text-[9px] h-4 border-primary/20 text-primary font-bold shrink-0 px-1.5 uppercase">Awaiting</Badge>
                             )}
                         </div>
-                        <p className="text-xs sm:text-sm text-primary font-bold uppercase tracking-wider opacity-80 truncate">{doctor?.specialty || 'General Physician'}</p>
-                        <div className="flex flex-wrap items-center gap-2 pt-1">
-                            <Badge variant="secondary" className="bg-primary/5 text-primary-dark border-primary/10 flex items-center gap-1.5 px-2 text-[10px] sm:text-xs font-bold">
-                                <CalendarIcon className="w-3 h-3" /> {format(appointmentDate, "MMM dd, yyyy")}
+                        <p className="text-[10px] sm:text-xs text-primary font-bold uppercase tracking-wider opacity-80 truncate">{doctor?.specialty || 'Medical Specialist'}</p>
+                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-1">
+                            <Badge variant="secondary" className="bg-primary/5 text-primary-dark border-primary/10 flex items-center gap-1 px-1.5 text-[8px] sm:text-[10px] font-bold">
+                                <CalendarIcon className="w-2.5 h-2.5" /> {format(appointmentDate, "MMM dd")}
                             </Badge>
-                            <Badge variant="outline" className="flex items-center gap-1.5 px-2 text-[10px] sm:text-xs font-bold">
-                                <Clock className="w-3 h-3" /> {format(appointmentDate, "p")}
+                            <Badge variant="outline" className="flex items-center gap-1 px-1.5 text-[8px] sm:text-[10px] font-bold">
+                                <Clock className="w-2.5 h-2.5" /> {format(appointmentDate, "p")}
                             </Badge>
                         </div>
                     </div>
                 </div>
-                <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                <div className="flex flex-row sm:flex-col gap-2 shrink-0 w-full sm:w-auto">
                     {apt.paymentStatus === 'pending' ? (
-                        <div className="flex flex-col gap-1 items-center w-full">
-                            <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 px-4 py-2 font-bold whitespace-nowrap w-full justify-center">
-                                <Clock className="w-3 h-3 mr-2" /> Pending Verification
-                            </Badge>
-                        </div>
+                        <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 px-3 py-2 font-bold text-[9px] sm:text-[10px] whitespace-nowrap w-full justify-center">
+                            <Clock className="w-3 h-3 mr-1.5" /> Verifying Payment
+                        </Badge>
                     ) : isUpcoming ? (
                         <>
                             {!isExpired && !isTimeReached && (
-                                <Button variant="outline" size="sm" className="font-bold border-2 w-full sm:w-auto h-10 sm:h-9" onClick={() => onPostpone(apt)}>
-                                    <RefreshCw className="mr-2 h-4 w-4" /> Postpone
+                                <Button variant="outline" size="sm" className="font-bold border-2 h-9 flex-1 sm:w-auto text-[10px]" onClick={() => onPostpone(apt)}>
+                                    <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Postpone
                                 </Button>
                             )}
                             <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                     {isTimeReached ? (
-                                        <Button className="w-full sm:w-auto font-bold h-10 sm:h-9 shadow-lg shadow-primary/20 bg-red-600 hover:bg-red-700 animate-pulse">
-                                            Join Session Now
+                                        <Button className="font-bold h-9 flex-1 sm:w-auto shadow-lg shadow-primary/20 bg-red-600 hover:bg-red-700 animate-pulse text-[10px]">
+                                            Join Now
                                         </Button>
                                     ) : isExpired ? (
-                                        <Button variant="secondary" className="w-full sm:w-auto font-bold h-10 sm:h-9 opacity-50 cursor-not-allowed" disabled>
-                                            Session Expired
+                                        <Button variant="secondary" className="font-bold h-9 flex-1 sm:w-auto opacity-50 cursor-not-allowed text-[10px]" disabled>
+                                            Expired
                                         </Button>
                                     ) : (
-                                        <Button className="w-full sm:w-auto font-bold opacity-70 cursor-not-allowed h-10 sm:h-9" disabled>
-                                            Upcoming <Clock className="ml-2 h-3 w-3" />
+                                        <Button className="font-bold opacity-70 cursor-not-allowed h-9 flex-1 sm:w-auto text-[10px]" disabled>
+                                            Upcoming
                                         </Button>
                                     )}
                                 </AlertDialogTrigger>
@@ -330,7 +328,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                                     <AlertDialogHeader>
                                         <AlertDialogTitle className="text-xl font-headline">Clinical Connection</AlertDialogTitle>
                                         <AlertDialogDescription>
-                                            Select your preferred method to connect with {doctor ? `Dr. ${doctor.firstName}` : 'your doctor'}. Session ends automatically at {format(new Date(endTime), "p")}.
+                                            Secure room for your session with {doctor ? `Dr. ${doctor.firstName}` : 'your doctor'}. Window closes at {format(new Date(endTime), "p")}.
                                         </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <div className="grid grid-cols-1 gap-4 py-4 sm:py-6">
@@ -338,8 +336,8 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                                             <Link href={`/consultation/${apt?.id}`}>
                                                 <Video className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/> 
                                                 <div className="text-left min-w-0">
-                                                    <p className="font-bold text-foreground truncate">Secure Video Room</p>
-                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">HD Video & Internal Audio</p>
+                                                    <p className="font-bold text-foreground truncate">Video Consultation</p>
+                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">HD Video Feed</p>
                                                 </div>
                                             </Link>
                                         </Button>
@@ -347,20 +345,20 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                                             <Link href={`/consultation/${apt?.id}`}>
                                                 <MessageSquare className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/>
                                                 <div className="text-left min-w-0">
-                                                    <p className="font-bold text-foreground truncate">Interactive Chat</p>
-                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">Integrated clinical messaging</p>
+                                                    <p className="font-bold text-foreground truncate">Secure Patient Chat</p>
+                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">Real-time Messaging</p>
                                                 </div>
                                             </Link>
                                         </Button>
                                     </div>
                                     <AlertDialogFooter>
-                                        <AlertDialogCancel className="w-full sm:w-auto rounded-xl">Back</AlertDialogCancel>
+                                        <AlertDialogCancel className="w-full sm:w-auto rounded-xl">Close</AlertDialogCancel>
                                     </AlertDialogFooter>
                                 </AlertDialogContent>
                             </AlertDialog>
                         </>
                     ) : (
-                        <Button variant="ghost" asChild className="gap-2 text-primary font-bold hover:bg-primary/5 w-full sm:w-auto justify-center h-10 sm:h-9">
+                        <Button variant="ghost" asChild className="gap-2 text-primary font-bold hover:bg-primary/5 flex-1 sm:w-auto justify-center h-9 text-[10px]">
                             <Link href={`/appointments/${apt.id}`}>
                                 <FileText className="h-4 w-4" /> Visit Summary
                             </Link>
