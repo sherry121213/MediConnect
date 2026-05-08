@@ -1,13 +1,14 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Info, RefreshCw, Siren, DollarSign } from "lucide-react";
+import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Siren, DollarSign } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
-import { collection, query, where, doc, addDoc } from "firebase/firestore";
+import { collection, query, where, doc } from "firebase/firestore";
 import type { Appointment, Patient, Doctor } from "@/lib/types";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -18,7 +19,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
-import { format, isSameDay, startOfDay, addDays, subDays, isBefore, isAfter } from "date-fns";
+import { format, isSameDay, addDays, subDays, isBefore, isAfter } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { timeSlots } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -144,6 +145,189 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
     );
 };
 
+// --- Consultation Dialog Helper ---
+function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment | null, isMounted: boolean }) {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    
+    const patientDocRef = useMemoFirebase(() => {
+        if (!firestore || !appointment?.patientId) return null;
+        return doc(firestore, 'patients', appointment.patientId);
+    }, [firestore, appointment?.patientId]);
+    const { data: patient } = useDoc<Patient>(patientDocRef);
+
+    const form = useForm({
+        resolver: zodResolver(z.object({ diagnosis: z.string().min(3), prescription: z.string().min(10) })),
+        defaultValues: { diagnosis: appointment?.diagnosis || '', prescription: appointment?.prescription || '' }
+    });
+
+    if (!appointment) return null;
+
+    const onSubmit = (values: any) => {
+        if (!firestore) return;
+        const appointmentRef = doc(firestore, 'appointments', appointment.id);
+        updateDocumentNonBlocking(appointmentRef, { ...values, status: 'completed', updatedAt: new Date().toISOString() });
+        toast({ title: "Consultation Logged", description: "Patient records have been archived." });
+        onOpenChange(false);
+    };
+
+    const appointmentDate = new Date(appointment.appointmentDateTime);
+    const now = isMounted ? new Date().getTime() : 0;
+    const startTime = appointmentDate.getTime();
+    const isTimeReached = isMounted && now >= startTime && now < (startTime + (50 * 60 * 1000)); 
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full">
+                <Tabs defaultValue="overview" className="w-full">
+                    <div className="bg-slate-900 p-6 text-white">
+                        <DialogTitle className="text-xl font-headline mb-4">Patient Management</DialogTitle>
+                        <TabsList className="bg-white/10 border-none text-white w-full grid grid-cols-2">
+                            <TabsTrigger value="overview">Overview</TabsTrigger>
+                            <TabsTrigger value="notes">Visit Log</TabsTrigger>
+                        </TabsList>
+                    </div>
+                    <div className="p-4 sm:p-6">
+                        <TabsContent value="overview" className="space-y-6">
+                            <div className="flex items-center gap-4 p-4 border rounded-2xl bg-muted/20">
+                                <Avatar className="h-12 w-12"><AvatarFallback>{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback></Avatar>
+                                {patient && <div className="min-w-0"><p className="font-bold truncate">{patient.firstName} {patient.lastName}</p><p className="text-xs text-muted-foreground">{patient.email}</p></div>}
+                            </div>
+                            <div className="flex flex-col gap-3 pt-4">
+                                {isTimeReached ? (
+                                    <Button className="h-12 text-base font-bold shadow-lg bg-red-600 hover:bg-red-700 animate-pulse" asChild>
+                                        <Link href={`/consultation/${appointment.id}`}><Video className="mr-2 h-5 w-5" /> Start Tele-Consultation</Link>
+                                    </Button>
+                                ) : (
+                                    <Button className="h-12 text-base font-bold opacity-70 cursor-not-allowed w-full" disabled>Session Not Ready <Clock className="ml-2 h-4 w-4" /></Button>
+                                )}
+                            </div>
+                        </TabsContent>
+                        <TabsContent value="notes">
+                            <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                                <FormField control={form.control} name="diagnosis" render={({ field }) => (
+                                    <FormItem><FormLabel>Diagnosis</FormLabel><FormControl><Input placeholder="Primary findings..." {...field} /></FormControl><FormMessage /></FormItem>
+                                )} />
+                                <FormField control={form.control} name="prescription" render={({ field }) => (
+                                    <FormItem><FormLabel>Treatment Plan</FormLabel><FormControl><Textarea placeholder="Prescriptions and advice..." rows={6} {...field} /></FormControl><FormMessage /></FormItem>
+                                )} />
+                                <Button type="submit" className="w-full h-12 text-base font-bold">Finalize & Archive</Button>
+                            </form></Form>
+                        </TabsContent>
+                    </div>
+                </Tabs>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean, onOpenChange: (open: boolean) => void, doctor: Doctor }) {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    const [disabledSlots, setDisabledSlots] = useState<string[]>(doctor?.availability?.disabledSlots || []);
+    const [isSaving, setIsSaving] = useState(false);
+    
+    const handleSave = async () => {
+        if (!firestore || !doctor) return;
+        setIsSaving(true);
+        updateDocumentNonBlocking(doc(firestore, 'doctors', doctor.id), { availability: { ...doctor.availability, disabledSlots }, updatedAt: new Date().toISOString() });
+        toast({ title: "Slots Synced" });
+        setIsSaving(false);
+        onOpenChange(false);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="max-h-[85vh] overflow-y-auto">
+                <DialogHeader><DialogTitle>Clinical Hour Control</DialogTitle></DialogHeader>
+                <div className="space-y-6 py-4">
+                    {Object.entries(timeSlots).map(([session, slots]) => (
+                        <div key={session} className="p-4 rounded-xl bg-muted/20">
+                            <h5 className="text-xs font-bold uppercase mb-4 text-primary">{session} Block</h5>
+                            <div className="grid grid-cols-2 gap-2">{slots.map(slot => (<div key={slot} className="flex items-center space-x-3 p-2 border rounded-lg bg-background"><Checkbox checked={!disabledSlots.includes(slot)} onCheckedChange={() => setDisabledSlots(prev => prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot])}/><span className="text-xs font-bold">{slot}</span></div>))}</div>
+                        </div>
+                    ))}
+                </div>
+                <Button onClick={handleSave} className="w-full" disabled={isSaving}>Save Changes</Button>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { isOpen: boolean, onOpenChange: (open: boolean) => void, defaultDate: Date, doctorId: string }) {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    const form = useForm({ 
+        resolver: zodResolver(z.object({ reason: z.string().min(5), requestedDate: z.date() })), 
+        defaultValues: { reason: '', requestedDate: defaultDate }
+    });
+    
+    const onSubmit = (values: any) => {
+        if (!firestore) return;
+        addDocumentNonBlocking(collection(firestore, 'doctorUnavailabilityRequests'), { 
+            doctorId, 
+            requestedDate: values.requestedDate.toISOString(), 
+            reason: values.reason, 
+            status: 'pending', 
+            requestedAt: new Date().toISOString() 
+        });
+        toast({ title: "Audit Logged" });
+        onOpenChange(false);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader><DialogTitle>Absence Audit Request</DialogTitle></DialogHeader>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                        <FormField 
+                            control={form.control} 
+                            name="requestedDate" 
+                            render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel>Date</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button variant="outline" className="w-full">
+                                                    {field.value ? format(field.value, "PPP") : "Select"}
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0" align="start">
+                                            <DayPickerCalendar 
+                                                mode="single" 
+                                                selected={field.value} 
+                                                onSelect={field.onChange} 
+                                                disabled={(d) => isBefore(d, addDays(new Date(), 1))} 
+                                                initialFocus
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
+                                </FormItem>
+                            )}
+                        />
+                        <FormField 
+                            control={form.control} 
+                            name="reason" 
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Justification</FormLabel>
+                                    <FormControl>
+                                        <Textarea rows={4} {...field} />
+                                    </FormControl>
+                                </FormItem>
+                            )}
+                        />
+                        <Button type="submit" className="w-full">Log for Audit</Button>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 // --- Main Page ---
 
 export default function DoctorPortalPage() {
@@ -174,7 +358,6 @@ export default function DoctorPortalPage() {
     }, [firestore, user]);
     const { data: requests } = useCollection<any>(requestsQuery);
 
-    // --- Missed Session Protocol Engine ---
     useEffect(() => {
         if (!mounted || !appointments || !firestore || !user) return;
 
@@ -207,7 +390,7 @@ export default function DoctorPortalPage() {
             }
         };
 
-        const interval = setInterval(checkMissedSessions, 30000); // Check every 30s
+        const interval = setInterval(checkMissedSessions, 30000);
         checkMissedSessions();
         return () => clearInterval(interval);
     }, [appointments, mounted, firestore, user, toast]);
@@ -218,7 +401,7 @@ export default function DoctorPortalPage() {
             stats: { today: 0, pending: 0, todayRevenue: 0, totalRevenue: 0, totalConsults: 0 }, 
             masterSchedule: { morning: [], afternoon: [], evening: [] },
             notifications: [],
-            currentDayLeaveStatus: null as 'pending' | 'approved' | null
+            currentDayLeaveStatus: null as string | null
         };
         
         const now = new Date();
@@ -461,135 +644,4 @@ export default function DoctorPortalPage() {
             </div>
         </main>
     );
-}
-
-// --- Consultation Dialog Helper ---
-function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment | null, isMounted: boolean }) {
-    const firestore = useFirestore();
-    const { toast } = useToast();
-    
-    const patientDocRef = useMemoFirebase(() => {
-        if (!firestore || !appointment?.patientId) return null;
-        return doc(firestore, 'patients', appointment.patientId);
-    }, [firestore, appointment?.patientId]);
-    const { data: patient } = useDoc<Patient>(patientDocRef);
-
-    const form = useForm({
-        resolver: zodResolver(z.object({ diagnosis: z.string().min(3), prescription: z.string().min(10) })),
-        defaultValues: { diagnosis: appointment?.diagnosis || '', prescription: appointment?.prescription || '' }
-    });
-
-    if (!appointment) return null;
-
-    const onSubmit = (values: any) => {
-        if (!firestore) return;
-        const appointmentRef = doc(firestore, 'appointments', appointment.id);
-        updateDocumentNonBlocking(appointmentRef, { ...values, status: 'completed', updatedAt: new Date().toISOString() });
-        toast({ title: "Consultation Logged", description: "Patient records have been archived." });
-        onOpenChange(false);
-    };
-
-    const appointmentDate = new Date(appointment.appointmentDateTime);
-    const now = isMounted ? new Date().getTime() : 0;
-    const startTime = appointmentDate.getTime();
-    const endTime = startTime + (50 * 60 * 1000); 
-    const isTimeReached = isMounted && now >= startTime && now < endTime;
-
-    return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full">
-                <Tabs defaultValue="overview" className="w-full">
-                    <div className="bg-slate-900 p-6 text-white">
-                        <DialogTitle className="text-xl font-headline mb-4">Patient Management</DialogTitle>
-                        <TabsList className="bg-white/10 border-none text-white w-full grid grid-cols-2">
-                            <TabsTrigger value="overview">Overview</TabsTrigger>
-                            <TabsTrigger value="notes">Visit Log</TabsTrigger>
-                        </TabsList>
-                    </div>
-                    <div className="p-4 sm:p-6">
-                        <TabsContent value="overview" className="space-y-6">
-                            <div className="flex items-center gap-4 p-4 border rounded-2xl bg-muted/20">
-                                <Avatar className="h-12 w-12"><AvatarFallback>{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback></Avatar>
-                                {patient && <div className="min-w-0"><p className="font-bold truncate">{patient.firstName} {patient.lastName}</p><p className="text-xs text-muted-foreground">{patient.email}</p></div>}
-                            </div>
-                            <div className="flex flex-col gap-3 pt-4">
-                                {isTimeReached ? (
-                                    <Button className="h-12 text-base font-bold shadow-lg bg-red-600 hover:bg-red-700 animate-pulse" asChild>
-                                        <Link href={`/consultation/${appointment.id}`}><Video className="mr-2 h-5 w-5" /> Start Tele-Consultation</Link>
-                                    </Button>
-                                ) : (
-                                    <Button className="h-12 text-base font-bold opacity-70 cursor-not-allowed w-full" disabled>Session Not Ready <Clock className="ml-2 h-4 w-4" /></Button>
-                                )}
-                            </div>
-                        </TabsContent>
-                        <TabsContent value="notes">
-                            <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                                <FormField control={form.control} name="diagnosis" render={({ field }) => (
-                                    <FormItem><FormLabel>Diagnosis</FormLabel><FormControl><Input placeholder="Primary findings..." {...field} /></FormControl><FormMessage /></FormItem>
-                                )} />
-                                <FormField control={form.control} name="prescription" render={({ field }) => (
-                                    <FormItem><FormLabel>Treatment Plan</FormLabel><FormControl><Textarea placeholder="Prescriptions and advice..." rows={6} {...field} /></FormControl><FormMessage /></FormItem>
-                                )} />
-                                <Button type="submit" className="w-full h-12 text-base font-bold">Finalize & Archive</Button>
-                            </form></Form>
-                        </TabsContent>
-                    </div>
-                </Tabs>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean, onOpenChange: (open: boolean) => void, doctor: Doctor }) {
-    const firestore = useFirestore();
-    const { toast } = useToast();
-    const [disabledSlots, setDisabledSlots] = useState<string[]>(doctor?.availability?.disabledSlots || []);
-    const [isSaving, setIsSaving] = useState(false);
-    const handleSave = async () => {
-        if (!firestore || !doctor) return;
-        setIsSaving(true);
-        updateDocumentNonBlocking(doc(firestore, 'doctors', doctor.id), { availability: { ...doctor.availability, disabledSlots }, updatedAt: new Date().toISOString() });
-        toast({ title: "Slots Synced" });
-        setIsSaving(false);
-        onOpenChange(false);
-    };
-    return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[85vh] overflow-y-auto">
-                <DialogHeader><DialogTitle>Clinical Hour Control</DialogTitle></DialogHeader>
-                <div className="space-y-6 py-4">
-                    {Object.entries(timeSlots).map(([session, slots]) => (
-                        <div key={session} className="p-4 rounded-xl bg-muted/20">
-                            <h5 className="text-xs font-bold uppercase mb-4 text-primary">{session} Block</h5>
-                            <div className="grid grid-cols-2 gap-2">{slots.map(slot => (<div key={slot} className="flex items-center space-x-3 p-2 border rounded-lg bg-background"><Checkbox checked={!disabledSlots.includes(slot)} onCheckedChange={() => setDisabledSlots(prev => prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot])}/><span className="text-xs font-bold">{slot}</span></div>))}</div>
-                        </div>
-                    ))}
-                </div>
-                <Button onClick={handleSave} className="w-full" disabled={isSaving}>Save Changes</Button>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { isOpen: boolean, onOpenChange: (open: boolean) => void, defaultDate: Date, doctorId: string }) {
-    const firestore = useFirestore();
-    const { toast } = useToast();
-    const form = useForm({ resolver: zodResolver(z.object({ reason: z.string().min(5), requestedDate: z.date() })), defaultValues: { reason: '', requestedDate: defaultDate }});
-    const onSubmit = (values: any) => {
-        if (!firestore) return;
-        addDocumentNonBlocking(collection(firestore, 'doctorUnavailabilityRequests'), { doctorId, requestedDate: values.requestedDate.toISOString(), reason: values.reason, status: 'pending', requestedAt: new Date().toISOString() });
-        toast({ title: "Audit Logged" });
-        onOpenChange(false);
-    };
-    return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader><DialogTitle>Absence Audit Request</DialogTitle></DialogHeader>
-                <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                    <FormField control={form.control} name="requestedDate" render={({ field }) => (<FormItem><FormLabel>Date</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className="w-full">{field.value ? format(field.value, "PPP") : "Select"}</Button></FormControl></PopoverTrigger><PopoverContent><DayPickerCalendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(d) => isBefore(d, addDays(new Date(), 1))} initialFocus/></PopoverContent></Popover></FormItem>)}/>
-                    <FormField control={form.control} name="reason" render={({ field }) => (<FormItem><FormLabel>Justification</FormLabel><FormControl><Textarea rows={4} {...field} /></FormControl></FormItem>)}/>
-                    <Button type="submit" className="w-full">Log for Audit</Button>
-                </form></Form>
-            </DialogContent>
-        </Dialog>
 }
