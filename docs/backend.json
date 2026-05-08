@@ -1,276 +1,87 @@
-
 {
   "entities": {
     "Patient": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Patient",
+      "description": "Represents a user (patient, doctor, or admin) on the platform.",
       "type": "object",
-      "description": "Represents a patient registered on the MediConnect platform.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Patient entity."
-        },
-        "firstName": {
-          "type": "string",
-          "description": "The first name of the patient."
-        },
-        "lastName": {
-          "type": "string",
-          "description": "The last name of the patient."
-        },
-        "email": {
-          "type": "string",
-          "description": "The patient's email address.",
-          "format": "email"
-        },
-        "phoneNumber": {
-          "type": "string",
-          "description": "The patient's contact phone number."
-        },
-        "dateOfBirth": {
-          "type": "string",
-          "description": "The patient's date of birth.",
-          "format": "date"
-        },
-        "gender": {
-          "type": "string",
-          "description": "The patient's gender (e.g., Male, Female, Other, Prefer not to say)."
-        },
-        "address": {
-          "type": "string",
-          "description": "The patient's street address."
-        },
-        "city": {
-          "type": "string",
-          "description": "The city where the patient resides."
-        },
-        "country": {
-          "type": "string",
-          "description": "The country where the patient resides."
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the patient record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the patient record was last updated.",
-          "format": "date-time"
-        }
+        "id": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "role": { "type": "string", "enum": ["patient", "doctor", "admin"] },
+        "profileComplete": { "type": "boolean" },
+        "verified": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
       },
-      "required": [
-        "id",
-        "firstName",
-        "lastName",
-        "email",
-        "phoneNumber",
-        "dateOfBirth",
-        "gender",
-        "createdAt"
-      ]
+      "required": ["id", "firstName", "lastName", "email", "role"]
     },
     "Doctor": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "Doctor",
+      "description": "Detailed professional profile for healthcare providers.",
       "type": "object",
-      "description": "Represents a verified doctor available on the MediConnect platform.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the Doctor entity."
-        },
-        "firstName": {
-          "type": "string",
-          "description": "The first name of the doctor."
-        },
-        "lastName": {
-          "type": "string",
-          "description": "The last name of the doctor."
-        },
-        "email": {
-          "type": "string",
-          "description": "The doctor's email address.",
-          "format": "email"
-        },
-        "phoneNumber": {
-          "type": "string",
-          "description": "The doctor's contact phone number."
-        },
-        "dateOfBirth": {
-          "type": "string",
-          "description": "The doctor's date of birth.",
-          "format": "date"
-        },
-        "gender": {
-          "type": "string",
-          "description": "The doctor's gender (e.g., Male, Female, Other, Prefer not to say)."
-        },
-        "medicalLicenseNumber": {
-          "type": "string",
-          "description": "The unique medical license number of the doctor."
-        },
-        "experienceYears": {
-          "type": "number",
-          "description": "The number of years of experience the doctor has."
-        },
-        "bio": {
-          "type": "string",
-          "description": "A short biographical description of the doctor."
-        },
-        "address": {
-          "type": "string",
-          "description": "The doctor's clinic or office address."
-        },
-        "city": {
-          "type": "string",
-          "description": "The city where the doctor practices."
-        },
-        "country": {
-          "type": "string",
-          "description": "The country where the doctor practices."
-        },
-        "latitude": {
-          "type": "number",
-          "description": "Geospatial latitude of the doctor's location for map services."
-        },
-        "longitude": {
-          "type": "number",
-          "description": "Geospatial longitude of the doctor's location for map services."
-        },
-        "isVerified": {
-          "type": "boolean",
-          "description": "Indicates if the doctor's profile and documents have been verified by an admin."
-        },
-        "averageRating": {
-          "type": "number",
-          "description": "The average rating received by the doctor from patients."
-        },
-        "specialtyIds": {
-          "type": "array",
-          "description": "References to specialties the doctor is associated with. (Relationship: Specialty N:N Doctor)",
-          "items": {
-            "type": "string"
-          }
-        },
-        "profileImageUrl": {
-          "type": "string",
-          "description": "URL to the doctor's profile image.",
-          "format": "uri"
-        },
-        "createdAt": {
-          "type": "string",
-          "description": "Timestamp when the doctor record was created.",
-          "format": "date-time"
-        },
-        "updatedAt": {
-          "type": "string",
-          "description": "Timestamp when the doctor record was last updated.",
-          "format": "date-time"
-        }
-      },
-      "required": [
-        "id",
-        "firstName",
-        "lastName",
-        "email",
-        "phoneNumber",
-        "medicalLicenseNumber",
-        "experienceYears",
-        "isVerified",
-        "specialtyIds",
-        "createdAt"
-      ]
+        "id": { "type": "string" },
+        "specialty": { "type": "string" },
+        "experience": { "type": "number" },
+        "location": { "type": "string" },
+        "verified": { "type": "boolean" },
+        "profileComplete": { "type": "boolean" }
+      }
     },
-    "ConsultationSession": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
-      "title": "ConsultationSession",
+    "Appointment": {
+      "title": "Appointment",
+      "description": "Clinical consultation record.",
       "type": "object",
-      "description": "Records details of a live telemedicine consultation session.",
       "properties": {
-        "id": {
-          "type": "string",
-          "description": "Unique identifier for the ConsultationSession entity."
-        },
-        "appointmentId": {
-          "type": "string",
-          "description": "Reference to the Appointment associated with this consultation session."
-        },
-        "patientId": {
-          "type": "string",
-          "description": "Denormalized patient ID for authorization."
-        },
-        "doctorId": {
-          "type": "string",
-          "description": "Denormalized doctor ID for authorization."
-        },
-        "startTime": {
-          "type": "string",
-          "description": "Timestamp when the consultation session started.",
-          "format": "date-time"
-        },
-        "endTime": {
-          "type": "string",
-          "description": "Timestamp when the consultation session ended.",
-          "format": "date-time"
-        },
-        "status": {
-          "type": "string",
-          "description": "The current status of the session (e.g., 'InProgress', 'Completed')."
-        }
-      },
-      "required": [
-        "id",
-        "appointmentId",
-        "patientId",
-        "doctorId",
-        "startTime",
-        "status"
-      ]
+        "id": { "type": "string" },
+        "patientId": { "type": "string" },
+        "doctorId": { "type": "string" },
+        "appointmentDateTime": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["scheduled", "completed", "cancelled"] },
+        "paymentStatus": { "type": "string", "enum": ["pending", "approved", "rejected"] }
+      }
     },
     "ConsultationChatMessage": {
-      "$schema": "http://json-schema.org/draft-07/schema#",
       "title": "ConsultationChatMessage",
+      "description": "A message sent during a live session.",
       "type": "object",
-      "description": "A message sent during a consultation session.",
       "properties": {
         "id": { "type": "string" },
         "sessionId": { "type": "string" },
         "senderId": { "type": "string" },
-        "senderRole": { "type": "string", "enum": ["patient", "doctor"] },
         "content": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" },
-        "patientId": { "type": "string" },
-        "doctorId": { "type": "string" }
-      },
-      "required": ["id", "sessionId", "senderId", "senderRole", "content", "timestamp", "patientId", "doctorId"]
+        "timestamp": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "auth": {
-    "providers": [
-      "password",
-      "anonymous"
-    ]
+    "providers": ["password"]
   },
   "firestore": {
-    "structure": [
-      {
-        "path": "/consultationSessions/{sessionId}",
-        "definition": {
-          "entityName": "ConsultationSession",
-          "schema": { "$ref": "#/backend/entities/ConsultationSession" },
-          "description": "Top-level collection for consultation sessions."
-        }
-      },
-      {
-        "path": "/consultationSessions/{sessionId}/messages/{messageId}",
-        "definition": {
-          "entityName": "ConsultationChatMessage",
-          "schema": { "$ref": "#/backend/entities/ConsultationChatMessage" },
-          "description": "Messages within a consultation session."
-        }
-      }
-    ]
+    "/patients/{userId}": {
+      "schema": { "$ref": "#/backend/entities/Patient" },
+      "description": "Master user records and role-based access data."
+    },
+    "/doctors/{doctorId}": {
+      "schema": { "$ref": "#/backend/entities/Doctor" },
+      "description": "Detailed professional credentials for doctors."
+    },
+    "/appointments/{appointmentId}": {
+      "schema": { "$ref": "#/backend/entities/Appointment" },
+      "description": "Clinical booking and payment records."
+    },
+    "/consultationSessions/{sessionId}/messages/{messageId}": {
+      "schema": { "$ref": "#/backend/entities/ConsultationChatMessage" },
+      "description": "Real-time clinical chat logs."
+    },
+    "/doctorUnavailabilityRequests/{requestId}": {
+      "schema": "object",
+      "description": "Clinical absence and leave audit requests."
+    },
+    "/adminDoctorChatSessions/{chatId}": {
+      "schema": "object",
+      "description": "Administrative support channels for providers."
+    }
   }
 }

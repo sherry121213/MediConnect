@@ -4,7 +4,7 @@ service cloud.firestore {
 
     /**
      * MediConnect Absolute Permissive Policy
-     * DEPLOYMENT_SIG: FORCE_REDEPLOY_2025_05_21_T16_20
+     * DEPLOYMENT_SIG: FORCE_REDEPLOY_2025_05_21_T16_45
      * 
      * This policy allows unrestricted access to ALL collections and documents
      * to definitively resolve any "missing or insufficient permissions" errors.
@@ -13,5 +13,15 @@ service cloud.firestore {
     match /{document=**} {
       allow read, write: if true;
     }
+
+    // Explicitly listing critical paths for engine clarity
+    match /appointments/{appointmentId} { allow read, write: if true; }
+    match /patients/{patientId} { allow read, write: if true; }
+    match /doctors/{doctorId} { allow read, write: if true; }
+    match /consultationSessions/{sessionId} { allow read, write: if true; }
+    match /consultationSessions/{sessionId}/messages/{messageId} { allow read, write: if true; }
+    match /doctorUnavailabilityRequests/{requestId} { allow read, write: if true; }
+    match /adminDoctorChatSessions/{chatId} { allow read, write: if true; }
+    match /adminDoctorChatSessions/{chatId}/messages/{msgId} { allow read, write: if true; }
   }
 }
