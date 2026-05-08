@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, MessageSquare, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Siren, DollarSign } from "lucide-react";
+import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Siren, DollarSign } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
@@ -145,7 +144,8 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
     );
 };
 
-// --- Consultation Dialog Helper ---
+// --- Dialog Components ---
+
 function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment | null, isMounted: boolean }) {
     const firestore = useFirestore();
     const { toast } = useToast();
@@ -178,40 +178,40 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full">
+            <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-3xl">
                 <Tabs defaultValue="overview" className="w-full">
                     <div className="bg-slate-900 p-6 text-white">
                         <DialogTitle className="text-xl font-headline mb-4">Patient Management</DialogTitle>
                         <TabsList className="bg-white/10 border-none text-white w-full grid grid-cols-2">
-                            <TabsTrigger value="overview">Overview</TabsTrigger>
-                            <TabsTrigger value="notes">Visit Log</TabsTrigger>
+                            <TabsTrigger value="overview">Live Consultation</TabsTrigger>
+                            <TabsTrigger value="notes">Clinical Entry</TabsTrigger>
                         </TabsList>
                     </div>
-                    <div className="p-4 sm:p-6">
+                    <div className="p-4 sm:p-8">
                         <TabsContent value="overview" className="space-y-6">
-                            <div className="flex items-center gap-4 p-4 border rounded-2xl bg-muted/20">
-                                <Avatar className="h-12 w-12"><AvatarFallback>{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback></Avatar>
-                                {patient && <div className="min-w-0"><p className="font-bold truncate">{patient.firstName} {patient.lastName}</p><p className="text-xs text-muted-foreground">{patient.email}</p></div>}
+                            <div className="flex items-center gap-4 p-5 border rounded-2xl bg-muted/20">
+                                <Avatar className="h-14 w-14 shadow-sm"><AvatarFallback className="bg-primary text-white font-bold">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback></Avatar>
+                                {patient && <div className="min-w-0"><p className="font-bold text-lg truncate">{patient.firstName} {patient.lastName}</p><p className="text-xs text-muted-foreground">{patient.email}</p></div>}
                             </div>
                             <div className="flex flex-col gap-3 pt-4">
                                 {isTimeReached ? (
-                                    <Button className="h-12 text-base font-bold shadow-lg bg-red-600 hover:bg-red-700 animate-pulse" asChild>
-                                        <Link href={`/consultation/${appointment.id}`}><Video className="mr-2 h-5 w-5" /> Start Tele-Consultation</Link>
+                                    <Button className="h-14 text-base font-bold shadow-xl shadow-red-500/20 bg-red-600 hover:bg-red-700 animate-pulse rounded-2xl" asChild>
+                                        <Link href={`/consultation/${appointment.id}`}><Video className="mr-3 h-6 w-6" /> Start Video Room</Link>
                                     </Button>
                                 ) : (
-                                    <Button className="h-12 text-base font-bold opacity-70 cursor-not-allowed w-full" disabled>Session Not Ready <Clock className="ml-2 h-4 w-4" /></Button>
+                                    <Button className="h-14 text-base font-bold opacity-70 cursor-not-allowed w-full rounded-2xl" disabled>Session Window Locked <Clock className="ml-3 h-5 w-5" /></Button>
                                 )}
                             </div>
                         </TabsContent>
                         <TabsContent value="notes">
-                            <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                            <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                                 <FormField control={form.control} name="diagnosis" render={({ field }) => (
-                                    <FormItem><FormLabel>Diagnosis</FormLabel><FormControl><Input placeholder="Primary findings..." {...field} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Primary Diagnosis</FormLabel><FormControl><Input placeholder="Summary of findings..." className="h-12 border-2 rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
                                 )} />
                                 <FormField control={form.control} name="prescription" render={({ field }) => (
-                                    <FormItem><FormLabel>Treatment Plan</FormLabel><FormControl><Textarea placeholder="Prescriptions and advice..." rows={6} {...field} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Treatment & Advice</FormLabel><FormControl><Textarea placeholder="Prescriptions and patient instructions..." rows={6} className="resize-none border-2 rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
                                 )} />
-                                <Button type="submit" className="w-full h-12 text-base font-bold">Finalize & Archive</Button>
+                                <Button type="submit" className="w-full h-14 text-lg font-bold rounded-2xl shadow-lg">Finalize & Archive Record</Button>
                             </form></Form>
                         </TabsContent>
                     </div>
@@ -231,24 +231,24 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
         if (!firestore || !doctor) return;
         setIsSaving(true);
         updateDocumentNonBlocking(doc(firestore, 'doctors', doctor.id), { availability: { ...doctor.availability, disabledSlots }, updatedAt: new Date().toISOString() });
-        toast({ title: "Slots Synced" });
+        toast({ title: "Clinical Slots Synced" });
         setIsSaving(false);
         onOpenChange(false);
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[85vh] overflow-y-auto">
-                <DialogHeader><DialogTitle>Clinical Hour Control</DialogTitle></DialogHeader>
-                <div className="space-y-6 py-4">
+            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl rounded-3xl">
+                <DialogHeader><DialogTitle className="text-xl font-headline">Clinical Hour Configuration</DialogTitle></DialogHeader>
+                <div className="space-y-8 py-6">
                     {Object.entries(timeSlots).map(([session, slots]) => (
-                        <div key={session} className="p-4 rounded-xl bg-muted/20">
-                            <h5 className="text-xs font-bold uppercase mb-4 text-primary">{session} Block</h5>
-                            <div className="grid grid-cols-2 gap-2">{slots.map(slot => (<div key={slot} className="flex items-center space-x-3 p-2 border rounded-lg bg-background"><Checkbox checked={!disabledSlots.includes(slot)} onCheckedChange={() => setDisabledSlots(prev => prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot])}/><span className="text-xs font-bold">{slot}</span></div>))}</div>
+                        <div key={session} className="p-5 rounded-2xl bg-muted/20 border">
+                            <h5 className="text-[10px] font-bold uppercase mb-5 text-primary tracking-[0.2em]">{session} Consultation Block</h5>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">{slots.map(slot => (<div key={slot} className="flex items-center space-x-3 p-3 border-2 rounded-xl bg-background hover:border-primary/30 transition-colors"><Checkbox checked={!disabledSlots.includes(slot)} onCheckedChange={() => setDisabledSlots(prev => prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot])}/><span className="text-xs font-bold">{slot}</span></div>))}</div>
                         </div>
                     ))}
                 </div>
-                <Button onClick={handleSave} className="w-full" disabled={isSaving}>Save Changes</Button>
+                <Button onClick={handleSave} className="w-full h-14 text-lg font-bold rounded-2xl" disabled={isSaving}>Apply Slot Schedule</Button>
             </DialogContent>
         </Dialog>
     );
@@ -271,26 +271,27 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
             status: 'pending', 
             requestedAt: new Date().toISOString() 
         });
-        toast({ title: "Audit Logged" });
+        toast({ title: "Absence Audit Initiated", description: "Admin review pending for " + format(values.requestedDate, "MMM dd") });
         onOpenChange(false);
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader><DialogTitle>Absence Audit Request</DialogTitle></DialogHeader>
+            <DialogContent className="rounded-3xl sm:max-w-md">
+                <DialogHeader><DialogTitle className="text-xl font-headline">Absence Audit Application</DialogTitle></DialogHeader>
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
                         <FormField 
                             control={form.control} 
                             name="requestedDate" 
                             render={({ field }) => (
                                 <FormItem className="flex flex-col">
-                                    <FormLabel>Date</FormLabel>
+                                    <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Select Clinical Date</FormLabel>
                                     <Popover>
                                         <PopoverTrigger asChild>
                                             <FormControl>
-                                                <Button variant="outline" className="w-full">
+                                                <Button variant="outline" className="w-full h-12 border-2 rounded-xl text-left font-normal px-4">
+                                                    <CalendarIcon className="mr-2 h-4 w-4" />
                                                     {field.value ? format(field.value, "PPP") : "Select"}
                                                 </Button>
                                             </FormControl>
@@ -313,14 +314,14 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
                             name="reason" 
                             render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Justification</FormLabel>
+                                    <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Audit Justification</FormLabel>
                                     <FormControl>
-                                        <Textarea rows={4} {...field} />
+                                        <Textarea placeholder="Planned leave context (e.g. Travel, Workshop)" rows={4} className="resize-none border-2 rounded-xl" {...field} />
                                     </FormControl>
                                 </FormItem>
                             )}
                         />
-                        <Button type="submit" className="w-full">Log for Audit</Button>
+                        <Button type="submit" className="w-full h-14 text-lg font-bold rounded-2xl">Log for Audit</Button>
                     </form>
                 </Form>
             </DialogContent>
@@ -384,8 +385,8 @@ export default function DoctorPortalPage() {
 
                 toast({
                     variant: 'destructive',
-                    title: "Session Expired",
-                    description: `The 50-minute window for a session has passed. Admin has been notified.`,
+                    title: "Session Time-Out",
+                    description: `The 50-minute clinical window for a session has passed. Logged for admin review.`,
                 });
             }
         };
@@ -447,7 +448,7 @@ export default function DoctorPortalPage() {
             
             const isNew = isAfter(new Date(a.createdAt), yesterday);
             if (isNew && a.status === 'scheduled') {
-                alerts.push({ id: `new-${a.id}`, msg: `New Appointment: ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary' });
+                alerts.push({ id: `new-${a.id}`, msg: `New Booking: ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary' });
             }
 
             const aptDate = new Date(a.appointmentDateTime);
@@ -458,7 +459,7 @@ export default function DoctorPortalPage() {
             if (currentTime >= startTime && currentTime < endTime && a.status === 'scheduled') {
                 alerts.unshift({ 
                     id: `reminder-${a.id}`, 
-                    msg: "SESSION STARTED - JOIN NOW", 
+                    msg: "PATIENT WAITING - JOIN LIVE NOW", 
                     icon: Siren, 
                     color: 'text-red-500 animate-pulse font-bold',
                     isReminder: true
@@ -483,154 +484,159 @@ export default function DoctorPortalPage() {
     if (!mounted || isUserLoading) return <div className="flex min-h-screen items-center justify-center bg-secondary/30"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
     return (
-        <main className="flex-grow bg-secondary/30 py-4 sm:py-8">
-            <div className="container mx-auto px-4 space-y-6 sm:space-y-8">
-                <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+        <main className="flex-grow bg-secondary/30 py-6 sm:py-10">
+            <div className="container mx-auto px-4 space-y-8 sm:space-y-12">
+                <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
                     <div>
-                        <h1 className="text-2xl sm:text-3xl font-bold font-headline tracking-tight text-foreground">Clinical Command Center</h1>
-                        <p className="text-muted-foreground flex items-center gap-2 text-xs sm:text-sm mt-1">
-                            <Activity className="h-4 w-4 text-primary" /> 50-Minute Hourly Protocol Active.
+                        <h1 className="text-3xl sm:text-4xl font-bold font-headline tracking-tight text-foreground">Clinical Command Center</h1>
+                        <p className="text-muted-foreground flex items-center gap-2 text-sm sm:text-base mt-2 font-medium">
+                            <Activity className="h-5 w-5 text-primary" /> Active Platform Surveillance • 50m Protocol
                         </p>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 w-full md:w-auto">
-                        <Card className="p-3 bg-primary text-primary-foreground border-none shadow-lg shadow-primary/20">
-                            <p className="text-[9px] sm:text-[10px] font-bold uppercase opacity-80">Today's Revenue</p>
-                            <p className="text-lg sm:text-2xl font-bold">PKR {stats.todayRevenue.toLocaleString()}</p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 w-full md:w-auto">
+                        <Card className="p-4 bg-primary text-primary-foreground border-none shadow-2xl shadow-primary/20 rounded-2xl">
+                            <p className="text-[10px] font-bold uppercase opacity-80 tracking-widest">Today's Revenue</p>
+                            <p className="text-xl sm:text-2xl font-bold">PKR {stats.todayRevenue.toLocaleString()}</p>
                         </Card>
-                        <Card className="p-3 bg-background border-none shadow-sm">
-                            <p className="text-[9px] sm:text-[10px] font-bold uppercase text-muted-foreground">Today's Patients</p>
-                            <p className="text-lg sm:text-2xl font-bold text-primary">{stats.today}</p>
+                        <Card className="p-4 bg-white border-none shadow-xl rounded-2xl">
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Today's Pool</p>
+                            <p className="text-xl sm:text-2xl font-bold text-primary">{stats.today} Patients</p>
                         </Card>
                         <div className="col-span-2 sm:col-span-1">
                             <Dialog open={isAuditOpen} onOpenChange={setIsAuditOpen}>
                                 <DialogTrigger asChild>
-                                    <Button variant="outline" className="w-full h-full font-bold gap-2 border-2 border-primary/20 hover:bg-primary/5 shadow-sm">
-                                        <DollarSign className="h-4 w-4 text-primary" /> Audit Summary
+                                    <Button variant="outline" className="w-full h-full font-bold gap-3 border-2 border-primary/20 hover:bg-primary/5 shadow-md rounded-2xl text-sm">
+                                        <DollarSign className="h-5 w-5 text-primary" /> Lifetime Audit
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent className="sm:max-w-[400px] border-none shadow-2xl">
+                                <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-3xl">
                                     <DialogHeader>
-                                        <DialogTitle className="flex items-center gap-2 text-xl font-headline">
-                                            <History className="h-5 w-5 text-primary" /> Lifetime Performance
+                                        <DialogTitle className="flex items-center gap-3 text-2xl font-headline">
+                                            <History className="h-6 w-6 text-primary" /> Clinical Analytics
                                         </DialogTitle>
-                                        <DialogDescription>Overview of your archived clinical activity.</DialogDescription>
+                                        <DialogDescription className="text-sm">Summary of your professional performance across the platform.</DialogDescription>
                                     </DialogHeader>
-                                    <div className="grid grid-cols-1 gap-4 py-6">
-                                        <div className="p-5 rounded-2xl bg-muted/30 border border-muted/50 space-y-1 text-center">
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Total Earnings</p>
-                                            <p className="text-3xl font-bold text-primary">PKR {stats.totalRevenue.toLocaleString()}</p>
+                                    <div className="grid grid-cols-1 gap-6 py-8">
+                                        <div className="p-6 rounded-3xl bg-primary/5 border-2 border-primary/10 space-y-1 text-center">
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Aggregate Earnings</p>
+                                            <p className="text-3xl sm:text-4xl font-bold text-primary">PKR {stats.totalRevenue.toLocaleString()}</p>
                                         </div>
-                                        <div className="p-5 rounded-2xl bg-muted/30 border border-muted/50 space-y-1 text-center">
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Completed Visits</p>
-                                            <p className="text-3xl font-bold">{stats.totalConsults}</p>
+                                        <div className="p-6 rounded-3xl bg-muted/30 border-2 border-muted/50 space-y-1 text-center">
+                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Archived Consultations</p>
+                                            <p className="text-3xl sm:text-4xl font-bold">{stats.totalConsults}</p>
                                         </div>
                                     </div>
-                                    <DialogFooter><Button variant="secondary" className="w-full h-12 font-bold" onClick={() => setIsAuditOpen(false)}>Close Summary</Button></DialogFooter>
+                                    <DialogFooter><Button variant="secondary" className="w-full h-14 font-bold rounded-2xl" onClick={() => setIsAuditOpen(false)}>Close Summary</Button></DialogFooter>
                                 </DialogContent>
                             </Dialog>
                         </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
-                    <div className="lg:col-span-4 space-y-6">
-                        <Card className="border-none shadow-xl bg-white">
-                             <CardHeader className="pb-2 border-b">
-                                <CardTitle className="text-xs uppercase tracking-widest font-bold flex items-center gap-2">
-                                    <Bell className="h-4 w-4 text-amber-500" /> Alerts & Logs
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-10">
+                    <div className="lg:col-span-4 space-y-8">
+                        <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden">
+                             <CardHeader className="pb-4 border-b bg-muted/10 px-6">
+                                <CardTitle className="text-xs uppercase tracking-[0.2em] font-bold flex items-center gap-3">
+                                    <Bell className="h-5 w-5 text-amber-500" /> Operational Logs
                                 </CardTitle>
                             </CardHeader>
-                            <CardContent className="space-y-3 p-4 max-h-[300px] overflow-y-auto custom-scrollbar">
+                            <CardContent className="space-y-4 p-6 max-h-[350px] overflow-y-auto custom-scrollbar">
                                 {notifications.length > 0 ? notifications.map(n => (
                                     <div key={n.id} className={cn(
-                                        "p-3 rounded-xl border text-[11px] flex gap-3 items-start animate-in fade-in slide-in-from-right-2",
-                                        n.isReminder ? "bg-red-50 border-red-200" : "bg-muted/20 border-muted/50"
+                                        "p-4 rounded-2xl border-2 flex gap-4 items-start animate-in fade-in slide-in-from-right-3 transition-all",
+                                        n.isReminder ? "bg-red-50 border-red-200 shadow-lg shadow-red-500/10" : "bg-muted/30 border-muted/50"
                                     )}>
-                                        <n.icon className={cn("h-4 w-4 shrink-0 mt-0.5", n.color)} />
-                                        <div className="flex-1">
-                                            <p className={cn("leading-tight font-medium", n.isReminder ? "text-red-700" : "text-slate-700")}>{n.msg}</p>
+                                        <n.icon className={cn("h-5 w-5 shrink-0 mt-0.5", n.color)} />
+                                        <div className="flex-1 min-w-0">
+                                            <p className={cn("text-xs leading-relaxed font-bold tracking-tight", n.isReminder ? "text-red-700" : "text-slate-700")}>{n.msg}</p>
                                         </div>
                                     </div>
                                 )) : (
-                                    <p className="text-xs text-muted-foreground italic text-center py-6">No unread clinical logs.</p>
+                                    <div className="text-center py-10 space-y-2">
+                                        <Activity className="h-10 w-10 text-muted-foreground/20 mx-auto" />
+                                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Surveillance Clear</p>
+                                    </div>
                                 )}
                             </CardContent>
                         </Card>
 
-                        <Card className="border-none shadow-xl overflow-hidden bg-white">
-                            <CardHeader className="bg-background pb-3 border-b px-4">
+                        <Card className="border-none shadow-2xl overflow-hidden bg-white rounded-3xl">
+                            <CardHeader className="bg-primary/5 pb-4 border-b px-6">
                                 <div className="flex items-center justify-between">
-                                    <CardTitle className="text-sm font-bold flex items-center gap-2 uppercase tracking-tighter">
-                                        <ClipboardCheck className="h-5 w-5 text-primary" /> Today's Queue
+                                    <CardTitle className="text-sm font-bold flex items-center gap-3 uppercase tracking-tighter">
+                                        <ClipboardCheck className="h-6 w-6 text-primary" /> Active Queue
                                     </CardTitle>
-                                    <Badge variant="outline" className="text-[10px] font-bold border-primary/20 text-primary">LIVE</Badge>
+                                    <Badge variant="outline" className="text-[9px] font-bold border-primary/20 text-primary bg-white px-2">REAL-TIME</Badge>
                                 </div>
                             </CardHeader>
                             <CardContent className="p-0">
                                 {isLoadingAppointments ? (
-                                    <div className="p-12 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" /></div>
+                                    <div className="p-16 text-center"><Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" /></div>
                                 ) : todayAppointments.length > 0 ? (
-                                    <div className="divide-y max-h-[400px] overflow-y-auto custom-scrollbar px-2 sm:px-0">
+                                    <div className="divide-y max-h-[450px] overflow-y-auto custom-scrollbar">
                                         {todayAppointments.map(apt => (
                                             <AppointmentRow key={apt.id} apt={apt} onSelect={handleSelectApt} isMounted={mounted} />
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="p-16 text-center text-muted-foreground space-y-4">
-                                        <CalendarIcon className="h-12 w-12 mx-auto opacity-10" />
-                                        <p className="text-xs font-bold uppercase tracking-widest">Queue Empty</p>
+                                    <div className="p-20 text-center text-muted-foreground space-y-6">
+                                        <CalendarIcon className="h-16 w-16 mx-auto opacity-10" />
+                                        <p className="text-[10px] font-bold uppercase tracking-[0.3em]">No Active Sessions</p>
                                     </div>
                                 )}
                             </CardContent>
                         </Card>
                     </div>
 
-                    <div className="lg:col-span-8 space-y-6">
-                        <Card className="border-none shadow-2xl relative bg-white overflow-hidden">
-                            <CardHeader className="border-b bg-muted/5 z-10 p-4 sm:p-6">
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                                    <div className="space-y-1">
-                                        <CardTitle className="text-lg sm:text-xl font-headline flex items-center gap-2">
-                                            <Clock className="h-6 w-6 text-primary" /> Hourly Schedule
+                    <div className="lg:col-span-8 space-y-8">
+                        <Card className="border-none shadow-2xl relative bg-white overflow-hidden rounded-[2.5rem]">
+                            <CardHeader className="border-b bg-muted/5 z-10 p-6 sm:p-10">
+                                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
+                                    <div className="space-y-2">
+                                        <CardTitle className="text-2xl sm:text-3xl font-headline flex items-center gap-4">
+                                            <Clock className="h-8 w-8 text-primary" /> Clinical Timetable
                                         </CardTitle>
-                                        <CardDescription className="text-[10px] sm:text-xs">Missed sessions are automatically logged and expired after 50 mins.</CardDescription>
+                                        <CardDescription className="text-xs sm:text-sm font-medium">Automatic session termination active for patient safety.</CardDescription>
                                     </div>
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <div className="flex items-center gap-2 bg-white p-1.5 rounded-xl border shadow-sm w-full sm:w-auto justify-between sm:justify-start">
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg shrink-0" onClick={() => setViewDate(addDays(viewDate, -1))}><ChevronLeft className="h-4 w-4" /></Button>
-                                            <div className="px-3 text-xs font-bold min-w-[80px] sm:min-w-[100px] text-center uppercase tracking-tighter">{format(viewDate, "MMM dd")}</div>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg mr-1 sm:mr-2 shrink-0" onClick={() => setViewDate(addDays(viewDate, 1))}><ChevronRight className="h-4 w-4" /></Button>
-                                            <div className="hidden sm:flex h-6 w-px bg-muted mx-1" />
-                                            <div className="flex items-center gap-1.5 shrink-0">
-                                                <Button variant="outline" size="sm" className="h-8 gap-1.5 font-bold px-2 sm:px-3 text-[10px]" onClick={() => setIsAvailabilityOpen(true)}><Settings2 className="h-3.5 w-3.5 text-primary" /> <span className="hidden xs:inline">Slots</span></Button>
-                                                <Button size="sm" className="h-8 gap-1.5 font-bold px-2 sm:px-3 text-[10px]" onClick={() => setIsLeaveOpen(true)}><Moon className="h-3.5 w-3.5" /> <span className="hidden xs:inline">Leave</span></Button>
+                                    <div className="flex flex-wrap items-center gap-4">
+                                        <div className="flex items-center gap-3 bg-white p-2 rounded-[1.25rem] border-2 shadow-sm w-full xl:w-auto justify-between sm:justify-start">
+                                            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl shrink-0" onClick={() => setViewDate(addDays(viewDate, -1))}><ChevronLeft className="h-5 w-5" /></Button>
+                                            <div className="px-6 text-sm font-bold min-w-[120px] text-center uppercase tracking-widest">{format(viewDate, "MMM dd")}</div>
+                                            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl shrink-0" onClick={() => setViewDate(addDays(viewDate, 1))}><ChevronRight className="h-5 w-5" /></Button>
+                                            <div className="hidden sm:flex h-8 w-px bg-muted mx-2" />
+                                            <div className="flex items-center gap-2 shrink-0">
+                                                <Button variant="outline" size="sm" className="h-10 gap-2 font-bold px-4 text-xs rounded-xl border-2" onClick={() => setIsAvailabilityOpen(true)}><Settings2 className="h-4 w-4 text-primary" /> Slots</Button>
+                                                <Button size="sm" className="h-10 gap-2 font-bold px-4 text-xs rounded-xl shadow-lg" onClick={() => setIsLeaveOpen(true)}><Moon className="h-4 w-4" /> Leave</Button>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </CardHeader>
-                            <CardContent className="p-4 sm:p-10">
+                            <CardContent className="p-6 sm:p-12">
                                 {currentDayLeaveStatus === 'approved' && (
-                                    <div className="absolute inset-x-0 bottom-0 top-[120px] sm:top-[100px] z-20 bg-white/90 backdrop-blur-[4px] flex items-center justify-center rounded-b-2xl">
-                                        <div className="bg-white p-8 sm:p-10 rounded-3xl shadow-2xl border-2 text-center max-w-[90%] sm:max-w-sm space-y-6">
-                                            <div className="h-16 w-16 sm:h-20 sm:w-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto shadow-inner"><ShieldCheck className="h-10 w-10 sm:h-12 sm:w-12" /></div>
-                                            <h4 className="text-xl sm:text-2xl font-bold tracking-tight">Practice Closed</h4>
-                                            <p className="text-sm text-muted-foreground leading-relaxed">Absence audit approved for this date.</p>
+                                    <div className="absolute inset-x-0 bottom-0 top-[180px] sm:top-[140px] z-20 bg-white/95 backdrop-blur-[6px] flex items-center justify-center rounded-b-[2.5rem]">
+                                        <div className="bg-white p-10 sm:p-14 rounded-[3rem] shadow-2xl border-2 text-center max-w-[90%] sm:max-w-md space-y-8 animate-in zoom-in-95">
+                                            <div className="h-24 w-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto shadow-inner border-4 border-white"><ShieldCheck className="h-14 w-14" /></div>
+                                            <div className="space-y-3">
+                                                <h4 className="text-2xl sm:text-3xl font-bold tracking-tight">Practice Suspended</h4>
+                                                <p className="text-sm text-muted-foreground leading-relaxed font-medium italic">Professional absence audit approved for this date. Patient bookings are currently disabled.</p>
+                                            </div>
                                         </div>
                                     </div>
                                 )}
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-10">
-                                    <div className="space-y-4">
-                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary flex items-center gap-2"><div className="h-2 w-2 rounded-full bg-amber-400" /> Morning</h3>
-                                        <div className="space-y-1">{masterSchedule.morning.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted}/>))}</div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-12">
+                                    <div className="space-y-6">
+                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-3"><div className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-sm" /> Morning Shift</h3>
+                                        <div className="space-y-2">{masterSchedule.morning.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted}/>))}</div>
                                     </div>
-                                    <div className="space-y-4">
-                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary flex items-center gap-2"><div className="h-2 w-2 rounded-full bg-blue-400" /> Afternoon</h3>
-                                        <div className="space-y-1">{masterSchedule.afternoon.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted}/>))}</div>
+                                    <div className="space-y-6">
+                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-3"><div className="h-2.5 w-2.5 rounded-full bg-blue-400 shadow-sm" /> Afternoon Shift</h3>
+                                        <div className="space-y-2">{masterSchedule.afternoon.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted}/>))}</div>
                                     </div>
-                                    <div className="space-y-4">
-                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary flex items-center gap-2"><Moon className="h-3.5 w-3.5 text-indigo-400" /> Evening</h3>
-                                        <div className="space-y-1">{masterSchedule.evening.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted}/>))}</div>
+                                    <div className="space-y-6">
+                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-3"><Moon className="h-4 w-4 text-indigo-400" /> Evening Shift</h3>
+                                        <div className="space-y-2">{masterSchedule.evening.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted}/>))}</div>
                                     </div>
                                 </div>
                             </CardContent>

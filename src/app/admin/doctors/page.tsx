@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MoreHorizontal, PlusCircle, UserX, UserCheck, Stethoscope } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Stethoscope } from "lucide-react";
 import Image from "next/image";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
@@ -54,6 +54,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 
 const addDoctorSchema = z.object({
   firstName: z.string().min(2, { message: "First name must be at least 2 characters." }),
@@ -75,7 +76,7 @@ export default function AdminDoctorsPage() {
         return collection(firestore, 'doctors');
     }, [firestore]);
 
-    const { data: doctors, isLoading: isLoadingDoctors, error } = useCollection<Doctor>(doctorsCollection);
+    const { data: doctors, isLoading: isLoadingDoctors } = useCollection<Doctor>(doctorsCollection);
 
     const form = useForm<AddDoctorFormValues>({
         resolver: zodResolver(addDoctorSchema),
@@ -89,14 +90,7 @@ export default function AdminDoctorsPage() {
     });
 
     async function onSubmit(values: AddDoctorFormValues) {
-        if (!firestore) {
-            toast({
-                variant: "destructive",
-                title: "Error",
-                description: "Firestore is not available.",
-            });
-            return;
-        }
+        if (!firestore) return;
 
         const newDoctorData: Omit<Doctor, 'id'> = {
             firstName: values.firstName,
@@ -161,21 +155,21 @@ export default function AdminDoctorsPage() {
     <div className="p-4 md:p-8 space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-            <h1 className="text-2xl sm:text-3xl font-bold font-headline">Manage Doctors</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold font-headline tracking-tight">Manage Doctors</h1>
             <p className="text-muted-foreground text-sm">Review and manage professional identities.</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="w-full sm:w-auto">
+            <Button className="w-full sm:w-auto font-bold shadow-lg shadow-primary/20">
               <PlusCircle className="mr-2 h-4 w-4" />
-              Add Doctor
+              Add Provider
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-[425px] rounded-2xl">
             <DialogHeader>
-              <DialogTitle>Add New Doctor</DialogTitle>
+              <DialogTitle className="font-headline text-xl">New Doctor Profile</DialogTitle>
               <DialogDescription>
-                Fill in the details below to add a new doctor profile.
+                Details entered here create an initial professional record.
               </DialogDescription>
             </DialogHeader>
             <Form {...form}>
@@ -247,13 +241,13 @@ export default function AdminDoctorsPage() {
                             </FormItem>
                         )}
                     />
-                    <DialogFooter className="gap-2">
+                    <DialogFooter className="gap-2 pt-4">
                         <DialogClose asChild>
-                            <Button type="button" variant="secondary" className="w-full sm:w-auto">
+                            <Button type="button" variant="secondary" className="w-full sm:w-auto rounded-xl">
                                 Cancel
                             </Button>
                         </DialogClose>
-                        <Button type="submit" disabled={form.formState.isSubmitting} className="w-full sm:w-auto">
+                        <Button type="submit" disabled={form.formState.isSubmitting} className="w-full sm:w-auto rounded-xl font-bold">
                             {form.formState.isSubmitting ? "Adding..." : "Add Doctor"}
                         </Button>
                     </DialogFooter>
@@ -263,23 +257,23 @@ export default function AdminDoctorsPage() {
         </Dialog>
       </div>
 
-      <div className="border rounded-xl shadow-sm bg-white overflow-hidden">
+      <div className="border rounded-2xl shadow-xl bg-white overflow-hidden">
          <AlertDialog>
-            <div className="overflow-x-auto">
+            <div className="overflow-x-auto custom-scrollbar">
                 <Table>
                 <TableHeader className="bg-muted/30">
                     <TableRow>
-                    <TableHead className="py-4">Doctor</TableHead>
-                    <TableHead>Specialty</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead className="py-5 pl-6 min-w-[200px]">Healthcare Professional</TableHead>
+                    <TableHead className="min-w-[150px]">Specialty</TableHead>
+                    <TableHead className="min-w-[120px]">Status</TableHead>
                     <TableHead className="hidden lg:table-cell">Location</TableHead>
-                    <TableHead className="text-right pr-6">Actions</TableHead>
+                    <TableHead className="text-right pr-6">Management</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
                     {isLoadingDoctors && Array.from({length: 5}).map((_, i) => (
                         <TableRow key={i}>
-                            <TableCell><Skeleton className="h-10 w-48"/></TableCell>
+                            <TableCell className="pl-6"><Skeleton className="h-10 w-48"/></TableCell>
                             <TableCell><Skeleton className="h-6 w-24"/></TableCell>
                             <TableCell><Skeleton className="h-6 w-20"/></TableCell>
                             <TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-24"/></TableCell>
@@ -293,44 +287,44 @@ export default function AdminDoctorsPage() {
 
                     return (
                     <TableRow key={doctor.id} className={!isActive ? "opacity-60 bg-muted/30" : "hover:bg-muted/5 transition-colors"}>
-                        <TableCell className="font-bold py-4">
+                        <TableCell className="font-bold py-5 pl-6">
                         <div className="flex items-center gap-3">
-                            <div className="relative h-10 w-10 shrink-0">
+                            <div className="relative h-10 w-10 shrink-0 shadow-sm rounded-full overflow-hidden">
                                 {doctorImage ? (
                                     <Image
                                         src={doctorImage.imageUrl}
                                         alt={name}
                                         fill
-                                        className="rounded-full object-cover border-2 border-primary/10"
+                                        className="object-cover border border-primary/10"
                                         data-ai-hint={doctorImage.imageHint}
                                     />
                                 ) : (
-                                    <div className="h-full w-full rounded-full bg-primary/5 flex items-center justify-center text-primary font-bold">
-                                        {doctor.firstName[0]}
+                                    <div className="h-full w-full bg-primary/5 flex items-center justify-center text-primary font-bold">
+                                        {doctor.firstName?.[0]}
                                     </div>
                                 )}
                             </div>
-                            <span className="truncate max-w-[150px]">{name}</span>
+                            <span className="truncate max-w-[150px] tracking-tight">{name}</span>
                         </div>
                         </TableCell>
                         <TableCell>
-                            <Badge variant="outline" className="font-bold text-[10px] uppercase tracking-tighter border-primary/20 text-primary">
+                            <Badge variant="outline" className="font-bold text-[10px] uppercase tracking-tighter border-primary/20 text-primary bg-primary/5">
                                 {doctor.specialty}
                             </Badge>
                         </TableCell>
                         <TableCell>
                             <div className="flex flex-col gap-1">
-                                <Badge variant={doctor.verified ? "secondary" : "destructive"} className={doctor.verified ? "bg-green-100 text-green-800 border-green-200" : ""}>
+                                <Badge variant={doctor.verified ? "secondary" : "destructive"} className={cn("text-[9px] uppercase font-bold", doctor.verified ? "bg-green-100 text-green-800 border-green-200" : "")}>
                                     {doctor.verified ? "Verified" : "Pending"}
                                 </Badge>
                                 {!isActive && (
-                                    <Badge variant="outline" className="border-destructive text-destructive text-[9px] h-4">
-                                        Disabled
+                                    <Badge variant="outline" className="border-destructive text-destructive text-[8px] h-4 font-bold uppercase">
+                                        Suspended
                                     </Badge>
                                 )}
                             </div>
                         </TableCell>
-                        <TableCell className="hidden lg:table-cell text-muted-foreground text-xs">{doctor.location}</TableCell>
+                        <TableCell className="hidden lg:table-cell text-muted-foreground text-xs font-medium">{doctor.location}</TableCell>
                         <TableCell className="text-right pr-6">
                         <DropdownMenu>
                             <DropdownMenuTrigger asChild>
@@ -339,34 +333,38 @@ export default function AdminDoctorsPage() {
                                 <MoreHorizontal className="h-4 w-4" />
                             </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-48 rounded-xl border-2">
-                            <DropdownMenuLabel>Account Control</DropdownMenuLabel>
-                            {doctor.verified === false && <DropdownMenuItem onClick={() => handleVerifyDoctor(doctor.id)} className="font-bold text-green-600">Approve Profile</DropdownMenuItem>}
+                            <DropdownMenuContent align="end" className="w-56 rounded-xl border-2 shadow-2xl">
+                            <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground">Account Controls</DropdownMenuLabel>
+                            {doctor.verified === false && (
+                                <DropdownMenuItem onClick={() => handleVerifyDoctor(doctor.id)} className="font-bold text-green-600 focus:text-green-700">
+                                    Approve Profile
+                                </DropdownMenuItem>
+                            )}
                             <DropdownMenuItem asChild>
-                               <Link href={`/admin/doctors/${doctor.id}`} className="cursor-pointer">View Professional File</Link>
+                               <Link href={`/admin/doctors/${doctor.id}`} className="cursor-pointer">View Clinical File</Link>
                             </DropdownMenuItem>
                             
                             <AlertDialogTrigger asChild>
-                                <DropdownMenuItem className={isActive ? "text-destructive" : "text-primary"} onSelect={(e) => e.preventDefault()}>
-                                    {isActive ? "Deactivate Account" : "Re-activate Account"}
+                                <DropdownMenuItem className={isActive ? "text-destructive focus:text-destructive font-bold" : "text-primary focus:text-primary font-bold"} onSelect={(e) => e.preventDefault()}>
+                                    {isActive ? "Deactivate Account" : "Restore Access"}
                                 </DropdownMenuItem>
                             </AlertDialogTrigger>
                             </DropdownMenuContent>
                         </DropdownMenu>
                         <AlertDialogContent className="rounded-2xl border-none shadow-2xl">
                             <AlertDialogHeader>
-                                <AlertDialogTitle>{isActive ? "Suspend Doctor Access?" : "Restore Doctor Access?"}</AlertDialogTitle>
-                                <AlertDialogDescription>
+                                <AlertDialogTitle className="font-headline text-xl">{isActive ? "Suspend Clinical Access?" : "Restore Access?"}</AlertDialogTitle>
+                                <AlertDialogDescription className="text-sm">
                                     {isActive 
-                                        ? "Suspending this account will block portal access and hide the doctor from search results immediately."
-                                        : "Restoring access will allow the doctor to resume clinical sessions and patient bookings."}
+                                        ? "Suspending this account will block portal access and hide the doctor from search results immediately. Patients will not be able to book new sessions."
+                                        : "Restoring access will allow the doctor to resume clinical sessions and patient bookings immediately."}
                                 </AlertDialogDescription>
                             </AlertDialogHeader>
-                            <AlertDialogFooter className="gap-2">
-                                <AlertDialogCancel className="rounded-xl">Cancel</AlertDialogCancel>
+                            <AlertDialogFooter className="gap-2 pt-4">
+                                <AlertDialogCancel className="rounded-xl border-2">Cancel</AlertDialogCancel>
                                 <AlertDialogAction 
                                     onClick={() => handleToggleDoctorStatus(doctor.id, isActive)} 
-                                    className={cn("rounded-xl font-bold", isActive ? "bg-destructive hover:bg-destructive/90" : "bg-primary hover:bg-primary/90")}
+                                    className={cn("rounded-xl font-bold shadow-lg", isActive ? "bg-destructive hover:bg-destructive/90 shadow-destructive/20" : "bg-primary hover:bg-primary/90 shadow-primary/20")}
                                 >
                                     {isActive ? "Confirm Suspension" : "Confirm Restoration"}
                                 </AlertDialogAction>
@@ -379,7 +377,7 @@ export default function AdminDoctorsPage() {
                         <TableRow>
                             <TableCell colSpan={5} className="text-center py-24 text-muted-foreground italic">
                                 <Stethoscope className="h-12 w-12 mx-auto mb-4 opacity-10" />
-                                No clinical professionals found.
+                                No clinical professionals registered.
                             </TableCell>
                         </TableRow>
                     )}

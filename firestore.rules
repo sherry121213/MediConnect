@@ -1,11 +1,10 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
      * MEDICONNECT UNIVERSAL STABILITY OVERRIDE
-     * DEPLOYMENT_SIG: MOBILE_AND_SYNTAX_STABILIZATION_2025_V2
+     * DEPLOYMENT_SIG: ADMIN_DOCTOR_ACCESS_STABILIZATION_2025_V1
      * 
      * Providing absolute permissive access to all clinical data paths
      * to ensure zero friction for doctors and patients.
