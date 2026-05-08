@@ -4,24 +4,24 @@ service cloud.firestore {
 
     /**
      * MediConnect Absolute Permissive Policy
-     * DEPLOYMENT_SIG: FORCE_REDEPLOY_2025_05_21_T16_45
+     * DEPLOYMENT_SIG: FINAL_PERMISSION_SYNC_2025_05_21_T17_15
      * 
      * This policy allows unrestricted access to ALL collections and documents
-     * to definitively resolve any "missing or insufficient permissions" errors.
+     * to definitively resolve any "missing or insufficient permissions" errors
+     * during the clinical testing phase.
      */
 
     match /{document=**} {
       allow read, write: if true;
     }
 
-    // Explicitly listing critical paths for engine clarity
-    match /appointments/{appointmentId} { allow read, write: if true; }
-    match /patients/{patientId} { allow read, write: if true; }
-    match /doctors/{doctorId} { allow read, write: if true; }
-    match /consultationSessions/{sessionId} { allow read, write: if true; }
-    match /consultationSessions/{sessionId}/messages/{messageId} { allow read, write: if true; }
-    match /doctorUnavailabilityRequests/{requestId} { allow read, write: if true; }
-    match /adminDoctorChatSessions/{chatId} { allow read, write: if true; }
-    match /adminDoctorChatSessions/{chatId}/messages/{msgId} { allow read, write: if true; }
+    // Explicit recursive matches for critical clinical paths to ensure 'list' and 'get' operations are cleared
+    match /appointments/{any=**} { allow read, write: if true; }
+    match /patients/{any=**} { allow read, write: if true; }
+    match /doctors/{any=**} { allow read, write: if true; }
+    match /consultationSessions/{any=**} { allow read, write: if true; }
+    match /doctorUnavailabilityRequests/{any=**} { allow read, write: if true; }
+    match /adminDoctorChatSessions/{any=**} { allow read, write: if true; }
+    match /roles_admin/{any=**} { allow read, write: if true; }
   }
 }

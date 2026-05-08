@@ -39,7 +39,7 @@ function PatientTable({ patients }: { patients: Patient[] }) {
                             <TableCell>
                                 <div className="flex items-center gap-3">
                                     <div className="h-8 w-8 rounded-full bg-primary/5 flex items-center justify-center text-primary text-xs font-bold border border-primary/10">
-                                        {patient.firstName[0]}{patient.lastName[0]}
+                                        {patient.firstName?.[0] || '?'}{patient.lastName?.[0] || '?'}
                                     </div>
                                     <div>
                                         <p className="font-bold text-sm">{patient.firstName} {patient.lastName}</p>
@@ -57,7 +57,7 @@ function PatientTable({ patients }: { patients: Patient[] }) {
                                 </Badge>
                             </TableCell>
                             <TableCell className="text-right text-xs font-medium text-muted-foreground">
-                                {new Date(patient.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' })}
+                                {patient.createdAt ? new Date(patient.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'N/A'}
                             </TableCell>
                         </TableRow>
                     ))}
