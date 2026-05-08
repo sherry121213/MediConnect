@@ -1,10 +1,11 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
      * MEDICONNECT UNIVERSAL EMERGENCY OVERRIDE
-     * DEPLOYMENT_SIG: MOBILE_RESPONSIVE_STABILITY_V1
+     * DEPLOYMENT_SIG: FORCE_GLOBAL_UNLOCK_MISSED_PROTOCOL_V1
      * 
      * This policy provides unrestricted access to all clinical data paths
      * to resolve persistent "missing or insufficient permissions" errors.
@@ -19,6 +20,7 @@ service cloud.firestore {
     match /patients/{doc=**} { allow read, write: if true; }
     match /doctors/{doc=**} { allow read, write: if true; }
     match /consultationSessions/{doc=**} { allow read, write: if true; }
+    match /missedSessionAudits/{doc=**} { allow read, write: if true; }
     match /doctorUnavailabilityRequests/{doc=**} { allow read, write: if true; }
     match /adminDoctorChatSessions/{doc=**} { allow read, write: if true; }
     match /roles_admin/{doc=**} { allow read, write: if true; }

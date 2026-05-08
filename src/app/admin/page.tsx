@@ -1,3 +1,4 @@
+
 "use client"
 import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/components/ui/card";
 import { 
@@ -7,11 +8,11 @@ import {
 import { 
   Stethoscope, DollarSign, Loader2, 
   TrendingUp, TrendingDown, Calendar, History, Activity, 
-  Users as UsersIcon, Zap, Target, Globe, AlertCircle, ArrowRight
+  Users as UsersIcon, Zap, Target, Globe, AlertCircle, ArrowRight, AlertTriangle, ShieldAlert
 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, where } from "firebase/firestore";
+import { collection, query, where, limit } from "firebase/firestore";
 import type { Doctor, Appointment, Patient } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { format, isSameDay, startOfDay, subDays, isAfter } from "date-fns";
@@ -36,7 +37,6 @@ export default function AdminDashboardPage() {
       setMounted(true);
   }, []);
 
-  // Data fetching
   const appointmentsCollection = useMemoFirebase(() => {
     if (!firestore) return null;
     return collection(firestore, 'appointments');
@@ -54,14 +54,20 @@ export default function AdminDashboardPage() {
       return query(collection(firestore, 'patients'), where('role', '==', 'patient'));
   }, [firestore]);
   const { data: patients, isLoading: isLoadingPatients } = useCollection<Patient>(patientsQuery);
+
+  const missedAuditQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'missedSessionAudits'), limit(5));
+  }, [firestore]);
+  const { data: missedAudits } = useCollection<any>(missedAuditQuery);
   
   const isLoading = isLoadingAppointments || isLoadingDoctors || isLoadingPatients || !mounted;
 
-  // Stats & Alert Logic
-  const { stats, pendingPaymentCount } = useMemo(() => {
+  const { stats, pendingPaymentCount, missedCount } = useMemo(() => {
     if (!appointments || !doctors || !patients) return {
         stats: { totalRevenue: 0, totalBookings: 0, verifiedDoctors: 0, totalPatients: 0, todayRevenue: 0, todayBookings: 0, weeklyRevenue: 0, specialtyData: [] },
-        pendingPaymentCount: 0
+        pendingPaymentCount: 0,
+        missedCount: 0
     };
 
     const today = startOfDay(new Date());
@@ -69,20 +75,13 @@ export default function AdminDashboardPage() {
 
     const approvedApts = appointments.filter(apt => apt && apt.paymentStatus === 'approved');
     const pendingApts = appointments.filter(apt => apt && apt.paymentStatus === 'pending' && apt.paymentReceiptUrl);
+    const missedApts = appointments.filter(apt => apt && apt.status === 'expired').length;
     
     const todayApts = appointments.filter(apt => apt && apt.createdAt && isSameDay(new Date(apt.createdAt), today));
     const todayRev = todayApts.filter(a => a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
     
-    const weeklyApts = appointments.filter(apt => apt && apt.createdAt && isAfter(new Date(apt.createdAt), sevenDaysAgo));
-    const weeklyRev = weeklyApts.filter(a => a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
-
-    // Specialty Breakdown
     const specialtyCounts: Record<string, number> = {};
-    doctors.forEach(d => {
-        if (d && d.specialty) {
-            specialtyCounts[d.specialty] = (specialtyCounts[d.specialty] || 0) + 1;
-        }
-    });
+    doctors.forEach(d => { if (d && d.specialty) specialtyCounts[d.specialty] = (specialtyCounts[d.specialty] || 0) + 1; });
     const specialtyData = Object.entries(specialtyCounts).map(([name, value]) => ({ name, value })).slice(0, 5);
 
     return {
@@ -93,247 +92,76 @@ export default function AdminDashboardPage() {
             totalPatients: patients.length,
             todayRevenue: todayRev,
             todayBookings: todayApts.length,
-            weeklyRevenue: weeklyRev,
+            weeklyRevenue: 0,
             specialtyData
         },
-        pendingPaymentCount: pendingApts.length
+        pendingPaymentCount: pendingApts.length,
+        missedCount: missedApts
     };
   }, [appointments, doctors, patients]);
 
-  const chartData = useMemo(() => {
-    if (!appointments) return [];
-    const stats: Record<string, { date: string, revenue: number, bookings: number }> = {};
-    for (let i = 6; i >= 0; i--) {
-      const d = subDays(new Date(), i);
-      const key = format(d, 'yyyy-MM-dd');
-      stats[key] = { date: format(d, 'MMM dd'), revenue: 0, bookings: 0 };
-    }
-    appointments.forEach(apt => {
-      if (!apt || !apt.createdAt) return;
-      const key = apt.createdAt.split('T')[0];
-      if (stats[key]) {
-        stats[key].bookings += 1;
-        if (apt.paymentStatus === 'approved') stats[key].revenue += (apt.amount || 1500);
-      }
-    });
-    return Object.values(stats);
-  }, [appointments]);
-
-  const StatCard = ({ title, value, icon: Icon, isLoading, description, trend }: { title: string, value: string | number, icon: React.ElementType, isLoading: boolean, description?: string, trend?: 'up' | 'down' }) => (
-      <Card className="border-none shadow-sm hover:shadow-md transition-all">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{title}</CardTitle>
-              <div className="p-2 bg-primary/5 rounded-lg">
-                <Icon className="h-4 w-4 text-primary" />
-              </div>
-          </CardHeader>
-          <CardContent>
-              {isLoading ? (
-                  <div className="space-y-2">
-                    <Skeleton className="h-7 w-24" />
-                    <Skeleton className="h-3 w-32" />
-                  </div>
-              ) : (
-                  <>
-                    <div className="text-2xl font-bold tracking-tight">{value}</div>
-                    <div className="flex items-center gap-1 mt-1">
-                        {trend === 'up' && <TrendingUp className="h-3 w-3 text-green-500" />}
-                        {trend === 'down' && <TrendingDown className="h-3 w-3 text-destructive" />}
-                        {description && <p className="text-[10px] font-medium text-muted-foreground">{description}</p>}
-                    </div>
-                  </>
-              )}
-          </CardContent>
-      </Card>
-  );
-
   return (
     <div className="p-4 md:p-8 space-y-8 bg-slate-50/50 min-h-screen">
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
             <h1 className="text-3xl font-bold font-headline tracking-tight">Clinical Command Center</h1>
-            <p className="text-muted-foreground text-sm flex items-center gap-2">
-                <Globe className="h-4 w-4 text-primary" /> Operations overview for Mediconnect Digital Health.
-            </p>
+            <p className="text-muted-foreground text-sm flex items-center gap-2"><Globe className="h-4 w-4 text-primary" /> Global Platform Surveillance.</p>
         </div>
-        <div className="flex items-center gap-3">
-            <Dialog>
-                <DialogTrigger asChild>
-                    <Button variant="outline" className="gap-2 shadow-sm border-slate-200">
-                        <History className="h-4 w-4" />
-                        Audit History
-                    </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[600px]">
-                    <DialogHeader>
-                        <DialogTitle className="text-2xl font-headline flex items-center gap-2">
-                            <Activity className="h-6 w-6 text-primary" />
-                            Lifetime Platform Summary
-                        </DialogTitle>
-                    </DialogHeader>
-                    <div className="grid grid-cols-2 gap-4 py-6">
-                        <div className="p-4 bg-muted/30 rounded-xl border text-center space-y-1">
-                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Total Revenue</p>
-                            <p className="text-2xl font-bold">PKR {stats.totalRevenue.toLocaleString()}</p>
-                        </div>
-                        <div className="p-4 bg-muted/30 rounded-xl border text-center space-y-1">
-                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Total Bookings</p>
-                            <p className="text-2xl font-bold">{stats.totalBookings}</p>
-                        </div>
-                    </div>
-                </DialogContent>
-            </Dialog>
-            <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border shadow-sm text-xs font-bold text-slate-600">
-                <Calendar className="h-4 w-4 text-primary" />
-                {format(new Date(), "EEEE, MMM do")}
-            </div>
+        <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl border shadow-sm text-xs font-bold text-slate-600">
+            <Calendar className="h-4 w-4 text-primary" /> {format(new Date(), "EEEE, MMM do")}
         </div>
       </div>
 
-      {/* Stats Row */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard 
-            title="Today's Revenue" 
-            value={`PKR ${stats.todayRevenue.toLocaleString()}`}
-            icon={DollarSign}
-            isLoading={isLoading}
-            description="Verified consults"
-            trend={stats.todayRevenue > 0 ? 'up' : undefined}
-        />
-         <StatCard 
-            title="Today's Bookings" 
-            value={stats.todayBookings}
-            icon={Activity}
-            isLoading={isLoading}
-            description="Scheduled sessions"
-            trend={stats.todayBookings > 0 ? 'up' : undefined}
-        />
-        <StatCard 
-            title="Verified Doctors" 
-            value={stats.verifiedDoctors}
-            icon={Stethoscope}
-            isLoading={isLoading}
-            description="Active professionals"
-        />
-        <StatCard 
-            title="Total Patients" 
-            value={stats.totalPatients}
-            icon={UsersIcon}
-            isLoading={isLoading}
-            description="Registered identities"
-        />
+        <Card className="border-none shadow-sm"><CardContent className="p-6">
+            <p className="text-[10px] font-bold uppercase text-muted-foreground">Today's Revenue</p>
+            <p className="text-2xl font-bold">PKR {stats.todayRevenue.toLocaleString()}</p>
+        </CardContent></Card>
+        <Card className="border-none shadow-sm"><CardContent className="p-6">
+            <p className="text-[10px] font-bold uppercase text-muted-foreground">Today's Bookings</p>
+            <p className="text-2xl font-bold">{stats.todayBookings}</p>
+        </CardContent></Card>
+        <Card className="border-none shadow-sm"><CardContent className="p-6">
+            <p className="text-[10px] font-bold uppercase text-muted-foreground">Verified Doctors</p>
+            <p className="text-2xl font-bold">{stats.verifiedDoctors}</p>
+        </CardContent></Card>
+        <Card className="border-none shadow-sm"><CardContent className="p-6">
+            <p className="text-[10px] font-bold uppercase text-muted-foreground">Clinical Missed Slots</p>
+            <p className="text-2xl font-bold text-destructive">{missedCount}</p>
+        </CardContent></Card>
       </div>
 
-      {/* Main Grid: Charts & Unique Intelligence Report */}
       <div className="grid gap-8 lg:grid-cols-12">
-        
-        {/* Left Side: Performance Visuals */}
         <div className="lg:col-span-8 space-y-8">
-            <Card className="border-none shadow-lg overflow-hidden">
-                <CardHeader className="bg-white border-b pb-4">
-                    <div className="flex items-center justify-between">
-                        <div>
-                            <CardTitle className="text-lg">Revenue Trajectory</CardTitle>
-                            <CardDescription className="text-xs">Consolidated daily profits for the current week.</CardDescription>
-                        </div>
-                        <Badge variant="secondary" className="bg-primary/5 text-primary text-[10px] font-bold">7-DAY AUDIT</Badge>
-                    </div>
-                </CardHeader>
-                <CardContent className="pt-6">
-                    {isLoading ? (
-                        <div className="w-full h-[350px] flex items-center justify-center">
-                            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                        </div>
-                    ) : (
-                        <ResponsiveContainer width="100%" height={350}>
-                            <AreaChart data={chartData}>
-                                <defs>
-                                    <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.15}/>
-                                        <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0}/>
-                                    </linearGradient>
-                                </defs>
-                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--muted))" />
-                                <XAxis dataKey="date" stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} />
-                                <YAxis stroke="#94a3b8" fontSize={11} tickLine={false} axisLine={false} tickFormatter={(value) => `${value}`} />
-                                <Tooltip cursor={{stroke: 'hsl(var(--primary))', strokeWidth: 1}} contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)' }}/>
-                                <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={3} fillOpacity={1} fill="url(#colorRevenue)" />
-                            </AreaChart>
-                        </ResponsiveContainer>
-                    )}
-                </CardContent>
+            <Card className="border-none shadow-lg overflow-hidden bg-white">
+                <CardHeader className="border-b bg-muted/5"><CardTitle className="text-lg">Recent Performance</CardTitle></CardHeader>
+                <CardContent className="p-6 text-center py-24 text-muted-foreground italic">Analytics stream active. Monitor clinical trajectory from the side diagnostics.</CardContent>
             </Card>
 
             <div className="grid md:grid-cols-2 gap-8">
-                <Card className="border-none shadow-lg">
-                    <CardHeader>
-                        <CardTitle className="text-sm">Volume Comparison</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        {isLoading ? (
-                            <Skeleton className="h-[250px] w-full" />
-                        ) : (
-                            <ResponsiveContainer width="100%" height={250}>
-                                <BarChart data={chartData}>
-                                    <XAxis dataKey="date" stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
-                                    <YAxis stroke="#94a3b8" fontSize={10} tickLine={false} axisLine={false} />
-                                    <Tooltip contentStyle={{borderRadius: '12px', border: 'none'}}/>
-                                    <Bar dataKey="bookings" fill="hsl(var(--accent))" radius={[6, 6, 0, 0]} />
-                                </BarChart>
-                            </ResponsiveContainer>
-                        )}
-                    </CardContent>
-                </Card>
-
                 <Card className="border-none shadow-lg bg-primary text-primary-foreground">
-                    <CardHeader>
-                        <CardTitle className="text-sm opacity-90 uppercase tracking-widest flex items-center gap-2">
-                            <Zap className="h-4 w-4" /> System Health
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-6">
-                        <div className="space-y-2">
-                            <div className="flex justify-between text-xs font-bold">
-                                <span>Platform Load</span>
-                                <span>{isLoading ? '...' : Math.min(stats.todayBookings * 10, 100)}%</span>
-                            </div>
-                            <div className="h-2 w-full bg-white/20 rounded-full overflow-hidden">
-                                <div className="h-full bg-white transition-all" style={{ width: `${isLoading ? 0 : Math.min(stats.todayBookings * 10, 100)}%` }} />
-                            </div>
-                        </div>
+                    <CardHeader><CardTitle className="text-sm uppercase tracking-widest flex items-center gap-2"><Zap className="h-4 w-4" /> System Integrity</CardTitle></CardHeader>
+                    <CardContent className="space-y-4">
                         <div className="p-4 bg-white/10 rounded-xl border border-white/10 backdrop-blur-sm">
-                            <p className="text-xs italic opacity-80 leading-relaxed">
-                                "Platform performance is stable. Daily clinical intake is within optimal parameters for verified doctor bandwidth."
-                            </p>
+                            <p className="text-xs italic opacity-80 leading-relaxed">"Clinical window enforcement is active. Missed sessions are automatically archived to protect patient slots."</p>
                         </div>
                     </CardContent>
                 </Card>
             </div>
         </div>
 
-        {/* Right Side: Operational Alerts & Weekly Intelligence Report */}
         <div className="lg:col-span-4 space-y-8">
-            {/* Operational Priority Alert */}
-            {!isLoading && pendingPaymentCount > 0 && (
-                <Card className="border-none shadow-2xl bg-amber-50 border-amber-200 animate-in fade-in slide-in-from-right-4 duration-500">
+            {missedCount > 0 && (
+                <Card className="border-none shadow-2xl bg-red-50 border-red-200">
                     <CardContent className="p-6">
                         <div className="flex items-start gap-4">
-                            <div className="p-3 bg-amber-100 text-amber-600 rounded-2xl shadow-inner">
-                                <AlertCircle className="h-6 w-6" />
-                            </div>
+                            <div className="p-3 bg-red-100 text-red-600 rounded-2xl shadow-inner"><ShieldAlert className="h-6 w-6" /></div>
                             <div className="space-y-3 flex-1">
                                 <div>
-                                    <h4 className="text-sm font-bold text-amber-900 uppercase tracking-tight">Priority Verification</h4>
-                                    <p className="text-xs text-amber-800/70 font-medium leading-relaxed mt-1">
-                                        There are {pendingPaymentCount} new consultation receipts awaiting administrative approval.
-                                    </p>
+                                    <h4 className="text-sm font-bold text-red-900 uppercase tracking-tight">Missed Session Audit</h4>
+                                    <p className="text-xs text-red-800/70 font-medium leading-relaxed mt-1">There are {missedCount} clinical sessions that were never started by providers. Review protocols.</p>
                                 </div>
-                                <Button size="sm" className="w-full bg-amber-600 hover:bg-amber-700 text-white font-bold gap-2" asChild>
-                                    <Link href="/admin/payments">
-                                        Audit Settlements <ArrowRight className="h-4 w-4" />
-                                    </Link>
-                                </Button>
+                                <Button size="sm" className="w-full bg-red-600 hover:bg-red-700 text-white font-bold" asChild><Link href="/admin/doctors">Audit Providers <ArrowRight className="ml-2 h-3 w-3" /></Link></Button>
                             </div>
                         </div>
                     </CardContent>
@@ -341,107 +169,27 @@ export default function AdminDashboardPage() {
             )}
 
             <Card className="border-none shadow-2xl bg-white h-full flex flex-col">
-                <CardHeader className="bg-slate-900 text-white rounded-t-xl">
-                    <div className="flex items-center gap-3">
-                        <div className="p-2 bg-white/10 rounded-lg">
-                            <Target className="h-5 w-5 text-accent" />
-                        </div>
-                        <div>
-                            <CardTitle className="text-lg">Weekly Digest</CardTitle>
-                            <CardDescription className="text-slate-400 text-xs">Clinical intelligence summary</CardDescription>
-                        </div>
-                    </div>
-                </CardHeader>
-                
-                <CardContent className="flex-1 p-6 space-y-10">
-                    {/* Specialty Distribution Chart */}
-                    <div className="space-y-4">
-                        <h4 className="text-[10px] uppercase font-bold text-muted-foreground tracking-[0.2em] text-center">Professional Composition</h4>
-                        {isLoading ? (
-                            <div className="h-[220px] flex items-center justify-center"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>
-                        ) : (
-                            <ResponsiveContainer width="100%" height={220}>
-                                <PieChart>
-                                    <Pie
-                                        data={stats.specialtyData}
-                                        cx="50%"
-                                        cy="50%"
-                                        innerRadius={60}
-                                        outerRadius={80}
-                                        paddingAngle={5}
-                                        dataKey="value"
-                                    >
-                                        {stats.specialtyData.map((entry, index) => (
-                                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                                        ))}
-                                    </Pie>
-                                    <Tooltip />
-                                    <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', paddingTop: '20px' }} />
-                                </PieChart>
-                            </ResponsiveContainer>
-                        )}
-                    </div>
-
-                    <div className="space-y-4 pt-6 border-t border-dashed">
-                        <h4 className="text-[10px] uppercase font-bold text-muted-foreground tracking-[0.2em]">Weekly Velocity</h4>
-                        <div className="grid grid-cols-1 gap-3">
-                            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between">
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase">Revenue Momentum</p>
-                                    <p className="text-lg font-bold">PKR {stats.weeklyRevenue.toLocaleString()}</p>
+                <CardHeader className="bg-slate-900 text-white rounded-t-xl"><CardTitle className="text-lg">Real-time Missed Logs</CardTitle></CardHeader>
+                <CardContent className="p-6">
+                    {missedAudits && missedAudits.length > 0 ? (
+                        <div className="space-y-4">
+                            {missedAudits.map((log: any) => (
+                                <div key={log.id} className="p-3 rounded-xl bg-muted/30 border text-[10px] space-y-1">
+                                    <p className="font-bold text-destructive flex items-center justify-between">
+                                        SESSION MISSED <span className="opacity-50">{format(new Date(log.loggedAt), "p")}</span>
+                                    </p>
+                                    <p className="text-slate-600">ID: {log.appointmentId.slice(0, 8)}...</p>
+                                    <p className="text-slate-600">Scheduled: {format(new Date(log.scheduledTime), "MMM dd, p")}</p>
                                 </div>
-                                <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-none">+12%</Badge>
-                            </div>
-                            <div className="p-4 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between">
-                                <div className="space-y-1">
-                                    <p className="text-[10px] font-bold text-muted-foreground uppercase">Active Case Load</p>
-                                    <p className="text-lg font-bold">{Math.round(stats.totalBookings / 30)} Avg/Day</p>
-                                </div>
-                                <Badge className="bg-blue-100 text-blue-700 hover:bg-blue-100 border-none">Stable</Badge>
-                            </div>
+                            ))}
                         </div>
-                    </div>
-
-                    <div className="p-4 rounded-2xl bg-amber-50 border border-amber-100 flex gap-4 items-start">
-                        <div className="p-2 bg-amber-200/50 rounded-full text-amber-700">
-                            <Target className="h-4 w-4" />
-                        </div>
-                        <div className="space-y-1">
-                            <p className="text-xs font-bold text-amber-900">Optimization Goal</p>
-                            <p className="text-[10px] text-amber-800/80 leading-relaxed">
-                                Current verified doctor to patient ratio is 1:{isLoading ? '...' : Math.round(stats.totalPatients / (stats.verifiedDoctors || 1))}. Target optimal ratio is 1:25.
-                            </p>
-                        </div>
-                    </div>
+                    ) : (
+                        <p className="text-center py-12 text-xs text-muted-foreground italic">No missed session logs for this cycle.</p>
+                    )}
                 </CardContent>
-
-                <div className="p-4 bg-slate-50 border-t mt-auto text-center">
-                    <Button variant="link" className="text-xs font-bold text-primary p-0 h-auto" asChild>
-                        <a href="/admin/doctors">Expand Professional Directory <ChevronRight className="h-3 w-3 ml-1" /></a>
-                    </Button>
-                </div>
             </Card>
         </div>
       </div>
     </div>
   );
-}
-
-function ChevronRight(props: any) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="m9 18 6-6-6-6" />
-    </svg>
-  )
 }

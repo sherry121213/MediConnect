@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Patient": {
@@ -38,20 +39,20 @@
         "patientId": { "type": "string" },
         "doctorId": { "type": "string" },
         "appointmentDateTime": { "type": "string", "format": "date-time" },
-        "status": { "type": "string", "enum": ["scheduled", "completed", "cancelled"] },
+        "status": { "type": "string", "enum": ["scheduled", "completed", "cancelled", "expired"] },
         "paymentStatus": { "type": "string", "enum": ["pending", "approved", "rejected"] }
       }
     },
-    "ConsultationChatMessage": {
-      "title": "ConsultationChatMessage",
-      "description": "A message sent during a live session.",
+    "MissedSessionAudit": {
+      "title": "MissedSessionAudit",
+      "description": "Log of sessions missed by doctors for admin review.",
       "type": "object",
       "properties": {
-        "id": { "type": "string" },
-        "sessionId": { "type": "string" },
-        "senderId": { "type": "string" },
-        "content": { "type": "string" },
-        "timestamp": { "type": "string", "format": "date-time" }
+        "appointmentId": { "type": "string" },
+        "doctorId": { "type": "string" },
+        "patientId": { "type": "string" },
+        "scheduledTime": { "type": "string", "format": "date-time" },
+        "loggedAt": { "type": "string", "format": "date-time" }
       }
     }
   },
@@ -71,17 +72,9 @@
       "schema": { "$ref": "#/backend/entities/Appointment" },
       "description": "Clinical booking and payment records."
     },
-    "/consultationSessions/{sessionId}/messages/{messageId}": {
-      "schema": { "$ref": "#/backend/entities/ConsultationChatMessage" },
-      "description": "Real-time clinical chat logs."
-    },
-    "/doctorUnavailabilityRequests/{requestId}": {
-      "schema": "object",
-      "description": "Clinical absence and leave audit requests."
-    },
-    "/adminDoctorChatSessions/{chatId}": {
-      "schema": "object",
-      "description": "Administrative support channels for providers."
+    "/missedSessionAudits/{auditId}": {
+      "schema": { "$ref": "#/backend/entities/MissedSessionAudit" },
+      "description": "Logs of expired sessions for administrative follow-up."
     }
   }
 }
