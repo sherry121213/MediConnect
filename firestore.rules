@@ -3,12 +3,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     /**
-     * MediConnect Global Access Policy - PROTOTYPE UNLOCK
-     * DEPLOYMENT_SIG: REFRESH_PERMISSIONS_2025_05_21_T14_45
+     * MediConnect Absolute Permissive Policy
+     * DEPLOYMENT_SIG: FORCE_REDEPLOY_2025_05_21_T16_20
      * 
-     * This policy allows unrestricted access to all collections to resolve 
-     * persistent "missing or insufficient permissions" errors during the 
-     * rapid prototyping and testing phase.
+     * This policy allows unrestricted access to ALL collections and documents
+     * to definitively resolve any "missing or insufficient permissions" errors.
      */
 
     match /{document=**} {

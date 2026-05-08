@@ -148,6 +148,7 @@ export default function AdminPatientsPage() {
                         <CardContent className="p-0">
                             <PatientTable patients={groupedData.unassigned} />
                         </CardContent>
+                    </Card>
                 )}
 
                 {patients?.length === 0 && (

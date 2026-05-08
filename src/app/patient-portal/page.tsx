@@ -240,7 +240,6 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
         return isValid(d) ? d : null;
     }, [apt?.appointmentDateTime]);
     
-    // Enforcement: Session is 50 minutes. ENTRY permitted between T and T+50.
     const now = isMounted ? new Date().getTime() : 0;
     const startTime = appointmentDate ? appointmentDate.getTime() : 0;
     const endTime = startTime + (50 * 60 * 1000);
@@ -289,7 +288,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                         <p className="text-xs sm:text-sm text-primary font-bold uppercase tracking-wider opacity-80 truncate">{doctor?.specialty || 'General Physician'}</p>
                         <div className="flex flex-wrap items-center gap-2 pt-1">
                             <Badge variant="secondary" className="bg-primary/5 text-primary-dark border-primary/10 flex items-center gap-1.5 px-2 text-[10px] sm:text-xs font-bold">
-                                <Calendar className="w-3 h-3" /> {format(appointmentDate, "MMM dd, yyyy")}
+                                <CalendarIcon className="w-3 h-3" /> {format(appointmentDate, "MMM dd, yyyy")}
                             </Badge>
                             <Badge variant="outline" className="flex items-center gap-1.5 px-2 text-[10px] sm:text-xs font-bold">
                                 <Clock className="w-3 h-3" /> {format(appointmentDate, "p")}

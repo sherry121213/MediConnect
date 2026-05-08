@@ -27,6 +27,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar as DayPickerCalendar } from "@/components/ui/calendar";
 
+// --- Schemas ---
 const notesSchema = z.object({
   diagnosis: z.string().min(3, "Diagnosis is required."),
   prescription: z.string().min(10, "Prescription details are required."),
@@ -40,10 +41,12 @@ const postponeSchema = z.object({
 type PostponeFormValues = z.infer<typeof postponeSchema>;
 
 const leaveRequestSchema = z.object({
-  requestedDate: z.date({ required_error: "Please select a date for the audit." }),
+  requestedDate: z.date({ required_error: "Please select a date." }),
   reason: z.string().min(5, "Please provide a professional reason."),
 });
 type LeaveFormValues = z.infer<typeof leaveRequestSchema>;
+
+// --- Helper Components ---
 
 const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSelect: (a: Appointment) => void, isMounted: boolean }) => {
     const firestore = useFirestore();
@@ -141,6 +144,8 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
         </div>
     );
 };
+
+// --- Dialogs ---
 
 function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment }) {
     const firestore = useFirestore();
@@ -658,6 +663,8 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
     );
 }
 
+// --- Main Page ---
+
 export default function DoctorPortalPage() {
     const { user, userData, isUserLoading } = useUserData();
     const firestore = useFirestore();
@@ -703,19 +710,20 @@ export default function DoctorPortalPage() {
         const now = new Date();
         const yesterday = subDays(now, 1);
 
-        const today = appointments.filter(apt => isSameDay(new Date(apt.appointmentDateTime), now));
-        const pending = appointments.filter(apt => apt.status === 'scheduled').length;
+        const today = appointments.filter(apt => apt && apt.appointmentDateTime && isSameDay(new Date(apt.appointmentDateTime), now));
+        const pending = appointments.filter(apt => apt && apt.status === 'scheduled').length;
         
         const todayRev = today.filter(a => a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
-        const lifetimeRev = appointments.filter(a => a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
-        const totalCompleted = appointments.filter(a => a.status === 'completed').length;
+        const lifetimeRev = appointments.filter(a => a && a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
+        const totalCompleted = appointments.filter(a => a && a.status === 'completed').length;
 
-        const activeRequest = requests?.find(r => isSameDay(new Date(r.requestedDate), viewDate));
+        const activeRequest = requests?.find(r => r && r.requestedDate && isSameDay(new Date(r.requestedDate), viewDate));
         const leaveStatus = activeRequest?.status || null;
 
         const filterSlots = (times: string[]) => {
             return times.map(time => {
                 const apt = appointments.find(a => {
+                    if (!a || !a.appointmentDateTime) return false;
                     const aptDate = new Date(a.appointmentDateTime);
                     const formattedAptTime = format(aptDate, "hh:mm a");
                     return isSameDay(aptDate, viewDate) && formattedAptTime === time && a.status !== 'cancelled';
@@ -727,6 +735,7 @@ export default function DoctorPortalPage() {
 
         const alerts: any[] = [];
         appointments.forEach(a => {
+            if (!a || !a.appointmentDateTime || !a.createdAt) return;
             const isNew = isAfter(new Date(a.createdAt), yesterday);
             if (isNew) {
                 alerts.push({ id: `new-${a.id}`, msg: `New Appointment: ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary' });
@@ -748,7 +757,7 @@ export default function DoctorPortalPage() {
             }
         });
         
-        chatSessions?.filter(s => s.lastMessageSenderRole === 'admin').forEach(s => {
+        chatSessions?.filter(s => s && s.lastMessageSenderRole === 'admin').forEach(s => {
             alerts.push({ id: `chat-${s.id}`, msg: "New Administrative Message.", icon: MessageSquare, color: 'text-blue-500', link: '/doctor-portal/chat' });
         });
 
