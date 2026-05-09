@@ -40,7 +40,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
 
     if (!apt || !appointmentDate) return null;
 
-    const profileSrc = doctor?.photoURL || doctorImage?.imageUrl;
+    const photoSrc = doctor?.photoURL || doctorImage?.imageUrl;
 
     return (
         <Card className={cn(
@@ -53,9 +53,9 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                     <div className="relative h-12 w-12 sm:h-16 sm:w-16 shrink-0 shadow-inner rounded-full overflow-hidden bg-muted flex items-center justify-center">
                         {isLoadingDoctor ? (
                              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                        ) : profileSrc ? (
+                        ) : photoSrc ? (
                             <Image
-                                src={profileSrc}
+                                src={photoSrc}
                                 alt={doctor?.firstName || 'Doctor'}
                                 fill
                                 className="object-cover border-2 border-primary/5"

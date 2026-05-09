@@ -16,7 +16,6 @@ import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
 import { collection, query, where } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Stethoscope, Users, LayoutList } from "lucide-react";
-import { cn } from "@/lib/utils";
 
 function PatientTable({ patients }: { patients: Patient[] }) {
     return (
@@ -90,7 +89,7 @@ export default function AdminPatientsPage() {
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
     const groupedData = useMemo(() => {
-        if (!patients || !doctors || !appointments) return { grouped: {}, unassigned: [] };
+        if (!patients || !doctors || !appointments) return { grouped: [], unassigned: [] };
 
         const groups: Record<string, { doctor: Doctor, patients: Patient[] }> = {};
         const assignedPatientIds = new Set<string>();
@@ -112,7 +111,7 @@ export default function AdminPatientsPage() {
         });
 
         const unassigned = patients.filter(p => p && !assignedPatientIds.has(p.id));
-        return { grouped: groups, unassigned };
+        return { grouped: Object.values(groups), unassigned };
     }, [patients, doctors, appointments]);
 
     const isLoading = isLoadingPatients || isLoadingDoctors || isLoadingAppointments;
@@ -153,7 +152,7 @@ export default function AdminPatientsPage() {
             </div>
 
             <div className="space-y-10">
-                {Object.values(groupedData.grouped).map(({ doctor, patients: doctorPatients }) => (
+                {groupedData.grouped.map(({ doctor, patients: doctorPatients }) => (
                     <Card key={doctor.id} className="border-none shadow-xl overflow-hidden bg-white rounded-2xl">
                         <CardHeader className="bg-primary/5 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-5 px-6">
                             <div className="flex items-center gap-4">

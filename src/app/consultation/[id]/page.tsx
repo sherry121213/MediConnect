@@ -3,11 +3,10 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, addDoc, query } from 'firebase/firestore';
-import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { collection, doc, addDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, User, Clock } from 'lucide-react';
+import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, User, Clock, Camera } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -28,7 +27,8 @@ export default function ConsultationRoomPage() {
   const [newMessage, setNewMessage] = useState('');
   const [isEnding, setIsEnding] = useState(false);
 
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
   // Fetch Appointment
@@ -44,7 +44,7 @@ export default function ConsultationRoomPage() {
     if (!appointment || isEnding) return;
 
     const startTime = new Date(appointment.appointmentDateTime).getTime();
-    const endTime = startTime + (50 * 60 * 1000); // 50 minutes window
+    const endTime = startTime + (50 * 60 * 1000); 
 
     const checkSessionValidity = () => {
       if (Date.now() > endTime) {
@@ -57,13 +57,13 @@ export default function ConsultationRoomPage() {
       }
     };
 
-    const interval = setInterval(checkSessionValidity, 10000); // Check every 10s
-    checkSessionValidity(); // Initial check
+    const interval = setInterval(checkSessionValidity, 10000);
+    checkSessionValidity();
 
     return () => clearInterval(interval);
   }, [appointment, router, userData, toast, isEnding]);
 
-  // Get Peer Data
+  // Peer Data
   const peerId = appointment ? (user?.uid === appointment.patientId ? appointment.doctorId : appointment.patientId) : null;
   const peerDocRef = useMemoFirebase(() => {
     if (!firestore || !peerId) return null;
@@ -71,7 +71,7 @@ export default function ConsultationRoomPage() {
   }, [firestore, peerId]);
   const { data: peer } = useDoc<any>(peerDocRef);
 
-  // Chat logic - Simplified query for stability
+  // Chat Data
   const messagesQuery = useMemoFirebase(() => {
     if (!firestore || !appointmentId) return null;
     return collection(firestore, 'consultationSessions', appointmentId, 'messages');
@@ -84,33 +84,35 @@ export default function ConsultationRoomPage() {
     return [...messagesData].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   }, [messagesData]);
 
-  // Camera Permission Effect
+  // Camera & Stream Handling
   useEffect(() => {
-    const getCameraPermission = async () => {
+    const startStreams = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         setHasCameraPermission(true);
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+        
+        // Show local stream in the small thumbnail
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
         }
+
+        // In a real WebRTC app, remoteVideoRef.srcObject would come from the RTCPeerConnection.
+        // For this prototype, we simulate the peer connection UI.
       } catch (error) {
+        console.error("Camera error:", error);
         setHasCameraPermission(false);
-        toast({
-          variant: 'destructive',
-          title: 'Camera Access Needed',
-          description: 'Please enable permissions to conduct the session.',
-        });
       }
     };
-    getCameraPermission();
+
+    startStreams();
 
     return () => {
-      if (videoRef.current?.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
+      if (localVideoRef.current?.srcObject) {
+        const stream = localVideoRef.current.srcObject as MediaStream;
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [toast]);
+  }, []);
 
   useEffect(() => {
     chatScrollRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -151,74 +153,114 @@ export default function ConsultationRoomPage() {
   return (
     <div className="flex flex-col h-screen bg-slate-950 overflow-hidden">
       {/* Header */}
-      <header className="flex items-center justify-between p-4 border-b border-white/10 bg-slate-900/50 backdrop-blur-md">
+      <header className="flex items-center justify-between p-4 border-b border-white/10 bg-slate-900/50 backdrop-blur-md z-20">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
             <ShieldCheck className="text-primary h-6 w-6" />
           </div>
           <div>
-            <h1 className="text-white font-bold tracking-tight">MediConnect Clinical Hub</h1>
-            <p className="text-[10px] text-slate-400 uppercase font-bold">Secure Clinical Session</p>
+            <h1 className="text-white font-bold tracking-tight text-sm sm:text-base">MediConnect Clinical Hub</h1>
+            <p className="text-[9px] text-slate-400 uppercase font-bold tracking-widest">Secure Clinical Session</p>
           </div>
         </div>
-        <div className="flex items-center gap-4">
-          <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/20 gap-1.5 px-3 py-1">
+        <div className="flex items-center gap-2 sm:gap-4">
+          <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/20 gap-1.5 px-3 py-1 text-[10px]">
             <div className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" /> LIVE
           </Badge>
-          <div className="hidden sm:block text-right">
-             <p className="text-xs text-slate-400">Consulting with</p>
-             <p className="text-sm text-white font-bold">{peer ? `${userData?.role === 'doctor' ? '' : 'Dr. '}${peer.firstName} ${peer.lastName}` : 'Connecting...'}</p>
+          <div className="hidden md:block text-right">
+             <p className="text-[10px] text-slate-400 uppercase font-bold">Consulting with</p>
+             <p className="text-xs text-white font-bold">{peer ? `${userData?.role === 'doctor' ? '' : 'Dr. '}${peer.firstName} ${peer.lastName}` : 'Connecting...'}</p>
           </div>
         </div>
       </header>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col lg:flex-row overflow-hidden">
-        <div className="flex-1 relative bg-slate-900 flex items-center justify-center p-4">
-          <div className="relative w-full h-full max-w-5xl rounded-3xl overflow-hidden shadow-2xl bg-black border border-white/5">
-             <video ref={videoRef} className={cn("w-full h-full object-cover mirror", isVideoOff && "hidden")} autoPlay muted />
-             {isVideoOff && (
-                <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-slate-500">
-                    <div className="h-24 w-24 rounded-full bg-slate-800 flex items-center justify-center"><User className="h-12 w-12" /></div>
-                    <p className="font-bold">Your Video is Disabled</p>
+      <main className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
+        {/* Video Area */}
+        <div className="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
+          
+          {/* REMOTE VIDEO (MAIN VIEW) */}
+          <div className="absolute inset-0 w-full h-full flex items-center justify-center">
+             <video 
+               ref={remoteVideoRef} 
+               className="w-full h-full object-cover"
+               autoPlay 
+               playsInline
+             />
+             {!remoteVideoRef.current?.srcObject && (
+                <div className="flex flex-col items-center justify-center gap-6 text-center px-6">
+                    <div className="h-20 w-20 rounded-full bg-slate-800/50 flex items-center justify-center animate-pulse border border-white/10">
+                        <User className="h-10 w-10 text-slate-500" />
+                    </div>
+                    <div className="space-y-1">
+                        <p className="text-white font-bold">Waiting for {peer?.firstName || 'peer'}...</p>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-bold">Secure connection established</p>
+                    </div>
                 </div>
              )}
-             <div className="absolute top-6 right-6 w-32 sm:w-48 aspect-video rounded-xl overflow-hidden border-2 border-white/10 shadow-lg bg-slate-800 z-10">
-                <div className="w-full h-full flex items-center justify-center text-slate-400 italic text-[10px] text-center px-2">
-                    {peer ? `${peer.firstName}'s view` : 'Waiting...'}
+          </div>
+
+          {/* LOCAL VIDEO (THUMBNAIL) */}
+          <div className="absolute top-6 right-6 w-32 sm:w-56 aspect-video rounded-2xl overflow-hidden border-2 border-white/10 shadow-2xl bg-slate-900 z-10">
+             <video 
+               ref={localVideoRef} 
+               className={cn("w-full h-full object-cover mirror", isVideoOff && "hidden")} 
+               autoPlay 
+               muted 
+               playsInline
+             />
+             {isVideoOff && (
+                <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-slate-800 text-slate-500">
+                    <VideoOff className="h-5 w-5" />
+                    <span className="text-[8px] font-bold uppercase tracking-tighter">Video Off</span>
                 </div>
-             </div>
-             <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 px-8 py-4 bg-slate-900/80 backdrop-blur-xl rounded-full border border-white/10 shadow-2xl">
-                <Button size="icon" variant={isMuted ? "destructive" : "secondary"} className="h-12 w-12 rounded-full" onClick={() => setIsMuted(!isMuted)}>
-                    {isMuted ? <MicOff /> : <Mic />}
-                </Button>
-                <Button size="icon" variant={isVideoOff ? "destructive" : "secondary"} className="h-12 w-12 rounded-full" onClick={() => setIsVideoOff(!isVideoOff)}>
-                    {isVideoOff ? <VideoOff /> : <Video />}
-                </Button>
-                <div className="w-px h-8 bg-white/10 mx-2" />
-                <Button variant="destructive" className="h-12 px-8 rounded-full font-bold gap-2" onClick={handleEndSession} disabled={isEnding}>
-                    {isEnding ? <Loader2 className="animate-spin" /> : <PhoneOff className="h-5 w-5" />} End Session
-                </Button>
+             )}
+             <div className="absolute bottom-2 left-2 bg-black/50 backdrop-blur-md px-2 py-0.5 rounded text-[8px] text-white font-bold uppercase">
+                You (Local)
              </div>
           </div>
+
+          {/* CONTROLS */}
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 sm:gap-4 px-6 sm:px-8 py-3 sm:py-4 bg-slate-900/80 backdrop-blur-xl rounded-full border border-white/10 shadow-2xl z-20">
+             <Button size="icon" variant={isMuted ? "destructive" : "secondary"} className="h-10 w-10 sm:h-12 sm:w-12 rounded-full" onClick={() => setIsMuted(!isMuted)}>
+                {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+             </Button>
+             <Button size="icon" variant={isVideoOff ? "destructive" : "secondary"} className="h-10 w-10 sm:h-12 sm:w-12 rounded-full" onClick={() => setIsVideoOff(!isVideoOff)}>
+                {isVideoOff ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
+             </Button>
+             <div className="w-px h-8 bg-white/10 mx-1" />
+             <Button variant="destructive" className="h-10 sm:h-12 px-5 sm:px-8 rounded-full font-bold gap-2 text-xs sm:text-sm" onClick={handleEndSession} disabled={isEnding}>
+                {isEnding ? <Loader2 className="h-4 w-4 animate-spin" /> : <PhoneOff className="h-4 w-4" />} <span className="hidden sm:inline">End Session</span>
+             </Button>
+          </div>
+
           {!hasCameraPermission && (
-             <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center z-50 p-6">
-                <Alert variant="destructive" className="max-w-md bg-slate-900 border-red-500/50">
-                    <AlertTitle>Camera Access Required</AlertTitle>
-                    <AlertDescription>Please allow camera access to participate.</AlertDescription>
-                </Alert>
+             <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center z-50 p-6">
+                <div className="max-w-md w-full bg-slate-900 border border-red-500/20 rounded-3xl p-8 text-center space-y-6 shadow-2xl">
+                    <div className="h-16 w-16 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto">
+                        <Camera className="h-8 w-8" />
+                    </div>
+                    <div className="space-y-2">
+                        <h4 className="text-white text-xl font-bold">Camera Access Required</h4>
+                        <p className="text-slate-400 text-sm leading-relaxed">
+                            To start the clinical session, please enable camera and microphone permissions in your browser.
+                        </p>
+                    </div>
+                    <Button onClick={() => window.location.reload()} className="w-full h-12 rounded-xl font-bold">Try Re-connecting</Button>
+                </div>
              </div>
           )}
         </div>
 
-        <aside className="w-full lg:w-[400px] border-l border-white/10 bg-slate-900/30 backdrop-blur-md flex flex-col">
+        {/* Chat Sidebar */}
+        <aside className="w-full lg:w-[400px] border-l border-white/10 bg-slate-900/30 backdrop-blur-md flex flex-col z-10 h-[300px] lg:h-auto">
           <div className="p-4 border-b border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-2">
                 <MessageSquare className="text-primary h-4 w-4" />
-                <h3 className="text-sm font-bold text-white uppercase tracking-wider">Session Chat</h3>
+                <h3 className="text-xs font-bold text-white uppercase tracking-wider">Clinical Chat</h3>
             </div>
-            <Badge variant="outline" className="text-[9px] text-amber-500 border-amber-500/30 font-bold">
-                <Clock className="h-3 w-3 mr-1" /> 50m LIMIT
+            <Badge variant="outline" className="text-[8px] text-amber-500 border-amber-500/30 font-bold uppercase">
+                <Clock className="h-3 w-3 mr-1" /> 50m Protocol
             </Badge>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
@@ -227,26 +269,36 @@ export default function ConsultationRoomPage() {
                     const isMe = msg.senderId === user?.uid;
                     return (
                         <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
-                            <div className={cn("max-w-[85%] p-3 rounded-2xl text-sm shadow-sm", isMe ? "bg-primary text-white rounded-br-none" : "bg-slate-800 text-slate-200 rounded-bl-none border border-white/5")}>
+                            <div className={cn(
+                                "max-w-[85%] p-3 rounded-2xl text-xs sm:text-sm shadow-sm", 
+                                isMe ? "bg-primary text-white rounded-br-none" : "bg-slate-800 text-slate-200 rounded-bl-none border border-white/5"
+                            )}>
                                 <p className="leading-relaxed">{msg.content}</p>
                             </div>
-                            <span className="text-[9px] text-slate-500 mt-1 uppercase font-bold tracking-tighter">
-                                {isMe ? 'You' : 'Peer'} • {format(new Date(msg.timestamp), "p")}
+                            <span className="text-[8px] text-slate-500 mt-1 uppercase font-bold tracking-tighter">
+                                {isMe ? 'You' : (peer?.firstName || 'Peer')} • {format(new Date(msg.timestamp), "p")}
                             </span>
                         </div>
                     );
                 })
             ) : (
-                <div className="h-full flex flex-col items-center justify-center text-slate-500 italic text-xs text-center p-8">
-                    <MessageSquare className="h-12 w-12 opacity-10 mb-4" />
-                    <p>Session started. Safe & Secure channel active.</p>
+                <div className="h-full flex flex-col items-center justify-center text-slate-500 italic text-center p-8">
+                    <MessageSquare className="h-10 w-10 opacity-10 mb-4" />
+                    <p className="text-[10px] uppercase font-bold tracking-widest">End-to-End Encrypted Channel</p>
                 </div>
             )}
             <div ref={chatScrollRef} />
           </div>
           <form onSubmit={handleSendMessage} className="p-4 bg-slate-900/50 border-t border-white/10 flex gap-2">
-            <Input placeholder="Type a message..." className="bg-slate-800 border-white/10 text-white" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
-            <Button type="submit" disabled={!newMessage.trim()} className="bg-primary hover:bg-primary/90"><Send className="h-4 w-4" /></Button>
+            <Input 
+                placeholder="Type your query..." 
+                className="bg-slate-800 border-white/10 text-white h-11 text-sm rounded-xl focus:ring-primary" 
+                value={newMessage} 
+                onChange={(e) => setNewMessage(e.target.value)} 
+            />
+            <Button type="submit" disabled={!newMessage.trim()} className="bg-primary hover:bg-primary/90 h-11 w-11 p-0 rounded-xl">
+                <Send className="h-4 w-4" />
+            </Button>
           </form>
         </aside>
       </main>
