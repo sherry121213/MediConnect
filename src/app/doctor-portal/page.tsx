@@ -170,13 +170,15 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
 
     const appointmentDate = new Date(appointment.appointmentDateTime);
     const now = isMounted ? new Date().getTime() : 0;
-    const startTime = appointmentDate.getTime() - (10 * 60 * 1000); 
-    const endTime = startTime + (60 * 60 * 1000);
-    const isLive = isMounted && now >= startTime && now < endTime;
+    // RELAXED START FOR DOCTOR: 30 minutes early
+    const startTimeForDoctor = appointmentDate.getTime() - (30 * 60 * 1000); 
+    const endTime = appointmentDate.getTime() + (60 * 60 * 1000);
+    const isLive = isMounted && now >= startTimeForDoctor && now < endTime;
 
     const handleStartRoom = () => {
         onOpenChange(false);
-        router.push(`/consultation/${appointment.id}`);
+        // Force high-priority navigation
+        window.location.assign(`/consultation/${appointment.id}`);
     };
 
     return (
@@ -204,6 +206,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
                                 ) : (
                                     <Button className="h-14 text-base font-bold opacity-70 cursor-not-allowed w-full rounded-2xl" disabled>Session Window Locked <Clock className="ml-3 h-5 w-5" /></Button>
                                 )}
+                                <p className="text-[10px] text-muted-foreground text-center uppercase font-bold tracking-widest">Administrative alert will be sent on start</p>
                             </div>
                         </TabsContent>
                         <TabsContent value="notes">

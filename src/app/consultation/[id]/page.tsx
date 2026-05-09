@@ -61,7 +61,7 @@ export default function ConsultationRoomPage() {
         patientId: appointment.patientId,
         action: 'started',
         timestamp: new Date().toISOString(),
-        description: `Dr. ${userData.firstName} ${userData.lastName} has initiated the clinical room.`
+        description: `Dr. ${userData.firstName} ${userData.lastName} has initiated the clinical room for session ${appointmentId.slice(0,8)}.`
       });
     }
   }, [userData, appointment, firestore, appointmentId]);
@@ -386,4 +386,3 @@ export default function ConsultationRoomPage() {
     </div>
   );
 }
-

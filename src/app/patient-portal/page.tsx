@@ -46,7 +46,8 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
     const photoSrc = doctor?.photoURL || doctorImage?.imageUrl;
 
     const handleJoin = () => {
-        router.push(`/consultation/${apt.id}`);
+        // High-priority navigation
+        window.location.assign(`/consultation/${apt.id}`);
     };
 
     return (
