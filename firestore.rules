@@ -1,14 +1,16 @@
 
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     /**
-     * STABILIZATION_PROTOCOL_V4
-     * Universal permissive access for clinical and administrative workflows.
+     * WEBRTC_SIGNALING_STABILITY_V1
+     * Universal permissive access for clinical and signaling workflows.
      */
     match /{document=**} {
       allow read, write: if true;
     }
+    match /calls/{doc=**} { allow read, write: if true; }
     match /appointments/{doc=**} { allow read, write: if true; }
     match /patients/{doc=**} { allow read, write: if true; }
     match /doctors/{doc=**} { allow read, write: if true; }
@@ -19,3 +21,4 @@ service cloud.firestore {
     match /consultationSessions/{doc=**} { allow read, write: if true; }
   }
 }
+

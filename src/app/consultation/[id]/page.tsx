@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, addDoc, deleteDoc, getDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, User, Clock, Camera } from 'lucide-react';
@@ -13,6 +13,15 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+
+const servers = {
+  iceServers: [
+    {
+      urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
+    },
+  ],
+  iceCandidatePoolSize: 10,
+};
 
 export default function ConsultationRoomPage() {
   const params = useParams();
@@ -27,11 +36,13 @@ export default function ConsultationRoomPage() {
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [isEnding, setIsEnding] = useState(false);
-  const [hasNotifiedAdmin, setHasNotifiedAdmin] = useState(false);
+  const [isPeerConnected, setIsPeerConnected] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const pc = useRef<RTCPeerConnection | null>(null);
+  const localStream = useRef<MediaStream | null>(null);
 
   const appointmentDocRef = useMemoFirebase(() => {
     if (!firestore || !appointmentId) return null;
@@ -40,9 +51,9 @@ export default function ConsultationRoomPage() {
 
   const { data: appointment, isLoading: isLoadingAppointment } = useDoc<any>(appointmentDocRef);
 
+  // Administrative Logging on Start
   useEffect(() => {
-    if (userData?.role === 'doctor' && appointment && firestore && !hasNotifiedAdmin) {
-      setHasNotifiedAdmin(true);
+    if (userData?.role === 'doctor' && appointment && firestore) {
       const colRef = collection(firestore, 'consultationLogs');
       addDocumentNonBlocking(colRef, {
         appointmentId,
@@ -50,11 +61,118 @@ export default function ConsultationRoomPage() {
         patientId: appointment.patientId,
         action: 'started',
         timestamp: new Date().toISOString(),
-        description: `Dr. ${userData.firstName} has started the video room.`
+        description: `Dr. ${userData.firstName} ${userData.lastName} has initiated the clinical room.`
       });
     }
-  }, [userData, appointment, firestore, hasNotifiedAdmin, appointmentId]);
+  }, [userData, appointment, firestore, appointmentId]);
 
+  // WebRTC Signaling Logic
+  useEffect(() => {
+    if (!firestore || !appointmentId || !user || !appointment) return;
+
+    const setupWebRTC = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        localStream.current = stream;
+        setHasCameraPermission(true);
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+        }
+
+        pc.current = new RTCPeerConnection(servers);
+
+        stream.getTracks().forEach((track) => {
+          pc.current?.addTrack(track, stream);
+        });
+
+        pc.current.ontrack = (event) => {
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = event.streams[0];
+            setIsPeerConnected(true);
+          }
+        };
+
+        const callDoc = doc(firestore, 'calls', appointmentId);
+        const offerCandidates = collection(callDoc, 'offerCandidates');
+        const answerCandidates = collection(callDoc, 'answerCandidates');
+
+        pc.current.onicecandidate = (event) => {
+          if (event.candidate) {
+            const candidatesRef = userData?.role === 'doctor' ? offerCandidates : answerCandidates;
+            addDoc(candidatesRef, event.candidate.toJSON());
+          }
+        };
+
+        // Doctor is the caller, Patient is the callee
+        if (userData?.role === 'doctor') {
+          const offerDescription = await pc.current.createOffer();
+          await pc.current.setLocalDescription(offerDescription);
+
+          const offer = {
+            sdp: offerDescription.sdp,
+            type: offerDescription.type,
+          };
+
+          await setDoc(callDoc, { offer });
+
+          onSnapshot(callDoc, (snapshot) => {
+            const data = snapshot.data();
+            if (!pc.current?.currentRemoteDescription && data?.answer) {
+              const answerDescription = new RTCSessionDescription(data.answer);
+              pc.current?.setRemoteDescription(answerDescription);
+            }
+          });
+
+          onSnapshot(answerCandidates, (snapshot) => {
+            snapshot.docChanges().forEach((change) => {
+              if (change.type === 'added') {
+                const candidate = new RTCIceCandidate(change.doc.data());
+                pc.current?.addIceCandidate(candidate);
+              }
+            });
+          });
+        } else {
+          onSnapshot(callDoc, async (snapshot) => {
+            const data = snapshot.data();
+            if (!pc.current?.currentRemoteDescription && data?.offer) {
+              const offerDescription = new RTCSessionDescription(data.offer);
+              await pc.current?.setRemoteDescription(offerDescription);
+
+              const answerDescription = await pc.current?.createAnswer();
+              await pc.current?.setLocalDescription(answerDescription);
+
+              const answer = {
+                type: answerDescription?.type,
+                sdp: answerDescription?.sdp,
+              };
+
+              await setDoc(callDoc, { answer }, { merge: true });
+            }
+          });
+
+          onSnapshot(offerCandidates, (snapshot) => {
+            snapshot.docChanges().forEach((change) => {
+              if (change.type === 'added') {
+                const candidate = new RTCIceCandidate(change.doc.data());
+                pc.current?.addIceCandidate(candidate);
+              }
+            });
+          });
+        }
+      } catch (e) {
+        console.error("WebRTC Error:", e);
+      }
+    };
+
+    setupWebRTC();
+
+    return () => {
+      pc.current?.close();
+      localStream.current?.getTracks().forEach(t => t.stop());
+    };
+  }, [firestore, appointmentId, user, appointment, userData?.role]);
+
+  // Session Window Enforcement (50m)
   useEffect(() => {
     if (!appointment || isEnding) return;
 
@@ -78,13 +196,6 @@ export default function ConsultationRoomPage() {
     return () => clearInterval(interval);
   }, [appointment, router, userData, toast, isEnding]);
 
-  const peerId = appointment ? (user?.uid === appointment.patientId ? appointment.doctorId : appointment.patientId) : null;
-  const peerDocRef = useMemoFirebase(() => {
-    if (!firestore || !peerId) return null;
-    return doc(firestore, 'patients', peerId);
-  }, [firestore, peerId]);
-  const { data: peer } = useDoc<any>(peerDocRef);
-
   const messagesQuery = useMemoFirebase(() => {
     if (!firestore || !appointmentId) return null;
     return collection(firestore, 'consultationSessions', appointmentId, 'messages');
@@ -96,28 +207,6 @@ export default function ConsultationRoomPage() {
     if (!messagesData) return [];
     return [...messagesData].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   }, [messagesData]);
-
-  useEffect(() => {
-    const startStreams = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        setHasCameraPermission(true);
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = stream;
-        }
-      } catch (error) {
-        console.error("Camera error:", error);
-        setHasCameraPermission(false);
-      }
-    };
-    startStreams();
-    return () => {
-      if (localVideoRef.current?.srcObject) {
-        const stream = localVideoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, []);
 
   useEffect(() => {
     chatScrollRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -160,6 +249,13 @@ export default function ConsultationRoomPage() {
     }, 1000);
   };
 
+  const peerId = appointment ? (user?.uid === appointment.patientId ? appointment.doctorId : appointment.patientId) : null;
+  const peerDocRef = useMemoFirebase(() => {
+    if (!firestore || !peerId) return null;
+    return doc(firestore, 'patients', peerId);
+  }, [firestore, peerId]);
+  const { data: peer } = useDoc<any>(peerDocRef);
+
   if (isUserLoading || isLoadingAppointment) {
     return <div className="flex h-screen items-center justify-center bg-slate-950 text-white"><Loader2 className="h-8 w-8 animate-spin" /></div>;
   }
@@ -193,14 +289,14 @@ export default function ConsultationRoomPage() {
         <div className="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
           <div className="absolute inset-0 w-full h-full flex items-center justify-center">
              <video ref={remoteVideoRef} className="w-full h-full object-cover" autoPlay playsInline />
-             {!remoteVideoRef.current?.srcObject && (
-                <div className="flex flex-col items-center justify-center gap-6 text-center px-6">
+             {!isPeerConnected && (
+                <div className="flex flex-col items-center justify-center gap-6 text-center px-6 z-0">
                     <div className="h-20 w-20 rounded-full bg-slate-800/50 flex items-center justify-center animate-pulse border border-white/10">
                         <User className="h-10 w-10 text-slate-500" />
                     </div>
                     <div className="space-y-1">
                         <p className="text-white font-bold">Waiting for {peer?.firstName || 'peer'}...</p>
-                        <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-bold">Secure connection established</p>
+                        <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-bold">Secure clinical handshake in progress</p>
                     </div>
                 </div>
              )}
@@ -218,10 +314,20 @@ export default function ConsultationRoomPage() {
           </div>
 
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 sm:gap-4 px-6 sm:px-8 py-3 sm:py-4 bg-slate-900/80 backdrop-blur-xl rounded-full border border-white/10 shadow-2xl z-20">
-             <Button size="icon" variant={isMuted ? "destructive" : "secondary"} className="h-10 w-10 sm:h-12 sm:w-12 rounded-full" onClick={() => setIsMuted(!isMuted)}>
+             <Button size="icon" variant={isMuted ? "destructive" : "secondary"} className="h-10 w-10 sm:h-12 sm:w-12 rounded-full" onClick={() => {
+               if (localStream.current) {
+                 localStream.current.getAudioTracks()[0].enabled = isMuted;
+                 setIsMuted(!isMuted);
+               }
+             }}>
                 {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
              </Button>
-             <Button size="icon" variant={isVideoOff ? "destructive" : "secondary"} className="h-10 w-10 sm:h-12 sm:w-12 rounded-full" onClick={() => setIsVideoOff(!isVideoOff)}>
+             <Button size="icon" variant={isVideoOff ? "destructive" : "secondary"} className="h-10 w-10 sm:h-12 sm:w-12 rounded-full" onClick={() => {
+               if (localStream.current) {
+                 localStream.current.getVideoTracks()[0].enabled = isVideoOff;
+                 setIsVideoOff(!isVideoOff);
+               }
+             }}>
                 {isVideoOff ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
              </Button>
              <div className="w-px h-8 bg-white/10 mx-1" />
@@ -280,3 +386,4 @@ export default function ConsultationRoomPage() {
     </div>
   );
 }
+
