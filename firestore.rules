@@ -4,7 +4,7 @@ service cloud.firestore {
 
     /**
      * MEDICONNECT UNIVERSAL STABILITY OVERRIDE
-     * DEPLOYMENT_SIG: ADMIN_DOCTOR_ACCESS_STABILIZATION_2025_V1
+     * DEPLOYMENT_SIG: FINAL_STABILITY_AND_LOG_CLEAR_2025_V1
      * 
      * Providing absolute permissive access to all clinical data paths
      * to ensure zero friction for doctors and patients.

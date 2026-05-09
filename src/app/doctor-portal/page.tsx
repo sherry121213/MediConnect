@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Siren, DollarSign } from "lucide-react";
+import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Siren, DollarSign, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
@@ -342,6 +342,7 @@ export default function DoctorPortalPage() {
     const [isAuditOpen, setIsAuditOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [viewDate, setViewDate] = useState(new Date());
+    const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         setMounted(true);
@@ -441,14 +442,18 @@ export default function DoctorPortalPage() {
         const alerts: any[] = [];
         appointments.forEach(a => {
             if (!a || !a.appointmentDateTime || !a.createdAt) return;
+            
+            const alertId = a.id + (a.status === 'expired' ? '-exp' : '-notif');
+            if (dismissedAlertIds.has(alertId)) return;
+
             if (a.status === 'expired') {
-                alerts.push({ id: `exp-${a.id}`, msg: `Audit: Session Expired (${format(new Date(a.appointmentDateTime), "p")})`, icon: AlertCircle, color: 'text-destructive' });
+                alerts.push({ id: alertId, msg: `Audit: Session Expired (${format(new Date(a.appointmentDateTime), "p")})`, icon: AlertCircle, color: 'text-destructive' });
                 return;
             }
             
             const isNew = isAfter(new Date(a.createdAt), yesterday);
             if (isNew && a.status === 'scheduled') {
-                alerts.push({ id: `new-${a.id}`, msg: `New Booking: ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary' });
+                alerts.push({ id: alertId, msg: `New Booking: ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary' });
             }
 
             const aptDate = new Date(a.appointmentDateTime);
@@ -458,7 +463,7 @@ export default function DoctorPortalPage() {
             
             if (currentTime >= startTime && currentTime < endTime && a.status === 'scheduled') {
                 alerts.unshift({ 
-                    id: `reminder-${a.id}`, 
+                    id: alertId + '-live', 
                     msg: "PATIENT WAITING - JOIN LIVE NOW", 
                     icon: Siren, 
                     color: 'text-red-500 animate-pulse font-bold',
@@ -474,11 +479,18 @@ export default function DoctorPortalPage() {
             notifications: alerts,
             currentDayLeaveStatus: leaveStatus
         };
-    }, [appointments, mounted, viewDate, userData, requests]);
+    }, [appointments, mounted, viewDate, userData, requests, dismissedAlertIds]);
 
     const handleSelectApt = (apt: Appointment) => {
         setSelectedAppointment(apt);
         setIsConsultOpen(true);
+    };
+
+    const handleClearNotifications = () => {
+        const newDismissed = new Set(dismissedAlertIds);
+        notifications.forEach(n => newDismissed.add(n.id));
+        setDismissedAlertIds(newDismissed);
+        toast({ title: "Logs Cleared", description: "Operational log has been archived for this session." });
     };
 
     if (!mounted || isUserLoading) return <div className="flex min-h-screen items-center justify-center bg-secondary/30"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -537,9 +549,16 @@ export default function DoctorPortalPage() {
                     <div className="lg:col-span-4 space-y-8">
                         <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden">
                              <CardHeader className="pb-4 border-b bg-muted/10 px-6">
-                                <CardTitle className="text-xs uppercase tracking-[0.2em] font-bold flex items-center gap-3">
-                                    <Bell className="h-5 w-5 text-amber-500" /> Operational Logs
-                                </CardTitle>
+                                <div className="flex items-center justify-between">
+                                    <CardTitle className="text-xs uppercase tracking-[0.2em] font-bold flex items-center gap-3">
+                                        <Bell className="h-5 w-5 text-amber-500" /> Operational Logs
+                                    </CardTitle>
+                                    {notifications.length > 0 && (
+                                        <Button variant="ghost" size="sm" onClick={handleClearNotifications} className="h-7 text-[10px] uppercase font-bold text-muted-foreground hover:text-destructive">
+                                            <Trash2 className="h-3 w-3 mr-1" /> Clear
+                                        </Button>
+                                    )}
+                                </div>
                             </CardHeader>
                             <CardContent className="space-y-4 p-6 max-h-[350px] overflow-y-auto custom-scrollbar">
                                 {notifications.length > 0 ? notifications.map(n => (
