@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -5,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, PhoneCall, RefreshCw, CalendarIcon, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { useUserData, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, query, where, doc } from "firebase/firestore";
@@ -17,6 +19,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 
 const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any, isUpcoming: boolean, onPostpone: (a: any) => void, isMounted: boolean }) => {
     const firestore = useFirestore();
+    const router = useRouter();
     const doctorDocRef = useMemoFirebase(() => {
         if (!firestore || !apt?.doctorId) return null;
         return doc(firestore, 'doctors', apt.doctorId);
@@ -32,20 +35,24 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
     }, [apt?.appointmentDateTime]);
     
     const now = isMounted ? new Date().getTime() : 0;
-    const startTime = appointmentDate ? appointmentDate.getTime() : 0;
-    const endTime = startTime + (50 * 60 * 1000);
+    const startTime = appointmentDate ? appointmentDate.getTime() - (10 * 60 * 1000) : 0; // 10m early
+    const endTime = appointmentDate ? appointmentDate.getTime() + (50 * 60 * 1000) : 0;
     
-    const isTimeReached = isMounted && now >= startTime && now < endTime;
+    const isLive = isMounted && now >= startTime && now < endTime;
     const isExpired = isMounted && now >= endTime;
 
     if (!apt || !appointmentDate) return null;
 
     const photoSrc = doctor?.photoURL || doctorImage?.imageUrl;
 
+    const handleJoin = () => {
+        router.push(`/consultation/${apt.id}`);
+    };
+
     return (
         <Card className={cn(
             "hover:shadow-lg transition-all border-l-4 bg-card/50 backdrop-blur-sm overflow-hidden",
-            isTimeReached ? "border-l-red-500 bg-red-50/10 shadow-md scale-[1.01]" : "border-l-primary/40",
+            isLive ? "border-l-red-500 bg-red-50/10 shadow-md scale-[1.01]" : "border-l-primary/40",
             isExpired && "opacity-60 border-l-destructive/40"
         )}>
             <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-8">
@@ -72,7 +79,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                             <p className="font-bold text-base sm:text-lg leading-tight tracking-tight truncate max-w-full">
                                 {isLoadingDoctor ? 'Loading...' : `Dr. ${doctor?.firstName} ${doctor?.lastName}`}
                             </p>
-                            {isTimeReached && <Badge className="bg-red-600 text-white animate-pulse h-4 text-[7px] px-1.5 uppercase font-bold">LIVE</Badge>}
+                            {isLive && <Badge className="bg-red-600 text-white animate-pulse h-4 text-[7px] px-1.5 uppercase font-bold">LIVE</Badge>}
                             {isExpired && <Badge variant="destructive" className="h-4 text-[7px] px-1.5 uppercase font-bold">EXPIRED</Badge>}
                         </div>
                         <p className="text-[10px] sm:text-xs text-primary font-bold uppercase tracking-wider opacity-80 truncate">{doctor?.specialty || 'Medical Specialist'}</p>
@@ -93,18 +100,16 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                         </Badge>
                     ) : isUpcoming && !isExpired ? (
                         <>
-                            {!isTimeReached && (
+                            {!isLive && (
                                 <Button variant="outline" size="sm" className="font-bold border-2 h-9 flex-1 sm:w-auto text-[10px]" onClick={() => onPostpone(apt)}>
                                     <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Postpone
                                 </Button>
                             )}
                             <Dialog>
                                 <DialogTrigger asChild>
-                                    {isTimeReached ? (
-                                        <Button className="font-bold h-9 flex-1 sm:w-auto shadow-lg shadow-primary/20 bg-red-600 hover:bg-red-700 animate-pulse text-[10px]">Join Now</Button>
-                                    ) : (
-                                        <Button className="font-bold opacity-70 cursor-not-allowed h-9 flex-1 sm:w-auto text-[10px]" disabled>Upcoming</Button>
-                                    )}
+                                    <Button className={cn("font-bold h-9 flex-1 sm:w-auto", isLive ? "bg-red-600 hover:bg-red-700 animate-pulse" : "opacity-70 cursor-not-allowed")} disabled={!isLive}>
+                                        {isLive ? "Join Now" : "Upcoming"}
+                                    </Button>
                                 </DialogTrigger>
                                 <DialogContent className="w-[95vw] sm:max-w-lg rounded-2xl border-none shadow-2xl">
                                     <DialogHeader>
@@ -112,11 +117,11 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                                         <DialogDescription>Secure room window closes at {format(new Date(endTime), "p")}.</DialogDescription>
                                     </DialogHeader>
                                     <div className="grid grid-cols-1 gap-4 py-4 sm:py-6">
-                                        <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group bg-muted/5" asChild>
-                                            <Link href={`/consultation/${apt?.id}`}><Video className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/> <div className="text-left min-w-0"><p className="font-bold text-foreground truncate">Video Consultation</p><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">HD Video Feed</p></div></Link>
+                                        <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group bg-muted/5" onClick={handleJoin}>
+                                            <Video className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/> <div className="text-left min-w-0"><p className="font-bold text-foreground truncate">Video Consultation</p><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">HD Video Feed</p></div>
                                         </Button>
-                                        <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group bg-muted/5" asChild>
-                                            <Link href={`/consultation/${apt?.id}`}><MessageSquare className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/> <div className="text-left min-w-0"><p className="font-bold text-foreground truncate">Secure Patient Chat</p><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">Real-time Messaging</p></div></Link>
+                                        <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group bg-muted/5" onClick={handleJoin}>
+                                            <MessageSquare className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/> <div className="text-left min-w-0"><p className="font-bold text-foreground truncate">Secure Patient Chat</p><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">Real-time Messaging</p></div>
                                         </Button>
                                     </div>
                                 </DialogContent>
@@ -139,9 +144,12 @@ export default function PatientPortalPage() {
     const [mounted, setMounted] = useState(false);
     const [selectedApt, setSelectedApt] = useState<any>(null);
     const [isPostponeOpen, setIsPostponeOpen] = useState(false);
+    const [nowState, setNowState] = useState(new Date().getTime());
 
     useEffect(() => {
         setMounted(true);
+        const timer = setInterval(() => setNowState(new Date().getTime()), 15000);
+        return () => clearInterval(timer);
     }, []);
 
     const appointmentsQuery = useMemoFirebase(() => {
@@ -190,7 +198,7 @@ export default function PatientPortalPage() {
             .slice(0, 8);
 
         return { upcomingAppointments: upcoming, pendingVerificationAppointments: pending, recentPastAppointments: past };
-    }, [appointments, mounted]);
+    }, [appointments, mounted, nowState]);
 
     const handlePostpone = (apt: any) => {
         setSelectedApt(apt);

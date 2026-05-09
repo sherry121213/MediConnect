@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -11,7 +12,6 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 export default function ConsultationRoomPage() {
   const params = useParams();
@@ -26,18 +26,33 @@ export default function ConsultationRoomPage() {
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [isEnding, setIsEnding] = useState(false);
+  const [hasNotifiedAdmin, setHasNotifiedAdmin] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
-  // Fetch Appointment
   const appointmentDocRef = useMemoFirebase(() => {
     if (!firestore || !appointmentId) return null;
     return doc(firestore, 'appointments', appointmentId);
   }, [firestore, appointmentId]);
 
   const { data: appointment, isLoading: isLoadingAppointment } = useDoc<any>(appointmentDocRef);
+
+  // Notify Admin when doctor joins
+  useEffect(() => {
+    if (userData?.role === 'doctor' && appointment && firestore && !hasNotifiedAdmin) {
+      setHasNotifiedAdmin(true);
+      addDoc(collection(firestore, 'consultationLogs'), {
+        appointmentId,
+        doctorId: userData.id,
+        patientId: appointment.patientId,
+        action: 'started',
+        timestamp: new Date().toISOString(),
+        description: `Dr. ${userData.firstName} has started the video room.`
+      });
+    }
+  }, [userData, appointment, firestore, hasNotifiedAdmin, appointmentId]);
 
   // Enforcement: 50 Minute Session Limit
   useEffect(() => {
@@ -84,28 +99,20 @@ export default function ConsultationRoomPage() {
     return [...messagesData].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
   }, [messagesData]);
 
-  // Camera & Stream Handling
   useEffect(() => {
     const startStreams = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         setHasCameraPermission(true);
-        
-        // Show local stream in the small thumbnail
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
         }
-
-        // In a real WebRTC app, remoteVideoRef.srcObject would come from the RTCPeerConnection.
-        // For this prototype, we simulate the peer connection UI.
       } catch (error) {
         console.error("Camera error:", error);
         setHasCameraPermission(false);
       }
     };
-
     startStreams();
-
     return () => {
       if (localVideoRef.current?.srcObject) {
         const stream = localVideoRef.current.srcObject as MediaStream;
@@ -138,6 +145,15 @@ export default function ConsultationRoomPage() {
 
   const handleEndSession = () => {
     setIsEnding(true);
+    if (userData?.role === 'doctor' && firestore && appointment) {
+        addDoc(collection(firestore, 'consultationLogs'), {
+            appointmentId,
+            doctorId: userData.id,
+            patientId: appointment.patientId,
+            action: 'ended',
+            timestamp: new Date().toISOString(),
+        });
+    }
     toast({ title: "Session Concluded", description: "The consultation has ended." });
     setTimeout(() => {
       router.push(userData?.role === 'doctor' ? '/doctor-portal' : '/patient-portal');
@@ -152,7 +168,6 @@ export default function ConsultationRoomPage() {
 
   return (
     <div className="flex flex-col h-screen bg-slate-950 overflow-hidden">
-      {/* Header */}
       <header className="flex items-center justify-between p-4 border-b border-white/10 bg-slate-900/50 backdrop-blur-md z-20">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
@@ -174,12 +189,8 @@ export default function ConsultationRoomPage() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
-        {/* Video Area */}
         <div className="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
-          
-          {/* REMOTE VIDEO (MAIN VIEW) */}
           <div className="absolute inset-0 w-full h-full flex items-center justify-center">
              <video 
                ref={remoteVideoRef} 
@@ -200,7 +211,6 @@ export default function ConsultationRoomPage() {
              )}
           </div>
 
-          {/* LOCAL VIDEO (THUMBNAIL) */}
           <div className="absolute top-6 right-6 w-32 sm:w-56 aspect-video rounded-2xl overflow-hidden border-2 border-white/10 shadow-2xl bg-slate-900 z-10">
              <video 
                ref={localVideoRef} 
@@ -220,7 +230,6 @@ export default function ConsultationRoomPage() {
              </div>
           </div>
 
-          {/* CONTROLS */}
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 sm:gap-4 px-6 sm:px-8 py-3 sm:py-4 bg-slate-900/80 backdrop-blur-xl rounded-full border border-white/10 shadow-2xl z-20">
              <Button size="icon" variant={isMuted ? "destructive" : "secondary"} className="h-10 w-10 sm:h-12 sm:w-12 rounded-full" onClick={() => setIsMuted(!isMuted)}>
                 {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
@@ -252,7 +261,6 @@ export default function ConsultationRoomPage() {
           )}
         </div>
 
-        {/* Chat Sidebar */}
         <aside className="w-full lg:w-[400px] border-l border-white/10 bg-slate-900/30 backdrop-blur-md flex flex-col z-10 h-[300px] lg:h-auto">
           <div className="p-4 border-b border-white/10 flex items-center justify-between">
             <div className="flex items-center gap-2">

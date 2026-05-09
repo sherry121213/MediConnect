@@ -1,15 +1,16 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Siren, DollarSign, Trash2 } from "lucide-react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
 import { collection, query, where, doc } from "firebase/firestore";
 import type { Appointment, Patient, Doctor } from "@/lib/types";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -27,8 +28,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar as DayPickerCalendar } from "@/components/ui/calendar";
 
-// --- Helper Components ---
-
 const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSelect: (a: Appointment) => void, isMounted: boolean }) => {
     const firestore = useFirestore();
     const patientDocRef = useMemoFirebase(() => {
@@ -39,8 +38,8 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
 
     const appointmentDate = new Date(apt.appointmentDateTime);
     const now = isMounted ? new Date().getTime() : 0;
-    const startTime = appointmentDate.getTime();
-    const endTime = startTime + (50 * 60 * 1000);
+    const startTime = appointmentDate.getTime() - (10 * 60 * 1000); // 10m early start allowed
+    const endTime = appointmentDate.getTime() + (50 * 60 * 1000);
     const isLive = isMounted && now >= startTime && now < endTime;
 
     return (
@@ -64,7 +63,7 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
                     <Badge className="bg-red-600 text-white animate-pulse text-[8px] h-4">LIVE NOW</Badge>
                 )}
                 <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("ml-2 shrink-0 text-[10px]", apt.status === 'completed' ? 'bg-green-100 text-green-800' : 'text-primary border-primary/20')}>
-                    {apt.status === 'scheduled' ? (isLive ? 'Start Session' : 'Upcoming') : apt.status}
+                    {apt.status === 'scheduled' ? (isLive ? 'Start' : 'Upcoming') : apt.status}
                 </Badge>
             </div>
         </div>
@@ -83,8 +82,8 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
         if (!appointment || !isMounted) return false;
         const aptDate = new Date(appointment.appointmentDateTime);
         const now = new Date().getTime();
-        const startTime = aptDate.getTime();
-        const endTime = startTime + (50 * 60 * 1000);
+        const startTime = aptDate.getTime() - (10 * 60 * 1000); // 10m early start allowed
+        const endTime = aptDate.getTime() + (50 * 60 * 1000);
         return now >= startTime && now < endTime;
     }, [appointment, isMounted]);
 
@@ -133,7 +132,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
                             )} 
                             onClick={() => onSelect(appointment)}
                         >
-                            {isLive ? "Start Session" : "Manage"}
+                            {isLive ? "Start" : "Manage"}
                         </Button>
                     )}
                 </div>
@@ -144,10 +143,9 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
     );
 };
 
-// --- Dialog Components ---
-
 function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment | null, isMounted: boolean }) {
     const firestore = useFirestore();
+    const router = useRouter();
     const { toast } = useToast();
     
     const patientDocRef = useMemoFirebase(() => {
@@ -173,8 +171,14 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
 
     const appointmentDate = new Date(appointment.appointmentDateTime);
     const now = isMounted ? new Date().getTime() : 0;
-    const startTime = appointmentDate.getTime();
-    const isTimeReached = isMounted && now >= startTime && now < (startTime + (50 * 60 * 1000)); 
+    const startTime = appointmentDate.getTime() - (10 * 60 * 1000); // 10m early start allowed
+    const endTime = startTime + (60 * 60 * 1000);
+    const isLive = isMounted && now >= startTime && now < endTime;
+
+    const handleStartRoom = () => {
+        onOpenChange(false);
+        router.push(`/consultation/${appointment.id}`);
+    };
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -194,9 +198,9 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
                                 {patient && <div className="min-w-0"><p className="font-bold text-lg truncate">{patient.firstName} {patient.lastName}</p><p className="text-xs text-muted-foreground">{patient.email}</p></div>}
                             </div>
                             <div className="flex flex-col gap-3 pt-4">
-                                {isTimeReached ? (
-                                    <Button className="h-14 text-base font-bold shadow-xl shadow-red-500/20 bg-red-600 hover:bg-red-700 animate-pulse rounded-2xl" asChild>
-                                        <Link href={`/consultation/${appointment.id}`}><Video className="mr-3 h-6 w-6" /> Start Video Room</Link>
+                                {isLive ? (
+                                    <Button onClick={handleStartRoom} className="h-14 text-base font-bold shadow-xl shadow-red-500/20 bg-red-600 hover:bg-red-700 animate-pulse rounded-2xl">
+                                        <Video className="mr-3 h-6 w-6" /> Start Video Room
                                     </Button>
                                 ) : (
                                     <Button className="h-14 text-base font-bold opacity-70 cursor-not-allowed w-full rounded-2xl" disabled>Session Window Locked <Clock className="ml-3 h-5 w-5" /></Button>
@@ -329,8 +333,6 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
     );
 }
 
-// --- Main Page ---
-
 export default function DoctorPortalPage() {
     const { user, userData, isUserLoading } = useUserData();
     const firestore = useFirestore();
@@ -343,9 +345,12 @@ export default function DoctorPortalPage() {
     const [mounted, setMounted] = useState(false);
     const [viewDate, setViewDate] = useState(new Date());
     const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string>>(new Set());
+    const [nowState, setNowState] = useState(new Date().getTime());
 
     useEffect(() => {
         setMounted(true);
+        const timer = setInterval(() => setNowState(new Date().getTime()), 10000);
+        return () => clearInterval(timer);
     }, []);
 
     const appointmentsQuery = useMemoFirebase(() => {
@@ -375,8 +380,7 @@ export default function DoctorPortalPage() {
                 const aptRef = doc(firestore, 'appointments', apt.id);
                 updateDocumentNonBlocking(aptRef, { status: 'expired', updatedAt: new Date().toISOString() });
 
-                const auditRef = collection(firestore, 'missedSessionAudits');
-                addDocumentNonBlocking(auditRef, {
+                addDocumentNonBlocking(collection(firestore, 'missedSessionAudits'), {
                     appointmentId: apt.id,
                     doctorId: user.uid,
                     patientId: apt.patientId,
@@ -387,15 +391,13 @@ export default function DoctorPortalPage() {
                 toast({
                     variant: 'destructive',
                     title: "Session Time-Out",
-                    description: `The 50-minute clinical window for a session has passed. Logged for admin review.`,
+                    description: `The clinical window for a session has passed. Logged for admin audit.`,
                 });
             }
         };
 
-        const interval = setInterval(checkMissedSessions, 30000);
         checkMissedSessions();
-        return () => clearInterval(interval);
-    }, [appointments, mounted, firestore, user, toast]);
+    }, [appointments, mounted, firestore, user, toast, nowState]);
 
     const { todayAppointments, stats, masterSchedule, notifications, currentDayLeaveStatus } = useMemo(() => {
         if (!mounted || !appointments) return { 
@@ -442,7 +444,6 @@ export default function DoctorPortalPage() {
         const alerts: any[] = [];
         appointments.forEach(a => {
             if (!a || !a.appointmentDateTime || !a.createdAt) return;
-            
             const alertId = a.id + (a.status === 'expired' ? '-exp' : '-notif');
             if (dismissedAlertIds.has(alertId)) return;
 
@@ -457,18 +458,12 @@ export default function DoctorPortalPage() {
             }
 
             const aptDate = new Date(a.appointmentDateTime);
-            const startTime = aptDate.getTime();
-            const endTime = startTime + (50 * 60 * 1000);
+            const startTime = aptDate.getTime() - (10 * 60 * 1000);
+            const endTime = aptDate.getTime() + (50 * 60 * 1000);
             const currentTime = now.getTime();
             
             if (currentTime >= startTime && currentTime < endTime && a.status === 'scheduled') {
-                alerts.unshift({ 
-                    id: alertId + '-live', 
-                    msg: "PATIENT WAITING - JOIN LIVE NOW", 
-                    icon: Siren, 
-                    color: 'text-red-500 animate-pulse font-bold',
-                    isReminder: true
-                });
+                alerts.unshift({ id: alertId + '-live', msg: "PATIENT WAITING - JOIN NOW", icon: Siren, color: 'text-red-500 animate-pulse font-bold', isReminder: true });
             }
         });
 
@@ -479,7 +474,7 @@ export default function DoctorPortalPage() {
             notifications: alerts,
             currentDayLeaveStatus: leaveStatus
         };
-    }, [appointments, mounted, viewDate, userData, requests, dismissedAlertIds]);
+    }, [appointments, mounted, viewDate, userData, requests, dismissedAlertIds, nowState]);
 
     const handleSelectApt = (apt: Appointment) => {
         setSelectedAppointment(apt);
@@ -490,7 +485,7 @@ export default function DoctorPortalPage() {
         const newDismissed = new Set(dismissedAlertIds);
         notifications.forEach(n => newDismissed.add(n.id));
         setDismissedAlertIds(newDismissed);
-        toast({ title: "Logs Cleared", description: "Operational log has been archived for this session." });
+        toast({ title: "Operational log archived." });
     };
 
     if (!mounted || isUserLoading) return <div className="flex min-h-screen items-center justify-center bg-secondary/30"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -516,11 +511,9 @@ export default function DoctorPortalPage() {
                         </Card>
                         <div className="col-span-2 sm:col-span-1">
                             <Dialog open={isAuditOpen} onOpenChange={setIsAuditOpen}>
-                                <DialogTrigger asChild>
-                                    <Button variant="outline" className="w-full h-full font-bold gap-3 border-2 border-primary/20 hover:bg-primary/5 shadow-md rounded-2xl text-sm">
-                                        <DollarSign className="h-5 w-5 text-primary" /> Lifetime Audit
-                                    </Button>
-                                </DialogTrigger>
+                                <Button onClick={() => setIsAuditOpen(true)} variant="outline" className="w-full h-full font-bold gap-3 border-2 border-primary/20 hover:bg-primary/5 shadow-md rounded-2xl text-sm">
+                                    <DollarSign className="h-5 w-5 text-primary" /> Lifetime Audit
+                                </Button>
                                 <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-3xl">
                                     <DialogHeader>
                                         <DialogTitle className="flex items-center gap-3 text-2xl font-headline">
@@ -639,7 +632,7 @@ export default function DoctorPortalPage() {
                                             <div className="h-24 w-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto shadow-inner border-4 border-white"><ShieldCheck className="h-14 w-14" /></div>
                                             <div className="space-y-3">
                                                 <h4 className="text-2xl sm:text-3xl font-bold tracking-tight">Practice Suspended</h4>
-                                                <p className="text-sm text-muted-foreground leading-relaxed font-medium italic">Professional absence audit approved for this date. Patient bookings are currently disabled.</p>
+                                                <p className="text-sm text-muted-foreground leading-relaxed font-medium italic">Professional absence audit approved for this date.</p>
                                             </div>
                                         </div>
                                     </div>

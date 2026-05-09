@@ -1,27 +1,17 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-
     /**
-     * MEDICONNECT UNIVERSAL STABILITY OVERRIDE
-     * DEPLOYMENT_SIG: FINAL_PRODUCTION_STABILITY_V3
-     * 
-     * Providing absolute permissive access to all clinical data paths
-     * to ensure zero friction for doctors and patients during consultations.
+     * FINAL_ACTIVE_SESSION_PROTOCOL_V1
+     * Providing absolute permissive access to all clinical data paths.
      */
-
     match /{document=**} {
       allow read, write: if true;
     }
-
-    // Explicit matches for core clinical collections to ensure high performance
     match /appointments/{doc=**} { allow read, write: if true; }
     match /patients/{doc=**} { allow read, write: if true; }
     match /doctors/{doc=**} { allow read, write: if true; }
-    match /consultationSessions/{doc=**} { allow read, write: if true; }
-    match /missedSessionAudits/{doc=**} { allow read, write: if true; }
-    match /doctorUnavailabilityRequests/{doc=**} { allow read, write: if true; }
-    match /adminDoctorChatSessions/{doc=**} { allow read, write: if true; }
-    match /roles_admin/{doc=**} { allow read, write: if true; }
+    match /consultationLogs/{doc=**} { allow read, write: if true; }
   }
 }
