@@ -3,8 +3,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     /**
-     * FINAL_ACTIVE_SESSION_PROTOCOL_V1
-     * Providing absolute permissive access to all clinical data paths.
+     * STABILIZATION_PROTOCOL_V4
+     * Universal permissive access for clinical and administrative workflows.
      */
     match /{document=**} {
       allow read, write: if true;
@@ -13,5 +13,9 @@ service cloud.firestore {
     match /patients/{doc=**} { allow read, write: if true; }
     match /doctors/{doc=**} { allow read, write: if true; }
     match /consultationLogs/{doc=**} { allow read, write: if true; }
+    match /missedSessionAudits/{doc=**} { allow read, write: if true; }
+    match /doctorUnavailabilityRequests/{doc=**} { allow read, write: if true; }
+    match /adminDoctorChatSessions/{doc=**} { allow read, write: if true; }
+    match /consultationSessions/{doc=**} { allow read, write: if true; }
   }
 }

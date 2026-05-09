@@ -38,7 +38,7 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
 
     const appointmentDate = new Date(apt.appointmentDateTime);
     const now = isMounted ? new Date().getTime() : 0;
-    const startTime = appointmentDate.getTime() - (10 * 60 * 1000); // 10m early start allowed
+    const startTime = appointmentDate.getTime() - (10 * 60 * 1000); 
     const endTime = appointmentDate.getTime() + (50 * 60 * 1000);
     const isLive = isMounted && now >= startTime && now < endTime;
 
@@ -59,9 +59,7 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
                 </div>
             </div>
             <div className="flex items-center gap-2">
-                {isLive && (
-                    <Badge className="bg-red-600 text-white animate-pulse text-[8px] h-4">LIVE NOW</Badge>
-                )}
+                {isLive && <Badge className="bg-red-600 text-white animate-pulse text-[8px] h-4">LIVE NOW</Badge>}
                 <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("ml-2 shrink-0 text-[10px]", apt.status === 'completed' ? 'bg-green-100 text-green-800' : 'text-primary border-primary/20')}>
                     {apt.status === 'scheduled' ? (isLive ? 'Start' : 'Upcoming') : apt.status}
                 </Badge>
@@ -82,7 +80,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
         if (!appointment || !isMounted) return false;
         const aptDate = new Date(appointment.appointmentDateTime);
         const now = new Date().getTime();
-        const startTime = aptDate.getTime() - (10 * 60 * 1000); // 10m early start allowed
+        const startTime = aptDate.getTime() - (10 * 60 * 1000);
         const endTime = aptDate.getTime() + (50 * 60 * 1000);
         return now >= startTime && now < endTime;
     }, [appointment, isMounted]);
@@ -118,7 +116,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
                     <p className="text-[10px] sm:text-xs italic text-muted-foreground truncate">{isDisabled ? "Off" : "Open"}</p>
                 )}
             </div>
-            {appointment ? (
+            {appointment && (
                 <div className="flex items-center gap-2">
                     {isExpired ? (
                         <Badge variant="destructive" className="text-[8px] h-5 font-bold uppercase tracking-tight">Missed</Badge>
@@ -136,7 +134,8 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
                         </Button>
                     )}
                 </div>
-            ) : (
+            )}
+            {!appointment && (
                 <Badge variant="outline" className="text-[9px] sm:text-[10px] font-bold text-muted-foreground border-dashed shrink-0">{isDisabled ? "Closed" : "Free"}</Badge>
             )}
         </div>
@@ -171,7 +170,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
 
     const appointmentDate = new Date(appointment.appointmentDateTime);
     const now = isMounted ? new Date().getTime() : 0;
-    const startTime = appointmentDate.getTime() - (10 * 60 * 1000); // 10m early start allowed
+    const startTime = appointmentDate.getTime() - (10 * 60 * 1000); 
     const endTime = startTime + (60 * 60 * 1000);
     const isLive = isMounted && now >= startTime && now < endTime;
 
@@ -285,46 +284,32 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
                 <DialogHeader><DialogTitle className="text-xl font-headline">Absence Audit Application</DialogTitle></DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
-                        <FormField 
-                            control={form.control} 
-                            name="requestedDate" 
-                            render={({ field }) => (
-                                <FormItem className="flex flex-col">
-                                    <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Select Clinical Date</FormLabel>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <FormControl>
-                                                <Button variant="outline" className="w-full h-12 border-2 rounded-xl text-left font-normal px-4">
-                                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {field.value ? format(field.value, "PPP") : "Select"}
-                                                </Button>
-                                            </FormControl>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0" align="start">
-                                            <DayPickerCalendar 
-                                                mode="single" 
-                                                selected={field.value} 
-                                                onSelect={field.onChange} 
-                                                disabled={(d) => isBefore(d, addDays(new Date(), 1))} 
-                                                initialFocus
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
-                                </FormItem>
-                            )}
-                        />
-                        <FormField 
-                            control={form.control} 
-                            name="reason" 
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Audit Justification</FormLabel>
-                                    <FormControl>
-                                        <Textarea placeholder="Planned leave context (e.g. Travel, Workshop)" rows={4} className="resize-none border-2 rounded-xl" {...field} />
-                                    </FormControl>
-                                </FormItem>
-                            )}
-                        />
+                        <FormField control={form.control} name="requestedDate" render={({ field }) => (
+                            <FormItem className="flex flex-col">
+                                <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Select Clinical Date</FormLabel>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <FormControl>
+                                            <Button variant="outline" className="w-full h-12 border-2 rounded-xl text-left font-normal px-4">
+                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                {field.value ? format(field.value, "PPP") : "Select"}
+                                            </Button>
+                                        </FormControl>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <DayPickerCalendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(d) => isBefore(d, addDays(new Date(), 1))} initialFocus />
+                                    </PopoverContent>
+                                </Popover>
+                            </FormItem>
+                        )} />
+                        <FormField control={form.control} name="reason" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Audit Justification</FormLabel>
+                                <FormControl>
+                                    <Textarea placeholder="Planned leave context (e.g. Travel, Workshop)" rows={4} className="resize-none border-2 rounded-xl" {...field} />
+                                </FormControl>
+                            </FormItem>
+                        )} />
                         <Button type="submit" className="w-full h-14 text-lg font-bold rounded-2xl">Log for Audit</Button>
                     </form>
                 </Form>
@@ -510,30 +495,9 @@ export default function DoctorPortalPage() {
                             <p className="text-xl sm:text-2xl font-bold text-primary">{stats.today} Patients</p>
                         </Card>
                         <div className="col-span-2 sm:col-span-1">
-                            <Dialog open={isAuditOpen} onOpenChange={setIsAuditOpen}>
-                                <Button onClick={() => setIsAuditOpen(true)} variant="outline" className="w-full h-full font-bold gap-3 border-2 border-primary/20 hover:bg-primary/5 shadow-md rounded-2xl text-sm">
-                                    <DollarSign className="h-5 w-5 text-primary" /> Lifetime Audit
-                                </Button>
-                                <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-3xl">
-                                    <DialogHeader>
-                                        <DialogTitle className="flex items-center gap-3 text-2xl font-headline">
-                                            <History className="h-6 w-6 text-primary" /> Clinical Analytics
-                                        </DialogTitle>
-                                        <DialogDescription className="text-sm">Summary of your professional performance across the platform.</DialogDescription>
-                                    </DialogHeader>
-                                    <div className="grid grid-cols-1 gap-6 py-8">
-                                        <div className="p-6 rounded-3xl bg-primary/5 border-2 border-primary/10 space-y-1 text-center">
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Aggregate Earnings</p>
-                                            <p className="text-3xl sm:text-4xl font-bold text-primary">PKR {stats.totalRevenue.toLocaleString()}</p>
-                                        </div>
-                                        <div className="p-6 rounded-3xl bg-muted/30 border-2 border-muted/50 space-y-1 text-center">
-                                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Archived Consultations</p>
-                                            <p className="text-3xl sm:text-4xl font-bold">{stats.totalConsults}</p>
-                                        </div>
-                                    </div>
-                                    <DialogFooter><Button variant="secondary" className="w-full h-14 font-bold rounded-2xl" onClick={() => setIsAuditOpen(false)}>Close Summary</Button></DialogFooter>
-                                </DialogContent>
-                            </Dialog>
+                            <Button onClick={() => setIsAuditOpen(true)} variant="outline" className="w-full h-full font-bold gap-3 border-2 border-primary/20 hover:bg-primary/5 shadow-md rounded-2xl text-sm">
+                                <DollarSign className="h-5 w-5 text-primary" /> Lifetime Audit
+                            </Button>
                         </div>
                     </div>
                 </div>
@@ -572,7 +536,7 @@ export default function DoctorPortalPage() {
                                 )}
                             </CardContent>
                         </Card>
-
+                        
                         <Card className="border-none shadow-2xl overflow-hidden bg-white rounded-3xl">
                             <CardHeader className="bg-primary/5 pb-4 border-b px-6">
                                 <div className="flex items-center justify-between">
@@ -655,6 +619,28 @@ export default function DoctorPortalPage() {
                         </Card>
                     </div>
                 </div>
+
+                <Dialog open={isAuditOpen} onOpenChange={setIsAuditOpen}>
+                    <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-3xl">
+                        <DialogHeader>
+                            <DialogTitle className="flex items-center gap-3 text-2xl font-headline">
+                                <History className="h-6 w-6 text-primary" /> Clinical Analytics
+                            </DialogTitle>
+                            <DialogDescription className="text-sm">Summary of your professional performance across the platform.</DialogDescription>
+                        </DialogHeader>
+                        <div className="grid grid-cols-1 gap-6 py-8">
+                            <div className="p-6 rounded-3xl bg-primary/5 border-2 border-primary/10 space-y-1 text-center">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Aggregate Earnings</p>
+                                <p className="text-3xl sm:text-4xl font-bold text-primary">PKR {stats.totalRevenue.toLocaleString()}</p>
+                            </div>
+                            <div className="p-6 rounded-3xl bg-muted/30 border-2 border-muted/50 space-y-1 text-center">
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Archived Consultations</p>
+                                <p className="text-3xl sm:text-4xl font-bold">{stats.totalConsults}</p>
+                            </div>
+                        </div>
+                        <DialogFooter><Button variant="secondary" className="w-full h-14 font-bold rounded-2xl" onClick={() => setIsAuditOpen(false)}>Close Summary</Button></DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
                 {selectedAppointment && <ConsultationDialog isOpen={isConsultOpen} onOpenChange={setIsConsultOpen} appointment={selectedAppointment} isMounted={mounted} />}
                 {userData && <AvailabilityDialog isOpen={isAvailabilityOpen} onOpenChange={setIsAvailabilityOpen} doctor={userData as Doctor} />}

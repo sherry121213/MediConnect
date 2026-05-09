@@ -4,7 +4,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, addDoc } from 'firebase/firestore';
+import { collection, doc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, User, Clock, Camera } from 'lucide-react';
@@ -12,6 +12,7 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export default function ConsultationRoomPage() {
   const params = useParams();
@@ -39,11 +40,11 @@ export default function ConsultationRoomPage() {
 
   const { data: appointment, isLoading: isLoadingAppointment } = useDoc<any>(appointmentDocRef);
 
-  // Notify Admin when doctor joins
   useEffect(() => {
     if (userData?.role === 'doctor' && appointment && firestore && !hasNotifiedAdmin) {
       setHasNotifiedAdmin(true);
-      addDoc(collection(firestore, 'consultationLogs'), {
+      const colRef = collection(firestore, 'consultationLogs');
+      addDocumentNonBlocking(colRef, {
         appointmentId,
         doctorId: userData.id,
         patientId: appointment.patientId,
@@ -54,7 +55,6 @@ export default function ConsultationRoomPage() {
     }
   }, [userData, appointment, firestore, hasNotifiedAdmin, appointmentId]);
 
-  // Enforcement: 50 Minute Session Limit
   useEffect(() => {
     if (!appointment || isEnding) return;
 
@@ -78,7 +78,6 @@ export default function ConsultationRoomPage() {
     return () => clearInterval(interval);
   }, [appointment, router, userData, toast, isEnding]);
 
-  // Peer Data
   const peerId = appointment ? (user?.uid === appointment.patientId ? appointment.doctorId : appointment.patientId) : null;
   const peerDocRef = useMemoFirebase(() => {
     if (!firestore || !peerId) return null;
@@ -86,7 +85,6 @@ export default function ConsultationRoomPage() {
   }, [firestore, peerId]);
   const { data: peer } = useDoc<any>(peerDocRef);
 
-  // Chat Data
   const messagesQuery = useMemoFirebase(() => {
     if (!firestore || !appointmentId) return null;
     return collection(firestore, 'consultationSessions', appointmentId, 'messages');
@@ -139,14 +137,16 @@ export default function ConsultationRoomPage() {
       doctorId: appointment.doctorId
     };
 
-    addDoc(collection(firestore, 'consultationSessions', appointmentId, 'messages'), messageData);
+    const colRef = collection(firestore, 'consultationSessions', appointmentId, 'messages');
+    addDocumentNonBlocking(colRef, messageData);
     setNewMessage('');
   };
 
   const handleEndSession = () => {
     setIsEnding(true);
     if (userData?.role === 'doctor' && firestore && appointment) {
-        addDoc(collection(firestore, 'consultationLogs'), {
+        const colRef = collection(firestore, 'consultationLogs');
+        addDocumentNonBlocking(colRef, {
             appointmentId,
             doctorId: userData.id,
             patientId: appointment.patientId,
@@ -192,12 +192,7 @@ export default function ConsultationRoomPage() {
       <main className="flex-1 flex flex-col lg:flex-row overflow-hidden relative">
         <div className="flex-1 relative bg-black flex items-center justify-center overflow-hidden">
           <div className="absolute inset-0 w-full h-full flex items-center justify-center">
-             <video 
-               ref={remoteVideoRef} 
-               className="w-full h-full object-cover"
-               autoPlay 
-               playsInline
-             />
+             <video ref={remoteVideoRef} className="w-full h-full object-cover" autoPlay playsInline />
              {!remoteVideoRef.current?.srcObject && (
                 <div className="flex flex-col items-center justify-center gap-6 text-center px-6">
                     <div className="h-20 w-20 rounded-full bg-slate-800/50 flex items-center justify-center animate-pulse border border-white/10">
@@ -212,22 +207,14 @@ export default function ConsultationRoomPage() {
           </div>
 
           <div className="absolute top-6 right-6 w-32 sm:w-56 aspect-video rounded-2xl overflow-hidden border-2 border-white/10 shadow-2xl bg-slate-900 z-10">
-             <video 
-               ref={localVideoRef} 
-               className={cn("w-full h-full object-cover mirror", isVideoOff && "hidden")} 
-               autoPlay 
-               muted 
-               playsInline
-             />
+             <video ref={localVideoRef} className={cn("w-full h-full object-cover mirror", isVideoOff && "hidden")} autoPlay muted playsInline />
              {isVideoOff && (
                 <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-slate-800 text-slate-500">
                     <VideoOff className="h-5 w-5" />
                     <span className="text-[8px] font-bold uppercase tracking-tighter">Video Off</span>
                 </div>
              )}
-             <div className="absolute bottom-2 left-2 bg-black/50 backdrop-blur-md px-2 py-0.5 rounded text-[8px] text-white font-bold uppercase">
-                You (Local)
-             </div>
+             <div className="absolute bottom-2 left-2 bg-black/50 backdrop-blur-md px-2 py-0.5 rounded text-[8px] text-white font-bold uppercase">You (Local)</div>
           </div>
 
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 sm:gap-4 px-6 sm:px-8 py-3 sm:py-4 bg-slate-900/80 backdrop-blur-xl rounded-full border border-white/10 shadow-2xl z-20">
@@ -246,14 +233,10 @@ export default function ConsultationRoomPage() {
           {!hasCameraPermission && (
              <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-sm flex items-center justify-center z-50 p-6">
                 <div className="max-w-md w-full bg-slate-900 border border-red-500/20 rounded-3xl p-8 text-center space-y-6 shadow-2xl">
-                    <div className="h-16 w-16 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto">
-                        <Camera className="h-8 w-8" />
-                    </div>
+                    <div className="h-16 w-16 bg-red-500/10 text-red-500 rounded-full flex items-center justify-center mx-auto"><Camera className="h-8 w-8" /></div>
                     <div className="space-y-2">
                         <h4 className="text-white text-xl font-bold">Camera Access Required</h4>
-                        <p className="text-slate-400 text-sm leading-relaxed">
-                            To start the clinical session, please enable camera and microphone permissions in your browser.
-                        </p>
+                        <p className="text-slate-400 text-sm leading-relaxed">To start the clinical session, please enable camera and microphone permissions.</p>
                     </div>
                     <Button onClick={() => window.location.reload()} className="w-full h-12 rounded-xl font-bold">Try Re-connecting</Button>
                 </div>
@@ -267,29 +250,20 @@ export default function ConsultationRoomPage() {
                 <MessageSquare className="text-primary h-4 w-4" />
                 <h3 className="text-xs font-bold text-white uppercase tracking-wider">Clinical Chat</h3>
             </div>
-            <Badge variant="outline" className="text-[8px] text-amber-500 border-amber-500/30 font-bold uppercase">
-                <Clock className="h-3 w-3 mr-1" /> 50m Protocol
-            </Badge>
+            <Badge variant="outline" className="text-[8px] text-amber-500 border-amber-500/30 font-bold uppercase"><Clock className="h-3 w-3 mr-1" /> 50m Protocol</Badge>
           </div>
           <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-            {messages.length > 0 ? (
-                messages.map((msg: any) => {
-                    const isMe = msg.senderId === user?.uid;
-                    return (
-                        <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
-                            <div className={cn(
-                                "max-w-[85%] p-3 rounded-2xl text-xs sm:text-sm shadow-sm", 
-                                isMe ? "bg-primary text-white rounded-br-none" : "bg-slate-800 text-slate-200 rounded-bl-none border border-white/5"
-                            )}>
-                                <p className="leading-relaxed">{msg.content}</p>
-                            </div>
-                            <span className="text-[8px] text-slate-500 mt-1 uppercase font-bold tracking-tighter">
-                                {isMe ? 'You' : (peer?.firstName || 'Peer')} • {format(new Date(msg.timestamp), "p")}
-                            </span>
+            {messages.length > 0 ? messages.map((msg: any) => {
+                const isMe = msg.senderId === user?.uid;
+                return (
+                    <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
+                        <div className={cn("max-w-[85%] p-3 rounded-2xl text-xs sm:text-sm shadow-sm", isMe ? "bg-primary text-white rounded-br-none" : "bg-slate-800 text-slate-200 rounded-bl-none border border-white/5")}>
+                            <p className="leading-relaxed">{msg.content}</p>
                         </div>
-                    );
-                })
-            ) : (
+                        <span className="text-[8px] text-slate-500 mt-1 uppercase font-bold tracking-tighter">{isMe ? 'You' : (peer?.firstName || 'Peer')} • {format(new Date(msg.timestamp), "p")}</span>
+                    </div>
+                );
+            }) : (
                 <div className="h-full flex flex-col items-center justify-center text-slate-500 italic text-center p-8">
                     <MessageSquare className="h-10 w-10 opacity-10 mb-4" />
                     <p className="text-[10px] uppercase font-bold tracking-widest">End-to-End Encrypted Channel</p>
@@ -298,15 +272,8 @@ export default function ConsultationRoomPage() {
             <div ref={chatScrollRef} />
           </div>
           <form onSubmit={handleSendMessage} className="p-4 bg-slate-900/50 border-t border-white/10 flex gap-2">
-            <Input 
-                placeholder="Type your query..." 
-                className="bg-slate-800 border-white/10 text-white h-11 text-sm rounded-xl focus:ring-primary" 
-                value={newMessage} 
-                onChange={(e) => setNewMessage(e.target.value)} 
-            />
-            <Button type="submit" disabled={!newMessage.trim()} className="bg-primary hover:bg-primary/90 h-11 w-11 p-0 rounded-xl">
-                <Send className="h-4 w-4" />
-            </Button>
+            <Input placeholder="Type your query..." className="bg-slate-800 border-white/10 text-white h-11 text-sm rounded-xl" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
+            <Button type="submit" disabled={!newMessage.trim()} className="bg-primary hover:bg-primary/90 h-11 w-11 p-0 rounded-xl"><Send className="h-4 w-4" /></Button>
           </form>
         </aside>
       </main>

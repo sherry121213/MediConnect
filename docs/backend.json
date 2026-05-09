@@ -54,6 +54,18 @@
         "action": { "type": "string", "enum": ["started", "ended"] },
         "timestamp": { "type": "string", "format": "date-time" }
       }
+    },
+    "MissedSessionAudit": {
+      "title": "MissedSessionAudit",
+      "description": "Audit record for clinical sessions that timed out.",
+      "type": "object",
+      "properties": {
+        "appointmentId": { "type": "string" },
+        "doctorId": { "type": "string" },
+        "patientId": { "type": "string" },
+        "scheduledTime": { "type": "string", "format": "date-time" },
+        "loggedAt": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "auth": {
@@ -75,6 +87,10 @@
     "/consultationLogs/{logId}": {
       "schema": { "$ref": "#/backend/entities/ConsultationLog" },
       "description": "Operational logs for session monitoring."
+    },
+    "/missedSessionAudits/{auditId}": {
+      "schema": { "$ref": "#/backend/entities/MissedSessionAudit" },
+      "description": "Logs for administrative review of missed slots."
     }
   }
 }
