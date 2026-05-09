@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -7,16 +6,6 @@ import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/dialog"; // Use standard dialog for better responsiveness
 import { useUserData, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, query, where, doc } from "firebase/firestore";
 import type { Appointment, Doctor } from "@/lib/types";
@@ -24,17 +13,7 @@ import { useMemo, useState, useEffect } from "react";
 import { format, isAfter, subHours, isSameDay, startOfDay, isBefore, isValid } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
-import { useToast } from "@/hooks/use-toast";
-import { getNext7Days, timeSlots } from "@/lib/time";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as DayPickerCalendar } from "@/components/ui/calendar";
-import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 
 const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any, isUpcoming: boolean, onPostpone: (a: any) => void, isMounted: boolean }) => {
     const firestore = useFirestore();
@@ -61,6 +40,8 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
 
     if (!apt || !appointmentDate) return null;
 
+    const profileSrc = doctor?.photoURL || doctorImage?.imageUrl;
+
     return (
         <Card className={cn(
             "hover:shadow-lg transition-all border-l-4 bg-card/50 backdrop-blur-sm overflow-hidden",
@@ -69,17 +50,21 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
         )}>
             <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-8">
                 <div className="flex items-center gap-4 sm:gap-6 flex-1 min-w-0">
-                    <div className="relative h-12 w-12 sm:h-16 sm:w-16 shrink-0 shadow-inner rounded-full overflow-hidden bg-muted">
+                    <div className="relative h-12 w-12 sm:h-16 sm:w-16 shrink-0 shadow-inner rounded-full overflow-hidden bg-muted flex items-center justify-center">
                         {isLoadingDoctor ? (
-                             <div className="h-full w-full flex items-center justify-center"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
-                        ) : (
+                             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                        ) : profileSrc ? (
                             <Image
-                                src={doctor?.photoURL || doctorImage?.imageUrl || ''}
+                                src={profileSrc}
                                 alt={doctor?.firstName || 'Doctor'}
                                 fill
                                 className="object-cover border-2 border-primary/5"
                                 data-ai-hint="doctor portrait"
                             />
+                        ) : (
+                            <div className="h-full w-full bg-primary/5 flex items-center justify-center text-primary font-bold text-lg">
+                                {doctor?.firstName?.[0] || 'D'}
+                            </div>
                         )}
                     </div>
                     <div className="space-y-1 min-w-0">
@@ -171,7 +156,6 @@ export default function PatientPortalPage() {
         const now = new Date();
         const validAppointments = appointments.filter(apt => apt !== null && apt.id && apt.appointmentDateTime);
 
-        // REQUIREMENT: Missed sessions removed from upcoming
         const upcoming = validAppointments
             .filter(apt => {
                 const d = new Date(apt.appointmentDateTime);
