@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -160,7 +161,7 @@ export default function AdminDoctorsPage() {
         </div>
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="w-full sm:w-auto font-bold shadow-lg shadow-primary/20">
+            <Button className="w-full sm:w-auto font-bold shadow-lg shadow-primary/20 text-white">
               <PlusCircle className="mr-2 h-4 w-4" />
               Add Provider
             </Button>
@@ -247,7 +248,7 @@ export default function AdminDoctorsPage() {
                                 Cancel
                             </Button>
                         </DialogClose>
-                        <Button type="submit" disabled={form.formState.isSubmitting} className="w-full sm:w-auto rounded-xl font-bold">
+                        <Button type="submit" disabled={form.formState.isSubmitting} className="w-full sm:w-auto rounded-xl font-bold text-white">
                             {form.formState.isSubmitting ? "Adding..." : "Add Doctor"}
                         </Button>
                     </DialogFooter>
@@ -364,7 +365,7 @@ export default function AdminDoctorsPage() {
                                 <AlertDialogCancel className="rounded-xl border-2">Cancel</AlertDialogCancel>
                                 <AlertDialogAction 
                                     onClick={() => handleToggleDoctorStatus(doctor.id, isActive)} 
-                                    className={cn("rounded-xl font-bold shadow-lg", isActive ? "bg-destructive hover:bg-destructive/90 shadow-destructive/20" : "bg-primary hover:bg-primary/90 shadow-primary/20")}
+                                    className={cn("rounded-xl font-bold shadow-lg text-white", isActive ? "bg-destructive hover:bg-destructive/90 shadow-destructive/20" : "bg-primary hover:bg-primary/90 shadow-primary/20")}
                                 >
                                     {isActive ? "Confirm Suspension" : "Confirm Restoration"}
                                 </AlertDialogAction>

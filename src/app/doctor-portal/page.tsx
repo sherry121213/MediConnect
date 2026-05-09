@@ -38,7 +38,7 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
 
     const appointmentDate = new Date(apt.appointmentDateTime);
     const now = isMounted ? new Date().getTime() : 0;
-    const startTime = appointmentDate.getTime() - (10 * 60 * 1000); 
+    const startTime = appointmentDate.getTime() - (30 * 60 * 1000); 
     const endTime = appointmentDate.getTime() + (50 * 60 * 1000);
     const isLive = isMounted && now >= startTime && now < endTime;
 
@@ -80,7 +80,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
         if (!appointment || !isMounted) return false;
         const aptDate = new Date(appointment.appointmentDateTime);
         const now = new Date().getTime();
-        const startTime = aptDate.getTime() - (10 * 60 * 1000);
+        const startTime = aptDate.getTime() - (30 * 60 * 1000);
         const endTime = aptDate.getTime() + (50 * 60 * 1000);
         return now >= startTime && now < endTime;
     }, [appointment, isMounted]);
@@ -107,7 +107,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
                 <p className="text-[10px] sm:text-xs font-bold text-muted-foreground w-14 sm:w-16 shrink-0">{time}</p>
                 {appointment ? (
                     <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                        <div className="h-5 w-5 sm:h-6 sm:w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                        <div className="h-5 v-5 sm:h-6 sm:w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
                             <User className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                         </div>
                         <p className="text-xs sm:text-sm font-semibold truncate">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
@@ -126,7 +126,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
                             variant={isLive ? "default" : "ghost"} 
                             className={cn(
                                 "h-7 px-2 sm:px-3 text-[10px] font-bold uppercase tracking-wider shrink-0",
-                                isLive ? "bg-red-600 hover:bg-red-700 animate-pulse" : "hover:bg-primary/10"
+                                isLive ? "bg-red-600 hover:bg-red-700 animate-pulse text-white" : "hover:bg-primary/10"
                             )} 
                             onClick={() => onSelect(appointment)}
                         >
@@ -144,7 +144,6 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
 
 function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment | null, isMounted: boolean }) {
     const firestore = useFirestore();
-    const router = useRouter();
     const { toast } = useToast();
     
     const patientDocRef = useMemoFirebase(() => {
@@ -170,14 +169,12 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
 
     const appointmentDate = new Date(appointment.appointmentDateTime);
     const now = isMounted ? new Date().getTime() : 0;
-    // RELAXED START FOR DOCTOR: 30 minutes early
-    const startTimeForDoctor = appointmentDate.getTime() - (30 * 60 * 1000); 
+    const startTime = appointmentDate.getTime() - (30 * 60 * 1000); 
     const endTime = appointmentDate.getTime() + (60 * 60 * 1000);
-    const isLive = isMounted && now >= startTimeForDoctor && now < endTime;
+    const isLive = isMounted && now >= startTime && now < endTime;
 
     const handleStartRoom = () => {
         onOpenChange(false);
-        // Force high-priority navigation
         window.location.assign(`/consultation/${appointment.id}`);
     };
 
@@ -186,7 +183,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
             <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-3xl">
                 <Tabs defaultValue="overview" className="w-full">
                     <div className="bg-slate-900 p-6 text-white">
-                        <DialogTitle className="text-xl font-headline mb-4">Patient Management</DialogTitle>
+                        <DialogTitle className="text-xl font-headline mb-4 text-white">Patient Management</DialogTitle>
                         <TabsList className="bg-white/10 border-none text-white w-full grid grid-cols-2">
                             <TabsTrigger value="overview">Live Consultation</TabsTrigger>
                             <TabsTrigger value="notes">Clinical Entry</TabsTrigger>
@@ -200,7 +197,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
                             </div>
                             <div className="flex flex-col gap-3 pt-4">
                                 {isLive ? (
-                                    <Button onClick={handleStartRoom} className="h-14 text-base font-bold shadow-xl shadow-red-500/20 bg-red-600 hover:bg-red-700 animate-pulse rounded-2xl">
+                                    <Button onClick={handleStartRoom} className="h-14 text-base font-bold shadow-xl shadow-red-500/20 bg-red-600 hover:bg-red-700 animate-pulse rounded-2xl text-white">
                                         <Video className="mr-3 h-6 w-6" /> Start Video Room
                                     </Button>
                                 ) : (
@@ -446,7 +443,7 @@ export default function DoctorPortalPage() {
             }
 
             const aptDate = new Date(a.appointmentDateTime);
-            const startTime = aptDate.getTime() - (10 * 60 * 1000);
+            const startTime = aptDate.getTime() - (30 * 60 * 1000);
             const endTime = aptDate.getTime() + (50 * 60 * 1000);
             const currentTime = now.getTime();
             
@@ -543,7 +540,7 @@ export default function DoctorPortalPage() {
                         <Card className="border-none shadow-2xl overflow-hidden bg-white rounded-3xl">
                             <CardHeader className="bg-primary/5 pb-4 border-b px-6">
                                 <div className="flex items-center justify-between">
-                                    <CardTitle className="text-sm font-bold flex items-center gap-3 uppercase tracking-tighter">
+                                    <CardTitle className="text-sm font-bold flex items-center gap-3 uppercase tracking-tighter text-foreground">
                                         <ClipboardCheck className="h-6 w-6 text-primary" /> Active Queue
                                     </CardTitle>
                                     <Badge variant="outline" className="text-[9px] font-bold border-primary/20 text-primary bg-white px-2">REAL-TIME</Badge>
@@ -573,7 +570,7 @@ export default function DoctorPortalPage() {
                             <CardHeader className="border-b bg-muted/5 z-10 p-6 sm:p-10">
                                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
                                     <div className="space-y-2">
-                                        <CardTitle className="text-2xl sm:text-3xl font-headline flex items-center gap-4">
+                                        <CardTitle className="text-2xl sm:text-3xl font-headline flex items-center gap-4 text-foreground">
                                             <Clock className="h-8 w-8 text-primary" /> Clinical Timetable
                                         </CardTitle>
                                         <CardDescription className="text-xs sm:text-sm font-medium">Automatic session termination active for patient safety.</CardDescription>
@@ -586,7 +583,7 @@ export default function DoctorPortalPage() {
                                             <div className="hidden sm:flex h-8 w-px bg-muted mx-2" />
                                             <div className="flex items-center gap-2 shrink-0">
                                                 <Button variant="outline" size="sm" className="h-10 gap-2 font-bold px-4 text-xs rounded-xl border-2" onClick={() => setIsAvailabilityOpen(true)}><Settings2 className="h-4 w-4 text-primary" /> Slots</Button>
-                                                <Button size="sm" className="h-10 gap-2 font-bold px-4 text-xs rounded-xl shadow-lg" onClick={() => setIsLeaveOpen(true)}><Moon className="h-4 w-4" /> Leave</Button>
+                                                <Button size="sm" className="h-10 gap-2 font-bold px-4 text-xs rounded-xl shadow-lg text-white" onClick={() => setIsLeaveOpen(true)}><Moon className="h-4 w-4" /> Leave</Button>
                                             </div>
                                         </div>
                                     </div>
@@ -626,7 +623,7 @@ export default function DoctorPortalPage() {
                 <Dialog open={isAuditOpen} onOpenChange={setIsAuditOpen}>
                     <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-3xl">
                         <DialogHeader>
-                            <DialogTitle className="flex items-center gap-3 text-2xl font-headline">
+                            <DialogTitle className="flex items-center gap-3 text-2xl font-headline text-foreground">
                                 <History className="h-6 w-6 text-primary" /> Clinical Analytics
                             </DialogTitle>
                             <DialogDescription className="text-sm">Summary of your professional performance across the platform.</DialogDescription>
