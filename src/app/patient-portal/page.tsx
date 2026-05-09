@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, PhoneCall, RefreshCw, CalendarIcon, ShieldCheck } from "lucide-react";
+import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, PhoneCall, RefreshCw, CalendarIcon, ShieldCheck, PhoneIncoming } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -35,7 +35,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
     }, [apt?.appointmentDateTime]);
     
     const now = isMounted ? new Date().getTime() : 0;
-    const startTime = appointmentDate ? appointmentDate.getTime() - (10 * 60 * 1000) : 0; // 10m early
+    const startTime = appointmentDate ? appointmentDate.getTime() - (10 * 60 * 1000) : 0; 
     const endTime = appointmentDate ? appointmentDate.getTime() + (50 * 60 * 1000) : 0;
     
     const isLive = isMounted && now >= startTime && now < endTime;
@@ -46,7 +46,6 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
     const photoSrc = doctor?.photoURL || doctorImage?.imageUrl;
 
     const handleJoin = () => {
-        // High-priority navigation
         window.location.assign(`/consultation/${apt.id}`);
     };
 
@@ -159,11 +158,19 @@ export default function PatientPortalPage() {
     }, [firestore, user]);
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    const { upcomingAppointments, pendingVerificationAppointments, recentPastAppointments } = useMemo(() => {
-        if (!mounted || !appointments) return { upcomingAppointments: [], pendingVerificationAppointments: [], recentPastAppointments: [] };
+    const { upcomingAppointments, recentPastAppointments, ringingApt } = useMemo(() => {
+        if (!mounted || !appointments) return { upcomingAppointments: [], recentPastAppointments: [], ringingApt: null };
         
         const now = new Date();
         const validAppointments = appointments.filter(apt => apt !== null && apt.id && apt.appointmentDateTime);
+
+        // Find if any doctor is currently in a room for this patient
+        const currentRinging = validAppointments.find(apt => 
+            apt.doctorInRoom === true && 
+            apt.status === 'scheduled' && 
+            apt.paymentStatus === 'approved' &&
+            Math.abs(now.getTime() - new Date(apt.appointmentDateTime).getTime()) < (60 * 60 * 1000)
+        );
 
         const upcoming = validAppointments
             .filter(apt => {
@@ -174,16 +181,6 @@ export default function PatientPortalPage() {
                 return !isMissed && 
                        apt.status === 'scheduled' &&
                        apt.paymentStatus === 'approved';
-            })
-            .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
-
-        const pending = validAppointments
-            .filter(apt => {
-                const d = new Date(apt.appointmentDateTime);
-                if (!isValid(d)) return false;
-                const endTime = d.getTime() + (50 * 60 * 1000);
-                const isMissed = now.getTime() > endTime;
-                return !isMissed && apt.paymentStatus === 'pending';
             })
             .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
 
@@ -198,7 +195,7 @@ export default function PatientPortalPage() {
             .sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime())
             .slice(0, 8);
 
-        return { upcomingAppointments: upcoming, pendingVerificationAppointments: pending, recentPastAppointments: past };
+        return { upcomingAppointments: upcoming, recentPastAppointments: past, ringingApt: currentRinging };
     }, [appointments, mounted, nowState]);
 
     const handlePostpone = (apt: any) => {
@@ -211,6 +208,28 @@ export default function PatientPortalPage() {
     return (
         <main className="flex-grow bg-secondary/30 py-6 sm:py-10">
             <div className="container mx-auto px-4">
+                {/* Ringing Alert Notification */}
+                {ringingApt && (
+                    <div className="mb-8 animate-in slide-in-from-top-4 duration-500">
+                        <Card className="bg-red-600 text-white border-none shadow-2xl overflow-hidden rounded-3xl">
+                            <CardContent className="p-6 flex items-center justify-between gap-4">
+                                <div className="flex items-center gap-4">
+                                    <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center animate-pulse">
+                                        <PhoneIncoming className="h-6 w-6 text-white" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] uppercase font-bold tracking-widest opacity-80">Incoming Consultation</p>
+                                        <p className="text-lg font-bold">Your doctor has entered the clinical room.</p>
+                                    </div>
+                                </div>
+                                <Button asChild className="bg-white text-red-600 hover:bg-slate-100 font-bold px-8 h-12 rounded-2xl">
+                                    <Link href={`/consultation/${ringingApt.id}`}>Join Now</Link>
+                                </Button>
+                            </CardContent>
+                        </Card>
+                    </div>
+                )}
+
                 <div className="grid lg:grid-cols-12 gap-8 lg:gap-10">
                     <div className="lg:col-span-4 space-y-6">
                         <Card className="overflow-hidden border-none shadow-2xl bg-white/80 backdrop-blur-md">

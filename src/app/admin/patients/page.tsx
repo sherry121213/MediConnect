@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Stethoscope, Users, LayoutList } from "lucide-react";
 
 function PatientTable({ patients }: { patients: Patient[] }) {
+    if (!patients || patients.length === 0) return null;
     return (
         <div className="overflow-x-auto custom-scrollbar">
             <Table>
@@ -96,7 +97,7 @@ export default function AdminPatientsPage() {
         const assignedPatientIds = new Set<string>();
 
         appointments.forEach(apt => {
-            if (!apt) return;
+            if (!apt || !apt.patientId || !apt.doctorId) return;
             const patient = patients.find(p => p && p.id === apt.patientId);
             const doctor = doctors.find(d => d && d.id === apt.doctorId);
 
@@ -104,7 +105,7 @@ export default function AdminPatientsPage() {
                 if (!groups[doctor.id]) {
                     groups[doctor.id] = { doctor, patients: [] };
                 }
-                if (!groups[doctor.id].patients.find(p => p.id === patient.id)) {
+                if (!groups[doctor.id].patients.some(p => p.id === patient.id)) {
                     groups[doctor.id].patients.push(patient);
                 }
                 assignedPatientIds.add(patient.id);
@@ -172,7 +173,7 @@ export default function AdminPatientsPage() {
                         <CardContent className="p-0">
                             <PatientTable patients={doctorPatients} />
                         </CardContent>
-                    </Card>
+                    </Card> group
                 ))}
 
                 {groupedData.unassigned.length > 0 && (
@@ -197,7 +198,7 @@ export default function AdminPatientsPage() {
                     </Card>
                 )}
 
-                {patients?.length === 0 && (
+                {!isLoading && patients?.length === 0 && (
                     <div className="text-center py-32 border-2 border-dashed rounded-[2.5rem] bg-muted/5">
                         <LayoutList className="h-16 w-16 mx-auto mb-6 text-muted-foreground/20" />
                         <p className="text-muted-foreground font-bold tracking-tight">No clinical patient records indexed.</p>

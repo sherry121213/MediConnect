@@ -4,15 +4,15 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, setDoc, onSnapshot, addDoc, deleteDoc, getDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, User, Clock, Camera, AlertCircle } from 'lucide-react';
+import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, User, Clock, Camera, AlertCircle, PhoneIncoming } from 'lucide-react';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 const servers = {
   iceServers: [
@@ -73,7 +73,7 @@ export default function ConsultationRoomPage() {
     };
   }, []);
 
-  // 2. signaling Handshake
+  // 2. Signaling Handshake & "Ringing" Logic
   useEffect(() => {
     if (!firestore || !appointmentId || !user || !hasCameraPermission) return;
 
@@ -104,8 +104,10 @@ export default function ConsultationRoomPage() {
           }
         };
 
-        // Doctor initiates (Caller), Patient accepts (Callee)
         if (userData?.role === 'doctor') {
+          // DOCTOR: Mark self as in-room to "ring" the patient
+          updateDoc(doc(firestore, 'appointments', appointmentId), { doctorInRoom: true });
+          
           setSignalingStatus("Initiating Professional Stream...");
           const offerDescription = await pc.current.createOffer();
           await pc.current.setLocalDescription(offerDescription);
@@ -128,6 +130,7 @@ export default function ConsultationRoomPage() {
             });
           });
         } else {
+          // PATIENT: Just accept signaling
           setSignalingStatus("Connecting to Healthcare Provider...");
           onSnapshot(callDoc, async (snapshot) => {
             const data = snapshot.data();
@@ -156,6 +159,9 @@ export default function ConsultationRoomPage() {
     setupSignaling();
 
     return () => {
+      if (userData?.role === 'doctor') {
+        updateDoc(doc(firestore, 'appointments', appointmentId), { doctorInRoom: false });
+      }
       pc.current?.close();
     };
   }, [firestore, appointmentId, user, hasCameraPermission, userData?.role]);
@@ -174,7 +180,7 @@ export default function ConsultationRoomPage() {
     }
   }, [userData, appointment, firestore, appointmentId, hasCameraPermission]);
 
-  // 4. Session Window (50m)
+  // 4. Session Window (50m - allow late entry)
   useEffect(() => {
     if (!appointment || isEnding) return;
     const startTime = new Date(appointment.appointmentDateTime).getTime();
@@ -222,6 +228,7 @@ export default function ConsultationRoomPage() {
   const handleEndSession = () => {
     setIsEnding(true);
     if (userData?.role === 'doctor' && firestore && appointment) {
+        updateDoc(doc(firestore, 'appointments', appointmentId), { doctorInRoom: false });
         addDocumentNonBlocking(collection(firestore, 'consultationLogs'), {
             appointmentId,
             doctorId: userData.id,

@@ -3,8 +3,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     /**
-     * FINAL_STABILIZATION_V5
-     * Universal permissive access for clinical, signaling, and audit workflows.
+     * STABILIZATION_RINGING_PROTOCOL_V1
+     * Universal permissive access for clinical, ringing, and surveillance workflows.
      */
     match /{document=**} {
       allow read, write: if true;
