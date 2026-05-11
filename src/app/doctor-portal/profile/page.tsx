@@ -1,3 +1,4 @@
+
 'use client';
 
 import { z } from 'zod';
@@ -12,13 +13,12 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, FileText, X, Plus, ExternalLink, RefreshCw, BadgeCheck, GraduationCap, ShieldAlert, Zap, Eye } from 'lucide-react';
+import { Loader2, FileText, X, Plus, ExternalLink, GraduationCap, ShieldAlert, Zap, Eye, BadgeCheck } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import ImageCropperDialog from '@/components/ImageCropperDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
-import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
@@ -44,7 +44,6 @@ export default function DoctorProfilePage() {
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
-  const [overallProgress, setOverallProgress] = useState(0);
   const [cropperImage, setCropperImage] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
@@ -104,26 +103,44 @@ export default function DoctorProfilePage() {
     }
   };
 
-  const handleSaveCroppedImage = (croppedImage: string) => {
-    if (!user || !firestore) return;
+  const handleSaveCroppedImage = async (croppedImage: string) => {
+    if (!user || !firestore || !storage) return;
     
     setIsUploading(true);
     setCropperImage(null);
 
-    const doctorDocRef = doc(firestore, 'doctors', user.uid);
-    updateDocumentNonBlocking(doctorDocRef, { photoURL: croppedImage, updatedAt: new Date().toISOString() });
+    try {
+      // Convert base64 to Blob for storage upload (Prevents Firestore 1MB document limit issues)
+      const response = await fetch(croppedImage);
+      const blob = await response.blob();
+      
+      const fileRef = ref(storage, `doctors/${user.uid}/profile_${Date.now()}.jpg`);
+      const uploadTask = uploadBytesResumable(fileRef, blob);
+      
+      const downloadURL = await new Promise<string>((resolve, reject) => {
+          uploadTask.on('state_changed', null, 
+            (error) => reject(error),
+            async () => {
+              const url = await getDownloadURL(uploadTask.snapshot.ref);
+              resolve(url);
+            }
+          );
+      });
 
-    const patientDocRef = doc(firestore, 'patients', user.uid);
-    updateDocumentNonBlocking(patientDocRef, { photoURL: croppedImage, updatedAt: new Date().toISOString() });
+      const updateData = { photoURL: downloadURL, updatedAt: new Date().toISOString() };
+      updateDocumentNonBlocking(doc(firestore, 'doctors', user.uid), updateData);
+      updateDocumentNonBlocking(doc(firestore, 'patients', user.uid), updateData);
 
-    toast({
-        title: 'Profile Picture Updated',
-        description: 'Your photo has been synchronized across the registry.',
-    });
-
-    setTimeout(() => {
-        setIsUploading(false);
-    }, 1000); 
+      toast({
+          title: 'Profile Picture Updated',
+          description: 'Your photo has been synchronized across the registry.',
+      });
+    } catch (error) {
+      console.error("Image upload failed:", error);
+      toast({ variant: 'destructive', title: 'Upload Failed', description: 'Could not save profile picture to cloud storage.' });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   const handleFileSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -178,8 +195,6 @@ export default function DoctorProfilePage() {
     if (!user || !firestore || !storage) return;
     
     setIsSubmitting(true);
-    setOverallProgress(1);
-    const progressMap: Record<string, number> = {};
 
     try {
         const uploadPromises = uploadQueue.map(async (item) => {
@@ -188,37 +203,21 @@ export default function DoctorProfilePage() {
             const uniqueName = `${Date.now()}_${item.id}_${item.file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
             const fileRef = ref(storage, `doctors/${user.uid}/documents/${uniqueName}`);
             
-            // Raw upload for maximum fidelity
             const uploadTask = uploadBytesResumable(fileRef, item.file);
 
             return new Promise<string>((resolve, reject) => {
-                uploadTask.on('state_changed', 
-                    (snapshot) => {
-                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                        progressMap[item.id] = progress;
-                        const currentTotal = Object.values(progressMap).reduce((a, b) => a + b, 0);
-                        const avg = currentTotal / uploadQueue.length;
-                        setOverallProgress(Math.min(95, Math.round(avg)));
-                    },
-                    (error) => {
-                        console.error("Upload error:", item.file.name, error);
-                        reject(error);
-                    },
-                    async () => {
-                        const url = await getDownloadURL(uploadTask.snapshot.ref);
-                        setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'done' } : q));
-                        resolve(url);
-                    }
-                );
+                uploadTask.on('state_changed', null, reject, async () => {
+                    const url = await getDownloadURL(uploadTask.snapshot.ref);
+                    setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'done' } : q));
+                    resolve(url);
+                });
             });
         });
 
         const newUrls = await Promise.all(uploadPromises);
-        setOverallProgress(98);
-
         const finalDocs = [...existingDocs, ...newUrls];
         
-        const dataToSet = {
+        const doctorData = {
             ...values,
             firstName: userData?.firstName || '',
             lastName: userData?.lastName || '',
@@ -228,21 +227,19 @@ export default function DoctorProfilePage() {
             updatedAt: new Date().toISOString(),
         };
 
-        const doctorDocRef = doc(firestore, 'doctors', user.uid);
-        setDocumentNonBlocking(doctorDocRef, dataToSet, { merge: true });
-
-        const patientDocRef = doc(firestore, 'patients', user.uid);
-        updateDocumentNonBlocking(patientDocRef, { 
+        const patientData = { 
             profileComplete: true, 
             updatedAt: new Date().toISOString(),
             phone: values.phone 
-        });
+        };
+
+        updateDocumentNonBlocking(doc(firestore, 'doctors', user.uid), doctorData);
+        updateDocumentNonBlocking(doc(firestore, 'patients', user.uid), patientData);
 
         setUploadQueue([]); 
         setExistingDocs(finalDocs);
-        setOverallProgress(100);
 
-        toast({ title: 'Registry Synchronized!', description: 'Your original clinical documents have been archived.' });
+        toast({ title: 'Profile Synchronized!', description: 'Your clinical records have been updated successfully.' });
         if (!userData?.profileComplete) {
             router.push('/doctor-portal');
         }
@@ -250,8 +247,8 @@ export default function DoctorProfilePage() {
         console.error("Submission error:", error);
         toast({ 
             variant: "destructive", 
-            title: "Transmission Failed", 
-            description: error.message || "Network timeout. Please try again." 
+            title: "Submission Error", 
+            description: "An error occurred while saving your profile. Please check your connection." 
         });
     } finally {
         setIsSubmitting(false);
@@ -285,7 +282,7 @@ export default function DoctorProfilePage() {
                         <div className='relative inline-block'>
                             <Button asChild variant="outline" size="sm" className="rounded-xl font-bold border-2">
                                 <label htmlFor="picture-upload" className="cursor-pointer">
-                                {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Syncing...</>) : "Update Photo"}
+                                {isUploading ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>) : "Update Photo"}
                                 </label>
                             </Button>
                             <Input id="picture-upload" type="file" accept="image/*" onChange={handlePictureChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isUploading || isSubmitting} />
@@ -426,19 +423,8 @@ export default function DoctorProfilePage() {
                                     )}
                                 </div>
 
-                                {isSubmitting && (
-                                    <div className="space-y-3 bg-slate-900 p-5 rounded-2xl text-white animate-in slide-in-from-bottom-2">
-                                        <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
-                                            <span className="flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin text-primary" /> Transmitting Clinical Assets</span>
-                                            <span>{overallProgress}%</span>
-                                        </div>
-                                        <Progress value={overallProgress} className="h-1.5 bg-white/10" />
-                                        <p className="text-[9px] text-slate-400 italic text-center">Storing uncompressed documents for high-fidelity auditing...</p>
-                                    </div>
-                                )}
-
                                 <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl shadow-primary/20" disabled={isSubmitting || isUploading || !isEmailVerified}>
-                                    {isSubmitting ? "Finalizing Registry Audit..." : "Save Professional Profile"}
+                                    {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving Changes...</> : "Save Professional Profile"}
                                 </Button>
                             </form>
                         </Form>
