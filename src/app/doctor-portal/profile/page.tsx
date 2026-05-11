@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useFirestore, useUserData, useStorage, useMemoFirebase } from '@/firebase';
+import { useFirestore, useUserData, useStorage } from '@/firebase';
 import { doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useRouter } from 'next/navigation';
@@ -12,7 +12,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, FileText, ExternalLink, Eye, BadgeCheck, Plus, Trash2, CloudUpload, CheckCircle2, Image as ImageIcon } from 'lucide-react';
+import { Loader2, FileText, ExternalLink, Eye, BadgeCheck, Plus, Trash2, CloudUpload, ShieldCheck, Image as ImageIcon } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -111,7 +111,7 @@ export default function DoctorProfilePage() {
     if (!user || !firestore || !storage) return;
     
     setIsUploadingPhoto(true);
-    setPhotoProgress(0);
+    setPhotoProgress(1); // Start at 1% to show activity
     setCropperImage(null);
 
     try {
@@ -130,7 +130,7 @@ export default function DoctorProfilePage() {
       uploadTask.on('state_changed', 
           (snapshot) => {
               const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-              setPhotoProgress(p || 1); // Ensure it's not stuck at 0 visibly if started
+              setPhotoProgress(Math.max(p, 1)); 
           },
           (error) => {
               toast({ variant: 'destructive', title: 'Photo Sync Failed' });
@@ -157,7 +157,7 @@ export default function DoctorProfilePage() {
     if (!e.target.files || !user || !storage || !firestore) return;
 
     const files = Array.from(e.target.files);
-    e.target.value = '';
+    e.target.value = ''; // Reset input for reuse
 
     for (const file of files) {
         const taskId = Math.random().toString(36).substring(7);
@@ -180,6 +180,8 @@ export default function DoctorProfilePage() {
                 async () => {
                     const url = await getDownloadURL(uploadTask.snapshot.ref);
                     const doctorRef = doc(firestore, 'doctors', user.uid);
+                    
+                    // FORCEFUL PERSISTENCE: Immediately append URL to Firestore registry
                     await updateDoc(doctorRef, {
                         documents: arrayUnion(url),
                         updatedAt: new Date().toISOString()
@@ -187,7 +189,7 @@ export default function DoctorProfilePage() {
 
                     setExistingDocs(prev => [...prev, url]);
                     setUploadQueue(prev => prev.filter(q => q.id !== taskId));
-                    toast({ title: 'Credential Posted!', description: `${file.name} added to portfolio.` });
+                    toast({ title: 'Asset Synchronized!', description: `${file.name} posted to portfolio.` });
                 }
             );
         } catch (e) {
@@ -254,7 +256,7 @@ export default function DoctorProfilePage() {
         setDocumentNonBlocking(doc(firestore, 'doctors', user.uid), doctorData, { merge: true });
         setDocumentNonBlocking(doc(firestore, 'patients', user.uid), patientData, { merge: true });
 
-        toast({ title: 'Profile Synchronized', description: 'Registry data updated successfully.' });
+        toast({ title: 'Registry Updated', description: 'Professional data persisted successfully.' });
         if (!userData?.profileComplete) {
             router.push('/doctor-portal');
         }
@@ -370,12 +372,12 @@ export default function DoctorProfilePage() {
                             )}
 
                             <div className="space-y-4">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Add Credentials (Unrestricted)</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Add Evidence (Any Format)</p>
                                 <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-3xl cursor-pointer bg-slate-50 hover:bg-slate-100 border-slate-200 transition-all group">
                                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                         <Plus className="w-8 h-8 mb-2 text-primary group-hover:scale-110 transition-transform" />
-                                        <p className="text-sm text-slate-500 font-bold">Post New Degree</p>
-                                        <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">Images, PDFs (Up to 500MB)</p>
+                                        <p className="text-sm text-slate-500 font-bold">Post New Pictures / PDF</p>
+                                        <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">Multiple Files Supported (Up to 500MB)</p>
                                     </div>
                                     <Input type="file" multiple className="hidden" onChange={handleImmediateFileUpload} accept="*/*" />
                                 </label>
@@ -445,7 +447,7 @@ export default function DoctorProfilePage() {
                                     </div>
 
                                     <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl shadow-primary/20" disabled={isSubmitting || !isEmailVerified || isUploadingPhoto || uploadQueue.length > 0}>
-                                        {isSubmitting ? <><Loader2 className="mr-3 h-5 w-5 animate-spin" /> Persisting Data...</> : "Update Registry Data"}
+                                        {isSubmitting ? <><Loader2 className="mr-3 h-5 w-5 animate-spin" /> Updating...</> : "Finalize Profile Registry"}
                                     </Button>
                                 </form>
                             </Form>

@@ -121,9 +121,9 @@ export default function DoctorProfilePage() {
                             <h4 className="font-bold text-lg border-b pb-4 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="h-8 w-1 bg-primary rounded-full" />
-                                    <ClipboardCheck className="h-6 w-6 text-primary" /> Portal Portfolio
+                                    <ClipboardCheck className="h-6 w-6 text-primary" /> Professional Evidence Portfolio
                                 </div>
-                                <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest">{doctor.documents?.length || 0} Credentials</Badge>
+                                <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest">{doctor.documents?.length || 0} Assets</Badge>
                             </h4>
                             
                             <div className="bg-muted/30 p-6 rounded-2xl border border-dashed border-primary/20 space-y-2">
@@ -133,7 +133,7 @@ export default function DoctorProfilePage() {
                             </div>
 
                             <div className="space-y-6">
-                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Professional Evidence (Tap to Verify)</p>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Clinical Assets (Tap to Verify Original)</p>
                                 {doctor.documents && doctor.documents.length > 0 ? (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                         {doctor.documents.map((url, idx) => {
