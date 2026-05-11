@@ -93,7 +93,6 @@ export default function DoctorProfilePage() {
   const handlePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      // USE OBJECT URL instead of DataURI to prevent browser memory crashes on large files
       const objectUrl = URL.createObjectURL(file);
       setCropperImage(objectUrl);
       e.target.value = ''; 
@@ -133,7 +132,7 @@ export default function DoctorProfilePage() {
       });
     } catch (error) {
       console.error("Image upload failed:", error);
-      toast({ variant: 'destructive', title: 'Upload Failed', description: 'Could not save profile picture to cloud storage.' });
+      toast({ variant: 'destructive', title: 'Upload Failed', description: 'Could not save profile picture.' });
     } finally {
       setIsUploading(false);
     }
@@ -154,7 +153,7 @@ export default function DoctorProfilePage() {
         toast({
             variant: 'destructive',
             title: 'Files Rejected',
-            description: 'Please ensure files are PDF/JPG/PNG and under 500MB.',
+            description: 'Ensure files are under 500MB (PDF/JPG/PNG).',
         });
     }
 
@@ -180,10 +179,10 @@ export default function DoctorProfilePage() {
       if (user.emailVerified) {
         toast({ title: "Email Verified", description: "You now have full profile edit access." });
       } else {
-          toast({ title: "Verification Required", description: "Please verify your email before proceeding." });
+          toast({ title: "Verification Required", description: "Please check your inbox." });
       }
     } catch (error) {
-      toast({ variant: 'destructive', title: 'Status Update Error', description: 'Failed to sync with auth servers.' });
+      toast({ variant: 'destructive', title: 'Error', description: 'Failed to sync account status.' });
     } finally {
       setIsRefreshing(false);
     }
@@ -197,7 +196,7 @@ export default function DoctorProfilePage() {
     try {
         const newUrls: string[] = [];
         
-        // Sequential upload to avoid network saturation for large files
+        // Robust sequential upload for massive files
         for (const item of uploadQueue) {
             setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'uploading' } : q));
 
@@ -238,13 +237,14 @@ export default function DoctorProfilePage() {
             lastName: userData?.lastName
         };
 
+        // Use robust merge pattern
         setDocumentNonBlocking(doc(firestore, 'doctors', user.uid), doctorData, { merge: true });
         setDocumentNonBlocking(doc(firestore, 'patients', user.uid), patientData, { merge: true });
 
         setUploadQueue([]); 
         setExistingDocs(finalDocs);
 
-        toast({ title: 'Profile Synchronized!', description: 'Your clinical records have been updated successfully.' });
+        toast({ title: 'Profile Synchronized!', description: 'Your clinical portfolio has been expanded.' });
         
         if (!userData?.profileComplete) {
             router.push('/doctor-portal');
@@ -254,7 +254,7 @@ export default function DoctorProfilePage() {
         toast({ 
             variant: "destructive", 
             title: "Submission Error", 
-            description: "An error occurred while saving assets. Ensure files are stable and under 500MB." 
+            description: "Failed to save qualifications. Ensure files are under 500MB." 
         });
     } finally {
         setIsSubmitting(false);
@@ -268,7 +268,7 @@ export default function DoctorProfilePage() {
         <div className="max-w-4xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold font-headline">Professional Registry</h1>
+                    <h1 className="text-3xl font-bold font-headline tracking-tight">Clinical Registry</h1>
                     <p className="text-muted-foreground">Manage your credentials and clinical presence.</p>
                 </div>
                 {isVerified && (
@@ -309,14 +309,14 @@ export default function DoctorProfilePage() {
                 <Card className="lg:col-span-2 border-none shadow-xl bg-white rounded-3xl overflow-hidden">
                     <CardHeader className="bg-primary/5 border-b px-6 py-6">
                         <CardTitle className="text-xl">Clinical Audit Information</CardTitle>
-                        <CardDescription>Ensure your medical school records and active contact details are correct.</CardDescription>
+                        <CardDescription>Ensure your medical university records are correctly indexed.</CardDescription>
                     </CardHeader>
                     <CardContent className="p-6">
                         {!isEmailVerified && (
                             <Alert variant="destructive" className="mb-8 rounded-2xl">
                                 <AlertTitle className="font-bold">Email Audit Required</AlertTitle>
                                 <AlertDescription className="flex justify-between items-center gap-4">
-                                    <span className="text-xs">Access to profile edits is restricted until your clinical email is verified.</span>
+                                    <span className="text-xs">Access is restricted until your clinical email is verified.</span>
                                     <Button variant="outline" size="sm" onClick={handleRefreshStatus} disabled={isRefreshing} className="bg-white border-destructive text-destructive font-bold h-8 rounded-lg shrink-0">
                                         Check Status
                                     </Button>
@@ -338,7 +338,7 @@ export default function DoctorProfilePage() {
                                         <FormItem><FormLabel className="text-[11px] uppercase font-bold tracking-widest opacity-60">Medical University</FormLabel><FormControl><Input {...field} className="h-11 rounded-xl border-2" disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
                                     )} />
                                     <FormField control={form.control} name="degree" render={({ field }) => (
-                                        <FormItem><FormLabel className="text-[11px] uppercase font-bold tracking-widest opacity-60">Degrees (e.g. FCPS, MBBS)</FormLabel><FormControl><Input {...field} className="h-11 rounded-xl border-2" disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel className="text-[11px] uppercase font-bold tracking-widest opacity-60">Degrees (e.g. MBBS, FCPS)</FormLabel><FormControl><Input {...field} className="h-11 rounded-xl border-2" disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
                                     )} />
                                 </div>
                                 <div className="grid md:grid-cols-2 gap-6">
@@ -358,7 +358,7 @@ export default function DoctorProfilePage() {
                                     <div className="bg-amber-50 p-4 rounded-2xl flex gap-3 border border-amber-100">
                                         <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                                         <p className="text-[11px] text-amber-800 leading-relaxed italic">
-                                            Original clinical documents are preserved for audit integrity. You can append new raw certifications (up to 500MB).
+                                            New certificates are appended to your permanent record. Supported: PDF, JPG, PNG (Max 500MB).
                                         </p>
                                     </div>
                                     
@@ -371,7 +371,7 @@ export default function DoctorProfilePage() {
                                                         <Card className="overflow-hidden border-2 rounded-2xl hover:border-primary/40 transition-all shadow-sm">
                                                             <div className="relative aspect-video bg-muted/40 flex items-center justify-center border-b">
                                                                 {isImage ? (
-                                                                    <Image src={url} alt={`Document ${idx + 1}`} fill className="object-cover" />
+                                                                    <Image src={url} alt={`Degree ${idx + 1}`} fill className="object-cover" />
                                                                 ) : (
                                                                     <div className="flex flex-col items-center gap-2">
                                                                         <FileText className="h-10 w-10 text-primary/20" />
@@ -423,7 +423,7 @@ export default function DoctorProfilePage() {
                                             <Button type="button" variant="outline" className="w-full border-2 border-dashed h-24 rounded-2xl bg-muted/5 hover:bg-muted/10 hover:border-primary/40 transition-all" asChild>
                                                 <label htmlFor="multi-doc-upload" className="cursor-pointer flex flex-col items-center gap-2">
                                                     <Plus className="h-6 w-6 text-primary" /> 
-                                                    <span className="text-sm font-bold">Add Degree/Certificate</span>
+                                                    <span className="text-sm font-bold">Append Degree/Certificate</span>
                                                     <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">PDF, JPG, PNG - Up to 500MB</span>
                                                 </label>
                                             </Button>
@@ -433,7 +433,7 @@ export default function DoctorProfilePage() {
                                 </div>
 
                                 <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl shadow-primary/20" disabled={isSubmitting || isUploading || !isEmailVerified}>
-                                    {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Finalizing Assets...</> : "Finalize & Synchronize Profile"}
+                                    {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Finalizing Assets...</> : "Synchronize Portfolio"}
                                 </Button>
                             </form>
                         </Form>
@@ -445,3 +445,4 @@ export default function DoctorProfilePage() {
       </main>
   );
 }
+
