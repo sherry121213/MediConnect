@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -20,7 +21,7 @@ import {
   Users,
   MessageCircle,
   CalendarClock,
-  Bell,
+  AlertCircle,
 } from 'lucide-react';
 import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -49,7 +50,6 @@ export default function AdminSidebar() {
   }, [firestore]);
   const { data: unreadChats } = useCollection(chatsQuery);
 
-  // New listener for pending payments to notify admin of new bookings awaiting verification
   const paymentsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'appointments'), where('paymentStatus', '==', 'pending'));
@@ -62,6 +62,7 @@ export default function AdminSidebar() {
     { href: '/admin/patients', label: 'Patients', icon: Users },
     { href: '/admin/requests', label: 'Clinical Requests', icon: CalendarClock, badge: pendingRequests?.length },
     { href: '/admin/payments', label: 'Payments', icon: CreditCard, badge: pendingPayments?.length },
+    { href: '/admin/missed-slots', label: 'Missed Audits', icon: AlertCircle },
     { href: '/admin/chats', label: 'Messages', icon: MessageCircle, badge: unreadChats?.length },
   ];
 

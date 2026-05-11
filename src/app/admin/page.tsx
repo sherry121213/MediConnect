@@ -1,22 +1,33 @@
 
 "use client"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Globe, Calendar, Zap, Siren, ArrowRight, ShieldAlert, Activity, Loader2, TrendingUp, BarChart3, Target, CheckCircle2 } from "lucide-react";
+import { Globe, Calendar, Siren, ArrowRight, Activity, Loader2, TrendingUp, BarChart3, Target, CheckCircle2, AlertCircle, Trash2, User, Stethoscope } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, where, limit, orderBy } from "firebase/firestore";
 import type { Doctor, Appointment, Patient } from "@/lib/types";
-import { format, isSameDay, startOfDay, startOfWeek, startOfMonth, isAfter } from "date-fns";
+import { format, isAfter, startOfDay, startOfWeek, startOfMonth } from "date-fns";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
+import Autoplay from "embla-carousel-autoplay";
 
 export default function AdminDashboardPage() {
   const firestore = useFirestore();
   const [mounted, setMounted] = useState(false);
+  const [dismissedMissedIds, setDismissedMissedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
       setMounted(true);
+      const saved = localStorage.getItem('admin_dismissed_missed');
+      if (saved) {
+          try {
+              setDismissedMissedIds(new Set(JSON.parse(saved)));
+          } catch (e) {
+              console.error("Failed to load dismissed alerts", e);
+          }
+      }
   }, []);
 
   const appointmentsCollection = useMemoFirebase(() => {
@@ -39,15 +50,9 @@ export default function AdminDashboardPage() {
 
   const missedAuditQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(collection(firestore, 'missedSessionAudits'), orderBy('loggedAt', 'desc'), limit(5));
+    return query(collection(firestore, 'missedSessionAudits'), orderBy('loggedAt', 'desc'), limit(10));
   }, [firestore]);
   const { data: missedAudits } = useCollection<any>(missedAuditQuery);
-
-  const activeLogsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'consultationLogs'), orderBy('timestamp', 'desc'), limit(5));
-  }, [firestore]);
-  const { data: activeLogs } = useCollection<any>(activeLogsQuery);
   
   const stats = useMemo(() => {
     if (!appointments || !doctors || !patients) return { 
@@ -85,6 +90,18 @@ export default function AdminDashboardPage() {
     };
   }, [appointments, doctors, patients]);
 
+  const activeMissedAudits = useMemo(() => {
+      if (!missedAudits) return [];
+      return missedAudits.filter((a: any) => !dismissedMissedIds.has(a.id));
+  }, [missedAudits, dismissedMissedIds]);
+
+  const handleDismissAll = () => {
+    const newDismissed = new Set(dismissedMissedIds);
+    activeMissedAudits.forEach((a: any) => newDismissed.add(a.id));
+    setDismissedMissedIds(newDismissed);
+    localStorage.setItem('admin_dismissed_missed', JSON.stringify(Array.from(newDismissed)));
+  };
+
   if (!mounted || isLoadingAppointments || isLoadingDoctors || isLoadingPatients) {
       return <div className="flex h-screen items-center justify-center bg-slate-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
@@ -108,7 +125,6 @@ export default function AdminDashboardPage() {
         <Card className="border-none shadow-sm"><CardContent className="p-6"><p className="text-[10px] font-bold uppercase text-muted-foreground">Missed Slots</p><p className="text-2xl font-bold text-destructive">{stats.missedCount}</p></CardContent></Card>
       </div>
 
-      {/* NEW: Platform Velocity Spectrum (Weekly/Monthly) */}
       <div className="grid gap-8 lg:grid-cols-12">
         <div className="lg:col-span-8 space-y-8">
             <Card className="border-none shadow-2xl overflow-hidden bg-white rounded-3xl">
@@ -161,26 +177,74 @@ export default function AdminDashboardPage() {
                 </CardContent>
             </Card>
 
-            <Card className="border-none shadow-lg overflow-hidden bg-white">
-                <CardHeader className="bg-primary/5 border-b"><CardTitle className="text-lg flex items-center gap-2"><Siren className="h-5 w-5 text-primary" /> Live Operational Feed</CardTitle></CardHeader>
-                <CardContent className="p-0">
-                    {activeLogs && activeLogs.length > 0 ? (
-                        <div className="divide-y">
-                            {activeLogs.map((log: any) => (
-                                <div key={log.id} className="p-4 flex items-center justify-between hover:bg-muted/30 transition-colors">
-                                    <div className="flex items-center gap-3">
-                                        <div className="p-2 bg-green-100 text-green-700 rounded-full"><Activity className="h-4 w-4" /></div>
-                                        <div>
-                                            <p className="text-xs font-bold">{log.description || 'Consultation session active'}</p>
-                                            <p className="text-[10px] text-muted-foreground">ID: {log.appointmentId.slice(0,8)}</p>
-                                        </div>
-                                    </div>
-                                    <p className="text-[10px] font-bold uppercase text-muted-foreground">{format(new Date(log.timestamp), "p")}</p>
-                                </div>
-                            ))}
+            <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden">
+                <CardHeader className="bg-primary/5 border-b py-6 px-8">
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="text-lg flex items-center gap-3 font-headline">
+                            <Siren className="h-6 w-6 text-primary" /> Real-time Missed Slots
+                        </CardTitle>
+                        <div className="flex items-center gap-3">
+                             <Button variant="ghost" size="sm" onClick={handleDismissAll} className="h-8 text-[10px] font-bold uppercase text-muted-foreground hover:text-destructive">
+                                <Trash2 className="h-3 w-3 mr-1.5" /> Clear Surveillance
+                            </Button>
+                            <Button size="sm" variant="outline" asChild className="h-8 text-[10px] font-bold uppercase rounded-xl">
+                                <Link href="/admin/missed-slots">Full History</Link>
+                            </Button>
                         </div>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-8">
+                    {activeMissedAudits && activeMissedAudits.length > 0 ? (
+                        <Carousel
+                            opts={{ align: "start", loop: true }}
+                            plugins={[Autoplay({ delay: 4000, stopOnInteraction: true })]}
+                            className="w-full"
+                        >
+                            <CarouselContent className="-ml-4">
+                                {activeMissedAudits.map((log: any) => {
+                                    const doctor = doctors?.find(d => d.id === log.doctorId);
+                                    return (
+                                        <CarouselItem key={log.id} className="pl-4 md:basis-1/2 lg:basis-1/2">
+                                            <div className="p-1">
+                                                <Card className="border-2 border-destructive/10 bg-destructive/5 rounded-2xl overflow-hidden">
+                                                    <CardContent className="p-5 space-y-4">
+                                                        <div className="flex justify-between items-start">
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center text-destructive shrink-0">
+                                                                    <User className="h-5 w-5" />
+                                                                </div>
+                                                                <div className="min-w-0">
+                                                                    <p className="font-bold text-sm truncate">Dr. {doctor?.firstName} {doctor?.lastName}</p>
+                                                                    <p className="text-[10px] text-destructive font-bold uppercase tracking-widest">{doctor?.specialty || 'Specialist'}</p>
+                                                                </div>
+                                                            </div>
+                                                            <Badge variant="destructive" className="h-5 text-[8px] font-bold uppercase">Missed</Badge>
+                                                        </div>
+                                                        <div className="space-y-1">
+                                                            <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Scheduled Time</p>
+                                                            <p className="text-xs font-semibold flex items-center gap-2">
+                                                                <AlertCircle className="h-3 w-3 text-destructive" />
+                                                                {format(new Date(log.scheduledTime), "MMM dd, p")}
+                                                            </p>
+                                                        </div>
+                                                    </CardContent>
+                                                </Card>
+                                            </div>
+                                        </CarouselItem>
+                                    );
+                                })}
+                            </CarouselContent>
+                            <div className="flex justify-end gap-2 mt-4">
+                                <CarouselPrevious className="static translate-y-0 h-8 w-8 rounded-xl border-2" />
+                                <CarouselNext className="static translate-y-0 h-8 w-8 rounded-xl border-2" />
+                            </div>
+                        </Carousel>
                     ) : (
-                        <div className="text-center py-20 text-muted-foreground italic text-sm">No live session activity detected.</div>
+                        <div className="text-center py-20 bg-muted/20 rounded-3xl border-2 border-dashed border-muted/50">
+                            <Activity className="h-12 w-12 mx-auto mb-4 text-muted-foreground/30" />
+                            <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Surveillance Clear</p>
+                            <p className="text-xs text-muted-foreground mt-1">No pending missed session logs detected.</p>
+                        </div>
                     )}
                 </CardContent>
             </Card>
@@ -198,25 +262,33 @@ export default function AdminDashboardPage() {
                             Auto-expiry and notification suppression are active. Completed sessions are locked against further audit alerts.
                         </p>
                     </div>
+                    <div className="pt-4 border-t border-white/10">
+                        <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-widest">
+                            <span>Health Status</span>
+                            <span className="text-green-500">Operational</span>
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
 
-            <Card className="border-none shadow-2xl bg-white h-full flex flex-col">
-                <CardHeader className="bg-slate-900 text-white rounded-t-xl"><CardTitle className="text-lg">Real-time Missed Logs</CardTitle></CardHeader>
+            <Card className="border-none shadow-2xl bg-white h-full flex flex-col rounded-3xl overflow-hidden">
+                <CardHeader className="bg-slate-900 text-white"><CardTitle className="text-lg flex items-center gap-2"><Stethoscope className="h-5 w-5 text-primary" /> Audit Trail Summary</CardTitle></CardHeader>
                 <CardContent className="p-6">
-                    {missedAudits && missedAudits.length > 0 ? (
-                        <div className="space-y-4">
-                            {missedAudits.map((log: any) => (
-                                <div key={log.id} className="p-3 rounded-xl bg-muted/30 border text-[10px] space-y-1">
-                                    <p className="font-bold text-destructive flex items-center justify-between">SESSION MISSED <span className="opacity-50">{format(new Date(log.loggedAt), "p")}</span></p>
-                                    <p className="text-slate-600">ID: {log.appointmentId.slice(0, 8)}...</p>
-                                    <p className="text-slate-600">Scheduled: {format(new Date(log.scheduledTime), "MMM dd, p")}</p>
-                                </div>
-                            ))}
+                    <div className="space-y-6">
+                        <div className="p-5 bg-muted/30 rounded-2xl border-2 border-dashed">
+                             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mb-1">Lifetime Expiries</p>
+                             <p className="text-4xl font-bold text-destructive tracking-tighter">{stats.missedCount}</p>
                         </div>
-                    ) : (
-                        <p className="text-center py-12 text-xs text-muted-foreground italic">No missed session logs detected.</p>
-                    )}
+                        <div className="space-y-4">
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Platform Policy</p>
+                            <p className="text-xs leading-relaxed text-slate-600 italic">
+                                Sessions that pass the 30-minute clinical window without completion are automatically logged for administrative review and doctor performance auditing.
+                            </p>
+                            <Button variant="outline" className="w-full h-11 font-bold rounded-xl border-2" asChild>
+                                <Link href="/admin/missed-slots">Audit Archive</Link>
+                            </Button>
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
         </div>
