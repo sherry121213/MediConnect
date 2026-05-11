@@ -12,7 +12,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, FileText, ExternalLink, Eye, BadgeCheck, Plus, Trash2, CloudUpload, CheckCircle2 } from 'lucide-react';
+import { Loader2, FileText, ExternalLink, Eye, BadgeCheck, Plus, Trash2, CloudUpload, CheckCircle2, Image as ImageIcon } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -101,7 +101,6 @@ export default function DoctorProfilePage() {
   const handlePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      // USE OBJECT URL: Avoids heavy base64 strings that crash browser
       const objectUrl = URL.createObjectURL(file);
       setCropperImage(objectUrl);
       e.target.value = ''; 
@@ -116,7 +115,6 @@ export default function DoctorProfilePage() {
     setCropperImage(null);
 
     try {
-      // Create a blob from the base64 cropped image for Storage transmission
       const base64Data = croppedImage.split(',')[1];
       const byteCharacters = atob(base64Data);
       const byteNumbers = new Array(byteCharacters.length);
@@ -132,7 +130,7 @@ export default function DoctorProfilePage() {
       uploadTask.on('state_changed', 
           (snapshot) => {
               const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-              setPhotoProgress(p);
+              setPhotoProgress(p || 1); // Ensure it's not stuck at 0 visibly if started
           },
           (error) => {
               toast({ variant: 'destructive', title: 'Photo Sync Failed' });
@@ -140,16 +138,11 @@ export default function DoctorProfilePage() {
           },
           async () => {
               const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-              
-              // Forcefully sync with both registries
               const updateData = { photoURL: downloadURL, updatedAt: new Date().toISOString() };
               updateDocumentNonBlocking(doc(firestore, 'doctors', user.uid), updateData);
               updateDocumentNonBlocking(doc(firestore, 'patients', user.uid), updateData);
 
-              toast({
-                  title: 'Identity Secured',
-                  description: 'Profile photo has been updated in the cloud registry.',
-              });
+              toast({ title: 'Identity Secured', description: 'Profile photo updated.' });
               setIsUploadingPhoto(false);
               setPhotoProgress(0);
           }
@@ -168,7 +161,7 @@ export default function DoctorProfilePage() {
 
     for (const file of files) {
         const taskId = Math.random().toString(36).substring(7);
-        const newTask: FileUploadTask = { file, progress: 0, status: 'uploading', id: taskId };
+        const newTask: FileUploadTask = { file, progress: 1, status: 'uploading', id: taskId };
         setUploadQueue(prev => [...prev, newTask]);
 
         try {
@@ -178,16 +171,14 @@ export default function DoctorProfilePage() {
             uploadTask.on('state_changed', 
                 (snapshot) => {
                     const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    setUploadQueue(prev => prev.map(q => q.id === taskId ? { ...q, progress: p } : q));
+                    setUploadQueue(prev => prev.map(q => q.id === taskId ? { ...q, progress: Math.max(p, 1) } : q));
                 },
                 (error) => {
                     setUploadQueue(prev => prev.map(q => q.id === taskId ? { ...q, status: 'error' } : q));
-                    toast({ variant: 'destructive', title: 'Upload Error', description: `Failed to post ${file.name}` });
+                    toast({ variant: 'destructive', title: 'Upload Failed', description: `Error uploading ${file.name}` });
                 },
                 async () => {
                     const url = await getDownloadURL(uploadTask.snapshot.ref);
-                    
-                    // FORCEFUL SYNC: Immediately append to profile array so it reflects in portal
                     const doctorRef = doc(firestore, 'doctors', user.uid);
                     await updateDoc(doctorRef, {
                         documents: arrayUnion(url),
@@ -196,11 +187,11 @@ export default function DoctorProfilePage() {
 
                     setExistingDocs(prev => [...prev, url]);
                     setUploadQueue(prev => prev.filter(q => q.id !== taskId));
-                    toast({ title: 'Credential Posted!', description: `${file.name} is now part of your professional portfolio.` });
+                    toast({ title: 'Credential Posted!', description: `${file.name} added to portfolio.` });
                 }
             );
         } catch (e) {
-            console.error("Transmission process failed", e);
+            console.error("Transmission failed", e);
         }
     }
   };
@@ -214,7 +205,7 @@ export default function DoctorProfilePage() {
             updatedAt: new Date().toISOString()
         });
         setExistingDocs(prev => prev.filter(u => u !== url));
-        toast({ title: 'Portfolio Updated', description: 'Degree has been removed from your registry.' });
+        toast({ title: 'Portfolio Updated', description: 'Degree removed.' });
     } catch (e) {
         toast({ variant: 'destructive', title: 'Sync Failed' });
     }
@@ -226,9 +217,9 @@ export default function DoctorProfilePage() {
     try {
       await user.reload();
       if (user.emailVerified) {
-        toast({ title: "Clinical Check Passed", description: "Email verified. Your profile is now active." });
+        toast({ title: "Email verified. Access active." });
       } else {
-          toast({ title: "Awaiting Verification", description: "Please confirm the link sent to your inbox." });
+          toast({ title: "Verification link sent.", description: "Check your inbox." });
       }
     } catch (error) {
       toast({ variant: 'destructive', title: 'Sync Error' });
@@ -260,11 +251,10 @@ export default function DoctorProfilePage() {
             lastName: userData?.lastName
         };
 
-        // Use SET-MERGE logic for forceful database synchronization
         setDocumentNonBlocking(doc(firestore, 'doctors', user.uid), doctorData, { merge: true });
         setDocumentNonBlocking(doc(firestore, 'patients', user.uid), patientData, { merge: true });
 
-        toast({ title: 'Profile Synchronized', description: 'Your professional details have been updated.' });
+        toast({ title: 'Profile Synchronized', description: 'Registry data updated successfully.' });
         if (!userData?.profileComplete) {
             router.push('/doctor-portal');
         }
@@ -283,7 +273,7 @@ export default function DoctorProfilePage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Professional Registry</h1>
-                    <p className="text-muted-foreground">Manage your credentials and clinical presence.</p>
+                    <p className="text-muted-foreground text-sm">Manage your credentials and clinical presence (Max 500MB).</p>
                 </div>
                 {isVerified && (
                     <Badge className="bg-green-100 text-green-800 border-green-200 h-8 gap-1.5 px-3">
@@ -302,7 +292,7 @@ export default function DoctorProfilePage() {
                                     <AvatarFallback className="text-4xl bg-primary/5 text-primary">{userData?.firstName?.[0]}</AvatarFallback>
                                 </Avatar>
                                 {isUploadingPhoto && (
-                                    <div className="absolute inset-0 bg-black/40 rounded-full flex flex-col items-center justify-center text-white p-4">
+                                    <div className="absolute inset-0 bg-black/60 rounded-full flex flex-col items-center justify-center text-white p-4">
                                         <p className="text-[10px] font-bold uppercase mb-1">{Math.round(photoProgress)}%</p>
                                         <Progress value={photoProgress} className="h-1" />
                                     </div>
@@ -311,7 +301,7 @@ export default function DoctorProfilePage() {
                             <div className='relative inline-block'>
                                 <Button asChild variant="outline" size="sm" className="rounded-xl font-bold border-2" disabled={isUploadingPhoto}>
                                     <label htmlFor="picture-upload" className="cursor-pointer">
-                                    {isUploadingPhoto ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Transmitting...</>) : "Update Photo"}
+                                    {isUploadingPhoto ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Syncing...</>) : "Post New Photo"}
                                     </label>
                                 </Button>
                                 <Input id="picture-upload" type="file" accept="image/*" onChange={handlePictureChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isUploadingPhoto || isSubmitting} />
@@ -338,13 +328,13 @@ export default function DoctorProfilePage() {
                     <Card className="border-none shadow-xl bg-white rounded-3xl overflow-hidden">
                         <CardHeader className="bg-primary/5 border-b px-6 py-6">
                             <CardTitle className="text-xl">Professional Portfolio</CardTitle>
-                            <CardDescription>Clinical credentials are synchronized for admin verification.</CardDescription>
+                            <CardDescription>Clinical credentials are synchronized "Facebook-style" for verification.</CardDescription>
                         </CardHeader>
                         <CardContent className="p-6 space-y-8">
                              {existingDocs.length > 0 ? (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     {existingDocs.map((url, idx) => {
-                                        const isImage = url.includes('.jpg') || url.includes('.jpeg') || url.includes('.png') || url.includes('image');
+                                        const isImage = url.includes('.jpg') || url.includes('.jpeg') || url.includes('.png') || url.includes('image') || url.includes('.webp');
                                         return (
                                             <div key={idx} className="relative group">
                                                 <a href={url} target="_blank" rel="noopener noreferrer" className="block">
@@ -360,7 +350,7 @@ export default function DoctorProfilePage() {
                                                             </div>
                                                         </div>
                                                         <div className="p-2 bg-white flex items-center justify-between border-t">
-                                                            <span className="text-[9px] font-bold uppercase truncate pr-2">Evidence-Asset-{idx + 1}</span>
+                                                            <span className="text-[9px] font-bold uppercase truncate pr-2">Portfolio-Asset-{idx + 1}</span>
                                                             <ExternalLink className="h-3 w-3 text-muted-foreground" />
                                                         </div>
                                                     </Card>
@@ -375,19 +365,19 @@ export default function DoctorProfilePage() {
                             ) : (
                                 <div className="text-center py-10 border-2 border-dashed rounded-3xl bg-muted/5">
                                     <CloudUpload className="h-10 w-10 text-muted-foreground/20 mx-auto mb-2" />
-                                    <p className="text-xs text-muted-foreground italic font-medium">Professional portfolio is currently empty.</p>
+                                    <p className="text-xs text-muted-foreground italic font-medium">Professional portfolio is empty.</p>
                                 </div>
                             )}
 
                             <div className="space-y-4">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Attach New Clinical Credentials</p>
-                                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-3xl cursor-pointer bg-slate-50 hover:bg-slate-100 border-slate-200 transition-all">
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Add Credentials (Unrestricted)</p>
+                                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-3xl cursor-pointer bg-slate-50 hover:bg-slate-100 border-slate-200 transition-all group">
                                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                        <Plus className="w-8 h-8 mb-2 text-primary" />
-                                        <p className="text-sm text-slate-500 font-bold">Post to Portfolio</p>
-                                        <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">JPG, PNG, PDF (Up to 500MB)</p>
+                                        <Plus className="w-8 h-8 mb-2 text-primary group-hover:scale-110 transition-transform" />
+                                        <p className="text-sm text-slate-500 font-bold">Post New Degree</p>
+                                        <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">Images, PDFs (Up to 500MB)</p>
                                     </div>
-                                    <Input type="file" multiple className="hidden" onChange={handleImmediateFileUpload} accept="image/*,.pdf" />
+                                    <Input type="file" multiple className="hidden" onChange={handleImmediateFileUpload} accept="*/*" />
                                 </label>
 
                                 {uploadQueue.length > 0 && (
@@ -402,7 +392,7 @@ export default function DoctorProfilePage() {
                                                     <span className="text-[10px] font-bold text-primary">{Math.round(item.progress)}%</span>
                                                 </div>
                                                 <Progress value={item.progress} className="h-1.5" />
-                                                <p className="text-[8px] uppercase font-bold text-muted-foreground text-right tracking-widest">Transmitting Asset...</p>
+                                                <p className="text-[8px] uppercase font-bold text-muted-foreground text-right tracking-widest">Forcefully Syncing Asset...</p>
                                             </div>
                                         ))}
                                     </div>
@@ -420,7 +410,7 @@ export default function DoctorProfilePage() {
                                 <Alert variant="destructive" className="mb-8 rounded-2xl">
                                     <AlertTitle className="font-bold">Email Verification Required</AlertTitle>
                                     <AlertDescription className="flex justify-between items-center gap-4">
-                                        <span className="text-xs">Security policy: Please verify your clinical email to unlock full portal access.</span>
+                                        <span className="text-xs">Please verify your clinical email to unlock full portal access.</span>
                                         <Button variant="outline" size="sm" onClick={handleRefreshStatus} disabled={isRefreshing} className="bg-white border-destructive text-destructive font-bold h-8 rounded-lg shrink-0">
                                             Sync Status
                                         </Button>

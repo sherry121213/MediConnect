@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useParams } from 'next/navigation';
@@ -8,7 +7,7 @@ import type { Doctor } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
-import { ArrowLeft, AtSign, BriefcaseMedical, Calendar, CheckCircle, GraduationCap, Loader2, MapPin, Phone, Star, FileText, ExternalLink, ShieldCheck, Eye, ClipboardCheck } from 'lucide-react';
+import { ArrowLeft, AtSign, BriefcaseMedical, Calendar, CheckCircle, GraduationCap, Loader2, MapPin, Phone, Star, FileText, ExternalLink, ShieldCheck, Eye, ClipboardCheck, Image as ImageIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
@@ -138,7 +137,7 @@ export default function DoctorProfilePage() {
                                 {doctor.documents && doctor.documents.length > 0 ? (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                         {doctor.documents.map((url, idx) => {
-                                            const isImage = url.includes('.jpg') || url.includes('.jpeg') || url.includes('.png') || url.includes('image');
+                                            const isImage = url.includes('.jpg') || url.includes('.jpeg') || url.includes('.png') || url.includes('image') || url.includes('.webp');
                                             return (
                                                 <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block outline-none group">
                                                     <Card className="overflow-hidden border-muted shadow-lg group-hover:shadow-xl group-hover:border-primary/20 transition-all rounded-2xl">
@@ -148,7 +147,7 @@ export default function DoctorProfilePage() {
                                                             ) : (
                                                                 <div className="flex flex-col items-center gap-3">
                                                                     <FileText className="h-16 w-16 text-primary/20" />
-                                                                    <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Portal PDF</span>
+                                                                    <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Clinical Doc</span>
                                                                 </div>
                                                             )}
                                                             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
