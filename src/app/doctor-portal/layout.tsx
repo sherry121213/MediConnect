@@ -9,6 +9,7 @@ import AppFooter from '@/components/layout/footer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { signOut } from 'firebase/auth';
+import DoctorPendingVerification from '@/components/layout/doctor-pending-verification';
 
 function DoctorAccountDisabled() {
   const auth = useAuth();
@@ -126,8 +127,15 @@ export default function DoctorPortalLayout({
           </div>
       );
   }
+
+  // RESTRICTION: Block access if email not verified or admin has not approved
+  const isVerified = !!userData.verified;
+  const isEmailVerified = !!user.emailVerified;
+
+  if (!isProfilePage && (!isVerified || !isEmailVerified)) {
+      return <DoctorPendingVerification />;
+  }
   
-  // RESTRICTION REMOVED: Verification check bypassed for instant access
   return (
     <div className="flex flex-col min-h-screen">
       <AppHeader />
