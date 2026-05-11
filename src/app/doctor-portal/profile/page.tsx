@@ -1,4 +1,3 @@
-
 'use client';
 
 import { z } from 'zod';
@@ -13,7 +12,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, FileText, ExternalLink, GraduationCap, Eye, BadgeCheck, ShieldAlert, Plus, X, CheckCircle2, CloudUpload, Trash2 } from 'lucide-react';
+import { Loader2, FileText, ExternalLink, Eye, BadgeCheck, Plus, Trash2, CloudUpload, CheckCircle2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -51,6 +50,7 @@ export default function DoctorProfilePage() {
   
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+  const [photoProgress, setPhotoProgress] = useState(0);
   const [cropperImage, setCropperImage] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
@@ -101,6 +101,7 @@ export default function DoctorProfilePage() {
   const handlePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
+      // USE OBJECT URL: Avoids heavy base64 strings that crash browser
       const objectUrl = URL.createObjectURL(file);
       setCropperImage(objectUrl);
       e.target.value = ''; 
@@ -111,10 +112,11 @@ export default function DoctorProfilePage() {
     if (!user || !firestore || !storage) return;
     
     setIsUploadingPhoto(true);
+    setPhotoProgress(0);
     setCropperImage(null);
 
     try {
-      // Create a blob from the base64 cropped image
+      // Create a blob from the base64 cropped image for Storage transmission
       const base64Data = croppedImage.split(',')[1];
       const byteCharacters = atob(base64Data);
       const byteNumbers = new Array(byteCharacters.length);
@@ -127,25 +129,33 @@ export default function DoctorProfilePage() {
       const fileRef = ref(storage, `doctors/${user.uid}/profile_${Date.now()}.jpg`);
       const uploadTask = uploadBytesResumable(fileRef, blob);
       
-      const downloadURL = await new Promise<string>((resolve, reject) => {
-          uploadTask.on('state_changed', null, reject, async () => {
-              const url = await getDownloadURL(uploadTask.snapshot.ref);
-              resolve(url);
-          });
-      });
+      uploadTask.on('state_changed', 
+          (snapshot) => {
+              const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+              setPhotoProgress(p);
+          },
+          (error) => {
+              toast({ variant: 'destructive', title: 'Photo Sync Failed' });
+              setIsUploadingPhoto(false);
+          },
+          async () => {
+              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+              
+              // Forcefully sync with both registries
+              const updateData = { photoURL: downloadURL, updatedAt: new Date().toISOString() };
+              updateDocumentNonBlocking(doc(firestore, 'doctors', user.uid), updateData);
+              updateDocumentNonBlocking(doc(firestore, 'patients', user.uid), updateData);
 
-      // Non-blocking Firestore update for the photo URL
-      const updateData = { photoURL: downloadURL, updatedAt: new Date().toISOString() };
-      updateDocumentNonBlocking(doc(firestore, 'doctors', user.uid), updateData);
-      updateDocumentNonBlocking(doc(firestore, 'patients', user.uid), updateData);
-
-      toast({
-          title: 'Photo Synchronized',
-          description: 'Your clinical identity has been updated in the cloud registry.',
-      });
+              toast({
+                  title: 'Identity Secured',
+                  description: 'Profile photo has been updated in the cloud registry.',
+              });
+              setIsUploadingPhoto(false);
+              setPhotoProgress(0);
+          }
+      );
     } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Upload Failed', description: 'Could not sync photo.' });
-    } finally {
+      toast({ variant: 'destructive', title: 'System Error', description: 'Could not process photo.' });
       setIsUploadingPhoto(false);
     }
   };
@@ -162,7 +172,7 @@ export default function DoctorProfilePage() {
         setUploadQueue(prev => [...prev, newTask]);
 
         try {
-            const fileRef = ref(storage, `doctors/${user.uid}/degrees/${Date.now()}_${file.name}`);
+            const fileRef = ref(storage, `doctors/${user.uid}/portfolio/${Date.now()}_${file.name}`);
             const uploadTask = uploadBytesResumable(fileRef, file);
 
             uploadTask.on('state_changed', 
@@ -177,7 +187,7 @@ export default function DoctorProfilePage() {
                 async () => {
                     const url = await getDownloadURL(uploadTask.snapshot.ref);
                     
-                    // Immediately append to Firestore "Facebook-style"
+                    // FORCEFUL SYNC: Immediately append to profile array so it reflects in portal
                     const doctorRef = doc(firestore, 'doctors', user.uid);
                     await updateDoc(doctorRef, {
                         documents: arrayUnion(url),
@@ -186,11 +196,11 @@ export default function DoctorProfilePage() {
 
                     setExistingDocs(prev => [...prev, url]);
                     setUploadQueue(prev => prev.filter(q => q.id !== taskId));
-                    toast({ title: 'Degree Posted!', description: `${file.name} is now in your portfolio.` });
+                    toast({ title: 'Credential Posted!', description: `${file.name} is now part of your professional portfolio.` });
                 }
             );
         } catch (e) {
-            console.error("Upload process failed", e);
+            console.error("Transmission process failed", e);
         }
     }
   };
@@ -204,9 +214,9 @@ export default function DoctorProfilePage() {
             updatedAt: new Date().toISOString()
         });
         setExistingDocs(prev => prev.filter(u => u !== url));
-        toast({ title: 'Entry Removed', description: 'Degree has been deleted from your professional registry.' });
+        toast({ title: 'Portfolio Updated', description: 'Degree has been removed from your registry.' });
     } catch (e) {
-        toast({ variant: 'destructive', title: 'Action Failed' });
+        toast({ variant: 'destructive', title: 'Sync Failed' });
     }
   };
 
@@ -216,12 +226,12 @@ export default function DoctorProfilePage() {
     try {
       await user.reload();
       if (user.emailVerified) {
-        toast({ title: "Audit Passed", description: "Email verified. Profile edits are now unlocked." });
+        toast({ title: "Clinical Check Passed", description: "Email verified. Your profile is now active." });
       } else {
-          toast({ title: "Email Not Verified", description: "Please confirm the link in your inbox." });
+          toast({ title: "Awaiting Verification", description: "Please confirm the link sent to your inbox." });
       }
     } catch (error) {
-      toast({ variant: 'destructive', title: 'System Error', description: 'Failed to sync verification status.' });
+      toast({ variant: 'destructive', title: 'Sync Error' });
     } finally {
       setIsRefreshing(false);
     }
@@ -232,32 +242,34 @@ export default function DoctorProfilePage() {
     setIsSubmitting(true);
 
     try {
+        const timestamp = new Date().toISOString();
         const doctorData = {
             ...values,
             firstName: userData?.firstName || '',
             lastName: userData?.lastName || '',
             email: user.email || '',
             profileComplete: true,
-            updatedAt: new Date().toISOString(),
+            updatedAt: timestamp,
         };
 
         const patientData = { 
             profileComplete: true, 
-            updatedAt: new Date().toISOString(),
+            updatedAt: timestamp,
             phone: values.phone,
             firstName: userData?.firstName,
             lastName: userData?.lastName
         };
 
+        // Use SET-MERGE logic for forceful database synchronization
         setDocumentNonBlocking(doc(firestore, 'doctors', user.uid), doctorData, { merge: true });
         setDocumentNonBlocking(doc(firestore, 'patients', user.uid), patientData, { merge: true });
 
-        toast({ title: 'Information Saved!', description: 'Your professional details have been synchronized.' });
+        toast({ title: 'Profile Synchronized', description: 'Your professional details have been updated.' });
         if (!userData?.profileComplete) {
             router.push('/doctor-portal');
         }
     } catch (error) {
-        toast({ variant: "destructive", title: "Save Error" });
+        toast({ variant: "destructive", title: "Persistence Error" });
     } finally {
         setIsSubmitting(false);
     }
@@ -283,15 +295,23 @@ export default function DoctorProfilePage() {
             <div className="grid lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-1 space-y-6">
                     <Card className="border-none shadow-xl bg-white rounded-3xl overflow-hidden h-fit">
-                        <CardContent className="pt-8 text-center">
-                            <Avatar className="h-32 w-32 mx-auto mb-6 border-4 border-background shadow-xl">
-                                <AvatarImage src={userData?.photoURL || user?.photoURL || undefined} className="object-cover" />
-                                <AvatarFallback className="text-4xl bg-primary/5 text-primary">{userData?.firstName?.[0]}</AvatarFallback>
-                            </Avatar>
+                        <CardContent className="pt-8 text-center space-y-6">
+                            <div className="relative group mx-auto w-32 h-32">
+                                <Avatar className="h-32 w-32 border-4 border-background shadow-xl">
+                                    <AvatarImage src={userData?.photoURL || user?.photoURL || undefined} className="object-cover" />
+                                    <AvatarFallback className="text-4xl bg-primary/5 text-primary">{userData?.firstName?.[0]}</AvatarFallback>
+                                </Avatar>
+                                {isUploadingPhoto && (
+                                    <div className="absolute inset-0 bg-black/40 rounded-full flex flex-col items-center justify-center text-white p-4">
+                                        <p className="text-[10px] font-bold uppercase mb-1">{Math.round(photoProgress)}%</p>
+                                        <Progress value={photoProgress} className="h-1" />
+                                    </div>
+                                )}
+                            </div>
                             <div className='relative inline-block'>
-                                <Button asChild variant="outline" size="sm" className="rounded-xl font-bold border-2">
+                                <Button asChild variant="outline" size="sm" className="rounded-xl font-bold border-2" disabled={isUploadingPhoto}>
                                     <label htmlFor="picture-upload" className="cursor-pointer">
-                                    {isUploadingPhoto ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>) : "Update Photo"}
+                                    {isUploadingPhoto ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Transmitting...</>) : "Update Photo"}
                                     </label>
                                 </Button>
                                 <Input id="picture-upload" type="file" accept="image/*" onChange={handlePictureChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isUploadingPhoto || isSubmitting} />
@@ -304,11 +324,11 @@ export default function DoctorProfilePage() {
                         <div className="space-y-4">
                             <div>
                                 <p className="text-[9px] uppercase font-bold text-slate-500 tracking-widest">Highest Qualification</p>
-                                <p className="text-sm font-bold truncate">{form.getValues('degree') || 'Not verified'}</p>
+                                <p className="text-sm font-bold truncate">{form.getValues('degree') || 'Pending'}</p>
                             </div>
                             <div>
                                 <p className="text-[9px] uppercase font-bold text-slate-500 tracking-widest">Medical School</p>
-                                <p className="text-xs text-slate-300 italic truncate">{form.getValues('medicalSchool') || 'Registry pending'}</p>
+                                <p className="text-xs text-slate-300 italic truncate">{form.getValues('medicalSchool') || 'Registry needed'}</p>
                             </div>
                         </div>
                     </Card>
@@ -318,7 +338,7 @@ export default function DoctorProfilePage() {
                     <Card className="border-none shadow-xl bg-white rounded-3xl overflow-hidden">
                         <CardHeader className="bg-primary/5 border-b px-6 py-6">
                             <CardTitle className="text-xl">Professional Portfolio</CardTitle>
-                            <CardDescription>Documents are stored in Portal Storage for admin verification.</CardDescription>
+                            <CardDescription>Clinical credentials are synchronized for admin verification.</CardDescription>
                         </CardHeader>
                         <CardContent className="p-6 space-y-8">
                              {existingDocs.length > 0 ? (
@@ -339,8 +359,8 @@ export default function DoctorProfilePage() {
                                                                 <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100" />
                                                             </div>
                                                         </div>
-                                                        <div className="p-2 bg-white flex items-center justify-between">
-                                                            <span className="text-[9px] font-bold uppercase truncate pr-2">Evidence-File-{idx + 1}</span>
+                                                        <div className="p-2 bg-white flex items-center justify-between border-t">
+                                                            <span className="text-[9px] font-bold uppercase truncate pr-2">Evidence-Asset-{idx + 1}</span>
                                                             <ExternalLink className="h-3 w-3 text-muted-foreground" />
                                                         </div>
                                                     </Card>
@@ -355,7 +375,7 @@ export default function DoctorProfilePage() {
                             ) : (
                                 <div className="text-center py-10 border-2 border-dashed rounded-3xl bg-muted/5">
                                     <CloudUpload className="h-10 w-10 text-muted-foreground/20 mx-auto mb-2" />
-                                    <p className="text-xs text-muted-foreground italic font-medium">Your professional portfolio is currently empty.</p>
+                                    <p className="text-xs text-muted-foreground italic font-medium">Professional portfolio is currently empty.</p>
                                 </div>
                             )}
 
@@ -365,7 +385,7 @@ export default function DoctorProfilePage() {
                                     <div className="flex flex-col items-center justify-center pt-5 pb-6">
                                         <Plus className="w-8 h-8 mb-2 text-primary" />
                                         <p className="text-sm text-slate-500 font-bold">Post to Portfolio</p>
-                                        <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">Support for JPG, PNG, PDF (Up to 500MB)</p>
+                                        <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">JPG, PNG, PDF (Up to 500MB)</p>
                                     </div>
                                     <Input type="file" multiple className="hidden" onChange={handleImmediateFileUpload} accept="image/*,.pdf" />
                                 </label>
@@ -373,7 +393,7 @@ export default function DoctorProfilePage() {
                                 {uploadQueue.length > 0 && (
                                     <div className="space-y-3">
                                         {uploadQueue.map((item) => (
-                                            <div key={item.id} className="p-4 bg-primary/5 rounded-2xl border-2 border-primary/10 space-y-2">
+                                            <div key={item.id} className="p-4 bg-primary/5 rounded-2xl border-2 border-primary/10 space-y-2 animate-in fade-in slide-in-from-top-2">
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-3">
                                                         <Loader2 className="h-4 w-4 animate-spin text-primary" />
@@ -382,6 +402,7 @@ export default function DoctorProfilePage() {
                                                     <span className="text-[10px] font-bold text-primary">{Math.round(item.progress)}%</span>
                                                 </div>
                                                 <Progress value={item.progress} className="h-1.5" />
+                                                <p className="text-[8px] uppercase font-bold text-muted-foreground text-right tracking-widest">Transmitting Asset...</p>
                                             </div>
                                         ))}
                                     </div>
@@ -433,8 +454,8 @@ export default function DoctorProfilePage() {
                                         )} />
                                     </div>
 
-                                    <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl shadow-primary/20" disabled={isSubmitting || !isEmailVerified}>
-                                        {isSubmitting ? <><Loader2 className="mr-3 h-5 w-5 animate-spin" /> Synchronizing...</> : "Update Registry Data"}
+                                    <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl shadow-primary/20" disabled={isSubmitting || !isEmailVerified || isUploadingPhoto || uploadQueue.length > 0}>
+                                        {isSubmitting ? <><Loader2 className="mr-3 h-5 w-5 animate-spin" /> Persisting Data...</> : "Update Registry Data"}
                                     </Button>
                                 </form>
                             </Form>
