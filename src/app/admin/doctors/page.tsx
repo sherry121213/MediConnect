@@ -1,4 +1,3 @@
-
 'use client';
 
 import {
@@ -14,15 +13,16 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MoreHorizontal, PlusCircle, Stethoscope, ShieldCheck, UserX, UserCheck, Eye, Trash2 } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Stethoscope, ShieldCheck, UserX, UserCheck, Eye, Trash2, AlertTriangle } from "lucide-react";
 import Image from "next/image";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, doc, deleteDoc } from "firebase/firestore";
-import { addDocumentNonBlocking, updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import type { Doctor } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { PlaceHolderImages as placeholderImages } from "@/lib/placeholder-images";
@@ -117,6 +117,18 @@ export default function AdminDoctorsPage() {
         toast({ title: nextStatus ? "Access Restored" : "Access Suspended" });
     };
 
+    const handleDeleteDoctor = (doctorId: string) => {
+        if (!firestore) return;
+        deleteDocumentNonBlocking(doc(firestore, 'doctors', doctorId));
+        // We typically keep the 'patient' user record for authentication history, 
+        // but removing them from the clinical registry is the primary action here.
+        toast({
+            title: "Provider Purged",
+            description: "The professional record has been permanently removed from the registry.",
+            variant: "destructive"
+        });
+    };
+
     return (
     <div className="p-4 md:p-8 space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -152,85 +164,110 @@ export default function AdminDoctorsPage() {
       </div>
 
       <div className="border rounded-[2rem] shadow-2xl bg-white overflow-hidden">
-         <AlertDialog>
-            <div className="overflow-x-auto custom-scrollbar">
-                <Table>
-                <TableHeader className="bg-muted/30">
-                    <TableRow>
-                    <TableHead className="py-6 pl-8 min-w-[220px]">Healthcare Professional</TableHead>
-                    <TableHead className="min-w-[150px]">Specialty</TableHead>
-                    <TableHead className="min-w-[120px]">Status</TableHead>
-                    <TableHead className="hidden lg:table-cell">Hub City</TableHead>
-                    <TableHead className="text-right pr-8">Actions</TableHead>
-                    </TableRow>
-                </TableHeader>
-                <TableBody>
-                    {isLoadingDoctors ? Array.from({length: 5}).map((_, i) => (
-                        <TableRow key={i}><TableCell className="pl-8"><Skeleton className="h-10 w-48"/></TableCell><TableCell><Skeleton className="h-6 w-24"/></TableCell><TableCell><Skeleton className="h-6 w-20"/></TableCell><TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-24"/></TableCell><TableCell className="text-right pr-8"><Skeleton className="h-8 w-8 ml-auto"/></TableCell></TableRow>
-                    )) : doctors?.map((doctor) => {
-                        const doctorImage = placeholderImages.find(p => p.id === doctor.profileImageId);
-                        const name = `Dr. ${doctor.firstName} ${doctor.lastName}`;
-                        const isActive = doctor.isActive !== false;
-                        return (
-                            <TableRow key={doctor.id} className={cn(!isActive && "opacity-50 grayscale bg-muted/5", "hover:bg-muted/5 transition-colors")}>
-                                <TableCell className="font-bold py-6 pl-8">
-                                    <div className="flex items-center gap-3">
-                                        <div className="relative h-10 w-10 shrink-0 shadow-sm rounded-full overflow-hidden bg-primary/5 flex items-center justify-center font-bold text-primary border border-primary/10">
-                                            {doctor.photoURL ? <Image src={doctor.photoURL} alt={name} fill className="object-cover" /> : doctor.firstName?.[0]}
-                                        </div>
-                                        <span className="truncate max-w-[150px] tracking-tight">{name}</span>
+        <div className="overflow-x-auto custom-scrollbar">
+            <Table>
+            <TableHeader className="bg-muted/30">
+                <TableRow>
+                <TableHead className="py-6 pl-8 min-w-[220px]">Healthcare Professional</TableHead>
+                <TableHead className="min-w-[150px]">Specialty</TableHead>
+                <TableHead className="min-w-[120px]">Status</TableHead>
+                <TableHead className="hidden lg:table-cell">Hub City</TableHead>
+                <TableHead className="text-right pr-8">Actions</TableHead>
+                </TableRow>
+            </TableHeader>
+            <TableBody>
+                {isLoadingDoctors ? Array.from({length: 5}).map((_, i) => (
+                    <TableRow key={i}><TableCell className="pl-8"><Skeleton className="h-10 w-48"/></TableCell><TableCell><Skeleton className="h-6 w-24"/></TableCell><TableCell><Skeleton className="h-6 w-20"/></TableCell><TableCell className="hidden lg:table-cell"><Skeleton className="h-6 w-24"/></TableCell><TableCell className="text-right pr-8"><Skeleton className="h-8 w-8 ml-auto"/></TableCell></TableRow>
+                )) : doctors?.map((doctor) => {
+                    const name = `Dr. ${doctor.firstName} ${doctor.lastName}`;
+                    const isActive = doctor.isActive !== false;
+                    return (
+                        <TableRow key={doctor.id} className={cn(!isActive && "opacity-50 grayscale bg-muted/5", "hover:bg-muted/5 transition-colors")}>
+                            <TableCell className="font-bold py-6 pl-8">
+                                <div className="flex items-center gap-3">
+                                    <div className="relative h-10 w-10 shrink-0 shadow-sm rounded-full overflow-hidden bg-primary/5 flex items-center justify-center font-bold text-primary border border-primary/10">
+                                        {doctor.photoURL ? <Image src={doctor.photoURL} alt={name} fill className="object-cover" /> : doctor.firstName?.[0]}
                                     </div>
-                                </TableCell>
-                                <TableCell><Badge variant="outline" className="font-bold text-[9px] uppercase border-primary/20 text-primary bg-primary/5">{doctor.specialty}</Badge></TableCell>
-                                <TableCell>
-                                    <Badge variant={doctor.verified ? "secondary" : "destructive"} className={cn("text-[9px] uppercase font-bold", doctor.verified ? "bg-green-100 text-green-800 border-green-200" : "")}>
-                                        {doctor.verified ? "Verified" : "Pending Audit"}
-                                    </Badge>
-                                </TableCell>
-                                <TableCell className="hidden lg:table-cell text-muted-foreground text-xs font-medium">{doctor.location}</TableCell>
-                                <TableCell className="text-right pr-8">
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="rounded-xl hover:bg-slate-100"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="w-56 rounded-2xl border-2 shadow-2xl p-2">
-                                            <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Account Operations</DropdownMenuLabel>
-                                            {!doctor.verified && (
-                                                <DropdownMenuItem onClick={() => handleVerifyDoctor(doctor.id)} className="font-bold text-green-600 focus:text-green-700 rounded-xl cursor-pointer">
-                                                    <UserCheck className="mr-2 h-4 w-4" /> Verify Credentials
-                                                </DropdownMenuItem>
-                                            )}
-                                            <DropdownMenuItem asChild className="rounded-xl cursor-pointer">
-                                                <Link href={`/admin/doctors/${doctor.id}`}><Eye className="mr-2 h-4 w-4" /> View Clinical File</Link>
+                                    <span className="truncate max-w-[150px] tracking-tight">{name}</span>
+                                </div>
+                            </TableCell>
+                            <TableCell><Badge variant="outline" className="font-bold text-[9px] uppercase border-primary/20 text-primary bg-primary/5">{doctor.specialty}</Badge></TableCell>
+                            <TableCell>
+                                <Badge variant={doctor.verified ? "secondary" : "destructive"} className={cn("text-[9px] uppercase font-bold", doctor.verified ? "bg-green-100 text-green-800 border-green-200" : "")}>
+                                    {doctor.verified ? "Verified" : "Pending Audit"}
+                                </Badge>
+                            </TableCell>
+                            <TableCell className="hidden lg:table-cell text-muted-foreground text-xs font-medium">{doctor.location}</TableCell>
+                            <TableCell className="text-right pr-8">
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild><Button variant="ghost" size="icon" className="rounded-xl hover:bg-slate-100"><MoreHorizontal className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-56 rounded-2xl border-2 shadow-2xl p-2">
+                                        <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Account Operations</DropdownMenuLabel>
+                                        {!doctor.verified && (
+                                            <DropdownMenuItem onClick={() => handleVerifyDoctor(doctor.id)} className="font-bold text-green-600 focus:text-green-700 rounded-xl cursor-pointer">
+                                                <UserCheck className="mr-2 h-4 w-4" /> Verify Credentials
                                             </DropdownMenuItem>
+                                        )}
+                                        <DropdownMenuItem asChild className="rounded-xl cursor-pointer">
+                                            <Link href={`/admin/doctors/${doctor.id}`}><Eye className="mr-2 h-4 w-4" /> View Clinical File</Link>
+                                        </DropdownMenuItem>
+                                        
+                                        <AlertDialog>
                                             <AlertDialogTrigger asChild>
-                                                <DropdownMenuItem className={cn("font-bold rounded-xl cursor-pointer", isActive ? "text-destructive" : "text-primary")} onSelect={(e) => e.preventDefault()}>
+                                                <DropdownMenuItem className={cn("font-bold rounded-xl cursor-pointer", isActive ? "text-amber-600" : "text-primary")} onSelect={(e) => e.preventDefault()}>
                                                     {isActive ? <><UserX className="mr-2 h-4 w-4" /> Suspend Practice</> : <><UserCheck className="mr-2 h-4 w-4" /> Restore Practice</>}
                                                 </DropdownMenuItem>
                                             </AlertDialogTrigger>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                    <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl">
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle className="font-headline text-2xl">{isActive ? "Suspend Access?" : "Restore Access?"}</AlertDialogTitle>
-                                            <AlertDialogDescription className="text-sm">
-                                                {isActive ? "Suspension instantly blocks dashboard access and hides the provider from patient search results." : "Restoration immediately re-enables clinical booking slots for this provider."}
-                                            </AlertDialogDescription>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter className="pt-6">
-                                            <AlertDialogCancel className="rounded-xl border-2">Cancel</AlertDialogCancel>
-                                            <AlertDialogAction onClick={() => handleToggleDoctorStatus(doctor.id, isActive)} className={cn("rounded-xl font-bold text-white", isActive ? "bg-destructive hover:bg-destructive/90" : "bg-primary hover:bg-primary/90")}>Confirm</AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </TableCell>
-                            </TableRow>
-                        )
-                    })}
-                    {!isLoadingDoctors && doctors?.length === 0 && (
-                        <TableRow><TableCell colSpan={5} className="text-center py-32 text-muted-foreground italic"><Stethoscope className="h-16 w-16 mx-auto mb-4 opacity-10" />No clinical professionals indexed in registry.</TableCell></TableRow>
-                    )}
-                </TableBody>
-                </Table>
-            </div>
-         </AlertDialog>
+                                            <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl">
+                                                <AlertDialogHeader>
+                                                    <AlertDialogTitle className="font-headline text-2xl">{isActive ? "Suspend Access?" : "Restore Access?"}</AlertDialogTitle>
+                                                    <AlertDialogDescription className="text-sm">
+                                                        {isActive ? "Suspension instantly blocks dashboard access and hides the provider from patient search results." : "Restoration immediately re-enables clinical booking slots for this provider."}
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter className="pt-6">
+                                                    <AlertDialogCancel className="rounded-xl border-2">Cancel</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleToggleDoctorStatus(doctor.id, isActive)} className={cn("rounded-xl font-bold text-white", isActive ? "bg-amber-600 hover:bg-amber-700" : "bg-primary hover:bg-primary/90")}>Confirm</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+
+                                        <DropdownMenuSeparator />
+
+                                        <AlertDialog>
+                                            <AlertDialogTrigger asChild>
+                                                <DropdownMenuItem className="font-bold text-destructive rounded-xl cursor-pointer" onSelect={(e) => e.preventDefault()}>
+                                                    <Trash2 className="mr-2 h-4 w-4" /> Delete Profile
+                                                </DropdownMenuItem>
+                                            </AlertDialogTrigger>
+                                            <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl">
+                                                <AlertDialogHeader>
+                                                    <div className="mx-auto bg-destructive/10 text-destructive p-3 rounded-full w-fit mb-2">
+                                                        <AlertTriangle className="h-8 w-8" />
+                                                    </div>
+                                                    <AlertDialogTitle className="font-headline text-2xl text-center">Permanent Deletion?</AlertDialogTitle>
+                                                    <AlertDialogDescription className="text-sm text-center">
+                                                        This will permanently remove <strong>{name}</strong> from the clinical registry. This action is irreversible and will delete all associated professional credentials.
+                                                    </AlertDialogDescription>
+                                                </AlertDialogHeader>
+                                                <AlertDialogFooter className="pt-6 sm:justify-center gap-3">
+                                                    <AlertDialogCancel className="rounded-xl border-2">Cancel</AlertDialogCancel>
+                                                    <AlertDialogAction onClick={() => handleDeleteDoctor(doctor.id)} className="rounded-xl font-bold text-white bg-destructive hover:bg-destructive/90">Permanently Delete</AlertDialogAction>
+                                                </AlertDialogFooter>
+                                            </AlertDialogContent>
+                                        </AlertDialog>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </TableCell>
+                        </TableRow>
+                    )
+                })}
+                {!isLoadingDoctors && doctors?.length === 0 && (
+                    <TableRow><TableCell colSpan={5} className="text-center py-32 text-muted-foreground italic"><Stethoscope className="h-16 w-16 mx-auto mb-4 opacity-10" />No clinical professionals indexed in registry.</TableCell></TableRow>
+                )}
+            </TableBody>
+            </Table>
+        </div>
       </div>
     </div>
   );
