@@ -114,7 +114,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                                 <DialogContent className="w-[95vw] sm:max-w-lg rounded-2xl border-none shadow-2xl">
                                     <DialogHeader>
                                         <DialogTitle className="text-xl font-headline">Clinical Connection</DialogTitle>
-                                        <DialogDescription>Secure room window closes at {format(new Date(endTime), "p")}.</DialogDescription>
+                                        <DialogDescription>Secure room window closes at {appointmentDate ? format(new Date(appointmentDate.getTime() + (50 * 60 * 1000)), "p") : "the end of the hour"}.</DialogDescription>
                                     </DialogHeader>
                                     <div className="grid grid-cols-1 gap-4 py-4 sm:py-6">
                                         <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group bg-muted/5" onClick={handleJoin}>

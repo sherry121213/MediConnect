@@ -173,7 +173,7 @@ export default function AdminPatientsPage() {
                         <CardContent className="p-0">
                             <PatientTable patients={doctorPatients} />
                         </CardContent>
-                    </Card> group
+                    </Card>
                 ))}
 
                 {groupedData.unassigned.length > 0 && (
