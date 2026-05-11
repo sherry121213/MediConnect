@@ -23,7 +23,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // Increased to 10MB as we are not optimizing
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
 
 const profileSchema = z.object({
   specialty: z.string().min(2, 'Specialty is required.'),
@@ -188,7 +188,7 @@ export default function DoctorProfilePage() {
             const uniqueName = `${Date.now()}_${item.id}_${item.file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
             const fileRef = ref(storage, `doctors/${user.uid}/documents/${uniqueName}`);
             
-            // Uploading raw file without optimization as requested
+            // Raw upload for maximum fidelity
             const uploadTask = uploadBytesResumable(fileRef, item.file);
 
             return new Promise<string>((resolve, reject) => {
