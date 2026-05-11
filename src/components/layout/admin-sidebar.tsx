@@ -11,6 +11,7 @@ import {
   SidebarMenuItem,
   SidebarMenuButton,
   SidebarFooter,
+  SidebarSeparator,
 } from '@/components/ui/sidebar';
 import Logo from '@/components/logo';
 import {
@@ -19,7 +20,6 @@ import {
   CreditCard,
   LogOut,
   Users,
-  MessageCircle,
   CalendarClock,
   AlertCircle,
 } from 'lucide-react';
@@ -44,12 +44,6 @@ export default function AdminSidebar() {
   }, [firestore]);
   const { data: pendingRequests } = useCollection(requestsQuery);
 
-  const chatsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'adminDoctorChatSessions'), where('lastMessageSenderRole', '==', 'doctor'));
-  }, [firestore]);
-  const { data: unreadChats } = useCollection(chatsQuery);
-
   const paymentsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return query(collection(firestore, 'appointments'), where('paymentStatus', '==', 'pending'));
@@ -63,7 +57,6 @@ export default function AdminSidebar() {
     { href: '/admin/requests', label: 'Clinical Requests', icon: CalendarClock, badge: pendingRequests?.length },
     { href: '/admin/payments', label: 'Payments', icon: CreditCard, badge: pendingPayments?.length },
     { href: '/admin/missed-slots', label: 'Missed Audits', icon: AlertCircle },
-    { href: '/admin/chats', label: 'Messages', icon: MessageCircle, badge: unreadChats?.length },
   ];
 
   const handleLogout = () => {
@@ -87,7 +80,7 @@ export default function AdminSidebar() {
         <SidebarMenu>
           {adminNavItems.map((item) => (
             <SidebarMenuItem key={item.label}>
-              <Link href={item.href}>
+              <Link href={item.href} className="w-full">
                 <SidebarMenuButton
                   isActive={pathname === item.href}
                   tooltip={{ children: item.label, side: 'right' }}
@@ -106,7 +99,7 @@ export default function AdminSidebar() {
           ))}
         </SidebarMenu>
       </SidebarContent>
-      <Separator />
+      <SidebarSeparator />
       <SidebarFooter>
         <SidebarMenu>
           <SidebarMenuItem>
