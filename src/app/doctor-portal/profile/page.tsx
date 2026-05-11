@@ -1,10 +1,9 @@
-
 'use client';
 
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useFirestore, useUserData, useStorage, useMemoFirebase } from '@/firebase';
+import { useFirestore, useUserData, useStorage } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useRouter } from 'next/navigation';
@@ -13,9 +12,9 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, FileText, X, Plus, ExternalLink, GraduationCap, ShieldAlert, Zap, Eye, BadgeCheck, CheckCircle2 } from 'lucide-react';
+import { Loader2, FileText, X, Plus, ExternalLink, GraduationCap, ShieldAlert, Eye, BadgeCheck, CheckCircle2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import ImageCropperDialog from '@/components/ImageCropperDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -23,7 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import Image from 'next/image';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB limit
+const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB limit
 
 const profileSchema = z.object({
   specialty: z.string().min(2, 'Specialty is required.'),
@@ -157,7 +156,7 @@ export default function DoctorProfilePage() {
         toast({
             variant: 'destructive',
             title: 'Files Rejected',
-            description: 'Please ensure files are PDF/JPG/PNG and under 10MB.',
+            description: 'Please ensure files are PDF/JPG/PNG and under 500MB.',
         });
     }
 
@@ -238,7 +237,6 @@ export default function DoctorProfilePage() {
             lastName: userData?.lastName
         };
 
-        // Use setDocumentNonBlocking with merge: true for absolute reliability
         setDocumentNonBlocking(doc(firestore, 'doctors', user.uid), doctorData, { merge: true });
         setDocumentNonBlocking(doc(firestore, 'patients', user.uid), patientData, { merge: true });
 
@@ -255,7 +253,7 @@ export default function DoctorProfilePage() {
         toast({ 
             variant: "destructive", 
             title: "Submission Error", 
-            description: "An error occurred while saving clinical assets. Please ensure all documents are under 10MB." 
+            description: "An error occurred while saving clinical assets. Please ensure all documents are under 500MB." 
         });
     } finally {
         setIsSubmitting(false);
@@ -425,7 +423,7 @@ export default function DoctorProfilePage() {
                                                 <label htmlFor="multi-doc-upload" className="cursor-pointer flex flex-col items-center gap-2">
                                                     <Plus className="h-6 w-6 text-primary" /> 
                                                     <span className="text-sm font-bold">Add Degree/Certificate</span>
-                                                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Raw Resolution (PDF, JPG, PNG)</span>
+                                                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Raw Resolution (PDF, JPG, PNG) - Up to 500MB</span>
                                                 </label>
                                             </Button>
                                             <Input id="multi-doc-upload" type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileSelection} className="absolute inset-0 opacity-0 cursor-pointer" disabled={isSubmitting} />
@@ -434,7 +432,7 @@ export default function DoctorProfilePage() {
                                 </div>
 
                                 <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl shadow-primary/20" disabled={isSubmitting || isUploading || !isEmailVerified}>
-                                    {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Transmitting Clinical Assets...</> : "Finalize & Synchronize Profile"}
+                                    {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Finalizing Profile...</> : "Finalize & Synchronize Profile"}
                                 </Button>
                             </form>
                         </Form>
