@@ -7,7 +7,7 @@ import type { Doctor } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
-import { ArrowLeft, AtSign, BriefcaseMedical, Calendar, CheckCircle, GraduationCap, Loader2, MapPin, Phone, Star, FileText, ExternalLink, ShieldCheck, Eye, ClipboardCheck, Image as ImageIcon } from 'lucide-react';
+import { ArrowLeft, AtSign, BriefcaseMedical, CheckCircle, Loader2, MapPin, Phone, FileText, ShieldCheck, Eye, ClipboardCheck, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
@@ -133,33 +133,37 @@ export default function DoctorProfilePage() {
                             </div>
 
                             <div className="space-y-6">
-                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Clinical Assets (Tap to Verify Original)</p>
+                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Clinical Assets (Audit Original)</p>
                                 {doctor.documents && doctor.documents.length > 0 ? (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                         {doctor.documents.map((url, idx) => {
-                                            const isImage = url.includes('.jpg') || url.includes('.jpeg') || url.includes('.png') || url.includes('image') || url.includes('.webp');
+                                            const isImage = url.toLowerCase().includes('.jpg') || url.toLowerCase().includes('.jpeg') || url.toLowerCase().includes('.png') || url.toLowerCase().includes('.webp');
                                             return (
-                                                <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block outline-none group">
-                                                    <Card className="overflow-hidden border-muted shadow-lg group-hover:shadow-xl group-hover:border-primary/20 transition-all rounded-2xl">
-                                                        <div className="relative aspect-video bg-muted/40 flex items-center justify-center border-b overflow-hidden">
-                                                            {isImage ? (
-                                                                <Image src={url} alt={`Document ${idx + 1}`} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
-                                                            ) : (
-                                                                <div className="flex flex-col items-center gap-3">
-                                                                    <FileText className="h-16 w-16 text-primary/20" />
-                                                                    <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Clinical Doc</span>
-                                                                </div>
-                                                            )}
-                                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                                                                <Eye className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md" />
+                                                <Card key={idx} className="overflow-hidden border-muted shadow-lg group hover:shadow-xl transition-all rounded-2xl">
+                                                    <div className="relative aspect-video bg-muted/40 flex items-center justify-center border-b overflow-hidden">
+                                                        {isImage ? (
+                                                            <Image src={url} alt={`Degree ${idx + 1}`} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                        ) : (
+                                                            <div className="flex flex-col items-center gap-3">
+                                                                <FileText className="h-16 w-16 text-primary/20" />
+                                                                <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Document File</span>
                                                             </div>
+                                                        )}
+                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                                                            <Button asChild variant="outline" size="sm" className="bg-white/90 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity rounded-xl">
+                                                                <a href={url} target="_blank" rel="noopener noreferrer">
+                                                                    <Eye className="h-4 w-4 mr-2" /> View Original
+                                                                </a>
+                                                            </Button>
                                                         </div>
-                                                        <CardContent className="p-4 flex justify-between items-center bg-white">
-                                                            <span className="text-[10px] font-bold uppercase tracking-tighter truncate pr-2">Evidence-File-{idx + 1}</span>
-                                                            <span className="text-[8px] text-primary font-bold uppercase tracking-widest border border-primary/20 rounded px-1.5 py-0.5 group-hover:bg-primary group-hover:text-white transition-colors">Verify</span>
-                                                        </CardContent>
-                                                    </Card>
-                                                </a>
+                                                    </div>
+                                                    <CardContent className="p-4 flex justify-between items-center bg-white">
+                                                        <span className="text-[10px] font-bold uppercase tracking-tighter truncate pr-2">Evidence-Doc-{idx + 1}</span>
+                                                        <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                                                            <ExternalLink className="h-4 w-4" />
+                                                        </a>
+                                                    </CardContent>
+                                                </Card>
                                             );
                                         })}
                                     </div>
