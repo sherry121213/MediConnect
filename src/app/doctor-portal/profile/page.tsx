@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useFirestore, useUserData, useStorage } from '@/firebase';
-import { doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -12,15 +12,13 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, FileText, ExternalLink, Eye, BadgeCheck, Plus, Trash2, CloudUpload, ShieldCheck, Image as ImageIcon } from 'lucide-react';
+import { Loader2, BadgeCheck, RefreshCw } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import ImageCropperDialog from '@/components/ImageCropperDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import Image from 'next/image';
-import { cn } from '@/lib/utils';
 import { Progress } from '@/components/ui/progress';
 
 const profileSchema = z.object({
@@ -34,13 +32,6 @@ const profileSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
-interface FileUploadTask {
-    file: File;
-    progress: number;
-    status: 'pending' | 'uploading' | 'done' | 'error';
-    id: string;
-}
-
 export default function DoctorProfilePage() {
   const { user, userData, isUserLoading } = useUserData();
   const firestore = useFirestore();
@@ -53,9 +44,6 @@ export default function DoctorProfilePage() {
   const [photoProgress, setPhotoProgress] = useState(0);
   const [cropperImage, setCropperImage] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  const [existingDocs, setExistingDocs] = useState<string[]>([]);
-  const [uploadQueue, setUploadQueue] = useState<FileUploadTask[]>([]);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -88,7 +76,6 @@ export default function DoctorProfilePage() {
               phone: data.phone || '',
               location: data.location || '',
             });
-            setExistingDocs(data.documents || []);
           }
         } catch (error) {
           console.error("Error fetching doctor profile:", error);
@@ -111,7 +98,7 @@ export default function DoctorProfilePage() {
     if (!user || !firestore || !storage) return;
     
     setIsUploadingPhoto(true);
-    setPhotoProgress(1); // Start at 1% to show activity
+    setPhotoProgress(1);
     setCropperImage(null);
 
     try {
@@ -150,66 +137,6 @@ export default function DoctorProfilePage() {
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'System Error', description: 'Could not process photo.' });
       setIsUploadingPhoto(false);
-    }
-  };
-
-  const handleImmediateFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || !user || !storage || !firestore) return;
-
-    const files = Array.from(e.target.files);
-    e.target.value = ''; // Reset input for reuse
-
-    for (const file of files) {
-        const taskId = Math.random().toString(36).substring(7);
-        const newTask: FileUploadTask = { file, progress: 1, status: 'uploading', id: taskId };
-        setUploadQueue(prev => [...prev, newTask]);
-
-        try {
-            const fileRef = ref(storage, `doctors/${user.uid}/portfolio/${Date.now()}_${file.name}`);
-            const uploadTask = uploadBytesResumable(fileRef, file);
-
-            uploadTask.on('state_changed', 
-                (snapshot) => {
-                    const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    setUploadQueue(prev => prev.map(q => q.id === taskId ? { ...q, progress: Math.max(p, 1) } : q));
-                },
-                (error) => {
-                    setUploadQueue(prev => prev.map(q => q.id === taskId ? { ...q, status: 'error' } : q));
-                    toast({ variant: 'destructive', title: 'Upload Failed', description: `Error uploading ${file.name}` });
-                },
-                async () => {
-                    const url = await getDownloadURL(uploadTask.snapshot.ref);
-                    const doctorRef = doc(firestore, 'doctors', user.uid);
-                    
-                    // FORCEFUL PERSISTENCE: Immediately append URL to Firestore registry
-                    await updateDoc(doctorRef, {
-                        documents: arrayUnion(url),
-                        updatedAt: new Date().toISOString()
-                    });
-
-                    setExistingDocs(prev => [...prev, url]);
-                    setUploadQueue(prev => prev.filter(q => q.id !== taskId));
-                    toast({ title: 'Asset Synchronized!', description: `${file.name} posted to portfolio.` });
-                }
-            );
-        } catch (e) {
-            console.error("Transmission failed", e);
-        }
-    }
-  };
-
-  const removeDegree = async (url: string) => {
-    if (!firestore || !user) return;
-    try {
-        const doctorRef = doc(firestore, 'doctors', user.uid);
-        await updateDoc(doctorRef, {
-            documents: arrayRemove(url),
-            updatedAt: new Date().toISOString()
-        });
-        setExistingDocs(prev => prev.filter(u => u !== url));
-        toast({ title: 'Portfolio Updated', description: 'Degree removed.' });
-    } catch (e) {
-        toast({ variant: 'destructive', title: 'Sync Failed' });
     }
   };
 
@@ -275,7 +202,7 @@ export default function DoctorProfilePage() {
             <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Professional Registry</h1>
-                    <p className="text-muted-foreground text-sm">Manage your credentials and clinical presence (Max 500MB).</p>
+                    <p className="text-muted-foreground text-sm">Manage your credentials and clinical presence.</p>
                 </div>
                 {isVerified && (
                     <Badge className="bg-green-100 text-green-800 border-green-200 h-8 gap-1.5 px-3">
@@ -328,82 +255,6 @@ export default function DoctorProfilePage() {
 
                 <div className="lg:col-span-2 space-y-6">
                     <Card className="border-none shadow-xl bg-white rounded-3xl overflow-hidden">
-                        <CardHeader className="bg-primary/5 border-b px-6 py-6">
-                            <CardTitle className="text-xl">Professional Portfolio</CardTitle>
-                            <CardDescription>Clinical credentials are synchronized "Facebook-style" for verification.</CardDescription>
-                        </CardHeader>
-                        <CardContent className="p-6 space-y-8">
-                             {existingDocs.length > 0 ? (
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                    {existingDocs.map((url, idx) => {
-                                        const isImage = url.includes('.jpg') || url.includes('.jpeg') || url.includes('.png') || url.includes('image') || url.includes('.webp');
-                                        return (
-                                            <div key={idx} className="relative group">
-                                                <a href={url} target="_blank" rel="noopener noreferrer" className="block">
-                                                    <Card className="overflow-hidden border-2 rounded-2xl hover:border-primary/40 transition-all shadow-sm bg-muted/20">
-                                                        <div className="relative aspect-video flex items-center justify-center">
-                                                            {isImage ? (
-                                                                <Image src={url} alt={`Degree ${idx + 1}`} fill className="object-cover" />
-                                                            ) : (
-                                                                <FileText className="h-10 w-10 text-primary/20" />
-                                                            )}
-                                                            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                                                                <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100" />
-                                                            </div>
-                                                        </div>
-                                                        <div className="p-2 bg-white flex items-center justify-between border-t">
-                                                            <span className="text-[9px] font-bold uppercase truncate pr-2">Portfolio-Asset-{idx + 1}</span>
-                                                            <ExternalLink className="h-3 w-3 text-muted-foreground" />
-                                                        </div>
-                                                    </Card>
-                                                </a>
-                                                <Button size="icon" variant="destructive" className="absolute -top-2 -right-2 h-6 w-6 rounded-full shadow-lg opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => removeDegree(url)}>
-                                                    <Trash2 className="h-3 w-3" />
-                                                </Button>
-                                            </div>
-                                        );
-                                    })}
-                                </div>
-                            ) : (
-                                <div className="text-center py-10 border-2 border-dashed rounded-3xl bg-muted/5">
-                                    <CloudUpload className="h-10 w-10 text-muted-foreground/20 mx-auto mb-2" />
-                                    <p className="text-xs text-muted-foreground italic font-medium">Professional portfolio is empty.</p>
-                                </div>
-                            )}
-
-                            <div className="space-y-4">
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Add Evidence (Any Format)</p>
-                                <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-3xl cursor-pointer bg-slate-50 hover:bg-slate-100 border-slate-200 transition-all group">
-                                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                                        <Plus className="w-8 h-8 mb-2 text-primary group-hover:scale-110 transition-transform" />
-                                        <p className="text-sm text-slate-500 font-bold">Post New Pictures / PDF</p>
-                                        <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">Multiple Files Supported (Up to 500MB)</p>
-                                    </div>
-                                    <Input type="file" multiple className="hidden" onChange={handleImmediateFileUpload} accept="*/*" />
-                                </label>
-
-                                {uploadQueue.length > 0 && (
-                                    <div className="space-y-3">
-                                        {uploadQueue.map((item) => (
-                                            <div key={item.id} className="p-4 bg-primary/5 rounded-2xl border-2 border-primary/10 space-y-2 animate-in fade-in slide-in-from-top-2">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <Loader2 className="h-4 w-4 animate-spin text-primary" />
-                                                        <span className="text-xs font-bold truncate max-w-[200px]">{item.file.name}</span>
-                                                    </div>
-                                                    <span className="text-[10px] font-bold text-primary">{Math.round(item.progress)}%</span>
-                                                </div>
-                                                <Progress value={item.progress} className="h-1.5" />
-                                                <p className="text-[8px] uppercase font-bold text-muted-foreground text-right tracking-widest">Forcefully Syncing Asset...</p>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </CardContent>
-                    </Card>
-
-                    <Card className="border-none shadow-xl bg-white rounded-3xl overflow-hidden">
                         <CardHeader className="bg-muted/10 border-b px-6 py-6">
                             <CardTitle className="text-xl">Clinical Audit Data</CardTitle>
                         </CardHeader>
@@ -446,7 +297,7 @@ export default function DoctorProfilePage() {
                                         )} />
                                     </div>
 
-                                    <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl shadow-primary/20" disabled={isSubmitting || !isEmailVerified || isUploadingPhoto || uploadQueue.length > 0}>
+                                    <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl shadow-primary/20" disabled={isSubmitting || !isEmailVerified || isUploadingPhoto}>
                                         {isSubmitting ? <><Loader2 className="mr-3 h-5 w-5 animate-spin" /> Updating...</> : "Finalize Profile Registry"}
                                     </Button>
                                 </form>
