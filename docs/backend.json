@@ -1,3 +1,4 @@
+
 {
   "entities": {
     "Patient": {
@@ -35,7 +36,7 @@
         "documents": { 
           "type": "array", 
           "items": { "type": "string" },
-          "description": "Array of Storage Bucket URLs referencing clinical degrees and certificates."
+          "description": "Professional portfolio stored in Portal Storage for admin verification."
         },
         "verified": { "type": "boolean" },
         "profileComplete": { "type": "boolean" },
