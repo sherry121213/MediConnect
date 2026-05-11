@@ -93,11 +93,9 @@ export default function DoctorProfilePage() {
   const handlePictureChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
       const file = e.target.files[0];
-      const reader = new FileReader();
-      reader.addEventListener('load', () => {
-        setCropperImage(reader.result as string);
-      });
-      reader.readAsDataURL(file);
+      // USE OBJECT URL instead of DataURI to prevent browser memory crashes on large files
+      const objectUrl = URL.createObjectURL(file);
+      setCropperImage(objectUrl);
       e.target.value = ''; 
     }
   };
@@ -197,7 +195,10 @@ export default function DoctorProfilePage() {
     setIsSubmitting(true);
 
     try {
-        const uploadPromises = uploadQueue.map(async (item) => {
+        const newUrls: string[] = [];
+        
+        // Sequential upload to avoid network saturation for large files
+        for (const item of uploadQueue) {
             setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'uploading' } : q));
 
             const uniqueName = `${Date.now()}_${item.id}_${item.file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
@@ -205,18 +206,18 @@ export default function DoctorProfilePage() {
             
             const uploadTask = uploadBytesResumable(fileRef, item.file);
 
-            return new Promise<string>((resolve, reject) => {
+            const url = await new Promise<string>((resolve, reject) => {
                 uploadTask.on('state_changed', null, 
                   (error) => reject(error), 
                   async () => {
-                    const url = await getDownloadURL(uploadTask.snapshot.ref);
+                    const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
                     setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'done' } : q));
-                    resolve(url);
+                    resolve(downloadUrl);
                 });
             });
-        });
+            newUrls.push(url);
+        }
 
-        const newUrls = await Promise.all(uploadPromises);
         const finalDocs = [...existingDocs, ...newUrls];
         
         const doctorData = {
@@ -253,7 +254,7 @@ export default function DoctorProfilePage() {
         toast({ 
             variant: "destructive", 
             title: "Submission Error", 
-            description: "An error occurred while saving clinical assets. Please ensure all documents are under 500MB." 
+            description: "An error occurred while saving assets. Ensure files are stable and under 500MB." 
         });
     } finally {
         setIsSubmitting(false);
@@ -357,7 +358,7 @@ export default function DoctorProfilePage() {
                                     <div className="bg-amber-50 p-4 rounded-2xl flex gap-3 border border-amber-100">
                                         <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                                         <p className="text-[11px] text-amber-800 leading-relaxed italic">
-                                            Original clinical documents are preserved for audit integrity. You can append new raw certifications to your profile.
+                                            Original clinical documents are preserved for audit integrity. You can append new raw certifications (up to 500MB).
                                         </p>
                                     </div>
                                     
@@ -423,7 +424,7 @@ export default function DoctorProfilePage() {
                                                 <label htmlFor="multi-doc-upload" className="cursor-pointer flex flex-col items-center gap-2">
                                                     <Plus className="h-6 w-6 text-primary" /> 
                                                     <span className="text-sm font-bold">Add Degree/Certificate</span>
-                                                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Raw Resolution (PDF, JPG, PNG) - Up to 500MB</span>
+                                                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">PDF, JPG, PNG - Up to 500MB</span>
                                                 </label>
                                             </Button>
                                             <Input id="multi-doc-upload" type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileSelection} className="absolute inset-0 opacity-0 cursor-pointer" disabled={isSubmitting} />
@@ -432,7 +433,7 @@ export default function DoctorProfilePage() {
                                 </div>
 
                                 <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl shadow-primary/20" disabled={isSubmitting || isUploading || !isEmailVerified}>
-                                    {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Finalizing Profile...</> : "Finalize & Synchronize Profile"}
+                                    {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Finalizing Assets...</> : "Finalize & Synchronize Profile"}
                                 </Button>
                             </form>
                         </Form>
