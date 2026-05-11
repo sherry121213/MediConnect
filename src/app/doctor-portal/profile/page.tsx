@@ -49,8 +49,8 @@ async function compressImage(file: File): Promise<Blob | File> {
       img.src = event.target?.result as string;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1200;
-        const MAX_HEIGHT = 1200;
+        const MAX_WIDTH = 1000; // Reduced for faster upload
+        const MAX_HEIGHT = 1000;
         let width = img.width;
         let height = img.height;
 
@@ -80,7 +80,7 @@ async function compressImage(file: File): Promise<Blob | File> {
             }
           },
           'image/jpeg',
-          0.7
+          0.6 // Slightly more aggressive compression for documents
         );
       };
     };
@@ -233,14 +233,11 @@ export default function DoctorProfilePage() {
     if (!user || !firestore || !storage) return;
     
     setIsSubmitting(true);
-    setOverallProgress(0);
+    setOverallProgress(10); // Start progress
 
     try {
-        const newUrls: string[] = [];
-        const totalToUpload = uploadQueue.length;
-        let completedCount = 0;
-
-        for (const item of uploadQueue) {
+        // Parallelized Uploads for Speed
+        const uploadPromises = uploadQueue.map(async (item) => {
             setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'uploading' } : q));
 
             let fileToUpload: Blob | File = item.file;
@@ -254,11 +251,12 @@ export default function DoctorProfilePage() {
             await uploadBytes(fileRef, fileToUpload);
             const url = await getDownloadURL(fileRef);
             
-            newUrls.push(url);
-            completedCount++;
-            setOverallProgress(Math.round((completedCount / totalToUpload) * 100));
             setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'done' } : q));
-        }
+            return url;
+        });
+
+        const newUrls = await Promise.all(uploadPromises);
+        setOverallProgress(80);
 
         const finalDocs = [...existingDocs, ...newUrls];
         
@@ -284,13 +282,14 @@ export default function DoctorProfilePage() {
             router.push('/doctor-portal');
         }
     } catch (error: any) {
+        console.error("Submission error:", error);
         toast({ variant: "destructive", title: "Update Failed", description: "Could not save your profile." });
     } finally {
         setIsSubmitting(false);
     }
   };
 
-  if (isUserLoading) return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin" /></div>;
+  if (isUserLoading) return <div className="flex min-h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
       <main className="flex-grow bg-secondary/30 py-12 px-4">
@@ -378,8 +377,8 @@ export default function DoctorProfilePage() {
                                     <div className="bg-primary/5 p-4 rounded-lg flex gap-3 border border-primary/10 mb-4">
                                         <ShieldAlert className="h-5 w-5 text-primary shrink-0 mt-0.5" />
                                         <p className="text-xs text-muted-foreground leading-relaxed">
-                                            <span className="font-bold text-primary block mb-1">Audit Policy:</span>
-                                            Verified degrees and certificates are preserved as permanent clinical records. You can add new achievements, but previously saved documents cannot be removed for audit integrity.
+                                            <span className="font-bold text-primary block mb-1">Portfolio Preservation Policy:</span>
+                                            Verified degrees and certificates are preserved as permanent records. You can uniquely append new achievements, but previously saved documents cannot be removed for audit integrity.
                                         </p>
                                     </div>
                                     
@@ -399,7 +398,7 @@ export default function DoctorProfilePage() {
 
                                     {uploadQueue.length > 0 && (
                                         <div className="space-y-2 bg-primary/5 p-3 rounded-md border border-primary/10">
-                                            <p className="text-[10px] font-bold text-primary uppercase tracking-wider">New Documents to Upload:</p>
+                                            <p className="text-[10px] font-bold text-primary uppercase tracking-wider">New Documents to Sync:</p>
                                             {uploadQueue.map((item) => (
                                                 <div key={item.id} className="flex items-center justify-between p-2 bg-background border rounded-md">
                                                     <div className="flex items-center gap-2 overflow-hidden">
@@ -419,7 +418,7 @@ export default function DoctorProfilePage() {
                                             <Button type="button" variant="outline" className="w-full border-dashed py-8 bg-muted/5 hover:bg-muted/10" asChild>
                                                 <label htmlFor="multi-doc-upload" className="cursor-pointer flex flex-col items-center gap-2">
                                                     <Plus className="h-6 w-6 text-primary" /> 
-                                                    <span className="text-sm">Add New Achievement</span>
+                                                    <span className="text-sm">Add New Qualification</span>
                                                     <span className="text-[10px] text-muted-foreground">PDF, JPG, PNG (Max 5MB)</span>
                                                 </label>
                                             </Button>
@@ -428,17 +427,17 @@ export default function DoctorProfilePage() {
                                     )}
                                 </div>
 
-                                {isSubmitting && uploadQueue.length > 0 && (
+                                {isSubmitting && (
                                     <div className="space-y-2">
                                         <div className="flex justify-between text-xs font-medium">
-                                            <span>Uploading Documents...</span>
+                                            <span>Syncing Documents...</span>
                                             <span>{overallProgress}%</span>
                                         </div>
                                         <Progress value={overallProgress} className="h-2" />
                                     </div>
                                 )}
 
-                                <Button type="submit" className="w-full h-12 text-base font-bold" disabled={isSubmitting || isUploading || !isEmailVerified}>
+                                <Button type="submit" className="w-full h-12 text-base font-bold shadow-lg" disabled={isSubmitting || isUploading || !isEmailVerified}>
                                     {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Syncing Credentials...</> : "Save Professional Profile"}
                                 </Button>
                             </form>

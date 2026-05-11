@@ -136,7 +136,7 @@ export default function DoctorProfilePage() {
                                 <div className="h-8 w-1 bg-primary rounded-full" />
                                 <GraduationCap className="h-6 w-6 text-primary" /> Professional Portfolio
                             </div>
-                            <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest">{doctor.documents?.length || 0} Verified Docs</Badge>
+                            <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest">{doctor.documents?.length || 0} Total Degrees</Badge>
                         </h4>
                         
                         <div className="bg-muted/30 p-6 rounded-2xl border border-dashed border-primary/20 space-y-2">
@@ -146,32 +146,33 @@ export default function DoctorProfilePage() {
                         </div>
 
                         <div className="space-y-6">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Clinical Evidence & Degrees</p>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Clinical Evidence (Tap to expand)</p>
                             {doctor.documents && doctor.documents.length > 0 ? (
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                     {doctor.documents.map((url, idx) => {
                                         const isImageUrl = typeof url === 'string' && (url.toLowerCase().includes('.jpg') || url.toLowerCase().includes('.png') || url.toLowerCase().includes('.jpeg') || url.toLowerCase().includes('image'));
                                         return (
-                                            <Card key={idx} className="overflow-hidden border-muted shadow-lg hover:shadow-xl transition-all group rounded-2xl">
-                                                <div className="relative aspect-video bg-muted/40 flex items-center justify-center border-b overflow-hidden">
-                                                    {isImageUrl ? (
-                                                        <Image src={url} alt={`Document ${idx + 1}`} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
-                                                    ) : (
-                                                        <div className="flex flex-col items-center gap-3">
-                                                            <FileText className="h-16 w-16 text-primary/20" />
-                                                            <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">PDF Registry</span>
+                                            <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block outline-none group">
+                                                <Card className="overflow-hidden border-muted shadow-lg group-hover:shadow-xl group-hover:border-primary/20 transition-all rounded-2xl">
+                                                    <div className="relative aspect-video bg-muted/40 flex items-center justify-center border-b overflow-hidden">
+                                                        {isImageUrl ? (
+                                                            <Image src={url} alt={`Document ${idx + 1}`} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                        ) : (
+                                                            <div className="flex flex-col items-center gap-3">
+                                                                <FileText className="h-16 w-16 text-primary/20" />
+                                                                <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">PDF Registry</span>
+                                                            </div>
+                                                        )}
+                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                                                            <ExternalLink className="h-8 w-8 text-white opacity-0 group-hover:opacity-100 transition-opacity drop-shadow-md" />
                                                         </div>
-                                                    )}
-                                                </div>
-                                                <CardContent className="p-4 flex justify-between items-center bg-white">
-                                                    <span className="text-[10px] font-bold uppercase tracking-tighter truncate pr-2">Evidence-File-{idx + 1}</span>
-                                                    <Button size="sm" variant="outline" className="h-9 px-4 text-[10px] uppercase font-bold rounded-xl border-2 hover:bg-primary/5" asChild>
-                                                        <a href={url} target="_blank" rel="noopener noreferrer">
-                                                            Full View <ExternalLink className="ml-2 h-3.5 w-3.5" />
-                                                        </a>
-                                                    </Button>
-                                                </CardContent>
-                                            </Card>
+                                                    </div>
+                                                    <CardContent className="p-4 flex justify-between items-center bg-white">
+                                                        <span className="text-[10px] font-bold uppercase tracking-tighter truncate pr-2">Evidence-File-{idx + 1}</span>
+                                                        <span className="text-[8px] text-primary font-bold uppercase tracking-widest border border-primary/20 rounded px-1.5 py-0.5 group-hover:bg-primary group-hover:text-white transition-colors">Expand</span>
+                                                    </CardContent>
+                                                </Card>
+                                            </a>
                                         );
                                     })}
                                 </div>
