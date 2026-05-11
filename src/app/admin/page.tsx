@@ -8,7 +8,7 @@ import { collection, query, where, limit, orderBy } from "firebase/firestore";
 import type { Doctor, Appointment, Patient } from "@/lib/types";
 import { format, isAfter, startOfDay, startOfWeek, startOfMonth } from "date-fns";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
+import Link from "link";
 import { Badge } from "@/components/ui/badge";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
@@ -118,11 +118,25 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-none shadow-sm"><CardContent className="p-6"><p className="text-[10px] font-bold uppercase text-muted-foreground">Today's Revenue</p><p className="text-2xl font-bold">PKR {stats.todayRevenue.toLocaleString()}</p></CardContent></Card>
-        <Card className="border-none shadow-sm"><CardContent className="p-6"><p className="text-[10px] font-bold uppercase text-muted-foreground">Today's Bookings</p><p className="text-2xl font-bold">{stats.todayBookings}</p></CardContent></Card>
-        <Card className="border-none shadow-sm"><CardContent className="p-6"><p className="text-[10px] font-bold uppercase text-muted-foreground">Verified Doctors</p><p className="text-2xl font-bold">{stats.verifiedDoctors}</p></CardContent></Card>
-        <Card className="border-none shadow-sm"><CardContent className="p-6"><p className="text-[10px] font-bold uppercase text-muted-foreground">Missed Slots</p><p className="text-2xl font-bold text-destructive">{stats.missedCount}</p></CardContent></Card>
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <Card className="border-none shadow-sm">
+          <CardContent className="p-6">
+            <p className="text-[10px] font-bold uppercase text-muted-foreground">Today's Revenue</p>
+            <p className="text-2xl font-bold">PKR {stats.todayRevenue.toLocaleString()}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm">
+          <CardContent className="p-6">
+            <p className="text-[10px] font-bold uppercase text-muted-foreground">Today's Bookings</p>
+            <p className="text-2xl font-bold">{stats.todayBookings}</p>
+          </CardContent>
+        </Card>
+        <Card className="border-none shadow-sm">
+          <CardContent className="p-6">
+            <p className="text-[10px] font-bold uppercase text-muted-foreground">Verified Doctors</p>
+            <p className="text-2xl font-bold">{stats.verifiedDoctors}</p>
+          </CardContent>
+        </Card>
       </div>
 
       <div className="grid gap-8 lg:grid-cols-12">
@@ -296,3 +310,4 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
+
