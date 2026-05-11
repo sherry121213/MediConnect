@@ -123,7 +123,7 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
     const appointmentDate = new Date(apt.appointmentDateTime);
     const now = isMounted ? new Date().getTime() : 0;
     const startTime = appointmentDate.getTime() - (10 * 60 * 1000); 
-    const endTime = appointmentDate.getTime() + (30 * 60 * 1000); // FIXED: 30m
+    const endTime = appointmentDate.getTime() + (30 * 60 * 1000); 
     const isLive = isMounted && now >= startTime && now < endTime && apt.status === 'scheduled';
 
     return (
@@ -181,7 +181,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
         const aptDate = new Date(appointment.appointmentDateTime);
         const now = new Date().getTime();
         const startTime = aptDate.getTime() - (10 * 60 * 1000);
-        const endTime = aptDate.getTime() + (30 * 60 * 1000); // FIXED: 30m
+        const endTime = aptDate.getTime() + (30 * 60 * 1000);
         return now >= startTime && now < endTime;
     }, [appointment, isMounted]);
 
@@ -189,7 +189,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
         if (!appointment || !isMounted) return false;
         const aptDate = new Date(appointment.appointmentDateTime);
         const now = new Date().getTime();
-        const endTime = aptDate.getTime() + (30 * 60 * 1000); // FIXED: 30m
+        const endTime = aptDate.getTime() + (30 * 60 * 1000);
         return now >= endTime && appointment.status === 'scheduled';
     }, [appointment, isMounted]);
 
@@ -263,8 +263,10 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
 
     if (!appointment) return null;
 
+    const isCompleted = appointment.status === 'completed';
+
     const onSubmit = (values: any) => {
-        if (!firestore) return;
+        if (!firestore || isCompleted) return;
         const appointmentRef = doc(firestore, 'appointments', appointment.id);
         updateDocumentNonBlocking(appointmentRef, { ...values, status: 'completed', updatedAt: new Date().toISOString() });
         toast({ title: "Consultation Logged", description: "Patient records have been archived." });
@@ -274,7 +276,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
     const appointmentDate = new Date(appointment.appointmentDateTime);
     const now = isMounted ? new Date().getTime() : 0;
     const startTime = appointmentDate.getTime() - (10 * 60 * 1000); 
-    const endTime = appointmentDate.getTime() + (30 * 60 * 1000); // FIXED: 30m
+    const endTime = appointmentDate.getTime() + (30 * 60 * 1000); 
     const isLive = isMounted && now >= startTime && now < endTime && appointment.status === 'scheduled';
 
     const handleStartRoom = () => {
@@ -300,11 +302,11 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
                                 {patient && <div className="min-w-0"><p className="font-bold text-lg truncate">{patient.firstName} {patient.lastName}</p><p className="text-xs text-muted-foreground">{patient.email}</p></div>}
                             </div>
                             <div className="flex flex-col gap-3 pt-4">
-                                {appointment.status === 'completed' ? (
+                                {isCompleted ? (
                                      <div className="p-6 bg-green-50 border border-green-200 rounded-2xl text-center">
                                         <ShieldCheck className="h-10 w-10 text-green-600 mx-auto mb-2" />
                                         <p className="font-bold text-green-800">Session Successfully Archived</p>
-                                        <p className="text-xs text-green-600">This clinical link is now closed.</p>
+                                        <p className="text-xs text-green-600">This clinical record is immutable.</p>
                                     </div>
                                 ) : isLive ? (
                                     <Button onClick={handleStartRoom} className="h-14 text-base font-bold shadow-xl shadow-red-500/20 bg-red-600 hover:bg-red-700 animate-pulse rounded-2xl text-white">
@@ -323,12 +325,16 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
                         <TabsContent value="notes">
                             <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                                 <FormField control={form.control} name="diagnosis" render={({ field }) => (
-                                    <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Primary Diagnosis</FormLabel><FormControl><Input placeholder="Summary of findings..." className="h-12 border-2 rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Primary Diagnosis</FormLabel><FormControl><Input placeholder="Summary of findings..." className="h-12 border-2 rounded-xl" {...field} disabled={isCompleted} /></FormControl><FormMessage /></FormItem>
                                 )} />
                                 <FormField control={form.control} name="prescription" render={({ field }) => (
-                                    <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Treatment & Advice</FormLabel><FormControl><Textarea placeholder="Prescriptions and patient instructions..." rows={6} className="resize-none border-2 rounded-xl" {...field} /></FormControl><FormMessage /></FormItem>
+                                    <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Treatment & Advice</FormLabel><FormControl><Textarea placeholder="Prescriptions and patient instructions..." rows={6} className="resize-none border-2 rounded-xl" {...field} disabled={isCompleted} /></FormControl><FormMessage /></FormItem>
                                 )} />
-                                <Button type="submit" className="w-full h-14 text-lg font-bold rounded-2xl shadow-lg">Finalize & Archive Record</Button>
+                                {!isCompleted ? (
+                                    <Button type="submit" className="w-full h-14 text-lg font-bold rounded-2xl shadow-lg">Finalize & Archive Record</Button>
+                                ) : (
+                                    <div className="p-4 bg-muted text-center rounded-xl text-xs font-bold uppercase text-muted-foreground border border-dashed">Record Finalized - Edits Disabled</div>
+                                )}
                             </form></Form>
                         </TabsContent>
                     </div>
@@ -455,7 +461,18 @@ export default function DoctorPortalPage() {
 
     useEffect(() => {
         setMounted(true);
-        const timer = setInterval(() => setNowState(new Date().getTime()), 10000);
+        const timer = setInterval(() => setNowState(new Date().getTime()), 15000);
+        
+        // PERSISTENCE: Load dismissed alerts from localStorage
+        const saved = localStorage.getItem('dismissed_alerts');
+        if (saved) {
+            try {
+                setDismissedAlertIds(new Set(JSON.parse(saved)));
+            } catch (e) {
+                console.error("Alert recovery error", e);
+            }
+        }
+
         return () => clearInterval(timer);
     }, []);
 
@@ -478,7 +495,7 @@ export default function DoctorPortalPage() {
             const now = new Date().getTime();
             const missedAppointments = appointments.filter(apt => {
                 if (!apt || apt.status !== 'scheduled' || !apt.appointmentDateTime) return false;
-                const endTime = new Date(apt.appointmentDateTime).getTime() + (30 * 60 * 1000); // FIXED: 30m
+                const endTime = new Date(apt.appointmentDateTime).getTime() + (30 * 60 * 1000); 
                 return now > endTime;
             });
 
@@ -522,7 +539,7 @@ export default function DoctorPortalPage() {
             if (apt.status === 'completed' || apt.status === 'cancelled' || apt.status === 'expired') return false;
             const aptDate = new Date(apt.appointmentDateTime);
             const isToday = isSameDay(aptDate, now);
-            const endTime = aptDate.getTime() + (30 * 60 * 1000); // FIXED: 30m
+            const endTime = aptDate.getTime() + (30 * 60 * 1000); 
             const isExpired = now.getTime() > endTime;
             return isToday && !isExpired;
         });
@@ -557,30 +574,33 @@ export default function DoctorPortalPage() {
             if (dismissedAlertIds.has(alertId)) return;
 
             if (a.status === 'expired') {
-                alerts.push({ id: alertId, msg: `Audit: 30m Session Expired (${format(new Date(a.appointmentDateTime), "p")})`, icon: AlertCircle, color: 'text-destructive' });
+                alerts.push({ id: alertId, msg: `Audit: 30m Session Expired (${format(new Date(a.appointmentDateTime), "p")})`, icon: AlertCircle, color: 'text-destructive', timestamp: new Date(a.updatedAt || a.createdAt).getTime() });
                 return;
             }
             
             const isNew = isAfter(new Date(a.createdAt), yesterday);
             if (isNew && a.status === 'scheduled') {
-                alerts.push({ id: alertId, msg: `New Booking: ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary' });
+                alerts.push({ id: alertId, msg: `New Booking: ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary', timestamp: new Date(a.createdAt).getTime() });
             }
 
             const aptDate = new Date(a.appointmentDateTime);
             const startTime = aptDate.getTime() - (10 * 60 * 1000);
-            const endTime = aptDate.getTime() + (30 * 60 * 1000); // FIXED: 30m
+            const endTime = aptDate.getTime() + (30 * 60 * 1000); 
             const currentTime = now.getTime();
             
             if (currentTime >= startTime && currentTime < endTime && a.status === 'scheduled') {
-                alerts.unshift({ id: alertId + '-live', msg: "PATIENT WAITING - JOIN NOW", icon: Siren, color: 'text-red-500 animate-pulse font-bold', isReminder: true });
+                alerts.push({ id: alertId + '-live', msg: "PATIENT WAITING - JOIN NOW", icon: Siren, color: 'text-red-500 animate-pulse font-bold', isReminder: true, timestamp: Date.now() + 1000000 });
             }
         });
+
+        // SORT: Newest on Top
+        const sortedNotifications = alerts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
         return { 
             todayAppointments: today,
             stats: { today: today.length, pending: pending, todayRevenue: todayRev, totalRevenue: lifetimeRev, totalConsults: totalCompleted },
             masterSchedule: { morning: filterSlots(timeSlots.morning), afternoon: filterSlots(timeSlots.afternoon), evening: filterSlots(timeSlots.evening) },
-            notifications: alerts,
+            notifications: sortedNotifications,
             currentDayLeaveStatus: leaveStatus
         };
     }, [appointments, mounted, viewDate, userData, requests, dismissedAlertIds, nowState]);
@@ -594,6 +614,7 @@ export default function DoctorPortalPage() {
         const newDismissed = new Set(dismissedAlertIds);
         notifications.forEach(n => newDismissed.add(n.id));
         setDismissedAlertIds(newDismissed);
+        localStorage.setItem('dismissed_alerts', JSON.stringify(Array.from(newDismissed)));
         toast({ title: "Operational log archived." });
     };
 
@@ -703,7 +724,7 @@ export default function DoctorPortalPage() {
                                         <CardTitle className="text-2xl sm:text-3xl font-headline flex items-center gap-4 text-foreground">
                                             <Clock className="h-8 w-8 text-primary" /> Clinical Timetable
                                         </CardTitle>
-                                        <CardDescription className="text-xs sm:text-sm font-medium">Automatic 30m session termination active.</CardDescription>
+                                        <CardDescription className="text-xs sm:text-sm font-medium">Standardised 30-minute shifts active.</CardDescription>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-4">
                                         <div className="flex items-center gap-3 bg-white p-2 rounded-[1.25rem] border-2 shadow-sm w-full xl:w-auto justify-between sm:justify-start">
@@ -733,15 +754,15 @@ export default function DoctorPortalPage() {
                                 )}
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-12">
                                     <div className="space-y-6">
-                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-3"><div className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-sm" /> Morning Shift</h3>
+                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-3"><div className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-sm" /> Morning (10-12:30)</h3>
                                         <div className="space-y-2">{masterSchedule.morning.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
                                     </div>
                                     <div className="space-y-6">
-                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-3"><div className="h-2.5 w-2.5 rounded-full bg-blue-400 shadow-sm" /> Afternoon Shift</h3>
+                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-3"><div className="h-2.5 w-2.5 rounded-full bg-blue-400 shadow-sm" /> Afternoon (2-5:30)</h3>
                                         <div className="space-y-2">{masterSchedule.afternoon.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
                                     </div>
                                     <div className="space-y-6">
-                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-3"><Moon className="h-4 w-4 text-indigo-400" /> Evening Shift</h3>
+                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-3"><Moon className="h-4 w-4 text-indigo-400" /> Evening (6:30-10)</h3>
                                         <div className="space-y-2">{masterSchedule.evening.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
                                     </div>
                                 </div>
