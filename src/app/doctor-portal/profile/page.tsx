@@ -13,7 +13,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Loader2, BadgeCheck, RefreshCw, FileText, Upload, CheckCircle2, ShieldCheck } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import ImageCropperDialog from '@/components/ImageCropperDialog';
@@ -57,6 +57,7 @@ export default function DoctorProfilePage() {
   // Document Upload State
   const [uploadQueue, setUploadQueue] = useState<UploadingFile[]>([]);
   const [existingDocs, setExistingDocs] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -406,15 +407,25 @@ export default function DoctorProfilePage() {
                         <CardContent className="p-8 space-y-8">
                             <div className="flex flex-col items-center justify-center p-12 border-4 border-dashed rounded-[2rem] bg-muted/5 group hover:bg-muted/10 transition-colors relative">
                                 <Upload className="h-12 w-12 text-muted-foreground/30 mb-4 group-hover:text-primary transition-colors" />
-                                <div className="text-center">
+                                <div className="text-center mb-6">
                                     <p className="text-sm font-bold">Select Degrees or Certifications</p>
                                     <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">High-Resolution (Max 500MB)</p>
                                 </div>
-                                <Input 
+                                <Button 
+                                    type="button" 
+                                    variant="outline" 
+                                    className="rounded-xl font-bold border-2" 
+                                    onClick={() => fileInputRef.current?.click()}
+                                >
+                                    Select Clinical Documents
+                                </Button>
+                                <input 
+                                    ref={fileInputRef}
+                                    id="degree-upload"
                                     type="file" 
                                     multiple 
                                     accept="image/*,.pdf" 
-                                    className="absolute inset-0 opacity-0 cursor-pointer" 
+                                    className="hidden" 
                                     onChange={handleFileSelect}
                                 />
                             </div>
