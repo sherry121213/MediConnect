@@ -23,11 +23,20 @@
       "type": "object",
       "properties": {
         "id": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
         "specialty": { "type": "string" },
         "experience": { "type": "number" },
+        "medicalSchool": { "type": "string" },
+        "degree": { "type": "string" },
+        "phone": { "type": "string" },
         "location": { "type": "string" },
+        "documents": { "type": "array", "items": { "type": "string" } },
         "verified": { "type": "boolean" },
-        "profileComplete": { "type": "boolean" }
+        "profileComplete": { "type": "boolean" },
+        "photoURL": { "type": "string" },
+        "isActive": { "type": "boolean" }
       }
     },
     "Appointment": {
@@ -40,7 +49,10 @@
         "doctorId": { "type": "string" },
         "appointmentDateTime": { "type": "string", "format": "date-time" },
         "status": { "type": "string", "enum": ["scheduled", "completed", "cancelled", "expired"] },
-        "paymentStatus": { "type": "string", "enum": ["pending", "approved", "rejected"] }
+        "paymentStatus": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "diagnosis": { "type": "string" },
+        "prescription": { "type": "string" },
+        "doctorInRoom": { "type": "boolean" }
       }
     },
     "SupportChatSession": {
@@ -68,18 +80,6 @@
         "action": { "type": "string", "enum": ["started", "ended"] },
         "timestamp": { "type": "string", "format": "date-time" }
       }
-    },
-    "MissedSessionAudit": {
-      "title": "MissedSessionAudit",
-      "description": "Audit record for clinical sessions that timed out.",
-      "type": "object",
-      "properties": {
-        "appointmentId": { "type": "string" },
-        "doctorId": { "type": "string" },
-        "patientId": { "type": "string" },
-        "scheduledTime": { "type": "string", "format": "date-time" },
-        "loggedAt": { "type": "string", "format": "date-time" }
-      }
     }
   },
   "auth": {
@@ -101,14 +101,6 @@
     "/supportChatSessions/{sessionId}": {
       "schema": { "$ref": "#/backend/entities/SupportChatSession" },
       "description": "High-level support session metadata."
-    },
-    "/consultationLogs/{logId}": {
-      "schema": { "$ref": "#/backend/entities/ConsultationLog" },
-      "description": "Operational logs for session monitoring."
-    },
-    "/missedSessionAudits/{auditId}": {
-      "schema": { "$ref": "#/backend/entities/MissedSessionAudit" },
-      "description": "Logs for administrative review of missed slots."
     }
   }
 }
