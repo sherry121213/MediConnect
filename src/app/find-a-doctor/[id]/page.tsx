@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck, Video, PhoneCall, Moon, ShieldAlert, CreditCard, Wallet, Landmark, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck, Video, PhoneCall, Moon, ShieldAlert, CreditCard, Wallet, Landmark, CheckCircle2, XCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -74,7 +74,6 @@ export default function DoctorDetailPage() {
 
     const unavailabilityQuery = useMemoFirebase(() => {
       if (!firestore || !doctorId) return null;
-      // Simplified query to avoid composite index requirements
       return query(
         collection(firestore, 'doctorUnavailabilityRequests'),
         where('doctorId', '==', doctorId)
@@ -203,19 +202,23 @@ export default function DoctorDetailPage() {
         const isPast = isTimeSlotPast(time, selectedDate);
         const isBooked = bookedTimes.includes(time);
         const isDisabledByDoctor = isSlotDisabledByDoctor(time);
-        const isDisabled = isPast || isBooked || isDisabledByDoctor || isDayOffByAdmin;
-
+        
+        // REQUIREMENT: If doctor disables a slot, it should not be visible to patients.
         if (isDisabledByDoctor && !isBooked) return null; 
 
         return (
             <Button 
                 variant={selectedTime === time ? 'default' : 'outline'}
                 onClick={() => setSelectedTime(time)}
-                disabled={isDisabled}
-                className={cn("relative rounded-xl font-bold", isBooked && "opacity-50 grayscale cursor-not-allowed border-destructive/30")}
+                disabled={isPast || isBooked || isDayOffByAdmin}
+                className={cn(
+                    "relative rounded-xl font-bold h-11", 
+                    isBooked && "opacity-50 grayscale cursor-not-allowed border-destructive/30",
+                    isPast && "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
+                )}
             >
-                {time}
-                {isBooked && <span className="absolute -top-1 -right-1 flex h-2 w-2 rounded-full bg-destructive" />}
+                {isPast ? "Closed" : isBooked ? "Booked" : time}
+                {isBooked && !isPast && <span className="absolute -top-1 -right-1 flex h-2 w-2 rounded-full bg-destructive" />}
             </Button>
         );
     };
@@ -250,7 +253,7 @@ export default function DoctorDetailPage() {
                              <Card className="rounded-3xl border-none shadow-2xl overflow-hidden bg-white">
                                 <CardHeader className="bg-primary/5 border-b">
                                     <CardTitle className="flex items-center gap-2"><CalendarDays className="h-6 w-6 text-primary"/> Clinical Scheduler</CardTitle>
-                                    <CardDescription>Select a date and time for your consultation.</CardDescription>
+                                    <CardDescription>All sessions are fixed to 30 minutes.</CardDescription>
                                 </CardHeader>
                                 <CardContent className="p-8">
                                     {isDayOffByAdmin ? (
@@ -261,7 +264,7 @@ export default function DoctorDetailPage() {
                                         <div className="space-y-2">
                                             <h4 className="text-2xl font-bold text-destructive tracking-tight">Doctor Unavailable</h4>
                                             <p className="text-muted-foreground text-sm max-w-md mx-auto">
-                                                Dr. {doctor.firstName} is officially off-duty on this date. Please select a different date from the calendar above to view available slots.
+                                                Dr. {doctor.firstName} is officially off-duty on this date. Please select a different date to view available slots.
                                             </p>
                                         </div>
                                       </div>
@@ -288,10 +291,32 @@ export default function DoctorDetailPage() {
                                             </div>
                                         </div>
 
-                                        <div>
-                                            <h4 className="text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 2: Select Session Time</h4>
-                                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                                              {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => <TimeButton key={time} time={time} />)}
+                                        <div className="space-y-8">
+                                            <div className="space-y-4">
+                                                <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                                                    <Clock className="h-3 w-3" /> Morning Slots
+                                                </h4>
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+                                                    {timeSlots.morning.map(time => <TimeButton key={time} time={time} />)}
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                                                    <Clock className="h-3 w-3" /> Afternoon Slots
+                                                </h4>
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+                                                    {timeSlots.afternoon.map(time => <TimeButton key={time} time={time} />)}
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-4">
+                                                <h4 className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary flex items-center gap-2">
+                                                    <Clock className="h-3 w-3" /> Evening Slots
+                                                </h4>
+                                                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3">
+                                                    {timeSlots.evening.map(time => <TimeButton key={time} time={time} />)}
+                                                </div>
                                             </div>
                                         </div>
 

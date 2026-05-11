@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
@@ -64,7 +63,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
             <DialogContent className="sm:max-w-2xl rounded-3xl border-none shadow-2xl overflow-hidden p-0">
                 <div className="bg-slate-900 p-8 text-white">
                     <DialogTitle className="text-2xl font-headline">Clinical Rescheduling</DialogTitle>
-                    <DialogDescription className="text-slate-400">Modify the appointment time for this patient.</DialogDescription>
+                    <DialogDescription className="text-slate-400">Modify the 30-minute interval for this patient.</DialogDescription>
                 </div>
                 <div className="p-8 space-y-8">
                     <div>
@@ -86,7 +85,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
                         </div>
                     </div>
                     <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">Available Slots</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">Available 30m Slots</p>
                         <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                             {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => (
                                 <Button 
@@ -124,7 +123,7 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
     const appointmentDate = new Date(apt.appointmentDateTime);
     const now = isMounted ? new Date().getTime() : 0;
     const startTime = appointmentDate.getTime() - (10 * 60 * 1000); 
-    const endTime = appointmentDate.getTime() + (50 * 60 * 1000);
+    const endTime = appointmentDate.getTime() + (30 * 60 * 1000); // FIXED: 30m
     const isLive = isMounted && now >= startTime && now < endTime && apt.status === 'scheduled';
 
     return (
@@ -139,7 +138,7 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
                 <div className="min-w-0">
                     <p className="font-bold text-sm truncate">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
                     <p className="text-[10px] text-muted-foreground flex items-center gap-1 uppercase font-bold tracking-tighter truncate">
-                        <Clock className="h-2.5 w-2.5 shrink-0" /> {format(appointmentDate, "p")} • 50m
+                        <Clock className="h-2.5 w-2.5 shrink-0" /> {format(appointmentDate, "p")} • 30m
                     </p>
                 </div>
             </div>
@@ -153,7 +152,7 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
     );
 };
 
-const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { time: string, appointment?: Appointment, onSelect: (a: Appointment) => void, isDisabled?: boolean, isMounted: boolean }) => {
+const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, viewDate }: { time: string, appointment?: Appointment, onSelect: (a: Appointment) => void, isDisabled?: boolean, isMounted: boolean, viewDate: Date }) => {
     const firestore = useFirestore();
     const patientDocRef = useMemoFirebase(() => {
         if (!firestore || !appointment?.patientId) return null;
@@ -161,12 +160,28 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
     }, [firestore, appointment?.patientId]);
     const { data: patient } = useDoc<Patient>(patientDocRef);
 
+    const isPast = useMemo(() => {
+        if (!isMounted) return false;
+        const now = new Date();
+        if (!isSameDay(viewDate, now)) return false;
+        
+        const [timePart, ampm] = time.split(' ');
+        const [hours, minutes] = timePart.split(':');
+        let numericHours = parseInt(hours);
+        if (ampm === 'PM' && numericHours !== 12) numericHours += 12;
+        if (ampm === 'AM' && numericHours === 12) numericHours = 0;
+        
+        const slotDate = new Date(viewDate);
+        slotDate.setHours(numericHours, parseInt(minutes), 0, 0);
+        return slotDate < now;
+    }, [time, viewDate, isMounted]);
+
     const isLive = useMemo(() => {
         if (!appointment || !isMounted || appointment.status !== 'scheduled') return false;
         const aptDate = new Date(appointment.appointmentDateTime);
         const now = new Date().getTime();
         const startTime = aptDate.getTime() - (10 * 60 * 1000);
-        const endTime = aptDate.getTime() + (50 * 60 * 1000);
+        const endTime = aptDate.getTime() + (30 * 60 * 1000); // FIXED: 30m
         return now >= startTime && now < endTime;
     }, [appointment, isMounted]);
 
@@ -174,7 +189,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
         if (!appointment || !isMounted) return false;
         const aptDate = new Date(appointment.appointmentDateTime);
         const now = new Date().getTime();
-        const endTime = aptDate.getTime() + (50 * 60 * 1000);
+        const endTime = aptDate.getTime() + (30 * 60 * 1000); // FIXED: 30m
         return now >= endTime && appointment.status === 'scheduled';
     }, [appointment, isMounted]);
 
@@ -185,8 +200,8 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
                 isLive ? "bg-primary/10 border-primary shadow-md scale-[1.02]" : 
                 isExpired ? "bg-destructive/5 border-destructive/20 opacity-70" :
                 "bg-primary/5 border-primary/20 shadow-sm"
-            ) : "bg-muted/20 border-transparent opacity-60",
-            isDisabled && !appointment && "grayscale opacity-30"
+            ) : isPast ? "bg-slate-50 border-slate-100 opacity-50" : "bg-muted/20 border-transparent opacity-60",
+            isDisabled && !appointment && "bg-destructive/5 border-destructive/10"
         )}>
             <div className="flex items-center gap-3 sm:gap-4 min-w-0">
                 <p className="text-[10px] sm:text-xs font-bold text-muted-foreground w-14 sm:w-16 shrink-0">{time}</p>
@@ -198,7 +213,12 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
                         <p className="text-xs sm:text-sm font-semibold truncate">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
                     </div>
                 ) : (
-                    <p className="text-[10px] sm:text-xs italic text-muted-foreground truncate">{isDisabled ? "Off" : "Open"}</p>
+                    <p className={cn(
+                        "text-[10px] sm:text-xs italic font-medium truncate",
+                        isDisabled ? "text-destructive" : isPast ? "text-slate-400" : "text-muted-foreground"
+                    )}>
+                        {isDisabled ? "Unavailable" : isPast ? "Closed" : "Open Slot"}
+                    </p>
                 )}
             </div>
             {appointment && (
@@ -254,7 +274,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
     const appointmentDate = new Date(appointment.appointmentDateTime);
     const now = isMounted ? new Date().getTime() : 0;
     const startTime = appointmentDate.getTime() - (10 * 60 * 1000); 
-    const endTime = appointmentDate.getTime() + (60 * 60 * 1000);
+    const endTime = appointmentDate.getTime() + (30 * 60 * 1000); // FIXED: 30m
     const isLive = isMounted && now >= startTime && now < endTime && appointment.status === 'scheduled';
 
     const handleStartRoom = () => {
@@ -292,7 +312,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
                                     </Button>
                                 ) : (
                                     <>
-                                        <Button className="h-14 text-base font-bold opacity-70 cursor-not-allowed w-full rounded-2xl" disabled>Session Window Locked <Clock className="ml-3 h-5 w-5" /></Button>
+                                        <Button className="h-14 text-base font-bold opacity-70 cursor-not-allowed w-full rounded-2xl" disabled>30m Window Locked <Clock className="ml-3 h-5 w-5" /></Button>
                                         <Button variant="outline" className="h-14 text-base font-bold w-full rounded-2xl gap-3 border-2" onClick={() => onPostpone(appointment)}>
                                             <RefreshCw className="h-5 w-5 text-primary" /> Postpone Session
                                         </Button>
@@ -338,9 +358,15 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
             <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl rounded-3xl">
                 <DialogHeader><DialogTitle className="text-xl font-headline">Clinical Hour Configuration</DialogTitle></DialogHeader>
                 <div className="space-y-8 py-6">
+                    <div className="p-4 bg-primary/5 rounded-xl border border-primary/10 flex gap-3">
+                        <AlertCircle className="h-5 w-5 text-primary shrink-0" />
+                        <p className="text-xs text-muted-foreground leading-relaxed">
+                            Unchecked slots are marked as <strong>Unavailable</strong> and are hidden from patient booking views.
+                        </p>
+                    </div>
                     {Object.entries(timeSlots).map(([session, slots]) => (
                         <div key={session} className="p-5 rounded-2xl bg-muted/20 border">
-                            <h5 className="text-[10px] font-bold uppercase mb-5 text-primary tracking-[0.2em]">{session} Consultation Block</h5>
+                            <h5 className="text-[10px] font-bold uppercase mb-5 text-primary tracking-[0.2em]">{session} 30m Block</h5>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">{slots.map(slot => (<div key={slot} className="flex items-center space-x-3 p-3 border-2 rounded-xl bg-background hover:border-primary/30 transition-colors"><Checkbox checked={!disabledSlots.includes(slot)} onCheckedChange={() => setDisabledSlots(prev => prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot])}/><span className="text-xs font-bold">{slot}</span></div>))}</div>
                         </div>
                     ))}
@@ -452,7 +478,7 @@ export default function DoctorPortalPage() {
             const now = new Date().getTime();
             const missedAppointments = appointments.filter(apt => {
                 if (!apt || apt.status !== 'scheduled' || !apt.appointmentDateTime) return false;
-                const endTime = new Date(apt.appointmentDateTime).getTime() + (50 * 60 * 1000);
+                const endTime = new Date(apt.appointmentDateTime).getTime() + (30 * 60 * 1000); // FIXED: 30m
                 return now > endTime;
             });
 
@@ -471,7 +497,7 @@ export default function DoctorPortalPage() {
                 toast({
                     variant: 'destructive',
                     title: "Session Time-Out",
-                    description: `The clinical window for a session has passed. Logged for admin audit.`,
+                    description: `The 30m clinical window has passed. Logged for admin audit.`,
                 });
             }
         };
@@ -496,7 +522,7 @@ export default function DoctorPortalPage() {
             if (apt.status === 'completed' || apt.status === 'cancelled' || apt.status === 'expired') return false;
             const aptDate = new Date(apt.appointmentDateTime);
             const isToday = isSameDay(aptDate, now);
-            const endTime = aptDate.getTime() + (50 * 60 * 1000);
+            const endTime = aptDate.getTime() + (30 * 60 * 1000); // FIXED: 30m
             const isExpired = now.getTime() > endTime;
             return isToday && !isExpired;
         });
@@ -531,7 +557,7 @@ export default function DoctorPortalPage() {
             if (dismissedAlertIds.has(alertId)) return;
 
             if (a.status === 'expired') {
-                alerts.push({ id: alertId, msg: `Audit: Session Expired (${format(new Date(a.appointmentDateTime), "p")})`, icon: AlertCircle, color: 'text-destructive' });
+                alerts.push({ id: alertId, msg: `Audit: 30m Session Expired (${format(new Date(a.appointmentDateTime), "p")})`, icon: AlertCircle, color: 'text-destructive' });
                 return;
             }
             
@@ -542,7 +568,7 @@ export default function DoctorPortalPage() {
 
             const aptDate = new Date(a.appointmentDateTime);
             const startTime = aptDate.getTime() - (10 * 60 * 1000);
-            const endTime = aptDate.getTime() + (50 * 60 * 1000);
+            const endTime = aptDate.getTime() + (30 * 60 * 1000); // FIXED: 30m
             const currentTime = now.getTime();
             
             if (currentTime >= startTime && currentTime < endTime && a.status === 'scheduled') {
@@ -586,7 +612,7 @@ export default function DoctorPortalPage() {
                     <div>
                         <h1 className="text-3xl sm:text-4xl font-bold font-headline tracking-tight text-foreground">Clinical Command Center</h1>
                         <p className="text-muted-foreground flex items-center gap-2 text-sm sm:text-base mt-2 font-medium">
-                            <Activity className="h-5 w-5 text-primary" /> Active Platform Surveillance • 50m Protocol
+                            <Activity className="h-5 w-5 text-primary" /> Active Platform Surveillance • 30m Protocol
                         </p>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 w-full md:w-auto">
@@ -677,7 +703,7 @@ export default function DoctorPortalPage() {
                                         <CardTitle className="text-2xl sm:text-3xl font-headline flex items-center gap-4 text-foreground">
                                             <Clock className="h-8 w-8 text-primary" /> Clinical Timetable
                                         </CardTitle>
-                                        <CardDescription className="text-xs sm:text-sm font-medium">Automatic session termination active for patient safety.</CardDescription>
+                                        <CardDescription className="text-xs sm:text-sm font-medium">Automatic 30m session termination active.</CardDescription>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-4">
                                         <div className="flex items-center gap-3 bg-white p-2 rounded-[1.25rem] border-2 shadow-sm w-full xl:w-auto justify-between sm:justify-start">
@@ -708,15 +734,15 @@ export default function DoctorPortalPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-12">
                                     <div className="space-y-6">
                                         <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-3"><div className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-sm" /> Morning Shift</h3>
-                                        <div className="space-y-2">{masterSchedule.morning.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted}/>))}</div>
+                                        <div className="space-y-2">{masterSchedule.morning.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
                                     </div>
                                     <div className="space-y-6">
                                         <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-3"><div className="h-2.5 w-2.5 rounded-full bg-blue-400 shadow-sm" /> Afternoon Shift</h3>
-                                        <div className="space-y-2">{masterSchedule.afternoon.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted}/>))}</div>
+                                        <div className="space-y-2">{masterSchedule.afternoon.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
                                     </div>
                                     <div className="space-y-6">
                                         <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-3"><Moon className="h-4 w-4 text-indigo-400" /> Evening Shift</h3>
-                                        <div className="space-y-2">{masterSchedule.evening.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted}/>))}</div>
+                                        <div className="space-y-2">{masterSchedule.evening.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
                                     </div>
                                 </div>
                             </CardContent>
@@ -730,7 +756,7 @@ export default function DoctorPortalPage() {
                             <DialogTitle className="flex items-center gap-3 text-2xl font-headline text-foreground">
                                 <History className="h-6 w-6 text-primary" /> Clinical Analytics
                             </DialogTitle>
-                            <DialogDescription className="text-sm">Summary of your professional performance across the platform.</DialogDescription>
+                            <DialogDescription className="text-sm">Summary of your professional performance.</DialogDescription>
                         </DialogHeader>
                         <div className="grid grid-cols-1 gap-6 py-8">
                             <div className="p-6 rounded-3xl bg-primary/5 border-2 border-primary/10 space-y-1 text-center">
@@ -738,7 +764,7 @@ export default function DoctorPortalPage() {
                                 <p className="text-3xl sm:text-4xl font-bold text-primary">PKR {stats.totalRevenue.toLocaleString()}</p>
                             </div>
                             <div className="p-6 rounded-3xl bg-muted/30 border-2 border-muted/50 space-y-1 text-center">
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Archived Consultations</p>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Archived 30m Consultations</p>
                                 <p className="text-3xl sm:text-4xl font-bold">{stats.totalConsults}</p>
                             </div>
                         </div>

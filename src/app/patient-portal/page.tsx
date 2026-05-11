@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -49,10 +48,10 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
         updateDocumentNonBlocking(doc(firestore, 'appointments', appointment.id), {
             appointmentDateTime: newDateTime.toISOString(),
             updatedAt: new Date().toISOString(),
-            doctorInRoom: false // Reset ringing state
+            doctorInRoom: false 
         });
 
-        toast({ title: "Session Rescheduled", description: `Your visit with Dr. ${doctor?.lastName} is now set for ${format(newDateTime, "PPP p")}.` });
+        toast({ title: "Session Rescheduled", description: `Your 30m visit with Dr. ${doctor?.lastName} is now set for ${format(newDateTime, "PPP p")}.` });
         setIsSaving(false);
         onOpenChange(false);
     };
@@ -62,7 +61,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
             <DialogContent className="sm:max-w-2xl rounded-3xl border-none shadow-2xl overflow-hidden p-0">
                 <div className="bg-primary p-8 text-white">
                     <DialogTitle className="text-2xl font-headline">Reschedule Consultation</DialogTitle>
-                    <DialogDescription className="text-primary-foreground/80">Select a new date and time for your clinical session.</DialogDescription>
+                    <DialogDescription className="text-primary-foreground/80">Select a new 30-minute interval for your session.</DialogDescription>
                 </div>
                 <div className="p-8 space-y-8">
                     <div>
@@ -84,7 +83,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                         </div>
                     </div>
                     <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">Step 2: Select Time Slot</p>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">Step 2: Select 30m Slot</p>
                         <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
                             {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => (
                                 <Button 
@@ -130,7 +129,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
     
     const now = isMounted ? new Date().getTime() : 0;
     const startTime = appointmentDate ? appointmentDate.getTime() - (10 * 60 * 1000) : 0; 
-    const endTime = appointmentDate ? appointmentDate.getTime() + (50 * 60 * 1000) : 0;
+    const endTime = appointmentDate ? appointmentDate.getTime() + (30 * 60 * 1000) : 0; // FIXED: 30m
     
     const isLive = isMounted && now >= startTime && now < endTime;
     const isExpired = isMounted && now >= endTime;
@@ -182,7 +181,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                                 <CalendarIcon className="w-2.5 h-2.5" /> {format(appointmentDate, "MMM dd")}
                             </Badge>
                             <Badge variant="outline" className="flex items-center gap-1 px-1.5 text-[8px] sm:text-[10px] font-bold">
-                                <Clock className="w-2.5 h-2.5" /> {format(appointmentDate, "p")}
+                                <Clock className="w-2.5 h-2.5" /> {format(appointmentDate, "p")} (30m)
                             </Badge>
                         </div>
                     </div>
@@ -208,7 +207,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                                 <DialogContent className="w-[95vw] sm:max-w-lg rounded-2xl border-none shadow-2xl">
                                     <DialogHeader>
                                         <DialogTitle className="text-xl font-headline">Clinical Connection</DialogTitle>
-                                        <DialogDescription>Secure room window closes at {appointmentDate ? format(new Date(appointmentDate.getTime() + (50 * 60 * 1000)), "p") : "the end of the hour"}.</DialogDescription>
+                                        <DialogDescription>Secure room window closes at {appointmentDate ? format(new Date(appointmentDate.getTime() + (30 * 60 * 1000)), "p") : "the end of the session"}.</DialogDescription>
                                     </DialogHeader>
                                     <div className="grid grid-cols-1 gap-4 py-4 sm:py-6">
                                         <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group bg-muted/5" onClick={handleJoin}>
@@ -262,14 +261,14 @@ export default function PatientPortalPage() {
             apt.doctorInRoom === true && 
             apt.status === 'scheduled' && 
             apt.paymentStatus === 'approved' &&
-            Math.abs(now.getTime() - new Date(apt.appointmentDateTime).getTime()) < (60 * 60 * 1000)
+            Math.abs(now.getTime() - new Date(apt.appointmentDateTime).getTime()) < (40 * 60 * 1000)
         );
 
         const upcoming = validAppointments
             .filter(apt => {
                 const d = new Date(apt.appointmentDateTime);
                 if (!isValid(d)) return false;
-                const endTime = d.getTime() + (50 * 60 * 1000);
+                const endTime = d.getTime() + (30 * 60 * 1000); // FIXED: 30m
                 const isMissed = now.getTime() > endTime;
                 return !isMissed && 
                        apt.status === 'scheduled' &&
@@ -281,11 +280,11 @@ export default function PatientPortalPage() {
             .filter(apt => {
                 const d = new Date(apt.appointmentDateTime);
                 if (!isValid(d)) return false;
-                const endTime = d.getTime() + (50 * 60 * 1000);
+                const endTime = d.getTime() + (30 * 60 * 1000); // FIXED: 30m
                 const isMissed = now.getTime() > endTime;
                 return isMissed || apt.status === 'completed' || apt.status === 'expired';
             })
-            .sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime())
+            .sort((a, b) => b.appointmentDateTime.localeCompare(a.appointmentDateTime))
             .slice(0, 8);
 
         return { upcomingAppointments: upcoming, recentPastAppointments: past, ringingApt: currentRinging };
@@ -311,7 +310,7 @@ export default function PatientPortalPage() {
                                     </div>
                                     <div>
                                         <p className="text-[10px] uppercase font-bold tracking-widest opacity-80">Incoming Consultation</p>
-                                        <p className="text-lg font-bold">Your doctor has entered the clinical room.</p>
+                                        <p className="text-lg font-bold">Your doctor has entered the room.</p>
                                     </div>
                                 </div>
                                 <Button asChild className="bg-white text-red-600 hover:bg-slate-100 font-bold px-8 h-12 rounded-2xl">
@@ -343,7 +342,7 @@ export default function PatientPortalPage() {
                                 <h2 className="text-xl sm:text-2xl font-bold font-headline flex items-center gap-3"><div className="h-6 sm:h-8 w-1 bg-primary rounded-full"></div>Scheduled consultations</h2>
                             </div>
                             {isLoadingAppointments ? <div className="py-12 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary/30" /></div> : 
-                             upcomingAppointments.length === 0 ? <Card className="border-dashed border-2 bg-transparent rounded-2xl"><CardContent className="py-12 sm:py-16 text-center px-4"><Calendar className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" /><p className="text-muted-foreground">No upcoming verified consultations.</p></CardContent></Card> :
+                             upcomingAppointments.length === 0 ? <Card className="border-dashed border-2 bg-transparent rounded-2xl"><CardContent className="py-12 sm:py-16 text-center px-4"><Calendar className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" /><p className="text-muted-foreground">No upcoming 30m consultations.</p></CardContent></Card> :
                              <div className="space-y-4">{upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={true} onPostpone={handlePostpone} isMounted={mounted} />)}</div>}
                         </section>
 
