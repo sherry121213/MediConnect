@@ -60,7 +60,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-2xl rounded-3xl border-none shadow-2xl overflow-hidden p-0">
+            <DialogContent className="sm:max-w-[2xl] rounded-3xl border-none shadow-2xl overflow-hidden p-0">
                 <div className="bg-slate-900 p-8 text-white">
                     <DialogTitle className="text-2xl font-headline">Clinical Rescheduling</DialogTitle>
                     <DialogDescription className="text-slate-400">Modify the 30-minute interval for this patient.</DialogDescription>
@@ -754,15 +754,15 @@ export default function DoctorPortalPage() {
                                 )}
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-12">
                                     <div className="space-y-6">
-                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-3"><div className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-sm" /> Morning (10-12:30)</h3>
+                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-3"><div className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-sm" /> Morning</h3>
                                         <div className="space-y-2">{masterSchedule.morning.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
                                     </div>
                                     <div className="space-y-6">
-                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-3"><div className="h-2.5 w-2.5 rounded-full bg-blue-400 shadow-sm" /> Afternoon (2-5:30)</h3>
+                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-3"><div className="h-2.5 w-2.5 rounded-full bg-blue-400 shadow-sm" /> Afternoon</h3>
                                         <div className="space-y-2">{masterSchedule.afternoon.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
                                     </div>
                                     <div className="space-y-6">
-                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-3"><Moon className="h-4 w-4 text-indigo-400" /> Evening (6:30-10)</h3>
+                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-3"><Moon className="h-4 w-4 text-indigo-400" /> Evening</h3>
                                         <div className="space-y-2">{masterSchedule.evening.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
                                     </div>
                                 </div>
