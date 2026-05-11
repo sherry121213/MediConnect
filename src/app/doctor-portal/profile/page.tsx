@@ -3,7 +3,7 @@
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useFirestore, useUserData, useStorage, useMemoFirebase } from '@/firebase';
+import { useFirestore, useUserData, useStorage } from '@/firebase';
 import { doc, getDoc, updateDoc, arrayUnion } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useRouter } from 'next/navigation';
@@ -12,14 +12,15 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, BadgeCheck, RefreshCw, FileText, Upload, CheckCircle2, ShieldCheck, X } from 'lucide-react';
-import { useState, useEffect, useMemo } from 'react';
+import { Loader2, BadgeCheck, RefreshCw, FileText, Upload, CheckCircle2, ShieldCheck } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import ImageCropperDialog from '@/components/ImageCropperDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
+import { Separator } from '@/components/ui/separator';
 
 const profileSchema = z.object({
   specialty: z.string().min(2, 'Specialty is required.'),
@@ -153,7 +154,6 @@ export default function DoctorProfilePage() {
     }
   };
 
-  // --- Document Upload Logic ---
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files) return;
     const files = Array.from(e.target.files);
@@ -164,7 +164,7 @@ export default function DoctorProfilePage() {
         status: 'pending' as const
     }));
     setUploadQueue(prev => [...prev, ...newItems]);
-    e.target.value = ''; // Reset input
+    e.target.value = ''; 
   };
 
   const startUploads = async () => {
@@ -193,7 +193,6 @@ export default function DoctorProfilePage() {
                     const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
                     setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'done', url: downloadURL, progress: 100 } : q));
                     
-                    // Immediately link to Firestore
                     await updateDoc(doc(firestore, 'doctors', user.uid), {
                         documents: arrayUnion(downloadURL),
                         updatedAt: new Date().toISOString()
@@ -252,7 +251,7 @@ export default function DoctorProfilePage() {
             lastName: userData?.lastName || '',
             email: user.email || '',
             profileComplete: true,
-            verified: false, // Must be audited by admin
+            verified: false, 
             updatedAt: timestamp,
             documents: allDocs
         };
@@ -304,7 +303,6 @@ export default function DoctorProfilePage() {
             </div>
 
             <div className="grid lg:grid-cols-12 gap-8">
-                {/* Left Column: Profile Photo & Summary */}
                 <div className="lg:col-span-4 space-y-6">
                     <Card className="border-none shadow-xl bg-white rounded-3xl overflow-hidden h-fit">
                         <CardContent className="pt-8 text-center space-y-6">
@@ -350,7 +348,6 @@ export default function DoctorProfilePage() {
                     </Card>
                 </div>
 
-                {/* Right Column: Form & Degree Uploads */}
                 <div className="lg:col-span-8 space-y-8">
                     <Card className="border-none shadow-xl bg-white rounded-[2.5rem] overflow-hidden">
                         <CardHeader className="bg-muted/10 border-b px-8 py-8">
@@ -399,7 +396,6 @@ export default function DoctorProfilePage() {
                         </CardContent>
                     </Card>
 
-                    {/* Step 2: Degree Upload Section */}
                     <Card className="border-none shadow-xl bg-white rounded-[2.5rem] overflow-hidden">
                          <CardHeader className="bg-muted/10 border-b px-8 py-8">
                             <div className="flex justify-between items-center">
@@ -423,7 +419,6 @@ export default function DoctorProfilePage() {
                                 />
                             </div>
 
-                            {/* Active Upload Queue */}
                             {uploadQueue.filter(q => q.status !== 'done').length > 0 && (
                                 <div className="space-y-4">
                                     <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary">Transmission Queue</p>
@@ -442,7 +437,6 @@ export default function DoctorProfilePage() {
                                 </div>
                             )}
 
-                            {/* Portfolio Gallery */}
                             {totalUploadedCount > 0 && (
                                 <div className="space-y-4 pt-4">
                                     <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground border-b pb-2">Verified Professional Portfolio</p>
