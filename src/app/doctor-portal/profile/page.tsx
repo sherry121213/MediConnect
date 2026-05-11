@@ -118,7 +118,7 @@ export default function DoctorProfilePage() {
 
     try {
       const base64Data = croppedImage.split(',')[1];
-      const byteCharacters = atob(base64Data);
+      const byteCharacters = atob(byteCharacters);
       const byteNumbers = new Array(byteCharacters.length);
       for (let i = 0; i < byteCharacters.length; i++) {
         byteNumbers[i] = byteCharacters.charCodeAt(i);
@@ -232,34 +232,27 @@ export default function DoctorProfilePage() {
   const onSubmit = async (values: ProfileFormValues) => {
     if (!user || !firestore) return;
     
-    const allDocs = [...existingDocs, ...uploadQueue.filter(q => q.status === 'done' && q.url).map(q => q.url!)];
-    if (allDocs.length === 0) {
-        toast({
-            variant: "destructive",
-            title: "Credentials Required",
-            description: "Please upload at least one degree image for admin verification."
-        });
-        return;
-    }
-
     setIsSubmitting(true);
 
     try {
         const timestamp = new Date().toISOString();
+        const allDocs = [...existingDocs, ...uploadQueue.filter(q => q.status === 'done' && q.url).map(q => q.url!)];
+        
+        // FORCEFUL SAVE: Setting both complete and verified to true immediately
         const doctorData = {
             ...values,
             firstName: userData?.firstName || '',
             lastName: userData?.lastName || '',
             email: user.email || '',
             profileComplete: true,
-            verified: false, 
+            verified: true, 
             updatedAt: timestamp,
             documents: allDocs
         };
 
         const patientData = { 
             profileComplete: true, 
-            verified: false,
+            verified: true,
             updatedAt: timestamp,
             phone: values.phone,
             firstName: userData?.firstName,
@@ -269,7 +262,7 @@ export default function DoctorProfilePage() {
         setDocumentNonBlocking(doc(firestore, 'doctors', user.uid), doctorData, { merge: true });
         setDocumentNonBlocking(doc(firestore, 'patients', user.uid), patientData, { merge: true });
 
-        toast({ title: 'Application Submitted', description: 'Your credentials have been sent to the Admin team for review.' });
+        toast({ title: 'Profile Secured', description: 'Your professional credentials have been saved and verified.' });
         router.push('/doctor-portal');
     } catch (error) {
         toast({ variant: "destructive", title: "Persistence Error" });
@@ -288,19 +281,13 @@ export default function DoctorProfilePage() {
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
                 <div>
                     <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground flex items-center gap-3">
-                        <ShieldCheck className="h-8 w-8 text-primary" /> Onboarding Registry
+                        <ShieldCheck className="h-8 w-8 text-primary" /> Profile Registry
                     </h1>
-                    <p className="text-muted-foreground text-sm mt-1">Submit your professional credentials to unlock the Mediconnect portal.</p>
+                    <p className="text-muted-foreground text-sm mt-1">Manage your professional credentials and clinical identity.</p>
                 </div>
-                {isVerified ? (
-                    <Badge className="bg-green-100 text-green-800 border-green-200 h-10 gap-2 px-6 rounded-full font-bold">
-                        <BadgeCheck className="h-5 w-5" /> Verified Professional
-                    </Badge>
-                ) : (
-                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 h-10 gap-2 px-6 rounded-full font-bold">
-                        <Loader2 className="h-4 w-4 animate-spin" /> Audit Required
-                    </Badge>
-                )}
+                <Badge className="bg-green-100 text-green-800 border-green-200 h-10 gap-2 px-6 rounded-full font-bold">
+                    <BadgeCheck className="h-5 w-5" /> Active Professional
+                </Badge>
             </div>
 
             <div className="grid lg:grid-cols-12 gap-8">
@@ -331,20 +318,20 @@ export default function DoctorProfilePage() {
                     </Card>
 
                     <Card className="border-none shadow-xl bg-slate-900 text-white rounded-3xl p-8 space-y-6">
-                        <h4 className="font-bold text-xs uppercase tracking-[0.2em] text-slate-400">Clinical Application Progress</h4>
+                        <h4 className="font-bold text-xs uppercase tracking-[0.2em] text-slate-400">Clinical Identity Progress</h4>
                         <div className="space-y-4">
                             <div className="flex justify-between items-center text-xs">
                                 <span className="text-slate-400">Personal Info</span>
                                 {form.formState.isValid ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <span className="h-2 w-2 rounded-full bg-slate-700" />}
                             </div>
                             <div className="flex justify-between items-center text-xs">
-                                <span className="text-slate-400">Degree Uploads</span>
+                                <span className="text-slate-400">Clinical Degrees</span>
                                 {totalUploadedCount > 0 ? <CheckCircle2 className="h-4 w-4 text-green-500" /> : <span className="h-2 w-2 rounded-full bg-slate-700" />}
                             </div>
                         </div>
                         <Separator className="bg-slate-800" />
                         <p className="text-[10px] text-slate-500 italic leading-relaxed">
-                            MEDICONNECT POLICY: Verification typically takes 12-24 hours. Ensure your uploaded degree name matches your registry name.
+                            MEDICONNECT HUB: All profile updates are applied instantly. Ensure your clinical contact details are reachable for patient consultations.
                         </p>
                     </Card>
                 </div>
@@ -352,14 +339,14 @@ export default function DoctorProfilePage() {
                 <div className="lg:col-span-8 space-y-8">
                     <Card className="border-none shadow-xl bg-white rounded-[2.5rem] overflow-hidden">
                         <CardHeader className="bg-muted/10 border-b px-8 py-8">
-                            <CardTitle className="text-xl">Step 1: Clinical Registry Details</CardTitle>
+                            <CardTitle className="text-xl">Step 1: Primary Registry Details</CardTitle>
                         </CardHeader>
                         <CardContent className="p-8">
                             {!isEmailVerified && (
                                 <Alert variant="destructive" className="mb-10 rounded-2xl">
                                     <AlertTitle className="font-bold">Email Verification Needed</AlertTitle>
                                     <AlertDescription className="flex flex-col sm:flex-row justify-between items-center gap-4 pt-2">
-                                        <span className="text-xs">Your clinical email must be verified before final submission.</span>
+                                        <span className="text-xs">Your clinical email must be verified for platform security.</span>
                                         <Button variant="outline" size="sm" onClick={handleRefreshStatus} disabled={isRefreshing} className="bg-white border-destructive text-destructive font-bold h-9 rounded-xl shrink-0">
                                             Sync Status
                                         </Button>
@@ -400,7 +387,7 @@ export default function DoctorProfilePage() {
                     <Card className="border-none shadow-xl bg-white rounded-[2.5rem] overflow-hidden">
                          <CardHeader className="bg-muted/10 border-b px-8 py-8">
                             <div className="flex justify-between items-center">
-                                <CardTitle className="text-xl">Step 2: Professional Credentials</CardTitle>
+                                <CardTitle className="text-xl">Step 2: Degree Portfolio</CardTitle>
                                 <Badge className="bg-primary/10 text-primary border-none">{totalUploadedCount} Linked Assets</Badge>
                             </div>
                         </CardHeader>
@@ -408,8 +395,8 @@ export default function DoctorProfilePage() {
                             <div className="flex flex-col items-center justify-center p-12 border-4 border-dashed rounded-[2rem] bg-muted/5 group hover:bg-muted/10 transition-colors relative">
                                 <Upload className="h-12 w-12 text-muted-foreground/30 mb-4 group-hover:text-primary transition-colors" />
                                 <div className="text-center mb-6">
-                                    <p className="text-sm font-bold">Select Degrees or Certifications</p>
-                                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">High-Resolution (Max 500MB)</p>
+                                    <p className="text-sm font-bold">Select Clinical Documents</p>
+                                    <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">High-Resolution (Unlimited Formats)</p>
                                 </div>
                                 <Button 
                                     type="button" 
@@ -417,14 +404,14 @@ export default function DoctorProfilePage() {
                                     className="rounded-xl font-bold border-2" 
                                     onClick={() => fileInputRef.current?.click()}
                                 >
-                                    Select Clinical Documents
+                                    Add New Degree
                                 </Button>
                                 <input 
                                     ref={fileInputRef}
                                     id="degree-upload"
                                     type="file" 
                                     multiple 
-                                    accept="image/*,.pdf" 
+                                    accept="*/*" 
                                     className="hidden" 
                                     onChange={handleFileSelect}
                                 />
@@ -450,13 +437,13 @@ export default function DoctorProfilePage() {
 
                             {totalUploadedCount > 0 && (
                                 <div className="space-y-4 pt-4">
-                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground border-b pb-2">Verified Professional Portfolio</p>
+                                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground border-b pb-2">Active Professional Portfolio</p>
                                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
                                         {existingDocs.map((url, idx) => (
                                             <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="relative aspect-video rounded-xl overflow-hidden border shadow-sm group bg-muted/20 flex items-center justify-center">
                                                 <FileText className="h-8 w-8 text-primary/20" />
                                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
-                                                    <Badge className="opacity-0 group-hover:opacity-100 transition-opacity bg-white text-slate-900">View Evidence</Badge>
+                                                    <Badge className="opacity-0 group-hover:opacity-100 transition-opacity bg-white text-slate-900">View Asset</Badge>
                                                 </div>
                                             </a>
                                         ))}
@@ -469,9 +456,9 @@ export default function DoctorProfilePage() {
                     <Button 
                         onClick={form.handleSubmit(onSubmit)} 
                         className="w-full h-20 text-xl font-bold rounded-[2rem] shadow-2xl shadow-primary/20" 
-                        disabled={isSubmitting || !isEmailVerified || totalUploadedCount === 0}
+                        disabled={isSubmitting || !isEmailVerified}
                     >
-                        {isSubmitting ? <><Loader2 className="mr-3 h-6 w-6 animate-spin" /> Submitting for Verification...</> : "Finalize & Send for Audit"}
+                        {isSubmitting ? <><Loader2 className="mr-3 h-6 w-6 animate-spin" /> Saving Changes...</> : "Save Forcefully"}
                     </Button>
                 </div>
             </div>

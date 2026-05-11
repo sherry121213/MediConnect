@@ -2,7 +2,6 @@
 
 import { useUserData, useAuth } from '@/firebase';
 import { Loader2, ShieldAlert } from 'lucide-react';
-import DoctorPendingVerification from '@/components/layout/doctor-pending-verification';
 import { useRouter, usePathname } from 'next/navigation';
 import { useEffect } from 'react';
 import AppHeader from '@/components/layout/header';
@@ -128,12 +127,7 @@ export default function DoctorPortalLayout({
       );
   }
   
-  const isVerified = !!userData.verified;
-  
-  if (isProfileComplete && !isVerified && !isProfilePage) {
-      return <DoctorPendingVerification />;
-  }
-
+  // RESTRICTION REMOVED: Verification check bypassed for instant access
   return (
     <div className="flex flex-col min-h-screen">
       <AppHeader />
