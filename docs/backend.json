@@ -1,4 +1,3 @@
-
 {
   "entities": {
     "Patient": {
@@ -13,13 +12,14 @@
         "role": { "type": "string", "enum": ["patient", "doctor", "admin"] },
         "profileComplete": { "type": "boolean" },
         "verified": { "type": "boolean" },
+        "photoURL": { "type": "string", "description": "Cloud Storage URL for profile identification." },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "firstName", "lastName", "email", "role"]
     },
     "Doctor": {
       "title": "Doctor",
-      "description": "Detailed professional profile for healthcare providers.",
+      "description": "Detailed professional profile for healthcare providers including clinical credentials.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -32,7 +32,11 @@
         "degree": { "type": "string" },
         "phone": { "type": "string" },
         "location": { "type": "string" },
-        "documents": { "type": "array", "items": { "type": "string" } },
+        "documents": { 
+          "type": "array", 
+          "items": { "type": "string" },
+          "description": "Array of Storage Bucket URLs referencing clinical degrees and certificates."
+        },
         "verified": { "type": "boolean" },
         "profileComplete": { "type": "boolean" },
         "photoURL": { "type": "string" },
@@ -50,6 +54,7 @@
         "appointmentDateTime": { "type": "string", "format": "date-time" },
         "status": { "type": "string", "enum": ["scheduled", "completed", "cancelled", "expired"] },
         "paymentStatus": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "paymentReceiptUrl": { "type": "string", "description": "Storage URL for payment verification evidence." },
         "diagnosis": { "type": "string" },
         "prescription": { "type": "string" },
         "doctorInRoom": { "type": "boolean" }
