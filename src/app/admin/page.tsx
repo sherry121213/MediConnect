@@ -1,7 +1,7 @@
 
 "use client"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Globe, Calendar, Siren, ArrowRight, Activity, Loader2, TrendingUp, BarChart3, Target, CheckCircle2, AlertCircle, Trash2, User, Stethoscope } from "lucide-react";
+import { Globe, Calendar, Siren, ArrowRight, Activity, Loader2, TrendingUp, BarChart3, Target, CheckCircle2, AlertCircle, Trash2, User, Stethoscope, MessageCircle, ShieldCheck } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, where, limit, orderBy } from "firebase/firestore";
@@ -53,6 +53,12 @@ export default function AdminDashboardPage() {
     return query(collection(firestore, 'missedSessionAudits'), orderBy('loggedAt', 'desc'), limit(10));
   }, [firestore]);
   const { data: missedAudits } = useCollection<any>(missedAuditQuery);
+
+  const supportChatsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'supportChatSessions'), orderBy('lastMessageAt', 'desc'), limit(5));
+  }, [firestore]);
+  const { data: supportChats } = useCollection<any>(supportChatsQuery);
   
   const stats = useMemo(() => {
     if (!appointments || !doctors || !patients) return { 
@@ -265,45 +271,54 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="lg:col-span-4 space-y-8">
-            <Card className="border-none shadow-2xl bg-slate-900 text-white overflow-hidden rounded-3xl">
-                <CardContent className="p-8 space-y-6">
-                    <div className="h-12 w-12 rounded-2xl bg-primary/20 flex items-center justify-center">
-                        <CheckCircle2 className="h-6 w-6 text-primary" />
-                    </div>
-                    <div className="space-y-2">
-                        <h4 className="text-xl font-bold font-headline">Platform Integrity</h4>
-                        <p className="text-sm text-slate-400 leading-relaxed">
-                            Auto-expiry and notification suppression are active. Completed sessions are locked against further audit alerts.
-                        </p>
-                    </div>
-                    <div className="pt-4 border-t border-white/10">
-                        <div className="flex items-center justify-between text-xs font-bold text-slate-500 uppercase tracking-widest">
-                            <span>Health Status</span>
-                            <span className="text-green-500">Operational</span>
+            <Card className="border-none shadow-2xl bg-slate-900 text-white overflow-hidden rounded-3xl h-full flex flex-col">
+                <CardHeader className="border-b border-white/10">
+                    <CardTitle className="text-lg flex items-center gap-3">
+                        <MessageCircle className="h-5 w-5 text-primary" /> Support Command Center
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="flex-1 p-6 space-y-4">
+                    <p className="text-[10px] font-bold uppercase text-slate-400 tracking-widest mb-2">Live Support Monitor</p>
+                    {supportChats && supportChats.length > 0 ? (
+                        <div className="space-y-3">
+                            {supportChats.map((chat: any) => (
+                                <div key={chat.id} className="p-3 bg-white/5 rounded-2xl border border-white/10 hover:bg-white/10 transition-colors group cursor-pointer">
+                                    <div className="flex justify-between items-start mb-2">
+                                        <div className="flex items-center gap-2 min-w-0">
+                                            <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                                                <User className="h-4 w-4 text-primary" />
+                                            </div>
+                                            <div className="min-w-0">
+                                                <p className="text-xs font-bold truncate">{chat.userName || 'Anonymous'}</p>
+                                                <p className="text-[9px] text-slate-500 uppercase font-bold tracking-tighter">Patient</p>
+                                            </div>
+                                        </div>
+                                        {chat.unreadByAdmin && <Badge className="bg-primary text-[7px] h-4">NEW</Badge>}
+                                    </div>
+                                    <p className="text-[11px] text-slate-400 italic line-clamp-1">"{chat.lastMessage}"</p>
+                                    <p className="text-[9px] text-slate-600 mt-2 font-mono text-right">{format(new Date(chat.lastMessageAt), "p")}</p>
+                                </div>
+                            ))}
+                            <p className="text-[9px] text-center text-slate-500 italic mt-4">Use the Support Messenger to reply.</p>
                         </div>
-                    </div>
+                    ) : (
+                        <div className="py-20 text-center space-y-3">
+                            <ShieldCheck className="h-10 w-10 text-slate-700 mx-auto opacity-20" />
+                            <p className="text-xs text-slate-600 italic">No active support queries.</p>
+                        </div>
+                    )}
                 </CardContent>
-            </Card>
-
-            <Card className="border-none shadow-2xl bg-white h-full flex flex-col rounded-3xl overflow-hidden">
-                <CardHeader className="bg-slate-900 text-white"><CardTitle className="text-lg flex items-center gap-2"><Stethoscope className="h-5 w-5 text-primary" /> Audit Trail Summary</CardTitle></CardHeader>
-                <CardContent className="p-6">
-                    <div className="space-y-6">
-                        <div className="p-5 bg-muted/30 rounded-2xl border-2 border-dashed">
-                             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em] mb-1">Lifetime Expiries</p>
-                             <p className="text-4xl font-bold text-destructive tracking-tighter">{stats.missedCount}</p>
+                <div className="p-6 bg-white/5 border-t border-white/10">
+                    <div className="flex items-center gap-3">
+                        <div className="h-10 w-10 rounded-full bg-green-500/10 flex items-center justify-center">
+                            <CheckCircle2 className="h-5 w-5 text-green-500" />
                         </div>
-                        <div className="space-y-4">
-                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Platform Policy</p>
-                            <p className="text-xs leading-relaxed text-slate-600 italic">
-                                Sessions that pass the 30-minute clinical window without completion are automatically logged for administrative review and doctor performance auditing.
-                            </p>
-                            <Button variant="outline" className="w-full h-11 font-bold rounded-xl border-2" asChild>
-                                <Link href="/admin/missed-slots">Audit Archive</Link>
-                            </Button>
+                        <div>
+                            <p className="text-[10px] font-bold uppercase text-slate-400">System Integrity</p>
+                            <p className="text-xs text-green-500 font-bold">Encrypted & Operational</p>
                         </div>
                     </div>
-                </CardContent>
+                </div>
             </Card>
         </div>
       </div>

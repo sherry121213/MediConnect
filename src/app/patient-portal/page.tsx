@@ -1,8 +1,9 @@
+
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, PhoneCall, RefreshCw, CalendarIcon, ShieldCheck, PhoneIncoming, X } from "lucide-react";
+import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, PhoneCall, RefreshCw, CalendarIcon, ShieldCheck, PhoneIncoming, X, HelpCircle } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -129,7 +130,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
     
     const now = isMounted ? new Date().getTime() : 0;
     const startTime = appointmentDate ? appointmentDate.getTime() - (10 * 60 * 1000) : 0; 
-    const endTime = appointmentDate ? appointmentDate.getTime() + (30 * 60 * 1000) : 0; // FIXED: 30m
+    const endTime = appointmentDate ? appointmentDate.getTime() + (30 * 60 * 1000) : 0; 
     
     const isLive = isMounted && now >= startTime && now < endTime;
     const isExpired = isMounted && now >= endTime;
@@ -268,7 +269,7 @@ export default function PatientPortalPage() {
             .filter(apt => {
                 const d = new Date(apt.appointmentDateTime);
                 if (!isValid(d)) return false;
-                const endTime = d.getTime() + (30 * 60 * 1000); // FIXED: 30m
+                const endTime = d.getTime() + (30 * 60 * 1000); 
                 const isMissed = now.getTime() > endTime;
                 return !isMissed && 
                        apt.status === 'scheduled' &&
@@ -280,7 +281,7 @@ export default function PatientPortalPage() {
             .filter(apt => {
                 const d = new Date(apt.appointmentDateTime);
                 if (!isValid(d)) return false;
-                const endTime = d.getTime() + (30 * 60 * 1000); // FIXED: 30m
+                const endTime = d.getTime() + (30 * 60 * 1000); 
                 const isMissed = now.getTime() > endTime;
                 return isMissed || apt.status === 'completed' || apt.status === 'expired';
             })
@@ -332,6 +333,19 @@ export default function PatientPortalPage() {
                                 <Button className="w-full justify-start h-14 text-base font-bold shadow-lg rounded-xl" asChild><Link href="/find-a-doctor"><PlusCircle className="mr-3 h-5 w-5" /> Book Consultation</Link></Button>
                                 <Button variant="outline" className="w-full justify-start h-14 text-base font-bold border-2 rounded-xl" asChild><Link href="/patient-portal/messages"><MessageSquare className="mr-3 h-5 w-5 text-primary" /> Message Center</Link></Button>
                                 <Button variant="outline" className="w-full justify-start h-14 text-base font-bold border-2 rounded-xl" asChild><Link href="/patient-portal/history"><History className="mr-3 h-5 w-5 text-primary" /> Medical Records</Link></Button>
+                            </CardContent>
+                        </Card>
+
+                        <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden rounded-3xl">
+                            <CardContent className="p-6 space-y-4 text-center">
+                                <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center mx-auto">
+                                    <HelpCircle className="h-6 w-6 text-primary" />
+                                </div>
+                                <h4 className="font-bold">Need Help?</h4>
+                                <p className="text-xs text-slate-400">Facing issues with payments or bookings? Chat with our Admin team instantly.</p>
+                                <div className="p-3 bg-white/5 rounded-xl border border-white/10 text-[10px] font-bold uppercase tracking-widest text-slate-500">
+                                    Use the Messenger Bubble Below
+                                </div>
                             </CardContent>
                         </Card>
                     </div>

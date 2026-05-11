@@ -43,6 +43,20 @@
         "paymentStatus": { "type": "string", "enum": ["pending", "approved", "rejected"] }
       }
     },
+    "SupportChatSession": {
+      "title": "SupportChatSession",
+      "description": "A communication channel between a user and admin support.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "userRole": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "lastMessageAt": { "type": "string", "format": "date-time" },
+        "unreadByAdmin": { "type": "boolean" },
+        "status": { "type": "string", "enum": ["open", "closed"] }
+      }
+    },
     "ConsultationLog": {
       "title": "ConsultationLog",
       "description": "System log of when a clinical session is started and finished.",
@@ -83,6 +97,10 @@
     "/appointments/{appointmentId}": {
       "schema": { "$ref": "#/backend/entities/Appointment" },
       "description": "Clinical booking and payment records."
+    },
+    "/supportChatSessions/{sessionId}": {
+      "schema": { "$ref": "#/backend/entities/SupportChatSession" },
+      "description": "High-level support session metadata."
     },
     "/consultationLogs/{logId}": {
       "schema": { "$ref": "#/backend/entities/ConsultationLog" },
