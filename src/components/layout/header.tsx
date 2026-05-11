@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, LogOut, User as UserIcon, Shield, LayoutDashboard, MessageCircle, CalendarClock, Monitor, Smartphone, Settings2 } from 'lucide-react';
+import { Menu, LogOut, User as UserIcon, Shield, LayoutDashboard, MessageCircle, CalendarClock } from 'lucide-react';
 import Logo from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import {
@@ -14,7 +14,7 @@ import {
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useAuth, useUserData } from '@/firebase';
 import {
   DropdownMenu,
@@ -26,8 +26,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { signOut } from 'firebase/auth';
-import { Switch } from '../ui/switch';
-import { Label } from '../ui/label';
 
 const navLinks = [
   { href: '/', label: 'Home' },
@@ -39,27 +37,8 @@ export default function AppHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const [isMobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [isDesktopMode, setIsDesktopMode] = useState(false);
   const { user, userData, isUserLoading } = useUserData();
   const auth = useAuth();
-  
-  useEffect(() => {
-    const savedMode = localStorage.getItem('desktop-mode') === 'true';
-    setIsDesktopMode(savedMode);
-    if (savedMode) {
-      document.documentElement.classList.add('force-desktop');
-    }
-  }, []);
-
-  const toggleDesktopMode = (enabled: boolean) => {
-    setIsDesktopMode(enabled);
-    localStorage.setItem('desktop-mode', String(enabled));
-    if (enabled) {
-      document.documentElement.classList.add('force-desktop');
-    } else {
-      document.documentElement.classList.remove('force-desktop');
-    }
-  };
 
   const handleLogout = () => {
     if (auth) {
@@ -142,20 +121,6 @@ export default function AppHeader() {
           )}
 
           <DropdownMenuSeparator />
-          
-          <div className="p-2 flex items-center justify-between">
-              <Label htmlFor="desktop-mode-header" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground flex items-center gap-1.5">
-                  <Monitor className="h-3 w-3" /> Desktop View
-              </Label>
-              <Switch 
-                  id="desktop-mode-header" 
-                  checked={isDesktopMode} 
-                  onCheckedChange={toggleDesktopMode}
-                  className="scale-75"
-              />
-          </div>
-
-          <DropdownMenuSeparator />
           <DropdownMenuItem onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />
             <span>Log out</span>
@@ -164,7 +129,6 @@ export default function AppHeader() {
       </DropdownMenu>
     );
   };
-
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -194,14 +158,6 @@ export default function AppHeader() {
         )}
 
         <div className="hidden md:flex items-center gap-4">
-          <div className="flex items-center gap-2 px-3 py-1 bg-muted/40 rounded-full border border-dashed">
-              <Monitor className={cn("h-3.5 w-3.5", isDesktopMode ? "text-primary" : "text-muted-foreground")} />
-              <Switch 
-                checked={isDesktopMode} 
-                onCheckedChange={toggleDesktopMode}
-                className="scale-75"
-              />
-          </div>
           {isUserLoading ? null : user ? (
             <UserMenu />
           ) : (
@@ -232,22 +188,8 @@ export default function AppHeader() {
               </SheetDescription>
             </SheetHeader>
             
-            <div className="flex items-center justify-between bg-primary/5 p-4 rounded-xl border border-primary/10 mt-8">
-                <div className="flex items-center gap-2">
-                    <Monitor className="h-5 w-5 text-primary" />
-                    <div>
-                        <p className="text-xs font-bold uppercase tracking-tight">Desktop View</p>
-                        <p className="text-[10px] text-muted-foreground">Work like a laptop</p>
-                    </div>
-                </div>
-                <Switch 
-                    checked={isDesktopMode} 
-                    onCheckedChange={(val) => { toggleDesktopMode(val); setMobileMenuOpen(false); }} 
-                />
-            </div>
-
             {userData?.role !== 'doctor' && (
-                <nav className="flex flex-col gap-6 text-lg font-medium mt-8">
+                <nav className="flex flex-col gap-6 text-lg font-medium mt-12">
                 {navLinks.map((link) => (
                     <Link
                     key={link.href}
