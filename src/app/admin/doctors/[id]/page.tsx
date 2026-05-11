@@ -1,24 +1,34 @@
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useDoc, useFirestore, useMemoFirebase } from '@/firebase';
-import { doc } from 'firebase/firestore';
+import { useDoc, useFirestore, useMemoFirebase, useStorage } from '@/firebase';
+import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import type { Doctor } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
-import { ArrowLeft, AtSign, BriefcaseMedical, CheckCircle, Loader2, MapPin, Phone, FileText, ShieldCheck, Eye, ClipboardCheck, ExternalLink } from 'lucide-react';
+import { ArrowLeft, AtSign, BriefcaseMedical, CheckCircle, Loader2, MapPin, Phone, FileText, ShieldCheck, Eye, ClipboardCheck, ExternalLink, Plus, Upload, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { useState, useRef } from 'react';
+import { Progress } from '@/components/ui/progress';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 
 export default function DoctorProfilePage() {
     const params = useParams();
     const firestore = useFirestore();
+    const storage = useStorage();
     const { toast } = useToast();
     const doctorId = params.id as string;
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
 
     const doctorDocRef = useMemoFirebase(() => {
         if (!firestore || !doctorId) return null;
@@ -48,6 +58,44 @@ export default function DoctorProfilePage() {
             title: "Doctor Verified!",
             description: `Dr. ${doctor.firstName}'s clinical profile is now active.`,
         });
+    };
+
+    const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (!e.target.files || e.target.files.length === 0 || !storage || !firestore || !doctorId) return;
+        
+        const file = e.target.files[0];
+        setIsUploading(true);
+        setUploadProgress(1);
+
+        const storageRef = ref(storage, `doctors/${doctorId}/degrees/${Date.now()}_${file.name}`);
+        const uploadTask = uploadBytesResumable(storageRef, file);
+
+        uploadTask.on('state_changed',
+            (snapshot) => {
+                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                setUploadProgress(Math.max(progress, 1));
+            },
+            (error) => {
+                console.error("Upload failed:", error);
+                toast({ variant: 'destructive', title: "Upload Failed", description: "Could not sync document to cloud." });
+                setIsUploading(false);
+            },
+            async () => {
+                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
+                
+                // Update Firestore
+                const doctorRef = doc(firestore, 'doctors', doctorId);
+                await updateDoc(doctorRef, {
+                    documents: arrayUnion(downloadURL),
+                    updatedAt: new Date().toISOString()
+                });
+
+                toast({ title: "Asset Secured", description: "New degree has been added to the professional portfolio." });
+                setIsUploading(false);
+                setUploadProgress(0);
+                setIsUploadDialogOpen(false);
+            }
+        );
     };
 
     if (isLoading) return <div className="flex h-screen items-center justify-center bg-secondary/10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -123,7 +171,62 @@ export default function DoctorProfilePage() {
                                     <div className="h-8 w-1 bg-primary rounded-full" />
                                     <ClipboardCheck className="h-6 w-6 text-primary" /> Professional Evidence Portfolio
                                 </div>
-                                <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest">{doctor.documents?.length || 0} Assets</Badge>
+                                <div className="flex items-center gap-3">
+                                    <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest">{doctor.documents?.length || 0} Assets</Badge>
+                                    
+                                    <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
+                                        <DialogTrigger asChild>
+                                            <Button size="sm" className="h-8 px-3 rounded-lg font-bold gap-2">
+                                                <Plus className="h-3.5 w-3.5" /> Add Asset
+                                            </Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="rounded-3xl sm:max-w-md">
+                                            <DialogHeader>
+                                                <DialogTitle>Append Professional Asset</DialogTitle>
+                                                <DialogDescription>Select a clinical document to add to Dr. {doctor.lastName}'s portfolio.</DialogDescription>
+                                            </DialogHeader>
+                                            <div className="py-8">
+                                                <div className="p-10 border-4 border-dashed rounded-[2rem] bg-muted/5 flex flex-col items-center justify-center text-center space-y-4 group hover:bg-muted/10 transition-colors">
+                                                    <div className="h-16 w-16 rounded-2xl bg-white shadow-sm flex items-center justify-center text-muted-foreground/30 group-hover:text-primary transition-colors">
+                                                        <Upload className="h-8 w-8" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="font-bold text-sm">Upload Credential</p>
+                                                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Images or PDFs (Max 500MB)</p>
+                                                    </div>
+                                                    <Button 
+                                                        variant="outline" 
+                                                        className="rounded-xl border-2 font-bold h-10 px-6"
+                                                        onClick={() => fileInputRef.current?.click()}
+                                                        disabled={isUploading}
+                                                    >
+                                                        {isUploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                                        Select File
+                                                    </Button>
+                                                    <input 
+                                                        type="file" 
+                                                        ref={fileInputRef} 
+                                                        className="hidden" 
+                                                        accept="image/*,.pdf" 
+                                                        onChange={handleFileUpload} 
+                                                    />
+                                                </div>
+                                                {isUploading && (
+                                                    <div className="mt-6 space-y-2">
+                                                        <div className="flex justify-between items-center text-[10px] font-bold uppercase text-primary">
+                                                            <span>Synchronizing...</span>
+                                                            <span>{Math.round(uploadProgress)}%</span>
+                                                        </div>
+                                                        <Progress value={uploadProgress} className="h-1.5" />
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <DialogFooter>
+                                                <Button variant="ghost" className="rounded-xl" onClick={() => setIsUploadDialogOpen(false)} disabled={isUploading}>Cancel</Button>
+                                            </DialogFooter>
+                                        </DialogContent>
+                                    </Dialog>
+                                </div>
                             </h4>
                             
                             <div className="bg-muted/30 p-6 rounded-2xl border border-dashed border-primary/20 space-y-2">
