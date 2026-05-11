@@ -1,4 +1,3 @@
-
 'use client';
 
 import { z } from 'zod';
@@ -22,6 +21,7 @@ import ImageCropperDialog from '@/components/ImageCropperDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
+import { cn } from '@/lib/utils';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
