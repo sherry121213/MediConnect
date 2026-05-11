@@ -8,7 +8,7 @@ import { collection, query, where, limit, orderBy } from "firebase/firestore";
 import type { Doctor, Appointment, Patient } from "@/lib/types";
 import { format, isAfter, startOfDay, startOfWeek, startOfMonth } from "date-fns";
 import { Button } from "@/components/ui/button";
-import Link from "link";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
@@ -310,4 +310,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-
