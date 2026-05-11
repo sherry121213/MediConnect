@@ -21,7 +21,7 @@ import { MoreHorizontal, PlusCircle, Stethoscope, UserX, UserCheck, Eye, Upload,
 import Image from "next/image";
 import { useFirestore, useCollection, useMemoFirebase, useStorage } from "@/firebase";
 import { collection, doc, setDoc } from "firebase/firestore";
-import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import type { Doctor } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -53,7 +53,6 @@ import { useToast } from "@/hooks/use-toast";
 import { useState, useRef } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
-import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { Progress } from "@/components/ui/progress";
 
 const addDoctorSchema = z.object({
@@ -72,11 +71,10 @@ type AddDoctorFormValues = z.infer<typeof addDoctorSchema>;
 
 export default function AdminDoctorsPage() {
     const firestore = useFirestore();
-    const storage = useStorage();
     const { toast } = useToast();
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+    const [selectedFiles, setSelectedFiles] = useState<{name: string, data: string}[]>([]);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const doctorsCollection = useMemoFirebase(() => {
@@ -103,7 +101,14 @@ export default function AdminDoctorsPage() {
 
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files) {
-            setSelectedFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+            const files = Array.from(e.target.files);
+            files.forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (event) => {
+                    setSelectedFiles(prev => [...prev, { name: file.name, data: event.target?.result as string }]);
+                };
+                reader.readAsDataURL(file);
+            });
         }
     };
 
@@ -112,7 +117,7 @@ export default function AdminDoctorsPage() {
     };
 
     async function onSubmit(values: AddDoctorFormValues) {
-        if (!firestore || !storage) return;
+        if (!firestore) return;
         setIsSubmitting(true);
 
         try {
@@ -120,34 +125,22 @@ export default function AdminDoctorsPage() {
             const doctorRef = doc(collection(firestore, 'doctors'));
             const doctorId = doctorRef.id;
 
-            // 2. Process Credentials (if any)
-            const documentUrls: string[] = [];
-            if (selectedFiles.length > 0) {
-                for (const file of selectedFiles) {
-                    const fileRef = ref(storage, `doctors/${doctorId}/degrees/${Date.now()}_${file.name}`);
-                    const uploadResult = await uploadBytes(fileRef, file);
-                    const downloadUrl = await getDownloadURL(uploadResult.ref);
-                    documentUrls.push(downloadUrl);
-                }
-            }
-
-            // 3. Construct Unified Professional Profile
+            // 2. Construct Unified Professional Profile
             const timestamp = new Date().toISOString();
             const newDoctorData: Doctor = {
                 id: doctorId,
                 ...values,
-                verified: true, // Admin-added doctors are pre-verified
+                verified: true, 
                 profileComplete: true,
                 isActive: true, 
                 rating: 0,
                 reviews: 0,
-                documents: documentUrls,
                 profileImageId: 'doctor' + (Math.floor(Math.random() * 8) + 1),
                 createdAt: timestamp,
                 updatedAt: timestamp,
             };
 
-            // 4. Force Persistence to both Doctors and Patients collections
+            // 3. Force Persistence
             await setDoc(doctorRef, newDoctorData);
             await setDoc(doc(firestore, 'patients', doctorId), {
                 id: doctorId,
@@ -161,6 +154,18 @@ export default function AdminDoctorsPage() {
                 createdAt: timestamp,
                 updatedAt: timestamp,
             });
+
+            // 4. Save Credentials as de-coupled records
+            if (selectedFiles.length > 0) {
+                for (const fileObj of selectedFiles) {
+                    await addDocumentNonBlocking(collection(firestore, 'doctorCredentials'), {
+                        doctorId: doctorId,
+                        fileUrl: fileObj.data,
+                        fileName: fileObj.name,
+                        uploadedAt: new Date().toISOString(),
+                    });
+                }
+            }
 
             toast({ title: "Clinical Record Created", description: `Full professional profile for Dr. ${values.firstName} has been indexed.` });
             form.reset();
@@ -244,10 +249,13 @@ export default function AdminDoctorsPage() {
                                 <p className="text-sm font-bold">Attach Clinical Evidence</p>
                                 <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Images or PDFs of Medical Degrees</p>
                             </div>
-                            <Button type="button" variant="outline" className="rounded-xl border-2 font-bold" onClick={() => fileInputRef.current?.click()} disabled={isSubmitting}>
-                                Select Credentials
-                            </Button>
-                            <input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*,.pdf" onChange={handleFileSelect} />
+                            
+                            <label htmlFor="admin-add-degree" className="cursor-pointer">
+                                <Button type="button" variant="outline" className="rounded-xl border-2 font-bold pointer-events-none" disabled={isSubmitting}>
+                                    Select Credentials
+                                </Button>
+                            </label>
+                            <input id="admin-add-degree" type="file" ref={fileInputRef} className="hidden" multiple accept="image/*,.pdf" onChange={handleFileSelect} />
                         </div>
 
                         {selectedFiles.length > 0 && (

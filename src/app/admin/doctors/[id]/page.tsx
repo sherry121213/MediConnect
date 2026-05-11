@@ -1,10 +1,8 @@
-
 'use client';
 
 import { useParams } from 'next/navigation';
 import { useDoc, useFirestore, useMemoFirebase, useStorage, useCollection } from '@/firebase';
 import { doc, setDoc, collection, query, where, deleteDoc } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import type { Doctor } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -22,13 +20,11 @@ import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 export default function DoctorProfilePage() {
     const params = useParams();
     const firestore = useFirestore();
-    const storage = useStorage();
     const { toast } = useToast();
     const doctorId = params.id as string;
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    const [isUploading, setIsUploading] = useState(false);
-    const [uploadProgress, setUploadProgress] = useState(0);
+    const [isSyncing, setIsSyncing] = useState(false);
     const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
 
     const doctorDocRef = useMemoFirebase(() => {
@@ -68,43 +64,29 @@ export default function DoctorProfilePage() {
     };
 
     const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files || e.target.files.length === 0 || !storage || !firestore || !doctorId) return;
+        if (!e.target.files || e.target.files.length === 0 || !firestore || !doctorId) return;
         
         const file = e.target.files[0];
-        setIsUploading(true);
-        setUploadProgress(1);
+        setIsSyncing(true);
 
-        const storageRef = ref(storage, `doctors/${doctorId}/degrees/${Date.now()}_${file.name}`);
-        const uploadTask = uploadBytesResumable(storageRef, file);
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const base64Data = event.target?.result as string;
+            
+            const credentialData = {
+                doctorId: doctorId,
+                fileUrl: base64Data,
+                fileName: file.name,
+                uploadedAt: new Date().toISOString(),
+            };
+            
+            await addDocumentNonBlocking(collection(firestore, 'doctorCredentials'), credentialData);
 
-        uploadTask.on('state_changed',
-            (snapshot) => {
-                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                setUploadProgress(Math.max(progress, 1));
-            },
-            (error) => {
-                toast({ variant: 'destructive', title: "Sync Error", description: "Storage link failed." });
-                setIsUploading(false);
-            },
-            async () => {
-                const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                
-                // DE-COUPLED PERSISTENCE
-                const credentialData = {
-                    doctorId: doctorId,
-                    fileUrl: downloadURL,
-                    fileName: file.name,
-                    uploadedAt: new Date().toISOString(),
-                };
-                
-                await addDocumentNonBlocking(collection(firestore, 'doctorCredentials'), credentialData);
-
-                toast({ title: "Asset Secured", description: "Independent record created for this credential." });
-                setIsUploading(false);
-                setUploadProgress(0);
-                setIsUploadDialogOpen(false);
-            }
-        );
+            toast({ title: "Asset Secured", description: "High-fidelity record created for this credential." });
+            setIsSyncing(false);
+            setIsUploadDialogOpen(false);
+        };
+        reader.readAsDataURL(file);
     };
 
     const handleRemoveCred = async (credId: string) => {
@@ -207,37 +189,41 @@ export default function DoctorProfilePage() {
                                                     </div>
                                                     <div>
                                                         <p className="font-bold text-sm">Force Sync Credential</p>
-                                                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Images or PDFs (Max 500MB)</p>
+                                                        <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Images or PDFs</p>
                                                     </div>
-                                                    <Button 
-                                                        variant="outline" 
-                                                        className="rounded-xl border-2 font-bold h-10 px-6"
-                                                        onClick={() => fileInputRef.current?.click()}
-                                                        disabled={isUploading}
-                                                    >
-                                                        {isUploading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-                                                        Select File
-                                                    </Button>
+                                                    
+                                                    <label htmlFor="admin-single-upload" className="cursor-pointer">
+                                                        <Button 
+                                                            variant="outline" 
+                                                            className="rounded-xl border-2 font-bold h-10 px-6 pointer-events-none"
+                                                            disabled={isSyncing}
+                                                        >
+                                                            {isSyncing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+                                                            Select File
+                                                        </Button>
+                                                    </label>
                                                     <input 
+                                                        id="admin-single-upload"
                                                         type="file" 
                                                         ref={fileInputRef} 
                                                         className="hidden" 
                                                         accept="image/*,.pdf" 
                                                         onChange={handleFileUpload} 
+                                                        disabled={isSyncing}
                                                     />
                                                 </div>
-                                                {isUploading && (
+                                                {isSyncing && (
                                                     <div className="mt-6 space-y-2">
-                                                        <div className="flex justify-between items-center text-[10px] font-bold uppercase text-primary">
+                                                        <div className="flex justify-center items-center text-[10px] font-bold uppercase text-primary">
+                                                            <Loader2 className="h-3 w-3 animate-spin mr-2" />
                                                             <span>Syncing Record...</span>
-                                                            <span>{Math.round(uploadProgress)}%</span>
                                                         </div>
-                                                        <Progress value={uploadProgress} className="h-1.5" />
+                                                        <Progress value={undefined} className="h-1.5" />
                                                     </div>
                                                 )}
                                             </div>
                                             <DialogFooter>
-                                                <Button variant="ghost" className="rounded-xl" onClick={() => setIsUploadDialogOpen(false)} disabled={isUploading}>Cancel</Button>
+                                                <Button variant="ghost" className="rounded-xl" onClick={() => setIsUploadDialogOpen(false)} disabled={isSyncing}>Cancel</Button>
                                             </DialogFooter>
                                         </DialogContent>
                                     </Dialog>
@@ -258,7 +244,7 @@ export default function DoctorProfilePage() {
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                         {credentials.map((cred) => {
                                             const url = cred.fileUrl;
-                                            const isImage = url.toLowerCase().includes('.jpg') || url.toLowerCase().includes('.jpeg') || url.toLowerCase().includes('.png') || url.toLowerCase().includes('.webp') || url.includes('alt=media');
+                                            const isImage = url.startsWith('data:image/') || url.toLowerCase().includes('.jpg') || url.toLowerCase().includes('.jpeg') || url.toLowerCase().includes('.png') || url.toLowerCase().includes('.webp') || url.includes('alt=media');
                                             return (
                                                 <Card key={cred.id} className="overflow-hidden border-muted shadow-lg group hover:shadow-xl transition-all rounded-2xl">
                                                     <div className="relative aspect-video bg-muted/40 flex items-center justify-center border-b overflow-hidden">

@@ -5,14 +5,13 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useFirestore, useUserData, useStorage, useCollection, useMemoFirebase } from '@/firebase';
 import { doc, getDoc, setDoc, collection, query, where, deleteDoc } from 'firebase/firestore';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, BadgeCheck, FileText, Upload, ShieldCheck, Trash2, ExternalLink, RefreshCw, Mail } from 'lucide-react';
+import { Loader2, BadgeCheck, FileText, Upload, ShieldCheck, Trash2, ExternalLink, RefreshCw, Mail, CheckCircle2 } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -33,27 +32,17 @@ const profileSchema = z.object({
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
 
-interface UploadingFile {
-    id: string;
-    file: File;
-    progress: number;
-    status: 'pending' | 'uploading' | 'done' | 'error';
-}
-
 export default function DoctorProfilePage() {
   const { user, userData, isUserLoading } = useUserData();
   const firestore = useFirestore();
-  const storage = useStorage();
   const router = useRouter();
   const { toast } = useToast();
   
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
-  const [photoProgress, setPhotoProgress] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
   const [cropperImage, setCropperImage] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   
-  const [uploadQueue, setUploadQueue] = useState<UploadingFile[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // FETCHING DE-COUPLED CREDENTIALS
@@ -113,112 +102,55 @@ export default function DoctorProfilePage() {
   };
 
   const handleSaveCroppedImage = async (croppedImage: string) => {
-    if (!user || !firestore || !storage) return;
+    if (!user || !firestore) return;
     
-    setIsUploadingPhoto(true);
-    setPhotoProgress(1);
+    setIsSyncing(true);
     setCropperImage(null);
 
     try {
-      const base64Data = croppedImage.split(',')[1];
-      const binary = atob(base64Data);
-      const array = [];
-      for (let i = 0; i < binary.length; i++) {
-        array.push(binary.charCodeAt(i));
-      }
-      const blob = new Blob([new Uint8Array(array)], { type: 'image/jpeg' });
-      
-      const fileRef = ref(storage, `doctors/${user.uid}/profile_${Date.now()}.jpg`);
-      const uploadTask = uploadBytesResumable(fileRef, blob);
-      
-      uploadTask.on('state_changed', 
-          (snapshot) => {
-              const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-              setPhotoProgress(Math.max(p, 1)); 
-          },
-          (error) => {
-              toast({ variant: 'destructive', title: 'Photo Sync Failed' });
-              setIsUploadingPhoto(false);
-          },
-          async () => {
-              const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-              const updateData = { photoURL: downloadURL, updatedAt: new Date().toISOString() };
-              
-              await setDoc(doc(firestore, 'doctors', user.uid), updateData, { merge: true });
-              await setDoc(doc(firestore, 'patients', user.uid), updateData, { merge: true });
+      const updateData = { photoURL: croppedImage, updatedAt: new Date().toISOString() };
+      await setDoc(doc(firestore, 'doctors', user.uid), updateData, { merge: true });
+      await setDoc(doc(firestore, 'patients', user.uid), updateData, { merge: true });
 
-              toast({ title: 'Identity Secured', description: 'Profile photo updated.' });
-              setIsUploadingPhoto(false);
-              setPhotoProgress(0);
-          }
-      );
+      toast({ title: 'Identity Secured', description: 'Profile photo updated.' });
+      setIsSyncing(false);
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'System Error', description: 'Could not process photo.' });
-      setIsUploadingPhoto(false);
+      setIsSyncing(false);
     }
   };
 
-  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files) return;
-    const files = Array.from(e.target.files);
-    const newItems = files.map(file => ({
-        id: Math.random().toString(36).substr(2, 9),
-        file,
-        progress: 0,
-        status: 'pending' as const
-    }));
-    setUploadQueue(prev => [...prev, ...newItems]);
-    e.target.value = ''; 
-  };
-
-  const startUploads = async () => {
-    if (!user || !storage || !firestore) return;
+  const handleDegreeSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0 || !user || !firestore) return;
     
-    const pending = uploadQueue.filter(q => q.status === 'pending');
-    if (pending.length === 0) return;
+    setIsSyncing(true);
+    const files = Array.from(e.target.files);
 
-    for (const item of pending) {
-        setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'uploading', progress: 1 } : q));
-
-        const fileRef = ref(storage, `doctors/${user.uid}/degrees/${item.id}_${item.file.name}`);
-        const uploadTask = uploadBytesResumable(fileRef, item.file);
-
-        await new Promise<void>((resolve, reject) => {
-            uploadTask.on('state_changed',
-                (snapshot) => {
-                    const p = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                    setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, progress: Math.max(p, 1) } : q));
-                },
-                (error) => {
-                    setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'error' } : q));
-                    reject(error);
-                },
-                async () => {
-                    const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
-                    setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'done', progress: 100 } : q));
-                    
-                    const credentialData = {
-                        doctorId: user.uid,
-                        fileUrl: downloadURL,
-                        fileName: item.file.name,
-                        uploadedAt: new Date().toISOString(),
-                    };
-                    
-                    await addDocumentNonBlocking(collection(firestore, 'doctorCredentials'), credentialData);
-                    
-                    toast({ title: "Credential Secured", description: item.file.name });
-                    resolve();
-                }
-            );
+    for (const file of files) {
+        const reader = new FileReader();
+        
+        await new Promise<void>((resolve) => {
+            reader.onload = async (event) => {
+                const base64String = event.target?.result as string;
+                
+                const credentialData = {
+                    doctorId: user.uid,
+                    fileUrl: base64String, // Storing Base64 directly for instant viewing
+                    fileName: file.name,
+                    uploadedAt: new Date().toISOString(),
+                };
+                
+                await addDocumentNonBlocking(collection(firestore, 'doctorCredentials'), credentialData);
+                resolve();
+            };
+            reader.readAsDataURL(file);
         });
     }
-  };
 
-  useEffect(() => {
-    if (uploadQueue.some(q => q.status === 'pending')) {
-        startUploads();
-    }
-  }, [uploadQueue]);
+    toast({ title: "Clinical Assets Synced", description: `${files.length} degree(s) added to portal.` });
+    setIsSyncing(false);
+    e.target.value = ''; 
+  };
 
   const removeDoc = async (credId: string) => {
     if (!user || !firestore) return;
@@ -259,7 +191,6 @@ export default function DoctorProfilePage() {
             lastName: userData?.lastName || '',
             email: user.email || '',
             profileComplete: true,
-            // verified status is NOT set here; it remains false until admin approves
             updatedAt: timestamp,
         };
 
@@ -274,7 +205,7 @@ export default function DoctorProfilePage() {
         await setDoc(doc(firestore, 'doctors', user.uid), doctorData, { merge: true });
         await setDoc(doc(firestore, 'patients', user.uid), patientData, { merge: true });
 
-        toast({ title: 'Registry Updated', description: 'Your information is being reviewed by administration.' });
+        toast({ title: 'Registry Updated', description: 'Your information has been secured.' });
         router.push('/doctor-portal');
     } catch (error) {
         toast({ variant: "destructive", title: "Sync Failed" });
@@ -331,20 +262,20 @@ export default function DoctorProfilePage() {
                                     <AvatarImage src={userData?.photoURL || user?.photoURL || undefined} className="object-cover" />
                                     <AvatarFallback className="text-5xl bg-primary/5 text-primary">{userData?.firstName?.[0]}</AvatarFallback>
                                 </Avatar>
-                                {isUploadingPhoto && (
+                                {isSyncing && (
                                     <div className="absolute inset-0 bg-black/60 rounded-full flex flex-col items-center justify-center text-white p-4">
-                                        <p className="text-[10px] font-bold uppercase mb-1">{Math.round(photoProgress)}%</p>
-                                        <Progress value={photoProgress} className="h-1 w-full" />
+                                        <Loader2 className="h-6 w-6 animate-spin mb-2" />
+                                        <p className="text-[8px] font-bold uppercase">Syncing...</p>
                                     </div>
                                 )}
                             </div>
                             <div className='relative inline-block'>
-                                <Button asChild variant="outline" size="sm" className="rounded-xl font-bold border-2" disabled={isUploadingPhoto}>
+                                <Button asChild variant="outline" size="sm" className="rounded-xl font-bold border-2" disabled={isSyncing}>
                                     <label htmlFor="picture-upload" className="cursor-pointer">
-                                    {isUploadingPhoto ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Syncing...</>) : "Change Photo"}
+                                    {isSyncing ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Syncing...</>) : "Change Photo"}
                                     </label>
                                 </Button>
-                                <input id="picture-upload" type="file" accept="image/*" onChange={handlePictureChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isUploadingPhoto || isSubmitting} />
+                                <input id="picture-upload" type="file" accept="image/*" onChange={handlePictureChange} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={isSyncing || isSubmitting} />
                             </div>
                         </CardContent>
                     </Card>
@@ -412,7 +343,7 @@ export default function DoctorProfilePage() {
                     <Card className="border-none shadow-xl bg-white rounded-[2.5rem] overflow-hidden">
                          <CardHeader className="bg-muted/10 border-b px-8 py-8">
                             <div className="flex justify-between items-center">
-                                <CardTitle className="text-xl">Optional: Degrees & Assets</CardTitle>
+                                <CardTitle className="text-xl">Degrees & Assets</CardTitle>
                                 <Badge className="bg-primary/10 text-primary border-none">{totalUploadedCount} Synced Assets</Badge>
                             </div>
                         </CardHeader>
@@ -423,21 +354,26 @@ export default function DoctorProfilePage() {
                                     <p className="text-sm font-bold">Attach Professional Evidence</p>
                                     <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Images or PDFs</p>
                                 </div>
-                                <Button 
-                                    type="button" 
-                                    variant="outline" 
-                                    className="rounded-xl font-bold border-2" 
-                                    onClick={() => fileInputRef.current?.click()}
-                                >
-                                    Select Degree File
-                                </Button>
+                                
+                                <label htmlFor="degree-upload" className="cursor-pointer">
+                                    <Button 
+                                        type="button" 
+                                        variant="outline" 
+                                        className="rounded-xl font-bold border-2 pointer-events-none"
+                                        disabled={isSyncing}
+                                    >
+                                        {isSyncing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
+                                        Select Degree Files
+                                    </Button>
+                                </label>
                                 <input 
-                                    ref={fileInputRef}
+                                    id="degree-upload"
                                     type="file" 
                                     multiple 
                                     accept="image/*,.pdf" 
                                     className="hidden" 
-                                    onChange={handleFileSelect}
+                                    onChange={handleDegreeSelect}
+                                    disabled={isSyncing}
                                 />
                             </div>
 
@@ -449,11 +385,13 @@ export default function DoctorProfilePage() {
                                             <div key={cred.id} className="group relative p-3 rounded-2xl border bg-muted/10 flex items-center justify-between gap-4">
                                                 <div className="flex items-center gap-3 min-w-0">
                                                     <div className="h-10 w-10 rounded-xl bg-white border flex items-center justify-center text-primary shrink-0">
-                                                        <FileText className="h-5 w-5" />
+                                                        <FileText className="h-5 v-5" />
                                                     </div>
                                                     <div className="min-w-0">
                                                         <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-tighter truncate">{cred.fileName || `Asset-${idx + 1}`}</p>
-                                                        <p className="text-[8px] text-primary font-bold uppercase">Stored in Portal</p>
+                                                        <p className="text-[8px] text-green-600 font-bold uppercase flex items-center gap-1">
+                                                            <CheckCircle2 className="h-2 w-2" /> Secured
+                                                        </p>
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2 shrink-0">
@@ -475,7 +413,7 @@ export default function DoctorProfilePage() {
                     <Button 
                         onClick={form.handleSubmit(onSubmit)} 
                         className="w-full h-16 text-lg font-bold rounded-[2rem] shadow-2xl shadow-primary/20" 
-                        disabled={isSubmitting || !isEmailVerified}
+                        disabled={isSubmitting || isSyncing || !isEmailVerified}
                     >
                         {isSubmitting ? <><Loader2 className="mr-3 h-5 w-5 animate-spin" /> Finalizing...</> : "Save Professional Information"}
                     </Button>
