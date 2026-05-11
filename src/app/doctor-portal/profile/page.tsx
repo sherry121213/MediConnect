@@ -12,7 +12,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, FileText, ExternalLink, GraduationCap, Eye, BadgeCheck, ShieldAlert } from 'lucide-react';
+import { Loader2, FileText, ExternalLink, GraduationCap, Eye, BadgeCheck, ShieldAlert, Plus, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -20,6 +20,7 @@ import ImageCropperDialog from '@/components/ImageCropperDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
+import { cn } from '@/lib/utils';
 
 const profileSchema = z.object({
   specialty: z.string().min(2, 'Specialty is required.'),
@@ -44,6 +45,7 @@ export default function DoctorProfilePage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   const [existingDocs, setExistingDocs] = useState<string[]>([]);
+  const [newFiles, setNewFiles] = useState<File[]>([]);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -151,18 +153,51 @@ export default function DoctorProfilePage() {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files) {
+        const files = Array.from(e.target.files);
+        setNewFiles(prev => [...prev, ...files]);
+        e.target.value = '';
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setNewFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
   const onSubmit = async (values: ProfileFormValues) => {
-    if (!user || !firestore) return;
+    if (!user || !firestore || !storage) return;
     
     setIsSubmitting(true);
 
     try {
+        const newUrls: string[] = [];
+        
+        // Upload new degrees sequentially for stability
+        for (const file of newFiles) {
+            const fileRef = ref(storage, `doctors/${user.uid}/degrees/${Date.now()}_${file.name}`);
+            const uploadTask = uploadBytesResumable(fileRef, file);
+            
+            const url = await new Promise<string>((resolve, reject) => {
+                uploadTask.on('state_changed', null, 
+                    (error) => reject(error),
+                    async () => {
+                        const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+                        resolve(downloadUrl);
+                    }
+                );
+            });
+            newUrls.push(url);
+        }
+
+        const updatedDocs = [...existingDocs, ...newUrls];
+
         const doctorData = {
             ...values,
             firstName: userData?.firstName || '',
             lastName: userData?.lastName || '',
             email: user.email || '',
-            documents: existingDocs,
+            documents: updatedDocs,
             profileComplete: true,
             updatedAt: new Date().toISOString(),
         };
@@ -178,7 +213,10 @@ export default function DoctorProfilePage() {
         setDocumentNonBlocking(doc(firestore, 'doctors', user.uid), doctorData, { merge: true });
         setDocumentNonBlocking(doc(firestore, 'patients', user.uid), patientData, { merge: true });
 
-        toast({ title: 'Profile Synchronized!', description: 'Your clinical information has been updated.' });
+        toast({ title: 'Profile Synchronized!', description: 'Your clinical information and degrees have been updated.' });
+        
+        setExistingDocs(updatedDocs);
+        setNewFiles([]);
         
         if (!userData?.profileComplete) {
             router.push('/doctor-portal');
@@ -188,7 +226,7 @@ export default function DoctorProfilePage() {
         toast({ 
             variant: "destructive", 
             title: "Submission Error", 
-            description: "Failed to save profile changes." 
+            description: "Failed to save profile changes. Please check your connection." 
         });
     } finally {
         setIsSubmitting(false);
@@ -202,7 +240,7 @@ export default function DoctorProfilePage() {
         <div className="max-w-4xl mx-auto space-y-6">
             <div className="flex items-center justify-between">
                 <div>
-                    <h1 className="text-3xl font-bold font-headline tracking-tight">Clinical Registry</h1>
+                    <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground">Clinical Registry</h1>
                     <p className="text-muted-foreground">Manage your credentials and clinical presence.</p>
                 </div>
                 {isVerified && (
@@ -325,16 +363,44 @@ export default function DoctorProfilePage() {
                                         </div>
                                     )}
 
-                                    <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10 flex gap-3">
-                                        <ShieldAlert className="h-5 w-5 text-primary shrink-0 mt-0.5" />
-                                        <p className="text-[11px] text-primary-dark leading-relaxed italic">
-                                            Adding new qualifications is managed by the administrative audit team. To update your portfolio, please initiate a support chat with clinical administration.
-                                        </p>
+                                    <div className="space-y-4">
+                                        <FormLabel className="text-base font-bold flex items-center gap-2">
+                                            <Plus className="h-5 w-5 text-primary" /> Attach New Degree/Certification
+                                        </FormLabel>
+                                        <div className="relative">
+                                            <label 
+                                                htmlFor="degree-upload" 
+                                                className="flex flex-col items-center justify-center w-full h-32 border-2 border-dashed rounded-3xl cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors border-slate-200"
+                                            >
+                                                <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                                                    <FileText className="w-8 h-8 mb-3 text-slate-400" />
+                                                    <p className="mb-2 text-sm text-slate-500"><span className="font-bold text-primary">Click to upload</span> degrees</p>
+                                                    <p className="text-[10px] text-slate-400 uppercase tracking-widest font-bold">PDF, JPG, PNG (Max 500MB)</p>
+                                                </div>
+                                                <Input id="degree-upload" type="file" multiple className="hidden" onChange={handleFileChange} />
+                                            </label>
+                                        </div>
+                                        
+                                        {newFiles.length > 0 && (
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+                                                {newFiles.map((file, idx) => (
+                                                    <div key={idx} className="flex items-center justify-between p-3 bg-primary/5 rounded-xl border border-primary/10">
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <FileText className="h-4 w-4 text-primary shrink-0" />
+                                                            <span className="text-xs font-medium truncate">{file.name}</span>
+                                                        </div>
+                                                        <Button type="button" variant="ghost" size="icon" className="h-6 w-6 text-muted-foreground hover:text-destructive" onClick={() => removeFile(idx)}>
+                                                            <X className="h-3 w-3" />
+                                                        </Button>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        )}
                                     </div>
                                 </div>
 
                                 <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl shadow-primary/20" disabled={isSubmitting || isUploading || !isEmailVerified}>
-                                    {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Synchronizing...</> : "Update Professional Profile"}
+                                    {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Finalizing Assets...</> : "Save Professional Profile"}
                                 </Button>
                             </form>
                         </Form>
