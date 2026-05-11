@@ -17,12 +17,13 @@ type MessengerCategory = 'patients' | 'doctors';
 const SessionItem = ({ session, onClick, isActive, isDoctor }: { session: any, onClick: () => void, isActive: boolean, isDoctor: boolean }) => {
   const firestore = useFirestore();
   const userId = isDoctor ? session.doctorId : session.userId;
-  const docRef = useMemoFirebase(() => {
+  
+  const profileQuery = useMemoFirebase(() => {
     if (!firestore || !userId) return null;
-    return doc(firestore, 'patients', userId);
+    return query(collection(firestore, 'patients'), where('id', '==', userId));
   }, [firestore, userId]);
   
-  const { data: userProfile } = useCollection(useMemoFirebase(() => query(collection(firestore!, 'patients'), where('id', '==', userId)), [firestore, userId]));
+  const { data: userProfile } = useCollection<any>(profileQuery);
   const profile = userProfile?.[0];
 
   return (
@@ -38,11 +39,11 @@ const SessionItem = ({ session, onClick, isActive, isDoctor }: { session: any, o
       </div>
       <div className="min-w-0 flex-1">
         <p className="font-bold text-xs truncate">
-          {isDoctor ? `Dr. ${profile?.firstName || '...'}` : (profile?.firstName ? `${profile.firstName} ${profile.lastName}` : 'Anonymous')}
+          {isDoctor ? `Dr. ${profile?.firstName || '...'}` : (profile?.firstName ? `${profile.firstName} ${profile.lastName}` : 'Support User')}
         </p>
-        <p className="text-[10px] text-muted-foreground truncate italic">{session.lastMessageContent || session.lastMessage}</p>
+        <p className="text-[10px] text-muted-foreground truncate italic">{session.lastMessageContent || session.lastMessage || 'Open session'}</p>
       </div>
-      {(session.unreadByAdmin || session.lastMessageSenderRole === 'doctor') && <div className="h-2 w-2 rounded-full bg-primary shrink-0" />}
+      {(session.unreadByAdmin || session.lastMessageSenderRole === 'doctor') && <div className="h-2 w-2 rounded-full bg-primary shrink-0 animate-pulse" />}
     </button>
   );
 };
@@ -107,8 +108,7 @@ export default function SupportMessenger() {
     setNewMessage('');
 
     const messageData = {
-      content: msg, // Consistent field name
-      text: msg, // Fallback for patient sessions
+      content: msg,
       senderId: user.uid,
       senderRole: userData?.role || 'patient',
       timestamp: new Date().toISOString(),
@@ -153,8 +153,8 @@ export default function SupportMessenger() {
                 <ShieldCheck className="h-5 w-5 text-primary" />
               </div>
               <div className="min-w-0">
-                <CardTitle className="text-sm font-bold truncate">MediConnect Support</CardTitle>
-                {!isMinimized && <p className="text-[9px] text-slate-400 uppercase tracking-widest font-bold">Secure Session</p>}
+                <CardTitle className="text-sm font-bold truncate">Support Messenger</CardTitle>
+                {!isMinimized && <p className="text-[9px] text-slate-400 uppercase tracking-widest font-bold">Secure Clinical Link</p>}
               </div>
             </div>
             <div className="flex items-center gap-1 shrink-0">
@@ -193,7 +193,10 @@ export default function SupportMessenger() {
                             doctorSessions?.map(s => <SessionItem key={s.id} session={s} onClick={() => setActiveSessionId(s.id)} isActive={activeSessionId === s.id} isDoctor={true} />)
                         )}
                         {((adminCategory === 'patients' && !patientSessions?.length) || (adminCategory === 'doctors' && !doctorSessions?.length)) && (
-                            <div className="py-20 text-center italic text-muted-foreground text-[11px]">No active threads in this category.</div>
+                            <div className="py-24 text-center italic text-muted-foreground text-[11px] px-8">
+                                <MessageCircle className="h-10 w-10 mx-auto mb-4 opacity-10" />
+                                No active threads in this category.
+                            </div>
                         )}
                       </div>
                    </div>
@@ -229,7 +232,8 @@ export default function SupportMessenger() {
                         {(!messages || messages.length === 0) && !isLoadingMessages && (
                         <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-4">
                             <MessageCircle className="h-10 w-10 text-slate-200" />
-                            <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-tight">Support Encrypted & Active</p>
+                            <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-tight">Encryption Active</p>
+                            <p className="text-[10px] text-muted-foreground opacity-60">Start typing below to reach our Support Team.</p>
                         </div>
                         )}
                         <div ref={scrollRef} />
@@ -242,7 +246,7 @@ export default function SupportMessenger() {
                 <CardFooter className="p-3 border-t bg-white">
                   <form onSubmit={handleSendMessage} className="w-full flex gap-2">
                     <Input 
-                      placeholder="Type a message..." 
+                      placeholder="Type your message..." 
                       className="flex-1 bg-slate-50 border-slate-200 h-10 text-xs rounded-xl focus:ring-primary"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}

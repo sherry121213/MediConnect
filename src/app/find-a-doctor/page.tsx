@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -7,9 +8,9 @@ import DoctorCard from '@/components/doctor-card';
 import { specialties } from '@/lib/data';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, MapPin, Loader2, X } from 'lucide-react';
+import { Search, MapPin, Loader2, X, AlertCircle } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import type { Doctor } from '@/lib/types';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
@@ -17,8 +18,7 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 
-// A list of major cities in Pakistan for the dropdown.
-const locations = ["Islamabad", "Rawalpindi", "Lahore", "Karachi", "Peshawar"];
+const locations = ["Islamabad", "Rawalpindi", "Lahore", "Karachi", "Peshawar", "Faisalabad", "Multan", "Quetta"];
 
 export default function FindADoctorPage() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,60 +31,57 @@ export default function FindADoctorPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const doctorsPerPage = 8;
 
-  const doctorsCollection = useMemoFirebase(() => {
+  const doctorsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return collection(firestore, 'doctors');
+    // Base visibility filter
+    return query(
+        collection(firestore, 'doctors'),
+        where('verified', '==', true),
+        where('profileComplete', '==', true)
+    );
   }, [firestore]);
 
-  const { data: doctors, isLoading: isLoadingDoctors, error } = useCollection<Doctor>(doctorsCollection);
+  const { data: doctors, isLoading: isLoadingDoctors, error } = useCollection<Doctor>(doctorsQuery);
 
   const handleLocationClick = () => {
     setIsLocating(true);
-    setShowLocationBanner(false);
     navigator.geolocation.getCurrentPosition(
       async (position) => {
         try {
             const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
             const data = await response.json();
-            const city = data.address.city || data.address.town || data.address.village;
-            if (city && locations.includes(city)) {
-                 setSelectedLocation(city);
+            const city = data.address.city || data.address.town || data.address.village || data.address.state;
+            
+            const matchedCity = locations.find(loc => city?.toLowerCase().includes(loc.toLowerCase()));
+            
+            if (matchedCity) {
+                 setSelectedLocation(matchedCity);
+                 setShowLocationBanner(false);
+                 toast({ title: `Location Detected: ${matchedCity}` });
             } else {
                 toast({
-                    title: "Location Not Supported",
-                    description: "We couldn't automatically detect you in a supported city. Please select one manually.",
+                    title: "Location Note",
+                    description: `We detected ${city}, which is currently outside our primary coverage. Please select a hub city manually.`,
                 });
             }
         } catch (error) {
-            console.error("Error fetching city:", error);
-            toast({
-                variant: "destructive",
-                title: "Could Not Determine Location",
-                description: "There was an issue fetching your city. Please select one manually.",
-            });
+            toast({ variant: "destructive", title: "Location Error", description: "Could not fetch city details." });
         } finally {
             setIsLocating(false);
         }
       },
-      (geoError) => {
-        console.error("Geolocation error:", geoError);
-        toast({
-            variant: "destructive",
-            title: "Location Access Denied",
-            description: "Please enable it in your browser settings or search manually.",
-        });
+      () => {
+        toast({ variant: "destructive", title: "Access Denied", description: "Please enable location permissions in your browser." });
         setIsLocating(false);
-      },
-      { enableHighAccuracy: true }
+      }
     );
   };
-
 
   const filteredDoctors = useMemo(() => {
     if (!doctors) return [];
     return doctors.filter(doctor => {
-      const isVisible = doctor.verified === true && doctor.isActive !== false && doctor.profileComplete === true;
-      if (!isVisible) return false;
+      const isActive = doctor.isActive !== false;
+      if (!isActive) return false;
 
       const nameMatch = `${doctor.firstName} ${doctor.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
       const specialtyMatch = selectedSpecialty === 'all' || doctor.specialty === selectedSpecialty;
@@ -98,125 +95,101 @@ export default function FindADoctorPage() {
   }, [searchTerm, selectedSpecialty, selectedLocation]);
 
   const pageCount = Math.ceil(filteredDoctors.length / doctorsPerPage);
-  const paginatedDoctors = useMemo(() => {
-      return filteredDoctors.slice(
-        (currentPage - 1) * doctorsPerPage,
-        currentPage * doctorsPerPage
-      );
-  }, [filteredDoctors, currentPage, doctorsPerPage]);
+  const paginatedDoctors = filteredDoctors.slice((currentPage - 1) * doctorsPerPage, currentPage * doctorsPerPage);
 
   return (
     <div className="flex flex-col min-h-screen">
       <AppHeader />
-      <main className="flex-grow bg-background">
+      <main className="flex-grow bg-secondary/10">
         <div className="container mx-auto px-4 py-12">
-          <h1 className="text-4xl font-bold font-headline text-center">Find Your Specialist</h1>
-          <p className="text-muted-foreground text-center mt-2 max-w-2xl mx-auto">
-            Search our directory of verified healthcare professionals to find the right one for you.
-          </p>
+          <div className="text-center space-y-4 mb-12">
+            <h1 className="text-4xl md:text-5xl font-bold font-headline">Find Your Specialist</h1>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Search our directory of verified healthcare professionals for an encrypted 30-minute clinical consultation.
+            </p>
+          </div>
 
         {showLocationBanner && (
-             <div className="mt-8 max-w-4xl mx-auto bg-primary/10 border border-primary/20 rounded-lg p-4 flex items-center justify-between">
-                <div className='flex items-center'>
-                    <MapPin className="h-6 w-6 text-primary mr-3" />
-                    <p className="text-sm font-medium text-primary-dark">Enable location services to find doctors near you.</p>
+             <div className="max-w-4xl mx-auto bg-primary/10 border border-primary/20 rounded-2xl p-4 flex items-center justify-between mb-8 animate-in slide-in-from-top-4">
+                <div className='flex items-center gap-3'>
+                    <div className="bg-primary/20 p-2 rounded-full"><MapPin className="h-5 w-5 text-primary" /></div>
+                    <p className="text-sm font-bold text-primary-dark">Find doctors in your immediate vicinity.</p>
                 </div>
-                <div>
-                    <Button size="sm" onClick={handleLocationClick} disabled={isLocating}>
-                        {isLocating ? <Loader2 className="h-4 w-4 animate-spin" /> : "Enable"}
+                <div className="flex items-center gap-2">
+                    <Button size="sm" onClick={handleLocationClick} disabled={isLocating} className="font-bold">
+                        {isLocating ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null} Detect City
                     </Button>
-                     <Button size="sm" variant="ghost" onClick={() => setShowLocationBanner(false)} className="ml-2">
+                     <Button size="sm" variant="ghost" onClick={() => setShowLocationBanner(false)} className="text-muted-foreground hover:text-primary">
                         <X className="h-4 w-4" />
                     </Button>
                 </div>
             </div>
         )}
 
-          <div className="mt-8 p-4 bg-card rounded-lg shadow-md max-w-4xl mx-auto">
+          <div className="p-4 bg-white rounded-3xl shadow-xl max-w-4xl mx-auto border-2 border-primary/5">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="relative md:col-span-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Search by doctor's name..."
-                  className="pl-10"
+                  placeholder="Doctor's name..."
+                  className="pl-10 h-11 border-none bg-secondary/30 rounded-xl"
                   value={searchTerm}
                   onChange={e => setSearchTerm(e.target.value)}
                 />
               </div>
-              <Select onValueChange={setSelectedSpecialty} defaultValue="all">
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by specialty" />
+              <Select onValueChange={setSelectedSpecialty} value={selectedSpecialty}>
+                <SelectTrigger className="h-11 border-none bg-secondary/30 rounded-xl">
+                  <SelectValue placeholder="Specialty" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="rounded-xl">
                   <SelectItem value="all">All Specialties</SelectItem>
                   {specialties.map(specialty => (
-                    <SelectItem key={specialty} value={specialty}>
-                      {specialty}
-                    </SelectItem>
+                    <SelectItem key={specialty} value={specialty}>{specialty}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
                <Select onValueChange={setSelectedLocation} value={selectedLocation}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Filter by location" />
+                <SelectTrigger className="h-11 border-none bg-secondary/30 rounded-xl">
+                  <SelectValue placeholder="Location" />
                 </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Locations</SelectItem>
+                <SelectContent className="rounded-xl">
+                  <SelectItem value="all">All Hub Cities</SelectItem>
                    {locations.map(loc => (
-                    <SelectItem key={loc} value={loc}>
-                      {loc}
-                    </SelectItem>
+                    <SelectItem key={loc} value={loc}>{loc}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
           </div>
 
-          <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-8">
-            {isLoadingDoctors && Array.from({ length: 8 }).map((_, i) => (
-                <Card key={i}>
-                    <CardContent className="p-0">
+          <div className="mt-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+            {isLoadingDoctors ? (
+                Array.from({ length: 8 }).map((_, i) => (
+                    <Card key={i} className="rounded-2xl overflow-hidden border-none shadow-sm">
                         <Skeleton className="h-48 w-full" />
-                    </CardContent>
-                    <CardContent className="p-4 space-y-2">
-                        <Skeleton className="h-6 w-3/4" />
-                        <Skeleton className="h-4 w-1/2" />
-                        <Skeleton className="h-4 w-1/3" />
-                    </CardContent>
-                    <CardFooter className="p-4">
-                        <Skeleton className="h-10 w-full" />
-                    </CardFooter>
-                </Card>
-            ))}
-            {!isLoadingDoctors && filteredDoctors.length > 0 ? (
+                        <CardContent className="p-4 space-y-3"><Skeleton className="h-6 w-3/4" /><Skeleton className="h-4 w-1/2" /></CardContent>
+                    </Card>
+                ))
+            ) : filteredDoctors.length > 0 ? (
               paginatedDoctors.map(doctor => (
-                <DoctorCard key={doctor.id} doctor={doctor} />
+                <DoctorCard key={doctor.id} doctor={doctor} variant="default" />
               ))
-            ) : null}
-             {!isLoadingDoctors && !error && filteredDoctors.length === 0 && (
-              <div className="col-span-full text-center py-16">
-                <h3 className="text-xl font-medium">No verified doctors found</h3>
-                <p className="text-muted-foreground mt-2">Verified doctors will appear here once their profile is approved by an administrator.</p>
+            ) : (
+              <div className="col-span-full text-center py-32 bg-white rounded-[3rem] border-2 border-dashed border-primary/10">
+                <AlertCircle className="h-16 w-16 mx-auto mb-4 opacity-10" />
+                <h3 className="text-xl font-bold tracking-tight">No providers found</h3>
+                <p className="text-muted-foreground mt-1">Adjust your hub city or specialty filters.</p>
               </div>
             )}
-             {error && (
-                <div className="col-span-full text-center py-16 text-destructive">
-                    <h3 className="text-xl font-medium">Error loading doctors</h3>
-                    <p className="text-muted-foreground mt-2">{error.message}</p>
-                </div>
-            )}
           </div>
+
           {pageCount > 1 && (
-            <div className="mt-12 flex justify-center items-center gap-4">
-                <Button onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1}>
-                    Previous
-                </Button>
-                <span className="text-muted-foreground">
-                    Page {currentPage} of {pageCount}
+            <div className="mt-16 flex justify-center items-center gap-6">
+                <Button variant="outline" onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1} className="rounded-xl font-bold h-11 px-6 border-2 transition-all">Previous</Button>
+                <span className="text-sm font-bold bg-white px-4 py-2 rounded-full shadow-sm">
+                    Page {currentPage} / {pageCount}
                 </span>
-                <Button onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage === pageCount}>
-                    Next
-                </Button>
+                <Button variant="outline" onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage === pageCount} className="rounded-xl font-bold h-11 px-6 border-2 transition-all">Next</Button>
             </div>
           )}
         </div>
