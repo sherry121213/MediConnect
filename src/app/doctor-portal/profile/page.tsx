@@ -4,7 +4,7 @@
 import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useFirestore, useUserData, useStorage } from '@/firebase';
+import { useFirestore, useUserData, useStorage, useMemoFirebase } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useRouter } from 'next/navigation';
@@ -13,9 +13,9 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, FileText, X, Plus, ExternalLink, GraduationCap, ShieldAlert, Zap, Eye, BadgeCheck } from 'lucide-react';
+import { Loader2, FileText, X, Plus, ExternalLink, GraduationCap, ShieldAlert, Zap, Eye, BadgeCheck, CheckCircle2 } from 'lucide-react';
 import { useState, useEffect } from 'react';
-import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import ImageCropperDialog from '@/components/ImageCropperDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -110,7 +110,6 @@ export default function DoctorProfilePage() {
     setCropperImage(null);
 
     try {
-      // Convert base64 to Blob for storage upload (Prevents Firestore 1MB document limit issues)
       const response = await fetch(croppedImage);
       const blob = await response.blob();
       
@@ -128,8 +127,8 @@ export default function DoctorProfilePage() {
       });
 
       const updateData = { photoURL: downloadURL, updatedAt: new Date().toISOString() };
-      updateDocumentNonBlocking(doc(firestore, 'doctors', user.uid), updateData);
-      updateDocumentNonBlocking(doc(firestore, 'patients', user.uid), updateData);
+      setDocumentNonBlocking(doc(firestore, 'doctors', user.uid), updateData, { merge: true });
+      setDocumentNonBlocking(doc(firestore, 'patients', user.uid), updateData, { merge: true });
 
       toast({
           title: 'Profile Picture Updated',
@@ -183,6 +182,8 @@ export default function DoctorProfilePage() {
       await user.reload();
       if (user.emailVerified) {
         toast({ title: "Email Verified", description: "You now have full profile edit access." });
+      } else {
+          toast({ title: "Verification Required", description: "Please verify your email before proceeding." });
       }
     } catch (error) {
       toast({ variant: 'destructive', title: 'Status Update Error', description: 'Failed to sync with auth servers.' });
@@ -206,7 +207,9 @@ export default function DoctorProfilePage() {
             const uploadTask = uploadBytesResumable(fileRef, item.file);
 
             return new Promise<string>((resolve, reject) => {
-                uploadTask.on('state_changed', null, reject, async () => {
+                uploadTask.on('state_changed', null, 
+                  (error) => reject(error), 
+                  async () => {
                     const url = await getDownloadURL(uploadTask.snapshot.ref);
                     setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'done' } : q));
                     resolve(url);
@@ -230,16 +233,20 @@ export default function DoctorProfilePage() {
         const patientData = { 
             profileComplete: true, 
             updatedAt: new Date().toISOString(),
-            phone: values.phone 
+            phone: values.phone,
+            firstName: userData?.firstName,
+            lastName: userData?.lastName
         };
 
-        updateDocumentNonBlocking(doc(firestore, 'doctors', user.uid), doctorData);
-        updateDocumentNonBlocking(doc(firestore, 'patients', user.uid), patientData);
+        // Use setDocumentNonBlocking with merge: true for absolute reliability
+        setDocumentNonBlocking(doc(firestore, 'doctors', user.uid), doctorData, { merge: true });
+        setDocumentNonBlocking(doc(firestore, 'patients', user.uid), patientData, { merge: true });
 
         setUploadQueue([]); 
         setExistingDocs(finalDocs);
 
         toast({ title: 'Profile Synchronized!', description: 'Your clinical records have been updated successfully.' });
+        
         if (!userData?.profileComplete) {
             router.push('/doctor-portal');
         }
@@ -248,7 +255,7 @@ export default function DoctorProfilePage() {
         toast({ 
             variant: "destructive", 
             title: "Submission Error", 
-            description: "An error occurred while saving your profile. Please check your connection." 
+            description: "An error occurred while saving clinical assets. Please ensure all documents are under 10MB." 
         });
     } finally {
         setIsSubmitting(false);
@@ -276,7 +283,7 @@ export default function DoctorProfilePage() {
                 <Card className="lg:col-span-1 border-none shadow-xl bg-white rounded-3xl overflow-hidden">
                     <CardContent className="pt-8 text-center">
                         <Avatar className="h-32 w-32 mx-auto mb-6 border-4 border-background shadow-xl">
-                            <AvatarImage src={userData?.photoURL || undefined} className="object-cover" />
+                            <AvatarImage src={userData?.photoURL || user?.photoURL || undefined} className="object-cover" />
                             <AvatarFallback className="text-4xl bg-primary/5 text-primary">{userData?.firstName?.[0]}</AvatarFallback>
                         </Avatar>
                         <div className='relative inline-block'>
@@ -367,14 +374,17 @@ export default function DoctorProfilePage() {
                                                                 {isImage ? (
                                                                     <Image src={url} alt={`Document ${idx + 1}`} fill className="object-cover" />
                                                                 ) : (
-                                                                    <FileText className="h-10 w-10 text-primary/20" />
+                                                                    <div className="flex flex-col items-center gap-2">
+                                                                        <FileText className="h-10 w-10 text-primary/20" />
+                                                                        <span className="text-[8px] font-bold text-muted-foreground uppercase">PDF Data</span>
+                                                                    </div>
                                                                 )}
                                                                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
                                                                     <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100" />
                                                                 </div>
                                                             </div>
                                                             <div className="p-2 flex items-center justify-between bg-white">
-                                                                <span className="text-[9px] font-bold uppercase truncate">Archive-{idx + 1}</span>
+                                                                <span className="text-[9px] font-bold uppercase truncate">Evidence-{idx + 1}</span>
                                                                 <ExternalLink className="h-3 w-3 text-muted-foreground" />
                                                             </div>
                                                         </Card>
@@ -393,7 +403,7 @@ export default function DoctorProfilePage() {
                                                         {item.status === 'uploading' ? (
                                                             <Loader2 className="h-3 w-3 animate-spin text-primary" />
                                                         ) : item.status === 'done' ? (
-                                                            <Zap className="h-3 w-3 text-green-600 fill-green-600" />
+                                                            <CheckCircle2 className="h-3 w-3 text-green-600" />
                                                         ) : (
                                                             <Plus className="h-3 w-3 text-slate-400" />
                                                         )}
@@ -415,7 +425,7 @@ export default function DoctorProfilePage() {
                                                 <label htmlFor="multi-doc-upload" className="cursor-pointer flex flex-col items-center gap-2">
                                                     <Plus className="h-6 w-6 text-primary" /> 
                                                     <span className="text-sm font-bold">Add Degree/Certificate</span>
-                                                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Original Resolution (PDF, JPG, PNG)</span>
+                                                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Raw Resolution (PDF, JPG, PNG)</span>
                                                 </label>
                                             </Button>
                                             <Input id="multi-doc-upload" type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileSelection} className="absolute inset-0 opacity-0 cursor-pointer" disabled={isSubmitting} />
@@ -424,7 +434,7 @@ export default function DoctorProfilePage() {
                                 </div>
 
                                 <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl shadow-primary/20" disabled={isSubmitting || isUploading || !isEmailVerified}>
-                                    {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving Changes...</> : "Save Professional Profile"}
+                                    {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Transmitting Clinical Assets...</> : "Finalize & Synchronize Profile"}
                                 </Button>
                             </form>
                         </Form>
