@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, PhoneCall, RefreshCw, CalendarIcon, ShieldCheck, PhoneIncoming } from "lucide-react";
+import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, PhoneCall, RefreshCw, CalendarIcon, ShieldCheck, PhoneIncoming, X } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -12,14 +12,108 @@ import { useUserData, useFirestore, useCollection, useMemoFirebase, useDoc } fro
 import { collection, query, where, doc } from "firebase/firestore";
 import type { Appointment, Doctor } from "@/lib/types";
 import { useMemo, useState, useEffect } from "react";
-import { format, isAfter, subHours, isSameDay, startOfDay, isBefore, isValid } from "date-fns";
+import { format, isAfter, subHours, isSameDay, startOfDay, isBefore, isValid, addDays } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
+import { getNext7Days, timeSlots } from "@/lib/time";
+import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { useToast } from "@/hooks/use-toast";
+
+function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean, onOpenChange: (o: boolean) => void, appointment: any }) {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+    const [selectedTime, setSelectedTime] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const availableDates = getNext7Days();
+
+    const doctorDocRef = useMemoFirebase(() => {
+        if (!firestore || !appointment?.doctorId) return null;
+        return doc(firestore, 'doctors', appointment.doctorId);
+    }, [firestore, appointment?.doctorId]);
+    const { data: doctor } = useDoc<Doctor>(doctorDocRef);
+
+    const handleConfirm = async () => {
+        if (!firestore || !appointment || !selectedTime) return;
+        setIsSaving(true);
+
+        const newDateTime = new Date(selectedDate);
+        const [hours, minutesPart] = selectedTime.split(':');
+        const [minutes, ampm] = minutesPart.split(' ');
+        let numericHours = parseInt(hours);
+        if (ampm === 'PM' && numericHours !== 12) numericHours += 12;
+        if (ampm === 'AM' && numericHours === 12) numericHours = 0;
+        newDateTime.setHours(numericHours, parseInt(minutes), 0, 0);
+
+        updateDocumentNonBlocking(doc(firestore, 'appointments', appointment.id), {
+            appointmentDateTime: newDateTime.toISOString(),
+            updatedAt: new Date().toISOString(),
+            doctorInRoom: false // Reset ringing state
+        });
+
+        toast({ title: "Session Rescheduled", description: `Your visit with Dr. ${doctor?.lastName} is now set for ${format(newDateTime, "PPP p")}.` });
+        setIsSaving(false);
+        onOpenChange(false);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-2xl rounded-3xl border-none shadow-2xl overflow-hidden p-0">
+                <div className="bg-primary p-8 text-white">
+                    <DialogTitle className="text-2xl font-headline">Reschedule Consultation</DialogTitle>
+                    <DialogDescription className="text-primary-foreground/80">Select a new date and time for your clinical session.</DialogDescription>
+                </div>
+                <div className="p-8 space-y-8">
+                    <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">Step 1: Select Date</p>
+                        <div className="flex gap-3 overflow-x-auto pb-4 custom-scrollbar">
+                            {availableDates.map(day => (
+                                <button 
+                                    key={day.date.toISOString()}
+                                    onClick={() => setSelectedDate(day.date)}
+                                    className={cn(
+                                        "p-4 rounded-2xl border text-center transition-all shrink-0 w-20 flex flex-col items-center gap-1",
+                                        isSameDay(selectedDate, day.date) ? 'bg-primary text-primary-foreground border-primary shadow-lg' : 'bg-background hover:bg-muted border-muted'
+                                    )}
+                                >
+                                    <p className="text-[10px] font-bold uppercase opacity-80">{day.dayName}</p>
+                                    <p className="text-xl font-bold">{day.dayNumber}</p>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">Step 2: Select Time Slot</p>
+                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                            {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => (
+                                <Button 
+                                    key={time}
+                                    variant={selectedTime === time ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => setSelectedTime(time)}
+                                    className="rounded-xl text-[10px] font-bold h-9"
+                                    disabled={doctor?.availability?.disabledSlots?.includes(time)}
+                                >
+                                    {time}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="flex gap-3 pt-4">
+                        <Button variant="ghost" className="flex-1 h-12 rounded-xl font-bold" onClick={() => onOpenChange(false)}>Cancel</Button>
+                        <Button className="flex-1 h-12 rounded-xl font-bold shadow-lg shadow-primary/20" disabled={!selectedTime || isSaving} onClick={handleConfirm}>
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm Postpone"}
+                        </Button>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any, isUpcoming: boolean, onPostpone: (a: any) => void, isMounted: boolean }) => {
     const firestore = useFirestore();
-    const router = useRouter();
     const doctorDocRef = useMemoFirebase(() => {
         if (!firestore || !apt?.doctorId) return null;
         return doc(firestore, 'doctors', apt.doctorId);
@@ -164,7 +258,6 @@ export default function PatientPortalPage() {
         const now = new Date();
         const validAppointments = appointments.filter(apt => apt !== null && apt.id && apt.appointmentDateTime);
 
-        // Find if any doctor is currently in a room for this patient
         const currentRinging = validAppointments.find(apt => 
             apt.doctorInRoom === true && 
             apt.status === 'scheduled' && 
@@ -208,7 +301,6 @@ export default function PatientPortalPage() {
     return (
         <main className="flex-grow bg-secondary/30 py-6 sm:py-10">
             <div className="container mx-auto px-4">
-                {/* Ringing Alert Notification */}
                 {ringingApt && (
                     <div className="mb-8 animate-in slide-in-from-top-4 duration-500">
                         <Card className="bg-red-600 text-white border-none shadow-2xl overflow-hidden rounded-3xl">
@@ -266,6 +358,7 @@ export default function PatientPortalPage() {
                     </div>
                 </div>
             </div>
+            {selectedApt && <PostponeDialog isOpen={isPostponeOpen} onOpenChange={setIsPostponeOpen} appointment={selectedApt} />}
         </main>
     )
 }

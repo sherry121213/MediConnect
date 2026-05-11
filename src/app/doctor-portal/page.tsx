@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Siren, DollarSign, Trash2 } from "lucide-react";
+import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Siren, DollarSign, Trash2, RefreshCw } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
@@ -19,7 +19,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
-import { format, isSameDay, addDays, subDays, isBefore, isAfter } from "date-fns";
+import { format, isSameDay, addDays, subDays, isBefore, isAfter, isValid } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { timeSlots } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -27,6 +27,91 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar as DayPickerCalendar } from "@/components/ui/calendar";
+
+function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean, onOpenChange: (o: boolean) => void, appointment: any }) {
+    const firestore = useFirestore();
+    const { toast } = useToast();
+    const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+    const [selectedTime, setSelectedTime] = useState<string | null>(null);
+    const [isSaving, setIsSaving] = useState(false);
+    const availableDates = getNext7Days();
+
+    const handleConfirm = async () => {
+        if (!firestore || !appointment || !selectedTime) return;
+        setIsSaving(true);
+
+        const newDateTime = new Date(selectedDate);
+        const [hours, minutesPart] = selectedTime.split(':');
+        const [minutes, ampm] = minutesPart.split(' ');
+        let numericHours = parseInt(hours);
+        if (ampm === 'PM' && numericHours !== 12) numericHours += 12;
+        if (ampm === 'AM' && numericHours === 12) numericHours = 0;
+        newDateTime.setHours(numericHours, parseInt(minutes), 0, 0);
+
+        updateDocumentNonBlocking(doc(firestore, 'appointments', appointment.id), {
+            appointmentDateTime: newDateTime.toISOString(),
+            updatedAt: new Date().toISOString(),
+            doctorInRoom: false
+        });
+
+        toast({ title: "Session Rescheduled", description: `Appointment moved to ${format(newDateTime, "PPP p")}.` });
+        setIsSaving(false);
+        onOpenChange(false);
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent className="sm:max-w-2xl rounded-3xl border-none shadow-2xl overflow-hidden p-0">
+                <div className="bg-slate-900 p-8 text-white">
+                    <DialogTitle className="text-2xl font-headline">Clinical Rescheduling</DialogTitle>
+                    <DialogDescription className="text-slate-400">Modify the appointment time for this patient.</DialogDescription>
+                </div>
+                <div className="p-8 space-y-8">
+                    <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">New Clinical Date</p>
+                        <div className="flex gap-3 overflow-x-auto pb-4 custom-scrollbar">
+                            {availableDates.map(day => (
+                                <button 
+                                    key={day.date.toISOString()}
+                                    onClick={() => setSelectedDate(day.date)}
+                                    className={cn(
+                                        "p-4 rounded-2xl border text-center transition-all shrink-0 w-20 flex flex-col items-center gap-1",
+                                        isSameDay(selectedDate, day.date) ? 'bg-primary text-primary-foreground border-primary shadow-lg' : 'bg-background hover:bg-muted border-muted'
+                                    )}
+                                >
+                                    <p className="text-[10px] font-bold uppercase opacity-80">{day.dayName}</p>
+                                    <p className="text-xl font-bold">{day.dayNumber}</p>
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    <div>
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">Available Slots</p>
+                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
+                            {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => (
+                                <Button 
+                                    key={time}
+                                    variant={selectedTime === time ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => setSelectedTime(time)}
+                                    className="rounded-xl text-[10px] font-bold h-9"
+                                >
+                                    {time}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+                    <div className="flex gap-3 pt-4">
+                        <Button variant="ghost" className="flex-1 h-12 rounded-xl font-bold" onClick={() => onOpenChange(false)}>Cancel</Button>
+                        <Button className="flex-1 h-12 rounded-xl font-bold shadow-lg bg-slate-900 hover:bg-slate-800" disabled={!selectedTime || isSaving} onClick={handleConfirm}>
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Move Session"}
+                        </Button>
+                    </div>
+                </div>
+            </DialogContent>
+        </Dialog>
+    );
+}
 
 const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSelect: (a: Appointment) => void, isMounted: boolean }) => {
     const firestore = useFirestore();
@@ -141,7 +226,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
     );
 };
 
-function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment | null, isMounted: boolean }) {
+function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPostpone }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment | null, isMounted: boolean, onPostpone: (a: any) => void }) {
     const firestore = useFirestore();
     const { toast } = useToast();
     
@@ -206,7 +291,12 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
                                         <Video className="mr-3 h-6 w-6" /> Start Video Room
                                     </Button>
                                 ) : (
-                                    <Button className="h-14 text-base font-bold opacity-70 cursor-not-allowed w-full rounded-2xl" disabled>Session Window Locked <Clock className="ml-3 h-5 w-5" /></Button>
+                                    <>
+                                        <Button className="h-14 text-base font-bold opacity-70 cursor-not-allowed w-full rounded-2xl" disabled>Session Window Locked <Clock className="ml-3 h-5 w-5" /></Button>
+                                        <Button variant="outline" className="h-14 text-base font-bold w-full rounded-2xl gap-3 border-2" onClick={() => onPostpone(appointment)}>
+                                            <RefreshCw className="h-5 w-5 text-primary" /> Postpone Session
+                                        </Button>
+                                    </>
                                 )}
                             </div>
                         </TabsContent>
@@ -331,6 +421,7 @@ export default function DoctorPortalPage() {
     const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(false);
     const [isLeaveOpen, setIsLeaveOpen] = useState(false);
     const [isAuditOpen, setIsAuditOpen] = useState(false);
+    const [isPostponeOpen, setIsPostponeOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [viewDate, setViewDate] = useState(new Date());
     const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string>>(new Set());
@@ -478,6 +569,12 @@ export default function DoctorPortalPage() {
         notifications.forEach(n => newDismissed.add(n.id));
         setDismissedAlertIds(newDismissed);
         toast({ title: "Operational log archived." });
+    };
+
+    const handleTriggerPostpone = (apt: any) => {
+        setSelectedAppointment(apt);
+        setIsConsultOpen(false);
+        setIsPostponeOpen(true);
     };
 
     if (!mounted || isUserLoading) return <div className="flex min-h-screen items-center justify-center bg-secondary/30"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -649,10 +746,26 @@ export default function DoctorPortalPage() {
                     </DialogContent>
                 </Dialog>
 
-                {selectedAppointment && <ConsultationDialog isOpen={isConsultOpen} onOpenChange={setIsConsultOpen} appointment={selectedAppointment} isMounted={mounted} />}
+                {selectedAppointment && <ConsultationDialog isOpen={isConsultOpen} onOpenChange={setIsConsultOpen} appointment={selectedAppointment} isMounted={mounted} onPostpone={handleTriggerPostpone} />}
                 {userData && <AvailabilityDialog isOpen={isAvailabilityOpen} onOpenChange={setIsAvailabilityOpen} doctor={userData as Doctor} />}
                 {user && <LeaveRequestDialog isOpen={isLeaveOpen} onOpenChange={setIsLeaveOpen} defaultDate={viewDate} doctorId={user.uid} />}
+                {selectedAppointment && <InternalPostponeDialog isOpen={isPostponeOpen} onOpenChange={setIsPostponeOpen} appointment={selectedAppointment} />}
             </div>
         </main>
     );
+}
+
+function getNext7Days() {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const next7Days = [];
+    for (let i = 0; i < 7; i++) {
+        const date = new Date();
+        date.setDate(date.getDate() + i);
+        next7Days.push({
+            date: date,
+            dayName: days[date.getDay()],
+            dayNumber: date.getDate(),
+        });
+    }
+    return next7Days;
 }
