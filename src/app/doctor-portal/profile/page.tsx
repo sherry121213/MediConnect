@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useFirestore, useUserData, useStorage } from '@/firebase';
-import { doc, getDoc, updateDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
+import { doc, getDoc, setDoc, arrayUnion, arrayRemove } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
@@ -14,10 +14,9 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Loader2, BadgeCheck, FileText, Upload, ShieldCheck, Trash2, ExternalLink } from 'lucide-react';
 import { useState, useEffect, useRef } from 'react';
-import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { updateDocumentNonBlocking, setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import ImageCropperDialog from '@/components/ImageCropperDialog';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
@@ -53,7 +52,6 @@ export default function DoctorProfilePage() {
   const [photoProgress, setPhotoProgress] = useState(0);
   const [cropperImage, setCropperImage] = useState<string | null>(null);
   
-  // Document Upload State
   const [uploadQueue, setUploadQueue] = useState<UploadingFile[]>([]);
   const [existingDocs, setExistingDocs] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -138,8 +136,10 @@ export default function DoctorProfilePage() {
           async () => {
               const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
               const updateData = { photoURL: downloadURL, updatedAt: new Date().toISOString() };
-              updateDocumentNonBlocking(doc(firestore, 'doctors', user.uid), updateData);
-              updateDocumentNonBlocking(doc(firestore, 'patients', user.uid), updateData);
+              
+              // Force creation if doc missing
+              await setDoc(doc(firestore, 'doctors', user.uid), updateData, { merge: true });
+              await setDoc(doc(firestore, 'patients', user.uid), updateData, { merge: true });
 
               toast({ title: 'Identity Secured', description: 'Profile photo updated.' });
               setIsUploadingPhoto(false);
@@ -191,11 +191,14 @@ export default function DoctorProfilePage() {
                     const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
                     setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'done', url: downloadURL, progress: 100 } : q));
                     
-                    await updateDoc(doc(firestore, 'doctors', user.uid), {
+                    // CRITICAL: Using setDoc with merge to ensure doc exists before appending degree
+                    await setDoc(doc(firestore, 'doctors', user.uid), {
                         documents: arrayUnion(downloadURL),
                         updatedAt: new Date().toISOString()
-                    });
+                    }, { merge: true });
+                    
                     setExistingDocs(prev => [...prev, downloadURL]);
+                    toast({ title: "Clinical Asset Saved", description: item.file.name });
                     resolve();
                 }
             );
@@ -212,10 +215,10 @@ export default function DoctorProfilePage() {
   const removeDoc = async (url: string) => {
     if (!user || !firestore) return;
     try {
-        await updateDoc(doc(firestore, 'doctors', user.uid), {
+        await setDoc(doc(firestore, 'doctors', user.uid), {
             documents: arrayRemove(url),
             updatedAt: new Date().toISOString()
-        });
+        }, { merge: true });
         setExistingDocs(prev => prev.filter(d => d !== url));
         toast({ title: "Document Removed" });
     } catch (e) {
@@ -235,7 +238,7 @@ export default function DoctorProfilePage() {
             lastName: userData?.lastName || '',
             email: user.email || '',
             profileComplete: true,
-            verified: true, // Auto-verified as per instructions
+            verified: true, 
             updatedAt: timestamp,
         };
 
@@ -248,8 +251,8 @@ export default function DoctorProfilePage() {
             lastName: userData?.lastName
         };
 
-        updateDocumentNonBlocking(doc(firestore, 'doctors', user.uid), doctorData);
-        updateDocumentNonBlocking(doc(firestore, 'patients', user.uid), patientData);
+        await setDoc(doc(firestore, 'doctors', user.uid), doctorData, { merge: true });
+        await setDoc(doc(firestore, 'patients', user.uid), patientData, { merge: true });
 
         toast({ title: 'Profile Updated', description: 'Your clinical identity has been saved.' });
         router.push('/doctor-portal');

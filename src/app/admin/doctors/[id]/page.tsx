@@ -2,7 +2,7 @@
 
 import { useParams } from 'next/navigation';
 import { useDoc, useFirestore, useMemoFirebase, useStorage } from '@/firebase';
-import { doc, updateDoc, arrayUnion } from 'firebase/firestore';
+import { doc, setDoc, arrayUnion } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import type { Doctor } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -12,7 +12,6 @@ import { ArrowLeft, AtSign, BriefcaseMedical, CheckCircle, Loader2, MapPin, Phon
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
-import { updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useState, useRef } from 'react';
 import { Progress } from '@/components/ui/progress';
@@ -37,22 +36,22 @@ export default function DoctorProfilePage() {
 
     const { data: doctor, isLoading, error } = useDoc<Doctor>(doctorDocRef);
 
-    const handleVerifyDoctor = () => {
+    const handleVerifyDoctor = async () => {
         if (!firestore || !doctorId || !doctor) return;
-        const doctorDocRef = doc(firestore, 'doctors', doctorId);
         
-        updateDocumentNonBlocking(doctorDocRef, { 
+        const timestamp = new Date().toISOString();
+        // FORCE SYNC: Ensure docs exist in both collections
+        await setDoc(doc(firestore, 'doctors', doctorId), { 
             verified: true, 
             profileComplete: true,
-            updatedAt: new Date().toISOString() 
-        });
+            updatedAt: timestamp 
+        }, { merge: true });
 
-        const patientDocRef = doc(firestore, 'patients', doctorId);
-        updateDocumentNonBlocking(patientDocRef, {
+        await setDoc(doc(firestore, 'patients', doctorId), {
             verified: true,
             profileComplete: true,
-            updatedAt: new Date().toISOString()
-        });
+            updatedAt: timestamp
+        }, { merge: true });
 
         toast({
             title: "Doctor Verified!",
@@ -83,12 +82,11 @@ export default function DoctorProfilePage() {
             async () => {
                 const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
                 
-                // Update Firestore
-                const doctorRef = doc(firestore, 'doctors', doctorId);
-                await updateDoc(doctorRef, {
+                // CRITICAL: Using setDoc with merge to ensure doc exists before appending degree
+                await setDoc(doc(firestore, 'doctors', doctorId), {
                     documents: arrayUnion(downloadURL),
                     updatedAt: new Date().toISOString()
-                });
+                }, { merge: true });
 
                 toast({ title: "Asset Secured", description: "New degree has been added to the professional portfolio." });
                 setIsUploading(false);
@@ -240,12 +238,15 @@ export default function DoctorProfilePage() {
                                 {doctor.documents && doctor.documents.length > 0 ? (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                                         {doctor.documents.map((url, idx) => {
-                                            const isImage = url.toLowerCase().includes('.jpg') || url.toLowerCase().includes('.jpeg') || url.toLowerCase().includes('.png') || url.toLowerCase().includes('.webp');
+                                            // Handle potential non-standard URLs
+                                            const isImage = url.toLowerCase().includes('.jpg') || url.toLowerCase().includes('.jpeg') || url.toLowerCase().includes('.png') || url.toLowerCase().includes('.webp') || url.includes('alt=media');
                                             return (
                                                 <Card key={idx} className="overflow-hidden border-muted shadow-lg group hover:shadow-xl transition-all rounded-2xl">
                                                     <div className="relative aspect-video bg-muted/40 flex items-center justify-center border-b overflow-hidden">
                                                         {isImage ? (
-                                                            <Image src={url} alt={`Degree ${idx + 1}`} fill className="object-cover group-hover:scale-110 transition-transform duration-500" />
+                                                            <div className="relative w-full h-full">
+                                                                <Image src={url} alt={`Degree ${idx + 1}`} fill className="object-cover group-hover:scale-110 transition-transform duration-500" unoptimized />
+                                                            </div>
                                                         ) : (
                                                             <div className="flex flex-col items-center gap-3">
                                                                 <FileText className="h-16 w-16 text-primary/20" />
