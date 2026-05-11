@@ -7,7 +7,7 @@ import type { Doctor } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
-import { ArrowLeft, AtSign, BriefcaseMedical, Calendar, CheckCircle, GraduationCap, Loader2, MapPin, Phone, Star, FileText, ExternalLink, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, AtSign, BriefcaseMedical, Calendar, CheckCircle, GraduationCap, Loader2, MapPin, Phone, Star, FileText, ExternalLink, ShieldCheck, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';

@@ -15,7 +15,6 @@ import type { Appointment, Doctor, Patient } from "@/lib/types";
 import { useMemo } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import Link from "next/link";
 import { Eye, MoreHorizontal, CreditCard, Wallet, Landmark, ShieldCheck } from "lucide-react";
 import {
   DropdownMenu,
@@ -165,10 +164,10 @@ export default function AdminPaymentsPage() {
                   <TableCell className="text-center">
                       {payment.paymentReceiptUrl ? (
                           <Button asChild variant="ghost" size="icon" className="h-9 w-9 text-primary hover:bg-primary/10 rounded-xl">
-                              <Link href={payment.paymentReceiptUrl} target="_blank" rel="noopener noreferrer">
+                              <a href={payment.paymentReceiptUrl} target="_blank" rel="noopener noreferrer">
                                   <Eye className="h-5 w-5" />
                                   <span className="sr-only">View Receipt</span>
-                              </Link>
+                              </a>
                           </Button>
                       ) : (
                           <span className="text-[10px] text-muted-foreground italic font-bold opacity-30">N/A</span>

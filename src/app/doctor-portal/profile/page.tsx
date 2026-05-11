@@ -12,18 +12,18 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, FileText, X, Plus, ExternalLink, RefreshCw, BadgeCheck, GraduationCap, ShieldAlert, Zap } from 'lucide-react';
+import { Loader2, FileText, X, Plus, ExternalLink, RefreshCw, BadgeCheck, GraduationCap, ShieldAlert, Zap, Eye } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { updateProfile } from 'firebase/auth';
 import ImageCropperDialog from '@/components/ImageCropperDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import Image from 'next/image';
 
-const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // Increased to 10MB as we are not optimizing
 
 const profileSchema = z.object({
   specialty: z.string().min(2, 'Specialty is required.'),
@@ -35,57 +35,6 @@ const profileSchema = z.object({
 });
 
 type ProfileFormValues = z.infer<typeof profileSchema>;
-
-async function compressImage(file: File): Promise<Blob | File> {
-  if (!file.type.startsWith('image/') || file.type.includes('gif')) {
-    return file;
-  }
-
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = (event) => {
-      const img = new Image();
-      img.src = event.target?.result as string;
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1200; // Optimized for clinical readability
-        const MAX_HEIGHT = 1200;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height *= MAX_WIDTH / width;
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width *= MAX_HEIGHT / height;
-            height = MAX_HEIGHT;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        ctx?.drawImage(img, 0, 0, width, height);
-
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              resolve(new File([blob], file.name, { type: 'image/jpeg' }));
-            } else {
-              resolve(file);
-            }
-          },
-          'image/jpeg',
-          0.7 // Higher quality for text-heavy documents
-        );
-      };
-    };
-  });
-}
 
 export default function DoctorProfilePage() {
   const { user, userData, isUserLoading } = useUserData();
@@ -192,7 +141,7 @@ export default function DoctorProfilePage() {
         toast({
             variant: 'destructive',
             title: 'Files Rejected',
-            description: 'Please ensure files are PDF/JPG/PNG and under 5MB.',
+            description: 'Please ensure files are PDF/JPG/PNG and under 10MB.',
         });
     }
 
@@ -229,37 +178,30 @@ export default function DoctorProfilePage() {
     if (!user || !firestore || !storage) return;
     
     setIsSubmitting(true);
-    setOverallProgress(1); // Immediate movement to show activity
+    setOverallProgress(1);
     const progressMap: Record<string, number> = {};
 
     try {
         const uploadPromises = uploadQueue.map(async (item) => {
             setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'uploading' } : q));
 
-            let fileToUpload: Blob | File = item.file;
-            if (item.file.type.startsWith('image/')) {
-                fileToUpload = await compressImage(item.file);
-            }
-
             const uniqueName = `${Date.now()}_${item.id}_${item.file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
             const fileRef = ref(storage, `doctors/${user.uid}/documents/${uniqueName}`);
             
-            // Using Resumable Upload for Granular Progress
-            const uploadTask = uploadBytesResumable(fileRef, fileToUpload);
+            // Uploading raw file without optimization as requested
+            const uploadTask = uploadBytesResumable(fileRef, item.file);
 
             return new Promise<string>((resolve, reject) => {
                 uploadTask.on('state_changed', 
                     (snapshot) => {
                         const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
                         progressMap[item.id] = progress;
-                        
-                        // Weighted Progress Calculation
                         const currentTotal = Object.values(progressMap).reduce((a, b) => a + b, 0);
                         const avg = currentTotal / uploadQueue.length;
                         setOverallProgress(Math.min(95, Math.round(avg)));
                     },
                     (error) => {
-                        console.error("Upload error for file:", item.file.name, error);
+                        console.error("Upload error:", item.file.name, error);
                         reject(error);
                     },
                     async () => {
@@ -300,7 +242,7 @@ export default function DoctorProfilePage() {
         setExistingDocs(finalDocs);
         setOverallProgress(100);
 
-        toast({ title: 'Registry Synchronized!', description: 'Your professional credentials have been archived.' });
+        toast({ title: 'Registry Synchronized!', description: 'Your original clinical documents have been archived.' });
         if (!userData?.profileComplete) {
             router.push('/doctor-portal');
         }
@@ -309,7 +251,7 @@ export default function DoctorProfilePage() {
         toast({ 
             variant: "destructive", 
             title: "Transmission Failed", 
-            description: "Network timeout or quota error. Please check your connection and try again." 
+            description: error.message || "Network timeout. Please try again." 
         });
     } finally {
         setIsSubmitting(false);
@@ -413,27 +355,41 @@ export default function DoctorProfilePage() {
                                     <div className="bg-amber-50 p-4 rounded-2xl flex gap-3 border border-amber-100">
                                         <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
                                         <p className="text-[11px] text-amber-800 leading-relaxed italic">
-                                            Previously verified degrees are preserved for audit integrity. You can uniquely append new certifications, but historical evidence cannot be removed.
+                                            Original clinical documents are preserved for audit integrity. You can append new raw certifications to your profile.
                                         </p>
                                     </div>
                                     
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                        {existingDocs.map((url, idx) => (
-                                            <div key={idx} className="flex items-center justify-between p-3 border-2 rounded-xl bg-slate-50 group hover:border-primary/20 transition-colors">
-                                                <div className="flex items-center gap-2 overflow-hidden">
-                                                    <FileText className="h-4 w-4 text-primary shrink-0" />
-                                                    <span className="text-[10px] font-bold uppercase truncate">Credential {idx + 1}</span>
-                                                </div>
-                                                <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:bg-primary/10" asChild>
-                                                    <a href={url} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" /></a>
-                                                </Button>
-                                            </div>
-                                        ))}
-                                    </div>
+                                    {existingDocs.length > 0 && (
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                            {existingDocs.map((url, idx) => {
+                                                const isImage = url.includes('.jpg') || url.includes('.jpeg') || url.includes('.png') || url.includes('image');
+                                                return (
+                                                    <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="block group">
+                                                        <Card className="overflow-hidden border-2 rounded-2xl hover:border-primary/40 transition-all shadow-sm">
+                                                            <div className="relative aspect-video bg-muted/40 flex items-center justify-center border-b">
+                                                                {isImage ? (
+                                                                    <Image src={url} alt={`Document ${idx + 1}`} fill className="object-cover" />
+                                                                ) : (
+                                                                    <FileText className="h-10 w-10 text-primary/20" />
+                                                                )}
+                                                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                                                                    <Eye className="h-6 w-6 text-white opacity-0 group-hover:opacity-100" />
+                                                                </div>
+                                                            </div>
+                                                            <div className="p-2 flex items-center justify-between bg-white">
+                                                                <span className="text-[9px] font-bold uppercase truncate">Archive-{idx + 1}</span>
+                                                                <ExternalLink className="h-3 w-3 text-muted-foreground" />
+                                                            </div>
+                                                        </Card>
+                                                    </a>
+                                                );
+                                            })}
+                                        </div>
+                                    )}
 
                                     {uploadQueue.length > 0 && (
                                         <div className="space-y-2 bg-primary/5 p-4 rounded-2xl border-2 border-dashed border-primary/20">
-                                            <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">Queue Status:</p>
+                                            <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">New Evidence Queue:</p>
                                             {uploadQueue.map((item) => (
                                                 <div key={item.id} className="flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm">
                                                     <div className="flex items-center gap-2 overflow-hidden">
@@ -462,7 +418,7 @@ export default function DoctorProfilePage() {
                                                 <label htmlFor="multi-doc-upload" className="cursor-pointer flex flex-col items-center gap-2">
                                                     <Plus className="h-6 w-6 text-primary" /> 
                                                     <span className="text-sm font-bold">Add Degree/Certificate</span>
-                                                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">PDF, JPG, PNG (Max 5MB)</span>
+                                                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Original Resolution (PDF, JPG, PNG)</span>
                                                 </label>
                                             </Button>
                                             <Input id="multi-doc-upload" type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileSelection} className="absolute inset-0 opacity-0 cursor-pointer" disabled={isSubmitting} />
@@ -477,7 +433,7 @@ export default function DoctorProfilePage() {
                                             <span>{overallProgress}%</span>
                                         </div>
                                         <Progress value={overallProgress} className="h-1.5 bg-white/10" />
-                                        <p className="text-[9px] text-slate-400 italic text-center">Optimizing data streams for rapid synchronization...</p>
+                                        <p className="text-[9px] text-slate-400 italic text-center">Storing uncompressed documents for high-fidelity auditing...</p>
                                     </div>
                                 )}
 
