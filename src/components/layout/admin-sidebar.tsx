@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -23,7 +22,6 @@ import {
   CalendarClock,
   AlertCircle,
 } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth, useUserData, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
 import { signOut } from 'firebase/auth';
@@ -89,7 +87,7 @@ export default function AdminSidebar() {
                   <item.icon />
                   <span>{item.label}</span>
                   {item.badge && item.badge > 0 ? (
-                    <Badge className="ml-auto bg-primary h-5 min-w-5 flex items-center justify-center p-0 text-[10px] rounded-full">
+                    <Badge className="ml-auto bg-primary h-5 min-w-5 flex items-center justify-center p-0 text-[10px] rounded-full text-white">
                         {item.badge}
                     </Badge>
                   ) : null}
@@ -104,9 +102,9 @@ export default function AdminSidebar() {
         <SidebarMenu>
           <SidebarMenuItem>
             <div className="flex items-center gap-2 p-2">
-              <Avatar className="h-9 w-9">
+              <Avatar className="h-9 w-9 border-2 border-primary/10 shadow-sm">
                  <AvatarImage src={user?.photoURL || undefined} />
-                 <AvatarFallback>{fallback || "A"}</AvatarFallback>
+                 <AvatarFallback className="bg-primary/10 text-primary font-bold">{fallback || "A"}</AvatarFallback>
               </Avatar>
               <div className="group-data-[collapsible=icon]:hidden overflow-hidden">
                 <p className="text-sm font-semibold truncate">{displayName}</p>
@@ -115,8 +113,8 @@ export default function AdminSidebar() {
             </div>
           </SidebarMenuItem>
           <SidebarMenuItem>
-             <SidebarMenuButton onClick={handleLogout}>
-                <LogOut />
+             <SidebarMenuButton onClick={handleLogout} className="text-destructive hover:text-destructive hover:bg-destructive/5">
+                <LogOut className="h-4 w-4" />
                 <span>Logout</span>
               </SidebarMenuButton>
           </SidebarMenuItem>
