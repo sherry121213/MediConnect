@@ -6,18 +6,18 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useFirestore, useUserData, useStorage } from '@/firebase';
 import { doc, getDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, FileText, X, Plus, ExternalLink, RefreshCw, BadgeCheck, GraduationCap, ShieldAlert } from 'lucide-react';
+import { Loader2, FileText, X, Plus, ExternalLink, RefreshCw, BadgeCheck, GraduationCap, ShieldAlert, Zap } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { setDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { updateProfile, sendEmailVerification } from 'firebase/auth';
+import { updateProfile } from 'firebase/auth';
 import ImageCropperDialog from '@/components/ImageCropperDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
@@ -49,8 +49,8 @@ async function compressImage(file: File): Promise<Blob | File> {
       img.src = event.target?.result as string;
       img.onload = () => {
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 1000;
-        const MAX_HEIGHT = 1000;
+        const MAX_WIDTH = 1200; // Optimized for clinical readability
+        const MAX_HEIGHT = 1200;
         let width = img.width;
         let height = img.height;
 
@@ -80,7 +80,7 @@ async function compressImage(file: File): Promise<Blob | File> {
             }
           },
           'image/jpeg',
-          0.6
+          0.7 // Higher quality for text-heavy documents
         );
       };
     };
@@ -174,7 +174,7 @@ export default function DoctorProfilePage() {
 
     setTimeout(() => {
         setIsUploading(false);
-    }, 1500); 
+    }, 1000); 
   };
 
   const handleFileSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -229,7 +229,8 @@ export default function DoctorProfilePage() {
     if (!user || !firestore || !storage) return;
     
     setIsSubmitting(true);
-    setOverallProgress(5);
+    setOverallProgress(1); // Immediate movement to show activity
+    const progressMap: Record<string, number> = {};
 
     try {
         const uploadPromises = uploadQueue.map(async (item) => {
@@ -243,15 +244,35 @@ export default function DoctorProfilePage() {
             const uniqueName = `${Date.now()}_${item.id}_${item.file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
             const fileRef = ref(storage, `doctors/${user.uid}/documents/${uniqueName}`);
             
-            await uploadBytes(fileRef, fileToUpload);
-            const url = await getDownloadURL(fileRef);
-            
-            setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'done' } : q));
-            return url;
+            // Using Resumable Upload for Granular Progress
+            const uploadTask = uploadBytesResumable(fileRef, fileToUpload);
+
+            return new Promise<string>((resolve, reject) => {
+                uploadTask.on('state_changed', 
+                    (snapshot) => {
+                        const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                        progressMap[item.id] = progress;
+                        
+                        // Weighted Progress Calculation
+                        const currentTotal = Object.values(progressMap).reduce((a, b) => a + b, 0);
+                        const avg = currentTotal / uploadQueue.length;
+                        setOverallProgress(Math.min(95, Math.round(avg)));
+                    },
+                    (error) => {
+                        console.error("Upload error for file:", item.file.name, error);
+                        reject(error);
+                    },
+                    async () => {
+                        const url = await getDownloadURL(uploadTask.snapshot.ref);
+                        setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'done' } : q));
+                        resolve(url);
+                    }
+                );
+            });
         });
 
         const newUrls = await Promise.all(uploadPromises);
-        setOverallProgress(70);
+        setOverallProgress(98);
 
         const finalDocs = [...existingDocs, ...newUrls];
         
@@ -279,7 +300,7 @@ export default function DoctorProfilePage() {
         setExistingDocs(finalDocs);
         setOverallProgress(100);
 
-        toast({ title: 'Profile Synchronized!', description: 'Your professional credentials have been saved.' });
+        toast({ title: 'Registry Synchronized!', description: 'Your professional credentials have been archived.' });
         if (!userData?.profileComplete) {
             router.push('/doctor-portal');
         }
@@ -287,8 +308,8 @@ export default function DoctorProfilePage() {
         console.error("Submission error:", error);
         toast({ 
             variant: "destructive", 
-            title: "Registry Update Failed", 
-            description: error.message || "An unexpected error occurred while saving clinical documents." 
+            title: "Transmission Failed", 
+            description: "Network timeout or quota error. Please check your connection and try again." 
         });
     } finally {
         setIsSubmitting(false);
@@ -412,14 +433,22 @@ export default function DoctorProfilePage() {
 
                                     {uploadQueue.length > 0 && (
                                         <div className="space-y-2 bg-primary/5 p-4 rounded-2xl border-2 border-dashed border-primary/20">
-                                            <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">New Evidence to Sync:</p>
+                                            <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">Queue Status:</p>
                                             {uploadQueue.map((item) => (
                                                 <div key={item.id} className="flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm">
                                                     <div className="flex items-center gap-2 overflow-hidden">
-                                                        {item.status === 'uploading' ? <Loader2 className="h-3 w-3 animate-spin text-primary" /> : <Plus className="h-3 w-3 text-green-600" />}
-                                                        <span className="text-xs truncate font-medium">{item.file.name}</span>
+                                                        {item.status === 'uploading' ? (
+                                                            <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                                                        ) : item.status === 'done' ? (
+                                                            <Zap className="h-3 w-3 text-green-600 fill-green-600" />
+                                                        ) : (
+                                                            <Plus className="h-3 w-3 text-slate-400" />
+                                                        )}
+                                                        <span className={cn("text-xs truncate font-medium", item.status === 'done' && "text-green-600")}>
+                                                            {item.file.name}
+                                                        </span>
                                                     </div>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => removeFileFromQueue(item.id)} disabled={isSubmitting}>
+                                                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => removeFileFromQueue(item.id)} disabled={isSubmitting || item.status !== 'pending'}>
                                                         <X className="h-4 w-4" />
                                                     </Button>
                                                 </div>
@@ -442,12 +471,13 @@ export default function DoctorProfilePage() {
                                 </div>
 
                                 {isSubmitting && (
-                                    <div className="space-y-3 bg-slate-900 p-5 rounded-2xl text-white">
+                                    <div className="space-y-3 bg-slate-900 p-5 rounded-2xl text-white animate-in slide-in-from-bottom-2">
                                         <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest">
-                                            <span className="flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin text-primary" /> Transmitting Data</span>
+                                            <span className="flex items-center gap-2"><Loader2 className="h-3 w-3 animate-spin text-primary" /> Transmitting Clinical Assets</span>
                                             <span>{overallProgress}%</span>
                                         </div>
                                         <Progress value={overallProgress} className="h-1.5 bg-white/10" />
+                                        <p className="text-[9px] text-slate-400 italic text-center">Optimizing data streams for rapid synchronization...</p>
                                     </div>
                                 )}
 
