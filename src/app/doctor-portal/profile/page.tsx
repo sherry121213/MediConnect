@@ -448,7 +448,7 @@ export default function DoctorProfilePage() {
                         className="w-full h-16 text-lg font-bold rounded-[2rem] shadow-2xl shadow-primary/20" 
                         disabled={isSubmitting || !isEmailVerified}
                     >
-                        {isSubmitting ? <><Loader2 className="mr-3 h-5 w-5 animate-spin" /> Finalizing...</> : "Save"}
+                        {isSubmitting ? <><Loader2 className="mr-3 h-5 w-5 animate-spin" /> Finalizing...</> : "Save Professional Information"}
                     </Button>
                 </div>
             </div>
