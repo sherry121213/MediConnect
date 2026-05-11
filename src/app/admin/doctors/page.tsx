@@ -13,23 +13,20 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { MoreHorizontal, PlusCircle, Stethoscope, ShieldCheck, UserX, UserCheck, Eye, Trash2, AlertTriangle } from "lucide-react";
+import { MoreHorizontal, PlusCircle, Stethoscope, UserX, UserCheck, Eye } from "lucide-react";
 import Image from "next/image";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, doc, deleteDoc } from "firebase/firestore";
-import { addDocumentNonBlocking, updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { collection, doc } from "firebase/firestore";
+import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import type { Doctor } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
-import { PlaceHolderImages as placeholderImages } from "@/lib/placeholder-images";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -56,6 +53,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useState } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 
 const addDoctorSchema = z.object({
   firstName: z.string().min(2, { message: "First name is required." }),
@@ -114,19 +112,7 @@ export default function AdminDoctorsPage() {
         const nextStatus = !currentStatus;
         updateDocumentNonBlocking(doc(firestore, 'doctors', doctorId), { isActive: nextStatus, updatedAt: new Date().toISOString() });
         updateDocumentNonBlocking(doc(firestore, 'patients', doctorId), { isActive: nextStatus, updatedAt: new Date().toISOString() });
-        toast({ title: nextStatus ? "Access Restored" : "Access Suspended" });
-    };
-
-    const handleDeleteDoctor = (doctorId: string) => {
-        if (!firestore) return;
-        deleteDocumentNonBlocking(doc(firestore, 'doctors', doctorId));
-        // We typically keep the 'patient' user record for authentication history, 
-        // but removing them from the clinical registry is the primary action here.
-        toast({
-            title: "Provider Purged",
-            description: "The professional record has been permanently removed from the registry.",
-            variant: "destructive"
-        });
+        toast({ title: nextStatus ? "Access Restored" : "Profile Disabled" });
     };
 
     return (
@@ -209,50 +195,25 @@ export default function AdminDoctorsPage() {
                                             </DropdownMenuItem>
                                         )}
                                         <DropdownMenuItem asChild className="rounded-xl cursor-pointer">
-                                            <Link href={`/admin/doctors/${doctor.id}`}><Eye className="mr-2 h-4 w-4" /> View Clinical File</Link>
+                                            <Link href={`/admin/doctors/${doctor.id}`}><Eye className="mr-2 h-4 w-4" /> View History & File</Link>
                                         </DropdownMenuItem>
                                         
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
                                                 <DropdownMenuItem className={cn("font-bold rounded-xl cursor-pointer", isActive ? "text-amber-600" : "text-primary")} onSelect={(e) => e.preventDefault()}>
-                                                    {isActive ? <><UserX className="mr-2 h-4 w-4" /> Suspend Practice</> : <><UserCheck className="mr-2 h-4 w-4" /> Restore Practice</>}
+                                                    {isActive ? <><UserX className="mr-2 h-4 w-4" /> Disable Profile</> : <><UserCheck className="mr-2 h-4 w-4" /> Enable Profile</>}
                                                 </DropdownMenuItem>
                                             </AlertDialogTrigger>
                                             <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl">
                                                 <AlertDialogHeader>
-                                                    <AlertDialogTitle className="font-headline text-2xl">{isActive ? "Suspend Access?" : "Restore Access?"}</AlertDialogTitle>
+                                                    <AlertDialogTitle className="font-headline text-2xl">{isActive ? "Disable Profile?" : "Enable Profile?"}</AlertDialogTitle>
                                                     <AlertDialogDescription className="text-sm">
-                                                        {isActive ? "Suspension instantly blocks dashboard access and hides the provider from patient search results." : "Restoration immediately re-enables clinical booking slots for this provider."}
+                                                        {isActive ? "Disabling instantly blocks dashboard access and hides the provider from patient search results, but their consultation history remains archived for admin review." : "Enabling immediately re-enables clinical booking slots for this provider."}
                                                     </AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 <AlertDialogFooter className="pt-6">
                                                     <AlertDialogCancel className="rounded-xl border-2">Cancel</AlertDialogCancel>
                                                     <AlertDialogAction onClick={() => handleToggleDoctorStatus(doctor.id, isActive)} className={cn("rounded-xl font-bold text-white", isActive ? "bg-amber-600 hover:bg-amber-700" : "bg-primary hover:bg-primary/90")}>Confirm</AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-
-                                        <DropdownMenuSeparator />
-
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <DropdownMenuItem className="font-bold text-destructive rounded-xl cursor-pointer" onSelect={(e) => e.preventDefault()}>
-                                                    <Trash2 className="mr-2 h-4 w-4" /> Delete Profile
-                                                </DropdownMenuItem>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl">
-                                                <AlertDialogHeader>
-                                                    <div className="mx-auto bg-destructive/10 text-destructive p-3 rounded-full w-fit mb-2">
-                                                        <AlertTriangle className="h-8 w-8" />
-                                                    </div>
-                                                    <AlertDialogTitle className="font-headline text-2xl text-center">Permanent Deletion?</AlertDialogTitle>
-                                                    <AlertDialogDescription className="text-sm text-center">
-                                                        This will permanently remove <strong>{name}</strong> from the clinical registry. This action is irreversible and will delete all associated professional credentials.
-                                                    </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter className="pt-6 sm:justify-center gap-3">
-                                                    <AlertDialogCancel className="rounded-xl border-2">Cancel</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleDeleteDoctor(doctor.id)} className="rounded-xl font-bold text-white bg-destructive hover:bg-destructive/90">Permanently Delete</AlertDialogAction>
                                                 </AlertDialogFooter>
                                             </AlertDialogContent>
                                         </AlertDialog>

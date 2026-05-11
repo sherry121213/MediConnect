@@ -13,45 +13,11 @@ import { Badge } from "@/components/ui/badge";
 import type { Patient, Doctor, Appointment } from "@/lib/types";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useCollection, useFirestore, useMemoFirebase } from "@/firebase";
-import { collection, query, where, doc } from "firebase/firestore";
+import { collection, query, where } from "firebase/firestore";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Stethoscope, Users, LayoutList, Trash2, MoreHorizontal, AlertCircle } from "lucide-react";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuTrigger 
-} from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates";
-import { useToast } from "@/hooks/use-toast";
-import { Button } from "@/components/ui/button";
+import { Stethoscope, Users, LayoutList } from "lucide-react";
 
 function PatientTable({ patients }: { patients: Patient[] }) {
-    const firestore = useFirestore();
-    const { toast } = useToast();
-
-    const handleDeletePatient = (patientId: string) => {
-        if (!firestore) return;
-        deleteDocumentNonBlocking(doc(firestore, 'patients', patientId));
-        toast({
-            title: "Patient Purged",
-            description: "The patient record has been permanently removed from the registry.",
-            variant: "destructive"
-        });
-    };
-
     if (!patients || patients.length === 0) return null;
 
     return (
@@ -64,7 +30,6 @@ function PatientTable({ patients }: { patients: Patient[] }) {
                         <TableHead className="min-w-[180px]">Contact Information</TableHead>
                         <TableHead className="hidden lg:table-cell">Status</TableHead>
                         <TableHead className="text-right pr-6 min-w-[120px]">Joined Date</TableHead>
-                        <TableHead className="text-right pr-8">Actions</TableHead>
                     </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -95,41 +60,6 @@ function PatientTable({ patients }: { patients: Patient[] }) {
                             </TableCell>
                             <TableCell className="text-right pr-6 text-xs font-medium text-muted-foreground">
                                 {patient.createdAt ? new Date(patient.createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' }) : 'N/A'}
-                            </TableCell>
-                            <TableCell className="text-right pr-8">
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button variant="ghost" size="icon" className="h-8 w-8 rounded-lg hover:bg-slate-100">
-                                            <MoreHorizontal className="h-4 w-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-48 rounded-xl border-2 shadow-xl p-1">
-                                        <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground p-2">Operations</DropdownMenuLabel>
-                                        
-                                        <AlertDialog>
-                                            <AlertDialogTrigger asChild>
-                                                <DropdownMenuItem className="text-destructive font-bold rounded-lg cursor-pointer" onSelect={(e) => e.preventDefault()}>
-                                                    <Trash2 className="mr-2 h-4 w-4" /> Delete Record
-                                                </DropdownMenuItem>
-                                            </AlertDialogTrigger>
-                                            <AlertDialogContent className="rounded-[2rem] border-none shadow-2xl">
-                                                <AlertDialogHeader>
-                                                    <div className="mx-auto bg-destructive/10 text-destructive p-3 rounded-full w-fit mb-2">
-                                                        <AlertCircle className="h-8 w-8" />
-                                                    </div>
-                                                    <AlertDialogTitle className="font-headline text-2xl text-center">Purge Patient Record?</AlertDialogTitle>
-                                                    <AlertDialogDescription className="text-sm text-center">
-                                                        This will permanently delete <strong>{patient.firstName} {patient.lastName}</strong> from the clinical system. All associated medical history links for this profile will be severed.
-                                                    </AlertDialogDescription>
-                                                </AlertDialogHeader>
-                                                <AlertDialogFooter className="pt-6 sm:justify-center gap-3">
-                                                    <AlertDialogCancel className="rounded-xl border-2">Cancel</AlertDialogCancel>
-                                                    <AlertDialogAction onClick={() => handleDeletePatient(patient.id)} className="rounded-xl font-bold text-white bg-destructive hover:bg-destructive/90">Confirm Purge</AlertDialogAction>
-                                                </AlertDialogFooter>
-                                            </AlertDialogContent>
-                                        </AlertDialog>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
                             </TableCell>
                         </TableRow>
                     ))}
