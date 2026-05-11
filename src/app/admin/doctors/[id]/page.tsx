@@ -1,14 +1,15 @@
+
 'use client';
 
 import { useParams } from 'next/navigation';
-import { useDoc, useFirestore, useMemoFirebase, useStorage } from '@/firebase';
-import { doc, setDoc, arrayUnion } from 'firebase/firestore';
+import { useDoc, useFirestore, useMemoFirebase, useStorage, useCollection } from '@/firebase';
+import { doc, setDoc, collection, query, where, deleteDoc } from 'firebase/firestore';
 import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 import type { Doctor } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
-import { ArrowLeft, AtSign, BriefcaseMedical, CheckCircle, Loader2, MapPin, Phone, FileText, ShieldCheck, Eye, ClipboardCheck, ExternalLink, Plus, Upload, X } from 'lucide-react';
+import { ArrowLeft, AtSign, BriefcaseMedical, CheckCircle, Loader2, MapPin, Phone, FileText, ShieldCheck, Eye, ClipboardCheck, ExternalLink, Plus, Upload, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +17,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useState, useRef } from 'react';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 
 export default function DoctorProfilePage() {
     const params = useParams();
@@ -36,11 +38,17 @@ export default function DoctorProfilePage() {
 
     const { data: doctor, isLoading, error } = useDoc<Doctor>(doctorDocRef);
 
+    // FETCHING DE-COUPLED CREDENTIALS
+    const credentialsQuery = useMemoFirebase(() => {
+        if (!firestore || !doctorId) return null;
+        return query(collection(firestore, 'doctorCredentials'), where('doctorId', '==', doctorId));
+    }, [firestore, doctorId]);
+    const { data: credentials, isLoading: isLoadingCreds } = useCollection<any>(credentialsQuery);
+
     const handleVerifyDoctor = async () => {
         if (!firestore || !doctorId || !doctor) return;
         
         const timestamp = new Date().toISOString();
-        // FORCE SYNC: Ensure docs exist in both collections
         await setDoc(doc(firestore, 'doctors', doctorId), { 
             verified: true, 
             profileComplete: true,
@@ -75,25 +83,34 @@ export default function DoctorProfilePage() {
                 setUploadProgress(Math.max(progress, 1));
             },
             (error) => {
-                console.error("Upload failed:", error);
-                toast({ variant: 'destructive', title: "Upload Failed", description: "Could not sync document to cloud." });
+                toast({ variant: 'destructive', title: "Sync Error", description: "Storage link failed." });
                 setIsUploading(false);
             },
             async () => {
                 const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
                 
-                // CRITICAL: Using setDoc with merge to ensure doc exists before appending degree
-                await setDoc(doc(firestore, 'doctors', doctorId), {
-                    documents: arrayUnion(downloadURL),
-                    updatedAt: new Date().toISOString()
-                }, { merge: true });
+                // DE-COUPLED PERSISTENCE
+                const credentialData = {
+                    doctorId: doctorId,
+                    fileUrl: downloadURL,
+                    fileName: file.name,
+                    uploadedAt: new Date().toISOString(),
+                };
+                
+                await addDocumentNonBlocking(collection(firestore, 'doctorCredentials'), credentialData);
 
-                toast({ title: "Asset Secured", description: "New degree has been added to the professional portfolio." });
+                toast({ title: "Asset Secured", description: "Independent record created for this credential." });
                 setIsUploading(false);
                 setUploadProgress(0);
                 setIsUploadDialogOpen(false);
             }
         );
+    };
+
+    const handleRemoveCred = async (credId: string) => {
+        if (!firestore) return;
+        await deleteDoc(doc(firestore, 'doctorCredentials', credId));
+        toast({ title: "Record Deleted" });
     };
 
     if (isLoading) return <div className="flex h-screen items-center justify-center bg-secondary/10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -167,10 +184,10 @@ export default function DoctorProfilePage() {
                             <h4 className="font-bold text-lg border-b pb-4 flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                     <div className="h-8 w-1 bg-primary rounded-full" />
-                                    <ClipboardCheck className="h-6 w-6 text-primary" /> Professional Evidence Portfolio
+                                    <ClipboardCheck className="h-6 w-6 text-primary" /> Professional Portfolio Archive
                                 </div>
                                 <div className="flex items-center gap-3">
-                                    <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest">{doctor.documents?.length || 0} Assets</Badge>
+                                    <Badge variant="outline" className="text-[10px] font-bold uppercase tracking-widest">{credentials?.length || 0} Assets</Badge>
                                     
                                     <Dialog open={isUploadDialogOpen} onOpenChange={setIsUploadDialogOpen}>
                                         <DialogTrigger asChild>
@@ -180,8 +197,8 @@ export default function DoctorProfilePage() {
                                         </DialogTrigger>
                                         <DialogContent className="rounded-3xl sm:max-w-md">
                                             <DialogHeader>
-                                                <DialogTitle>Append Professional Asset</DialogTitle>
-                                                <DialogDescription>Select a clinical document to add to Dr. {doctor.lastName}'s portfolio.</DialogDescription>
+                                                <DialogTitle>Independent Asset Entry</DialogTitle>
+                                                <DialogDescription>Create a separate credential record for Dr. {doctor.lastName}.</DialogDescription>
                                             </DialogHeader>
                                             <div className="py-8">
                                                 <div className="p-10 border-4 border-dashed rounded-[2rem] bg-muted/5 flex flex-col items-center justify-center text-center space-y-4 group hover:bg-muted/10 transition-colors">
@@ -189,7 +206,7 @@ export default function DoctorProfilePage() {
                                                         <Upload className="h-8 w-8" />
                                                     </div>
                                                     <div>
-                                                        <p className="font-bold text-sm">Upload Credential</p>
+                                                        <p className="font-bold text-sm">Force Sync Credential</p>
                                                         <p className="text-[10px] text-muted-foreground uppercase tracking-widest">Images or PDFs (Max 500MB)</p>
                                                     </div>
                                                     <Button 
@@ -212,7 +229,7 @@ export default function DoctorProfilePage() {
                                                 {isUploading && (
                                                     <div className="mt-6 space-y-2">
                                                         <div className="flex justify-between items-center text-[10px] font-bold uppercase text-primary">
-                                                            <span>Synchronizing...</span>
+                                                            <span>Syncing Record...</span>
                                                             <span>{Math.round(uploadProgress)}%</span>
                                                         </div>
                                                         <Progress value={uploadProgress} className="h-1.5" />
@@ -228,24 +245,26 @@ export default function DoctorProfilePage() {
                             </h4>
                             
                             <div className="bg-muted/30 p-6 rounded-2xl border border-dashed border-primary/20 space-y-2">
-                                <p className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Highest Qualification</p>
+                                <p className="text-[10px] font-bold text-primary uppercase tracking-[0.2em]">Primary Qualification</p>
                                 <p className="text-xl font-headline font-bold">{doctor.degree || 'General Practitioner'}</p>
                                 <p className="text-sm text-muted-foreground italic">{doctor.medicalSchool || 'Medical University Records'}</p>
                             </div>
 
                             <div className="space-y-6">
-                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Clinical Assets (Audit Original)</p>
-                                {doctor.documents && doctor.documents.length > 0 ? (
+                                <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">High-Fidelity Assets</p>
+                                {isLoadingCreds ? (
+                                    <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary/30" /></div>
+                                ) : credentials && credentials.length > 0 ? (
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-                                        {doctor.documents.map((url, idx) => {
-                                            // Handle potential non-standard URLs
+                                        {credentials.map((cred) => {
+                                            const url = cred.fileUrl;
                                             const isImage = url.toLowerCase().includes('.jpg') || url.toLowerCase().includes('.jpeg') || url.toLowerCase().includes('.png') || url.toLowerCase().includes('.webp') || url.includes('alt=media');
                                             return (
-                                                <Card key={idx} className="overflow-hidden border-muted shadow-lg group hover:shadow-xl transition-all rounded-2xl">
+                                                <Card key={cred.id} className="overflow-hidden border-muted shadow-lg group hover:shadow-xl transition-all rounded-2xl">
                                                     <div className="relative aspect-video bg-muted/40 flex items-center justify-center border-b overflow-hidden">
                                                         {isImage ? (
                                                             <div className="relative w-full h-full">
-                                                                <Image src={url} alt={`Degree ${idx + 1}`} fill className="object-cover group-hover:scale-110 transition-transform duration-500" unoptimized />
+                                                                <Image src={url} alt={cred.fileName} fill className="object-cover group-hover:scale-110 transition-transform duration-500" unoptimized />
                                                             </div>
                                                         ) : (
                                                             <div className="flex flex-col items-center gap-3">
@@ -253,17 +272,23 @@ export default function DoctorProfilePage() {
                                                                 <span className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Document File</span>
                                                             </div>
                                                         )}
-                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center">
+                                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors flex items-center justify-center gap-3">
                                                             <Button asChild variant="outline" size="sm" className="bg-white/90 backdrop-blur-sm opacity-0 group-hover:opacity-100 transition-opacity rounded-xl">
                                                                 <a href={url} target="_blank" rel="noopener noreferrer">
-                                                                    <Eye className="h-4 w-4 mr-2" /> View Original
+                                                                    <Eye className="h-4 w-4 mr-2" /> Open Raw
                                                                 </a>
+                                                            </Button>
+                                                            <Button variant="destructive" size="icon" className="h-9 w-9 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl" onClick={() => handleRemoveCred(cred.id)}>
+                                                                <Trash2 className="h-4 w-4" />
                                                             </Button>
                                                         </div>
                                                     </div>
                                                     <CardContent className="p-4 flex justify-between items-center bg-white">
-                                                        <span className="text-[10px] font-bold uppercase tracking-tighter truncate pr-2">Evidence-Doc-{idx + 1}</span>
-                                                        <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                                                        <div className="min-w-0 flex-1">
+                                                            <p className="text-[9px] font-bold uppercase tracking-tighter truncate text-slate-500">{cred.fileName}</p>
+                                                            <p className="text-[7px] text-muted-foreground">{new Date(cred.uploadedAt).toLocaleDateString()}</p>
+                                                        </div>
+                                                        <a href={url} target="_blank" rel="noopener noreferrer" className="text-primary hover:underline shrink-0">
                                                             <ExternalLink className="h-4 w-4" />
                                                         </a>
                                                     </CardContent>
@@ -274,7 +299,7 @@ export default function DoctorProfilePage() {
                                 ) : (
                                     <div className="text-center py-20 border-2 border-dashed rounded-3xl bg-muted/5 space-y-4">
                                         <div className="h-20 w-20 bg-muted/10 rounded-full flex items-center justify-center mx-auto"><FileText className="h-10 w-10 text-muted-foreground/30" /></div>
-                                        <p className="text-sm text-muted-foreground font-medium italic">No professional documents posted to portal yet.</p>
+                                        <p className="text-sm text-muted-foreground font-medium italic">No independent records found for this doctor.</p>
                                     </div>
                                 )}
                             </div>
