@@ -114,6 +114,7 @@ export default function DoctorProfilePage() {
     setCropperImage(null);
 
     try {
+      // Create a blob from the base64 cropped image
       const base64Data = croppedImage.split(',')[1];
       const byteCharacters = atob(base64Data);
       const byteNumbers = new Array(byteCharacters.length);
@@ -133,6 +134,7 @@ export default function DoctorProfilePage() {
           });
       });
 
+      // Non-blocking Firestore update for the photo URL
       const updateData = { photoURL: downloadURL, updatedAt: new Date().toISOString() };
       updateDocumentNonBlocking(doc(firestore, 'doctors', user.uid), updateData);
       updateDocumentNonBlocking(doc(firestore, 'patients', user.uid), updateData);
