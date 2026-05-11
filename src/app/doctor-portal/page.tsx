@@ -38,9 +38,9 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
 
     const appointmentDate = new Date(apt.appointmentDateTime);
     const now = isMounted ? new Date().getTime() : 0;
-    const startTime = appointmentDate.getTime() - (30 * 60 * 1000); 
+    const startTime = appointmentDate.getTime() - (10 * 60 * 1000); 
     const endTime = appointmentDate.getTime() + (50 * 60 * 1000);
-    const isLive = isMounted && now >= startTime && now < endTime;
+    const isLive = isMounted && now >= startTime && now < endTime && apt.status === 'scheduled';
 
     return (
         <div className={cn(
@@ -60,7 +60,7 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
             </div>
             <div className="flex items-center gap-2">
                 {isLive && <Badge className="bg-red-600 text-white animate-pulse text-[8px] h-4">LIVE NOW</Badge>}
-                <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("ml-2 shrink-0 text-[10px]", apt.status === 'completed' ? 'bg-green-100 text-green-800' : 'text-primary border-primary/20')}>
+                <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("ml-2 shrink-0 text-[10px]", apt.status === 'completed' ? "bg-green-100 text-green-800" : "text-primary border-primary/20")}>
                     {apt.status === 'scheduled' ? (isLive ? 'Start' : 'Upcoming') : apt.status}
                 </Badge>
             </div>
@@ -77,10 +77,10 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
     const { data: patient } = useDoc<Patient>(patientDocRef);
 
     const isLive = useMemo(() => {
-        if (!appointment || !isMounted) return false;
+        if (!appointment || !isMounted || appointment.status !== 'scheduled') return false;
         const aptDate = new Date(appointment.appointmentDateTime);
         const now = new Date().getTime();
-        const startTime = aptDate.getTime() - (30 * 60 * 1000);
+        const startTime = aptDate.getTime() - (10 * 60 * 1000);
         const endTime = aptDate.getTime() + (50 * 60 * 1000);
         return now >= startTime && now < endTime;
     }, [appointment, isMounted]);
@@ -120,6 +120,8 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
                 <div className="flex items-center gap-2">
                     {isExpired ? (
                         <Badge variant="destructive" className="text-[8px] h-5 font-bold uppercase tracking-tight">Missed</Badge>
+                    ) : appointment.status === 'completed' ? (
+                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-[8px] h-5 font-bold uppercase tracking-tight">Closed</Badge>
                     ) : (
                         <Button 
                             size="sm" 
@@ -134,9 +136,6 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted }: { 
                         </Button>
                     )}
                 </div>
-            )}
-            {!appointment && (
-                <Badge variant="outline" className="text-[9px] sm:text-[10px] font-bold text-muted-foreground border-dashed shrink-0">{isDisabled ? "Closed" : "Free"}</Badge>
             )}
         </div>
     );
@@ -169,9 +168,9 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
 
     const appointmentDate = new Date(appointment.appointmentDateTime);
     const now = isMounted ? new Date().getTime() : 0;
-    const startTime = appointmentDate.getTime() - (30 * 60 * 1000); 
+    const startTime = appointmentDate.getTime() - (10 * 60 * 1000); 
     const endTime = appointmentDate.getTime() + (60 * 60 * 1000);
-    const isLive = isMounted && now >= startTime && now < endTime;
+    const isLive = isMounted && now >= startTime && now < endTime && appointment.status === 'scheduled';
 
     const handleStartRoom = () => {
         onOpenChange(false);
@@ -196,14 +195,19 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted }: { 
                                 {patient && <div className="min-w-0"><p className="font-bold text-lg truncate">{patient.firstName} {patient.lastName}</p><p className="text-xs text-muted-foreground">{patient.email}</p></div>}
                             </div>
                             <div className="flex flex-col gap-3 pt-4">
-                                {isLive ? (
+                                {appointment.status === 'completed' ? (
+                                     <div className="p-6 bg-green-50 border border-green-200 rounded-2xl text-center">
+                                        <ShieldCheck className="h-10 w-10 text-green-600 mx-auto mb-2" />
+                                        <p className="font-bold text-green-800">Session Successfully Archived</p>
+                                        <p className="text-xs text-green-600">This clinical link is now closed.</p>
+                                    </div>
+                                ) : isLive ? (
                                     <Button onClick={handleStartRoom} className="h-14 text-base font-bold shadow-xl shadow-red-500/20 bg-red-600 hover:bg-red-700 animate-pulse rounded-2xl text-white">
                                         <Video className="mr-3 h-6 w-6" /> Start Video Room
                                     </Button>
                                 ) : (
                                     <Button className="h-14 text-base font-bold opacity-70 cursor-not-allowed w-full rounded-2xl" disabled>Session Window Locked <Clock className="ml-3 h-5 w-5" /></Button>
                                 )}
-                                <p className="text-[10px] text-muted-foreground text-center uppercase font-bold tracking-widest">Administrative alert will be sent on start</p>
                             </div>
                         </TabsContent>
                         <TabsContent value="notes">
@@ -398,11 +402,12 @@ export default function DoctorPortalPage() {
 
         const today = appointments.filter(apt => {
             if (!apt || !apt.appointmentDateTime) return false;
+            if (apt.status === 'completed' || apt.status === 'cancelled' || apt.status === 'expired') return false;
             const aptDate = new Date(apt.appointmentDateTime);
             const isToday = isSameDay(aptDate, now);
             const endTime = aptDate.getTime() + (50 * 60 * 1000);
-            const isExpired = now.getTime() > endTime && apt.status === 'scheduled';
-            return isToday && !isExpired && apt.status !== 'expired';
+            const isExpired = now.getTime() > endTime;
+            return isToday && !isExpired;
         });
 
         const pending = appointments.filter(apt => apt && apt.status === 'scheduled').length;
@@ -429,6 +434,8 @@ export default function DoctorPortalPage() {
         const alerts: any[] = [];
         appointments.forEach(a => {
             if (!a || !a.appointmentDateTime || !a.createdAt) return;
+            if (a.status === 'completed' || a.status === 'cancelled') return;
+
             const alertId = a.id + (a.status === 'expired' ? '-exp' : '-notif');
             if (dismissedAlertIds.has(alertId)) return;
 
@@ -443,7 +450,7 @@ export default function DoctorPortalPage() {
             }
 
             const aptDate = new Date(a.appointmentDateTime);
-            const startTime = aptDate.getTime() - (30 * 60 * 1000);
+            const startTime = aptDate.getTime() - (10 * 60 * 1000);
             const endTime = aptDate.getTime() + (50 * 60 * 1000);
             const currentTime = now.getTime();
             

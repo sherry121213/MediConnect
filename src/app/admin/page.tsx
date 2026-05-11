@@ -1,14 +1,15 @@
 
 "use client"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Globe, Calendar, Zap, Siren, ArrowRight, ShieldAlert, Activity, Loader2 } from "lucide-react";
+import { Globe, Calendar, Zap, Siren, ArrowRight, ShieldAlert, Activity, Loader2, TrendingUp, BarChart3, Target, CheckCircle2 } from "lucide-react";
 import { useMemo, useState, useEffect } from "react";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, query, where, limit, orderBy } from "firebase/firestore";
 import type { Doctor, Appointment, Patient } from "@/lib/types";
-import { format, isSameDay, startOfDay } from "date-fns";
+import { format, isSameDay, startOfDay, startOfWeek, startOfMonth, isAfter } from "date-fns";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
 
 export default function AdminDashboardPage() {
   const firestore = useFirestore();
@@ -48,25 +49,45 @@ export default function AdminDashboardPage() {
   }, [firestore]);
   const { data: activeLogs } = useCollection<any>(activeLogsQuery);
   
-  const isLoading = isLoadingAppointments || isLoadingDoctors || isLoadingPatients || !mounted;
-
   const stats = useMemo(() => {
-    if (!appointments || !doctors || !patients) return { totalRevenue: 0, todayRevenue: 0, verifiedDoctors: 0, todayBookings: 0, missedCount: 0 };
+    if (!appointments || !doctors || !patients) return { 
+        totalRevenue: 0, 
+        todayRevenue: 0, 
+        weeklyRevenue: 0,
+        monthlyRevenue: 0,
+        weeklyCount: 0,
+        monthlyCount: 0,
+        verifiedDoctors: 0, 
+        todayBookings: 0, 
+        missedCount: 0 
+    };
 
-    const today = startOfDay(new Date());
+    const now = new Date();
+    const todayStart = startOfDay(now);
+    const weekStart = startOfWeek(now);
+    const monthStart = startOfMonth(now);
+
     const approvedApts = appointments.filter(apt => apt && apt.paymentStatus === 'approved');
-    const missedApts = appointments.filter(apt => apt && apt.status === 'expired').length;
-    const todayApts = appointments.filter(apt => apt && apt.createdAt && isSameDay(new Date(apt.createdAt), today));
-    const todayRev = todayApts.filter(a => a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
-    
+    const todayApts = appointments.filter(apt => apt && apt.createdAt && isAfter(new Date(apt.createdAt), todayStart));
+    const weeklyApts = appointments.filter(apt => apt && apt.createdAt && isAfter(new Date(apt.createdAt), weekStart));
+    const monthlyApts = appointments.filter(apt => apt && apt.createdAt && isAfter(new Date(apt.createdAt), monthStart));
+
     return {
         totalRevenue: approvedApts.reduce((sum, a) => sum + (a.amount || 1500), 0),
-        todayRevenue: todayRev,
+        todayRevenue: todayApts.filter(a => a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0),
+        weeklyRevenue: weeklyApts.filter(a => a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0),
+        monthlyRevenue: monthlyApts.filter(a => a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0),
+        weeklyCount: weeklyApts.length,
+        monthlyCount: monthlyApts.length,
         verifiedDoctors: doctors.filter(d => d && d.verified).length,
         todayBookings: todayApts.length,
-        missedCount: missedApts
+        missedCount: appointments.filter(apt => apt && apt.status === 'expired').length
     };
   }, [appointments, doctors, patients]);
+
+  if (!mounted || isLoadingAppointments || isLoadingDoctors || isLoadingPatients) {
+      return <div className="flex h-screen items-center justify-center bg-slate-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  }
 
   return (
     <div className="p-4 md:p-8 space-y-8 bg-slate-50/50 min-h-screen">
@@ -87,8 +108,59 @@ export default function AdminDashboardPage() {
         <Card className="border-none shadow-sm"><CardContent className="p-6"><p className="text-[10px] font-bold uppercase text-muted-foreground">Missed Slots</p><p className="text-2xl font-bold text-destructive">{stats.missedCount}</p></CardContent></Card>
       </div>
 
+      {/* NEW: Platform Velocity Spectrum (Weekly/Monthly) */}
       <div className="grid gap-8 lg:grid-cols-12">
         <div className="lg:col-span-8 space-y-8">
+            <Card className="border-none shadow-2xl overflow-hidden bg-white rounded-3xl">
+                <CardHeader className="bg-slate-900 text-white p-6">
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="text-xl font-headline flex items-center gap-3">
+                            <TrendingUp className="h-6 w-6 text-primary" /> Platform Velocity Spectrum
+                        </CardTitle>
+                        <Badge variant="outline" className="border-white/20 text-white text-[10px] uppercase font-bold">Time-Series Analytics</Badge>
+                    </div>
+                </CardHeader>
+                <CardContent className="p-0">
+                    <div className="grid md:grid-cols-2 divide-x border-b">
+                        <div className="p-8 space-y-4">
+                            <div className="flex items-center gap-3 text-muted-foreground mb-2">
+                                <BarChart3 className="h-5 w-5" />
+                                <h3 className="text-xs font-bold uppercase tracking-widest">Weekly Momentum</h3>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-4xl font-bold tracking-tighter">PKR {stats.weeklyRevenue.toLocaleString()}</p>
+                                <p className="text-xs text-muted-foreground font-medium">{stats.weeklyCount} Total Consultations this week</p>
+                            </div>
+                        </div>
+                        <div className="p-8 space-y-4 bg-primary/5">
+                            <div className="flex items-center gap-3 text-primary mb-2">
+                                <Target className="h-5 w-5" />
+                                <h3 className="text-xs font-bold uppercase tracking-widest">Monthly Reach</h3>
+                            </div>
+                            <div className="space-y-1">
+                                <p className="text-4xl font-bold tracking-tighter text-primary">PKR {stats.monthlyRevenue.toLocaleString()}</p>
+                                <p className="text-xs text-slate-500 font-medium">{stats.monthlyCount} Records indexed this month</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div className="p-6 flex items-center justify-between bg-muted/10">
+                        <div className="flex items-center gap-6">
+                            <div className="flex items-center gap-2">
+                                <div className="h-2 w-2 rounded-full bg-green-500" />
+                                <span className="text-[10px] font-bold text-muted-foreground uppercase">Stable Growth</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <div className="h-2 w-2 rounded-full bg-primary" />
+                                <span className="text-[10px] font-bold text-muted-foreground uppercase">Clinical Capacity: 85%</span>
+                            </div>
+                        </div>
+                        <Button variant="ghost" size="sm" className="text-[10px] font-bold uppercase" asChild>
+                            <Link href="/admin/payments">Audit All Transactions <ArrowRight className="ml-2 h-3 w-3" /></Link>
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+
             <Card className="border-none shadow-lg overflow-hidden bg-white">
                 <CardHeader className="bg-primary/5 border-b"><CardTitle className="text-lg flex items-center gap-2"><Siren className="h-5 w-5 text-primary" /> Live Operational Feed</CardTitle></CardHeader>
                 <CardContent className="p-0">
@@ -112,34 +184,22 @@ export default function AdminDashboardPage() {
                     )}
                 </CardContent>
             </Card>
-
-            <div className="grid md:grid-cols-2 gap-8">
-                <Card className="border-none shadow-lg bg-primary text-primary-foreground">
-                    <CardHeader><CardTitle className="text-sm uppercase tracking-widest flex items-center gap-2"><Zap className="h-4 w-4" /> System Integrity</CardTitle></CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="p-4 bg-white/10 rounded-xl border border-white/10 backdrop-blur-sm">
-                            <p className="text-xs italic opacity-80 leading-relaxed">"Clinical window enforcement is active. Missed sessions are automatically archived for audit."</p>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
         </div>
 
         <div className="lg:col-span-4 space-y-8">
-            {stats.missedCount > 0 && (
-                <Card className="border-none shadow-2xl bg-red-50 border-red-200">
-                    <CardContent className="p-6">
-                        <div className="flex items-start gap-4">
-                            <div className="p-3 bg-red-100 text-red-600 rounded-2xl shadow-inner"><ShieldAlert className="h-6 w-6" /></div>
-                            <div className="space-y-3 flex-1">
-                                <h4 className="text-sm font-bold text-red-900 uppercase">Missed Session Audit</h4>
-                                <p className="text-xs text-red-800/70 font-medium leading-relaxed">{stats.missedCount} clinical sessions timed out. Review protocols.</p>
-                                <Button size="sm" className="w-full bg-red-600 hover:bg-red-700 text-white font-bold" asChild><Link href="/admin/doctors">Audit Providers <ArrowRight className="ml-2 h-3 w-3" /></Link></Button>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-            )}
+            <Card className="border-none shadow-2xl bg-slate-900 text-white overflow-hidden rounded-3xl">
+                <CardContent className="p-8 space-y-6">
+                    <div className="h-12 w-12 rounded-2xl bg-primary/20 flex items-center justify-center">
+                        <CheckCircle2 className="h-6 w-6 text-primary" />
+                    </div>
+                    <div className="space-y-2">
+                        <h4 className="text-xl font-bold font-headline">Platform Integrity</h4>
+                        <p className="text-sm text-slate-400 leading-relaxed">
+                            Auto-expiry and notification suppression are active. Completed sessions are locked against further audit alerts.
+                        </p>
+                    </div>
+                </CardContent>
+            </Card>
 
             <Card className="border-none shadow-2xl bg-white h-full flex flex-col">
                 <CardHeader className="bg-slate-900 text-white rounded-t-xl"><CardTitle className="text-lg">Real-time Missed Logs</CardTitle></CardHeader>
