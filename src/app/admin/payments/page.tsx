@@ -16,28 +16,16 @@ import { useMemo } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import { Eye, MoreHorizontal, CreditCard, Wallet, Landmark, ShieldCheck, Trash2 } from "lucide-react";
+import { Eye, MoreHorizontal, CreditCard, Wallet, Landmark, ShieldCheck } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-  DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
-import { updateDocumentNonBlocking, deleteDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 
 export default function AdminPaymentsPage() {
   const firestore = useFirestore();
@@ -85,16 +73,6 @@ export default function AdminPaymentsPage() {
     toast({
         title: "Payment Updated",
         description: `The payment has been marked as ${status}.`,
-    });
-  };
-
-  const handleDeleteRecord = (appointmentId: string) => {
-    if (!firestore) return;
-    deleteDocumentNonBlocking(doc(firestore, 'appointments', appointmentId));
-    toast({
-        title: "Record Purged",
-        description: "The payment entry has been removed from the archive.",
-        variant: "destructive"
     });
   };
 
@@ -197,47 +175,24 @@ export default function AdminPaymentsPage() {
                       )}
                   </TableCell>
                   <TableCell className="text-right pr-6">
-                      <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="h-9 w-9 p-0 rounded-xl hover:bg-slate-100">
-                                  <span className="sr-only">Open menu</span>
-                                  <MoreHorizontal className="h-5 w-5" />
-                              </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end" className="w-48 rounded-xl border-2">
-                              {payment.paymentStatus === 'pending' && (
-                                <>
-                                  <DropdownMenuItem onClick={() => handleUpdatePaymentStatus(payment.id, 'approved')} className="text-green-600 font-bold py-2.5 cursor-pointer">
-                                      <ShieldCheck className="mr-2 h-4 w-4" /> Approve Payment
-                                  </DropdownMenuItem>
-                                  <DropdownMenuItem onClick={() => handleUpdatePaymentStatus(payment.id, 'rejected')} className="text-destructive font-bold py-2.5 cursor-pointer">
-                                      Reject Payment
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                </>
-                              )}
-                              
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <DropdownMenuItem className="text-destructive font-bold py-2.5 cursor-pointer" onSelect={(e) => e.preventDefault()}>
-                                      <Trash2 className="mr-2 h-4 w-4" /> Delete Record
-                                  </DropdownMenuItem>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent className="rounded-3xl border-none shadow-2xl">
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle className="text-xl font-headline">Purge Transaction?</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      This will permanently remove this payment entry from the audit center. This action cannot be undone.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel className="rounded-xl border-2">Cancel</AlertDialogCancel>
-                                    <AlertDialogAction onClick={() => handleDeleteRecord(payment.id)} className="rounded-xl bg-destructive hover:bg-destructive/90 font-bold">Confirm Delete</AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                          </DropdownMenuContent>
-                      </DropdownMenu>
+                      {payment.paymentStatus === 'pending' && (
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button variant="ghost" className="h-9 w-9 p-0 rounded-xl hover:bg-slate-100">
+                                    <span className="sr-only">Open menu</span>
+                                    <MoreHorizontal className="h-5 w-5" />
+                                </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end" className="w-48 rounded-xl border-2">
+                                <DropdownMenuItem onClick={() => handleUpdatePaymentStatus(payment.id, 'approved')} className="text-green-600 font-bold py-2.5 cursor-pointer">
+                                    <ShieldCheck className="mr-2 h-4 w-4" /> Approve Payment
+                                </DropdownMenuItem>
+                                <DropdownMenuItem onClick={() => handleUpdatePaymentStatus(payment.id, 'rejected')} className="text-destructive font-bold py-2.5 cursor-pointer">
+                                    Reject Payment
+                                </DropdownMenuItem>
+                            </DropdownMenuContent>
+                        </DropdownMenu>
+                      )}
                   </TableCell>
                 </TableRow>
               ))}
