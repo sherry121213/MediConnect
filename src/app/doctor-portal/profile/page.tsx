@@ -12,17 +12,14 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, FileText, X, Plus, ExternalLink, GraduationCap, ShieldAlert, Eye, BadgeCheck, CheckCircle2 } from 'lucide-react';
+import { Loader2, FileText, ExternalLink, GraduationCap, Eye, BadgeCheck, ShieldAlert } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import ImageCropperDialog from '@/components/ImageCropperDialog';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
 import Image from 'next/image';
-
-const MAX_FILE_SIZE = 500 * 1024 * 1024; // 500MB limit
 
 const profileSchema = z.object({
   specialty: z.string().min(2, 'Specialty is required.'),
@@ -47,7 +44,6 @@ export default function DoctorProfilePage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   
   const [existingDocs, setExistingDocs] = useState<string[]>([]);
-  const [uploadQueue, setUploadQueue] = useState<{ file: File; id: string; status: 'pending' | 'uploading' | 'done' }[]>([]);
 
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
@@ -138,39 +134,6 @@ export default function DoctorProfilePage() {
     }
   };
 
-  const handleFileSelection = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files) return;
-    const files = Array.from(e.target.files);
-    
-    const allowedTypes = ['application/pdf', 'image/jpeg', 'image/png', 'image/jpg'];
-    const validFiles = files.filter(file => {
-        const isTypeValid = allowedTypes.includes(file.type);
-        const isSizeValid = file.size <= MAX_FILE_SIZE;
-        return isTypeValid && isSizeValid;
-    });
-    
-    if (validFiles.length < files.length) {
-        toast({
-            variant: 'destructive',
-            title: 'Files Rejected',
-            description: 'Ensure files are under 500MB (PDF/JPG/PNG).',
-        });
-    }
-
-    const newEntries = validFiles.map(file => ({
-        file,
-        id: Math.random().toString(36).substr(2, 9),
-        status: 'pending' as const
-    }));
-
-    setUploadQueue(prev => [...prev, ...newEntries]);
-    e.target.value = ''; 
-  };
-
-  const removeFileFromQueue = (id: string) => {
-    setUploadQueue(prev => prev.filter(item => item.id !== id));
-  };
-
   const handleRefreshStatus = async () => {
     if (!user) return;
     setIsRefreshing(true);
@@ -189,42 +152,17 @@ export default function DoctorProfilePage() {
   };
 
   const onSubmit = async (values: ProfileFormValues) => {
-    if (!user || !firestore || !storage) return;
+    if (!user || !firestore) return;
     
     setIsSubmitting(true);
 
     try {
-        const newUrls: string[] = [];
-        
-        // Robust sequential upload for massive files
-        for (const item of uploadQueue) {
-            setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'uploading' } : q));
-
-            const uniqueName = `${Date.now()}_${item.id}_${item.file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-            const fileRef = ref(storage, `doctors/${user.uid}/documents/${uniqueName}`);
-            
-            const uploadTask = uploadBytesResumable(fileRef, item.file);
-
-            const url = await new Promise<string>((resolve, reject) => {
-                uploadTask.on('state_changed', null, 
-                  (error) => reject(error), 
-                  async () => {
-                    const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
-                    setUploadQueue(prev => prev.map(q => q.id === item.id ? { ...q, status: 'done' } : q));
-                    resolve(downloadUrl);
-                });
-            });
-            newUrls.push(url);
-        }
-
-        const finalDocs = [...existingDocs, ...newUrls];
-        
         const doctorData = {
             ...values,
             firstName: userData?.firstName || '',
             lastName: userData?.lastName || '',
             email: user.email || '',
-            documents: finalDocs,
+            documents: existingDocs,
             profileComplete: true,
             updatedAt: new Date().toISOString(),
         };
@@ -237,14 +175,10 @@ export default function DoctorProfilePage() {
             lastName: userData?.lastName
         };
 
-        // Use robust merge pattern
         setDocumentNonBlocking(doc(firestore, 'doctors', user.uid), doctorData, { merge: true });
         setDocumentNonBlocking(doc(firestore, 'patients', user.uid), patientData, { merge: true });
 
-        setUploadQueue([]); 
-        setExistingDocs(finalDocs);
-
-        toast({ title: 'Profile Synchronized!', description: 'Your clinical portfolio has been expanded.' });
+        toast({ title: 'Profile Synchronized!', description: 'Your clinical information has been updated.' });
         
         if (!userData?.profileComplete) {
             router.push('/doctor-portal');
@@ -254,7 +188,7 @@ export default function DoctorProfilePage() {
         toast({ 
             variant: "destructive", 
             title: "Submission Error", 
-            description: "Failed to save qualifications. Ensure files are under 500MB." 
+            description: "Failed to save profile changes." 
         });
     } finally {
         setIsSubmitting(false);
@@ -352,17 +286,11 @@ export default function DoctorProfilePage() {
 
                                 <div className="space-y-6 border-t pt-8">
                                     <div className="flex items-center justify-between">
-                                        <FormLabel className="text-base font-bold">Clinical Evidence Portfolio</FormLabel>
-                                        <Badge variant="outline" className="font-bold text-[10px] uppercase tracking-tighter">{existingDocs.length + uploadQueue.length} Files</Badge>
-                                    </div>
-                                    <div className="bg-amber-50 p-4 rounded-2xl flex gap-3 border border-amber-100">
-                                        <ShieldAlert className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
-                                        <p className="text-[11px] text-amber-800 leading-relaxed italic">
-                                            New certificates are appended to your permanent record. Supported: PDF, JPG, PNG (Max 500MB).
-                                        </p>
+                                        <FormLabel className="text-base font-bold">Verified Portfolio Assets</FormLabel>
+                                        <Badge variant="outline" className="font-bold text-[10px] uppercase tracking-tighter">{existingDocs.length} Files</Badge>
                                     </div>
                                     
-                                    {existingDocs.length > 0 && (
+                                    {existingDocs.length > 0 ? (
                                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                             {existingDocs.map((url, idx) => {
                                                 const isImage = url.includes('.jpg') || url.includes('.jpeg') || url.includes('.png') || url.includes('image');
@@ -391,49 +319,22 @@ export default function DoctorProfilePage() {
                                                 );
                                             })}
                                         </div>
-                                    )}
-
-                                    {uploadQueue.length > 0 && (
-                                        <div className="space-y-2 bg-primary/5 p-4 rounded-2xl border-2 border-dashed border-primary/20">
-                                            <p className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">New Evidence Queue:</p>
-                                            {uploadQueue.map((item) => (
-                                                <div key={item.id} className="flex items-center justify-between p-3 bg-white border rounded-xl shadow-sm">
-                                                    <div className="flex items-center gap-2 overflow-hidden">
-                                                        {item.status === 'uploading' ? (
-                                                            <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                                                        ) : item.status === 'done' ? (
-                                                            <CheckCircle2 className="h-3 w-3 text-green-600" />
-                                                        ) : (
-                                                            <Plus className="h-3 w-3 text-slate-400" />
-                                                        )}
-                                                        <span className={cn("text-xs truncate font-medium", item.status === 'done' && "text-green-600")}>
-                                                            {item.file.name}
-                                                        </span>
-                                                    </div>
-                                                    <Button variant="ghost" size="icon" className="h-8 w-8 hover:text-destructive" onClick={() => removeFileFromQueue(item.id)} disabled={isSubmitting || item.status !== 'pending'}>
-                                                        <X className="h-4 w-4" />
-                                                    </Button>
-                                                </div>
-                                            ))}
+                                    ) : (
+                                        <div className="text-center py-12 bg-muted/5 rounded-2xl border-2 border-dashed">
+                                            <p className="text-xs text-muted-foreground italic">No clinical documents linked to this profile.</p>
                                         </div>
                                     )}
 
-                                    {!isSubmitting && (
-                                        <div className="relative">
-                                            <Button type="button" variant="outline" className="w-full border-2 border-dashed h-24 rounded-2xl bg-muted/5 hover:bg-muted/10 hover:border-primary/40 transition-all" asChild>
-                                                <label htmlFor="multi-doc-upload" className="cursor-pointer flex flex-col items-center gap-2">
-                                                    <Plus className="h-6 w-6 text-primary" /> 
-                                                    <span className="text-sm font-bold">Append Degree/Certificate</span>
-                                                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">PDF, JPG, PNG - Up to 500MB</span>
-                                                </label>
-                                            </Button>
-                                            <Input id="multi-doc-upload" type="file" multiple accept=".pdf,.jpg,.jpeg,.png" onChange={handleFileSelection} className="absolute inset-0 opacity-0 cursor-pointer" disabled={isSubmitting} />
-                                        </div>
-                                    )}
+                                    <div className="bg-primary/5 p-4 rounded-2xl border border-primary/10 flex gap-3">
+                                        <ShieldAlert className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+                                        <p className="text-[11px] text-primary-dark leading-relaxed italic">
+                                            Adding new qualifications is managed by the administrative audit team. To update your portfolio, please initiate a support chat with clinical administration.
+                                        </p>
+                                    </div>
                                 </div>
 
                                 <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl shadow-primary/20" disabled={isSubmitting || isUploading || !isEmailVerified}>
-                                    {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Finalizing Assets...</> : "Synchronize Portfolio"}
+                                    {isSubmitting ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Synchronizing...</> : "Update Professional Profile"}
                                 </Button>
                             </form>
                         </Form>
@@ -445,4 +346,3 @@ export default function DoctorProfilePage() {
       </main>
   );
 }
-
