@@ -71,11 +71,11 @@ export default function ConsultationRoomPage() {
       } catch (err) {
         console.error("Media Error:", err);
         if (isMounted) {
-            setSignalingStatus("Camera Access Required to Proceed.");
+            setSignalingStatus("Hardware Error: Camera/Mic Required.");
             toast({
                 variant: "destructive",
-                title: "Hardware Error",
-                description: "Please allow camera and microphone access in your browser settings.",
+                title: "Hardware Access Error",
+                description: "Please allow camera and microphone access to proceed with the consultation.",
             });
         }
       }
@@ -87,6 +87,16 @@ export default function ConsultationRoomPage() {
     };
   }, [toast]);
 
+  // WhatsApp-style Local Preview Heartbeat (Ensures local video is never black)
+  useEffect(() => {
+    const timer = setInterval(() => {
+        if (localVideoRef.current && localStream.current && !localVideoRef.current.srcObject) {
+            localVideoRef.current.srcObject = localStream.current;
+        }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [hasCameraPermission]);
+
   // 2. Signaling Handshake & WebRTC Logic
   useEffect(() => {
     if (!firestore || !appointmentId || !user || !hasCameraPermission || !userData) return;
@@ -96,11 +106,14 @@ export default function ConsultationRoomPage() {
 
     const setupSignaling = async () => {
       try {
+        if (pc.current) return; // Prevent multiple connections
+
         pc.current = new RTCPeerConnection(servers);
 
+        // Add local tracks to peer connection
         localStream.current?.getTracks().forEach((track) => {
-          if (localStream.current) {
-            pc.current?.addTrack(track, localStream.current);
+          if (localStream.current && pc.current) {
+            pc.current.addTrack(track, localStream.current);
           }
         });
 
@@ -109,16 +122,17 @@ export default function ConsultationRoomPage() {
             remoteVideoRef.current.srcObject = event.streams[0];
             if (isEffectActive) {
                 setIsPeerConnected(true);
-                setSignalingStatus("Clinical Handshake Successful");
+                setSignalingStatus("Secure Clinical Connection Active");
             }
           }
         };
 
         pc.current.onconnectionstatechange = () => {
             if (!isEffectActive) return;
-            if (pc.current?.connectionState === 'disconnected' || pc.current?.connectionState === 'failed') {
+            const state = pc.current?.connectionState;
+            if (state === 'disconnected' || state === 'failed') {
                 setIsPeerConnected(false);
-                setSignalingStatus("Connection Lost. Reconnecting...");
+                setSignalingStatus("Reconnecting to Secure Hub...");
             }
         };
 
@@ -127,21 +141,29 @@ export default function ConsultationRoomPage() {
         const answerCandidates = collection(callDoc, 'answerCandidates');
 
         pc.current.onicecandidate = (event) => {
-          if (event.candidate) {
+          if (event.candidate && isEffectActive) {
             const candidatesRef = userData.role === 'doctor' ? offerCandidates : answerCandidates;
             addDoc(candidatesRef, event.candidate.toJSON());
           }
         };
 
         if (userData.role === 'doctor') {
-          // DOCTOR: The Caller
-          updateDoc(doc(firestore, 'appointments', appointmentId), { doctorInRoom: true });
+          // DOCTOR: The Caller (Initiator)
+          setSignalingStatus("Negotiating End-to-End Encryption...");
           
-          if (isEffectActive) setSignalingStatus("Initiating Professional Stream...");
+          // FORCE CLEANUP: Reset signaling doc to prevent stale handshakes
+          await setDoc(callDoc, { doctorJoinedAt: new Date().toISOString() });
+          
+          // Signal that doctor is ready in the main appointment record
+          setDoc(doc(firestore, 'appointments', appointmentId), { doctorInRoom: true }, { merge: true });
+          
           const offerDescription = await pc.current.createOffer();
           await pc.current.setLocalDescription(offerDescription);
 
-          await setDoc(callDoc, { offer: { sdp: offerDescription.sdp, type: offerDescription.type } });
+          await setDoc(callDoc, { 
+            offer: { sdp: offerDescription.sdp, type: offerDescription.type },
+            doctorId: user.uid 
+          }, { merge: true });
 
           const unsubCall = onSnapshot(callDoc, (snapshot) => {
             const data = snapshot.data();
@@ -154,29 +176,34 @@ export default function ConsultationRoomPage() {
 
           const unsubCandidates = onSnapshot(answerCandidates, (snapshot) => {
             snapshot.docChanges().forEach((change) => {
-              if (change.type === 'added' && pc.current) {
+              if (change.type === 'added' && pc.current && isEffectActive) {
                 pc.current.addIceCandidate(new RTCIceCandidate(change.doc.data()));
               }
             });
           });
           unsubs.push(unsubCandidates);
+          
         } else {
           // PATIENT: The Receiver
-          if (isEffectActive) setSignalingStatus("Connecting to Healthcare Provider...");
+          setSignalingStatus("Establishing Clinical Handshake...");
+          
           const unsubCall = onSnapshot(callDoc, async (snapshot) => {
             const data = snapshot.data();
             if (pc.current && !pc.current.currentRemoteDescription && data?.offer) {
               await pc.current.setRemoteDescription(new RTCSessionDescription(data.offer));
               const answerDescription = await pc.current.createAnswer();
               await pc.current.setLocalDescription(answerDescription);
-              await setDoc(callDoc, { answer: { type: answerDescription?.type, sdp: answerDescription?.sdp } }, { merge: true });
+              await setDoc(callDoc, { 
+                answer: { type: answerDescription?.type, sdp: answerDescription?.sdp },
+                patientId: user.uid
+              }, { merge: true });
             }
           });
           unsubs.push(unsubCall);
 
           const unsubCandidates = onSnapshot(offerCandidates, (snapshot) => {
             snapshot.docChanges().forEach((change) => {
-              if (change.type === 'added' && pc.current) {
+              if (change.type === 'added' && pc.current && isEffectActive) {
                 pc.current.addIceCandidate(new RTCIceCandidate(change.doc.data()));
               }
             });
@@ -184,7 +211,7 @@ export default function ConsultationRoomPage() {
           unsubs.push(unsubCandidates);
         }
       } catch (e) {
-        console.error("Signaling Error:", e);
+        console.error("Signaling Handshake Failed:", e);
         if (isEffectActive) setSignalingStatus("Secure Channel Negotiating...");
       }
     };
@@ -283,14 +310,16 @@ export default function ConsultationRoomPage() {
 
   const toggleMute = () => {
     if (localStream.current) {
-      localStream.current.getAudioTracks()[0].enabled = isMuted;
+      const audioTrack = localStream.current.getAudioTracks()[0];
+      if (audioTrack) audioTrack.enabled = isMuted;
       setIsMuted(!isMuted);
     }
   };
 
   const toggleVideo = () => {
     if (localStream.current) {
-      localStream.current.getVideoTracks()[0].enabled = isVideoOff;
+      const videoTrack = localStream.current.getVideoTracks()[0];
+      if (videoTrack) videoTrack.enabled = isVideoOff;
       setIsVideoOff(!isVideoOff);
     }
   };
@@ -340,7 +369,7 @@ export default function ConsultationRoomPage() {
       {/* Main Video Arena */}
       <main className="relative flex-1 flex flex-col lg:flex-row overflow-hidden bg-black">
         <div className="flex-1 relative flex items-center justify-center">
-          {/* Remote Video (WhatsApp Style - Full Screen) */}
+          {/* Remote Video (Full Screen) */}
           <video 
             ref={remoteVideoRef} 
             className={cn("w-full h-full object-cover transition-opacity duration-1000", isPeerConnected ? "opacity-100" : "opacity-0")} 
@@ -362,17 +391,23 @@ export default function ConsultationRoomPage() {
                     </div>
                 </div>
                 <div className="space-y-3">
-                    <p className="text-white font-bold text-xl tracking-tight">Initializing Clinical Link...</p>
+                    <p className="text-white font-bold text-xl tracking-tight">Establishing Clinical Link...</p>
                     <p className="text-[10px] text-slate-500 uppercase tracking-[0.3em] font-bold max-w-xs mx-auto leading-relaxed">
-                        Establishing end-to-end encrypted video tunnel with {peer?.firstName || 'your provider'}.
+                        End-to-end encrypted video tunnel with {peer?.firstName || 'the patient'}.
                     </p>
                 </div>
             </div>
           )}
 
-          {/* Local Video Overlay (WhatsApp Style - PiP) */}
+          {/* Local Video Overlay (WhatsApp Style - Mirrored PiP) */}
           <div className="absolute top-20 right-4 sm:top-24 sm:right-8 w-28 sm:w-48 aspect-video rounded-3xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900 z-30 transition-all hover:scale-105">
-             <video ref={localVideoRef} className={cn("w-full h-full object-cover mirror", isVideoOff && "hidden")} autoPlay muted playsInline />
+             <video 
+                ref={localVideoRef} 
+                className={cn("w-full h-full object-cover -scale-x-100", isVideoOff && "hidden")} 
+                autoPlay 
+                muted 
+                playsInline 
+             />
              {isVideoOff && (
                 <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-slate-800 text-slate-500">
                     <VideoOff className="h-6 w-6" />
@@ -381,7 +416,7 @@ export default function ConsultationRoomPage() {
              )}
           </div>
 
-          {/* Controls Bar (WhatsApp Style - Floating Bottom) */}
+          {/* Controls Bar */}
           <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 sm:gap-6 px-6 py-4 bg-slate-900/80 backdrop-blur-2xl rounded-[2.5rem] border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-40">
              <Button 
                 size="icon" 
@@ -407,7 +442,7 @@ export default function ConsultationRoomPage() {
                 disabled={isEnding}
              >
                 {isEnding ? <Loader2 className="h-4 w-4 animate-spin" /> : <PhoneOff className="h-4 w-4" />} 
-                <span className="hidden sm:inline">End Consultation</span>
+                <span className="hidden sm:inline">End Session</span>
              </Button>
           </div>
         </div>
@@ -420,29 +455,29 @@ export default function ConsultationRoomPage() {
           <div className="p-4 border-b border-white/5 flex items-center justify-between">
             <div className="flex items-center gap-2">
                 <MessageSquare className="text-primary h-4 w-4" />
-                <h3 className="text-[10px] font-bold text-white uppercase tracking-[0.2em]">Consultation Chat</h3>
+                <h3 className="text-[10px] font-bold text-white uppercase tracking-[0.2em]">Clinical Chat</h3>
             </div>
             <Badge variant="outline" className="text-[8px] text-amber-500 border-amber-500/20 font-bold uppercase py-0.5">
-                <Clock className="h-2.5 w-2.5 mr-1" /> 50m Clinical Slot
+                <Clock className="h-2.5 w-2.5 mr-1" /> 50m Slot
             </Badge>
           </div>
           
           <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
             {messages.length > 0 ? messages.map((msg: any) => {
                 const isMe = msg.senderId === user?.uid;
-                const msgDate = new Date(msg.timestamp);
-                const displayTime = isValid(msgDate) ? format(msgDate, "p") : '';
+                const msgDate = msg.timestamp ? new Date(msg.timestamp) : null;
+                const displayTime = msgDate && isValid(msgDate) ? format(msgDate, "p") : '';
 
                 return (
                     <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
                         <div className={cn(
-                            "max-w-[85%] p-3 rounded-2xl text-xs sm:text-sm shadow-lg", 
+                            "max-w-[85%] p-3 rounded-2xl text-xs shadow-lg", 
                             isMe ? "bg-primary text-white rounded-br-none" : "bg-slate-900/80 text-slate-200 rounded-bl-none border border-white/5"
                         )}>
                             <p className="leading-relaxed">{msg.content}</p>
                         </div>
                         <span className="text-[8px] text-slate-500 mt-1 uppercase font-bold tracking-tighter">
-                            {isMe ? 'You' : (peer?.firstName || 'Provider')} • {displayTime}
+                            {isMe ? 'You' : (peer?.firstName || 'Participant')} • {displayTime}
                         </span>
                     </div>
                 );
@@ -451,7 +486,7 @@ export default function ConsultationRoomPage() {
                     <div className="h-12 w-12 rounded-full bg-white/5 flex items-center justify-center mb-4">
                         <ShieldCheck className="h-6 w-6 opacity-20" />
                     </div>
-                    <p className="text-[10px] uppercase font-bold tracking-[0.2em] opacity-40">End-to-End Encryption Active</p>
+                    <p className="text-[10px] uppercase font-bold tracking-[0.2em] opacity-40">Encryption Active</p>
                 </div>
             )}
             <div ref={chatScrollRef} />
