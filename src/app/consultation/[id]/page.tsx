@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, setDoc, onSnapshot, addDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, addDoc, updateDoc, deleteDoc, getDocs, query } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, User, Clock, Video as VideoIcon } from 'lucide-react';
@@ -45,6 +45,8 @@ export default function ConsultationRoomPage() {
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const pc = useRef<RTCPeerConnection | null>(null);
   const localStream = useRef<MediaStream | null>(null);
+  const candidateQueue = useRef<any[]>([]);
+  const isRemoteDescriptionSet = useRef(false);
 
   const appointmentDocRef = useMemoFirebase(() => {
     if (!firestore || !appointmentId) return null;
@@ -105,17 +107,28 @@ export default function ConsultationRoomPage() {
     let isEffectActive = true;
     const unsubs: (() => void)[] = [];
 
+    const processCandidateQueue = async () => {
+      if (!pc.current) return;
+      while (candidateQueue.current.length > 0) {
+        const candidate = candidateQueue.current.shift();
+        try {
+          await pc.current.addIceCandidate(new RTCIceCandidate(candidate));
+        } catch (e) {
+          console.warn("Candidate queue error:", e);
+        }
+      }
+    };
+
     const setupSignaling = async () => {
       try {
-        // Clean start for every signaling effect run
         if (pc.current) {
           pc.current.close();
-          pc.current = null;
         }
 
         pc.current = new RTCPeerConnection(servers);
+        isRemoteDescriptionSet.current = false;
+        candidateQueue.current = [];
 
-        // Add tracks immediately
         localStream.current?.getTracks().forEach((track) => {
           if (localStream.current && pc.current) {
             pc.current.addTrack(track, localStream.current);
@@ -123,7 +136,7 @@ export default function ConsultationRoomPage() {
         });
 
         pc.current.ontrack = (event) => {
-          if (remoteVideoRef.current) {
+          if (remoteVideoRef.current && event.streams[0]) {
             remoteVideoRef.current.srcObject = event.streams[0];
             if (isEffectActive) {
                 setIsPeerConnected(true);
@@ -149,17 +162,16 @@ export default function ConsultationRoomPage() {
         pc.current.onicecandidate = (event) => {
           if (event.candidate && isEffectActive) {
             const candidatesRef = userData.role === 'doctor' ? offerCandidates : answerCandidates;
-            addDoc(candidatesRef, event.candidate.toJSON());
+            addDoc(candidatesRef, event.candidate.toJSON()).catch(e => console.error("ICE push error:", e));
           }
         };
 
         if (userData.role === 'doctor') {
           setSignalingStatus("Negotiating Clinical Handshake...");
           
-          // DOCTOR RESET: Clear stale session data
+          // DOCTOR RESET: Ensure fresh session
           await setDoc(callDoc, { doctorJoinedAt: new Date().toISOString() });
           
-          // Signal Presence
           updateDoc(doc(firestore, 'appointments', appointmentId), { doctorInRoom: true }).catch(() => {});
           
           const offerDescription = await pc.current.createOffer();
@@ -170,19 +182,26 @@ export default function ConsultationRoomPage() {
             doctorId: user.uid 
           }, { merge: true });
 
-          const unsubCall = onSnapshot(callDoc, (snapshot) => {
+          const unsubCall = onSnapshot(callDoc, async (snapshot) => {
             const data = snapshot.data();
             if (pc.current && !pc.current.currentRemoteDescription && data?.answer) {
               const answerDescription = new RTCSessionDescription(data.answer);
-              pc.current.setRemoteDescription(answerDescription);
+              await pc.current.setRemoteDescription(answerDescription);
+              isRemoteDescriptionSet.current = true;
+              await processCandidateQueue();
             }
           });
           unsubs.push(unsubCall);
 
           const unsubCandidates = onSnapshot(answerCandidates, (snapshot) => {
-            snapshot.docChanges().forEach((change) => {
+            snapshot.docChanges().forEach(async (change) => {
               if (change.type === 'added' && pc.current && isEffectActive) {
-                pc.current.addIceCandidate(new RTCIceCandidate(change.doc.data()));
+                const data = change.doc.data();
+                if (isRemoteDescriptionSet.current) {
+                  await pc.current.addIceCandidate(new RTCIceCandidate(data));
+                } else {
+                  candidateQueue.current.push(data);
+                }
               }
             });
           });
@@ -195,6 +214,9 @@ export default function ConsultationRoomPage() {
             const data = snapshot.data();
             if (pc.current && !pc.current.currentRemoteDescription && data?.offer) {
               await pc.current.setRemoteDescription(new RTCSessionDescription(data.offer));
+              isRemoteDescriptionSet.current = true;
+              await processCandidateQueue();
+              
               const answerDescription = await pc.current.createAnswer();
               await pc.current.setLocalDescription(answerDescription);
               await setDoc(callDoc, { 
@@ -206,9 +228,14 @@ export default function ConsultationRoomPage() {
           unsubs.push(unsubCall);
 
           const unsubCandidates = onSnapshot(offerCandidates, (snapshot) => {
-            snapshot.docChanges().forEach((change) => {
+            snapshot.docChanges().forEach(async (change) => {
               if (change.type === 'added' && pc.current && isEffectActive) {
-                pc.current.addIceCandidate(new RTCIceCandidate(change.doc.data()));
+                const data = change.doc.data();
+                if (isRemoteDescriptionSet.current) {
+                  await pc.current.addIceCandidate(new RTCIceCandidate(data));
+                } else {
+                  candidateQueue.current.push(data);
+                }
               }
             });
           });
@@ -257,7 +284,11 @@ export default function ConsultationRoomPage() {
   const { data: messagesData } = useCollection<any>(messagesQuery);
   const messages = useMemo(() => {
     if (!messagesData) return [];
-    return [...messagesData].sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    return [...messagesData].sort((a, b) => {
+        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        return timeA - timeB;
+    });
   }, [messagesData]);
 
   useEffect(() => {
@@ -411,7 +442,7 @@ export default function ConsultationRoomPage() {
           <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
             {messages.map((msg: any) => {
                 const isMe = msg.senderId === user?.uid;
-                const displayTime = msg.timestamp ? format(new Date(msg.timestamp), "p") : '';
+                const displayTime = msg.timestamp && isValid(new Date(msg.timestamp)) ? format(new Date(msg.timestamp), "p") : '';
                 return (
                     <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
                         <div className={cn("max-w-[85%] p-3 rounded-2xl text-xs shadow-lg", isMe ? "bg-primary text-white rounded-br-none" : "bg-slate-900/80 border border-white/5 rounded-bl-none")}>
