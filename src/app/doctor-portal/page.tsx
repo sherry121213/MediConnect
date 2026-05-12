@@ -49,7 +49,7 @@ function PatientHistoryTab({ patientId }: { patientId: string }) {
                     <div key={apt.id} className="p-4 border-2 rounded-2xl bg-muted/5 space-y-2">
                         <div className="flex justify-between items-start">
                             <p className="text-[10px] font-bold text-primary uppercase tracking-widest">{format(new Date(apt.appointmentDateTime), "PPP")}</p>
-                            <Badge variant="outline" className="text-[8px] h-4">Archived</Badge>
+                            <Badge variant="outline" className="text-[8px] h-4">Performed</Badge>
                         </div>
                         <div>
                             <p className="text-xs font-bold text-slate-700">Diagnosis:</p>
@@ -189,7 +189,7 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
             <div className="flex items-center gap-2">
                 {isLive && <Badge className="bg-red-600 text-white animate-pulse text-[8px] h-4">LIVE NOW</Badge>}
                 <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("ml-2 shrink-0 text-[10px]", apt.status === 'completed' ? "bg-green-100 text-green-800" : "text-primary border-primary/20")}>
-                    {apt.status === 'scheduled' ? (isLive ? 'Start' : 'Upcoming') : apt.status}
+                    {apt.status === 'scheduled' ? (isLive ? 'Start' : 'Upcoming') : apt.status === 'completed' ? 'Performed' : apt.status}
                 </Badge>
             </div>
         </div>
@@ -271,7 +271,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
             {appointment && (
                 <div className="flex items-center gap-2">
                     {appointment.status === 'completed' ? (
-                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-[8px] h-5 font-bold uppercase tracking-tight">Completed</Badge>
+                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-[8px] h-5 font-bold uppercase tracking-tight">Performed</Badge>
                     ) : isExpired ? (
                         <Badge variant="destructive" className="text-[8px] h-5 font-bold uppercase tracking-tight">Expired</Badge>
                     ) : (
@@ -354,7 +354,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
                                 {isCompleted ? (
                                      <div className="p-6 bg-green-50 border border-green-200 rounded-2xl text-center">
                                         <ShieldCheck className="h-10 w-10 text-green-600 mx-auto mb-2" />
-                                        <p className="font-bold text-green-800">Session Successfully Archived</p>
+                                        <p className="font-bold text-green-800">Session Successfully Performed</p>
                                         <p className="text-xs text-green-600">This clinical record is immutable.</p>
                                     </div>
                                 ) : isLive ? (
@@ -389,9 +389,9 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
                                     <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Treatment & Advice</FormLabel><FormControl><Textarea placeholder="Prescriptions and patient instructions..." rows={6} className="resize-none border-2 rounded-xl" {...field} disabled={isCompleted} /></FormControl><FormMessage /></FormItem>
                                 )} />
                                 {!isCompleted ? (
-                                    <Button type="submit" className="w-full h-14 text-lg font-bold rounded-2xl shadow-lg">Finalize & Archive Record</Button>
+                                    <Button type="submit" className="w-full h-14 text-lg font-bold rounded-2xl shadow-lg">Finalize & Perform Consultation</Button>
                                 ) : (
-                                    <div className="p-4 bg-muted text-center rounded-xl text-xs font-bold uppercase text-muted-foreground border border-dashed">Record Finalized - Edits Disabled</div>
+                                    <div className="p-4 bg-muted text-center rounded-xl text-xs font-bold uppercase text-muted-foreground border border-dashed">Session Performed - Edits Disabled</div>
                                 )}
                             </form></Form>
                         </TabsContent>
@@ -458,14 +458,14 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
             status: 'pending', 
             requestedAt: new Date().toISOString() 
         });
-        toast({ title: "Absence Audit Initiated", description: "Admin review pending for " + format(values.requestedDate, "MMM dd") });
+        toast({ title: "Absence History Logged", description: "Admin review pending for " + format(values.requestedDate, "MMM dd") });
         onOpenChange(false);
     };
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="rounded-3xl sm:max-w-md">
-                <DialogHeader><DialogTitle className="text-xl font-headline">Absence Audit Application</DialogTitle></DialogHeader>
+                <DialogHeader><DialogTitle className="text-xl font-headline">Absence History Entry</DialogTitle></DialogHeader>
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
                         <FormField control={form.control} name="requestedDate" render={({ field }) => (
@@ -488,13 +488,13 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
                         )} />
                         <FormField control={form.control} name="reason" render={({ field }) => (
                             <FormItem>
-                                <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Audit Justification</FormLabel>
+                                <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Justification</FormLabel>
                                 <FormControl>
                                     <Textarea placeholder="Planned leave context (e.g. Travel, Workshop)" rows={4} className="resize-none border-2 rounded-xl" {...field} />
                                 </FormControl>
                             </FormItem>
                         )} />
-                        <Button type="submit" className="w-full h-14 text-lg font-bold rounded-2xl">Log for Audit</Button>
+                        <Button type="submit" className="w-full h-14 text-lg font-bold rounded-2xl">Log for History</Button>
                     </form>
                 </Form>
             </DialogContent>
@@ -510,7 +510,7 @@ export default function DoctorPortalPage() {
     const [isConsultOpen, setIsConsultOpen] = useState(false);
     const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(false);
     const [isLeaveOpen, setIsLeaveOpen] = useState(false);
-    const [isAuditOpen, setIsAuditOpen] = useState(false);
+    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [isPostponeOpen, setIsPostponeOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [viewDate, setViewDate] = useState(new Date());
@@ -571,7 +571,7 @@ export default function DoctorPortalPage() {
                 toast({
                     variant: 'destructive',
                     title: "Session Time-Out",
-                    description: `The 30m clinical window has passed for a session. Logged for admin audit.`,
+                    description: `The 30m clinical window has passed for a session. Logged for history audit.`,
                 });
             }
         };
@@ -632,7 +632,7 @@ export default function DoctorPortalPage() {
             if (dismissedAlertIds.has(alertId)) return;
 
             if (a.status === 'expired') {
-                alerts.push({ id: alertId, msg: `Audit: 30m Session Expired (${format(new Date(a.appointmentDateTime), "p")})`, icon: AlertCircle, color: 'text-destructive', timestamp: new Date(a.updatedAt || a.createdAt).getTime() });
+                alerts.push({ id: alertId, msg: `History: 30m Session Expired (${format(new Date(a.appointmentDateTime), "p")})`, icon: AlertCircle, color: 'text-destructive', timestamp: new Date(a.updatedAt || a.createdAt).getTime() });
                 return;
             }
             
@@ -672,7 +672,7 @@ export default function DoctorPortalPage() {
         notifications.forEach(n => newDismissed.add(n.id));
         setDismissedAlertIds(newDismissed);
         localStorage.setItem('dismissed_alerts', JSON.stringify(Array.from(newDismissed)));
-        toast({ title: "Operational log archived." });
+        toast({ title: "Operational history archived." });
     };
 
     const handleTriggerPostpone = (apt: any) => {
@@ -703,8 +703,8 @@ export default function DoctorPortalPage() {
                             <p className="text-xl sm:text-2xl font-bold text-primary">{stats.today} Patients</p>
                         </Card>
                         <div className="col-span-2 sm:col-span-1">
-                            <Button onClick={() => setIsAuditOpen(true)} variant="outline" className="w-full h-full font-bold gap-3 border-2 border-primary/20 hover:bg-primary/5 shadow-md rounded-2xl text-sm">
-                                <DollarSign className="h-5 w-5 text-primary" /> Lifetime Audit
+                            <Button onClick={() => setIsHistoryOpen(true)} variant="outline" className="w-full h-full font-bold gap-3 border-2 border-primary/20 hover:bg-primary/5 shadow-md rounded-2xl text-sm">
+                                <History className="h-5 w-5 text-primary" /> My History
                             </Button>
                         </div>
                     </div>
@@ -716,7 +716,7 @@ export default function DoctorPortalPage() {
                              <CardHeader className="pb-4 border-b bg-muted/10 px-6">
                                 <div className="flex items-center justify-between">
                                     <CardTitle className="text-xs uppercase tracking-[0.2em] font-bold flex items-center gap-3">
-                                        <Bell className="h-5 w-5 text-amber-500" /> Operational Logs
+                                        <Bell className="h-5 w-5 text-amber-500" /> History Logs
                                     </CardTitle>
                                     {notifications.length > 0 && (
                                         <Button variant="ghost" size="sm" onClick={handleClearNotifications} className="h-7 text-[10px] uppercase font-bold text-muted-foreground hover:text-destructive">
@@ -739,7 +739,7 @@ export default function DoctorPortalPage() {
                                 )) : (
                                     <div className="text-center py-10 space-y-2">
                                         <Activity className="h-10 w-10 text-muted-foreground/20 mx-auto" />
-                                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Surveillance Clear</p>
+                                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">History Clear</p>
                                     </div>
                                 )}
                             </CardContent>
@@ -804,7 +804,7 @@ export default function DoctorPortalPage() {
                                             <div className="h-24 w-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto shadow-inner border-4 border-white"><ShieldCheck className="h-14 w-14" /></div>
                                             <div className="space-y-3">
                                                 <h4 className="text-2xl sm:text-3xl font-bold tracking-tight">Practice Suspended</h4>
-                                                <p className="text-sm text-muted-foreground leading-relaxed font-medium italic">Professional absence audit approved for this date.</p>
+                                                <p className="text-sm text-muted-foreground leading-relaxed font-medium italic">Professional absence history audit approved for this date.</p>
                                             </div>
                                         </div>
                                     </div>
@@ -828,13 +828,13 @@ export default function DoctorPortalPage() {
                     </div>
                 </div>
 
-                <Dialog open={isAuditOpen} onOpenChange={setIsAuditOpen}>
+                <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
                     <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-3xl">
                         <DialogHeader>
                             <DialogTitle className="flex items-center gap-3 text-2xl font-headline text-foreground">
                                 <History className="h-6 w-6 text-primary" /> Clinical Analytics
                             </DialogTitle>
-                            <DialogDescription className="text-sm">Summary of your professional performance.</DialogDescription>
+                            <DialogDescription className="text-sm">Summary of your professional history.</DialogDescription>
                         </DialogHeader>
                         <div className="grid grid-cols-1 gap-6 py-8">
                             <div className="p-6 rounded-3xl bg-primary/5 border-2 border-primary/10 space-y-1 text-center">
@@ -842,7 +842,7 @@ export default function DoctorPortalPage() {
                                 <p className="text-3xl sm:text-4xl font-bold text-primary">PKR {stats.totalRevenue.toLocaleString()}</p>
                             </div>
                             <div className="p-6 rounded-3xl bg-muted/30 border-2 border-muted/50 space-y-1 text-center">
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Archived 30m Consultations</p>
+                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Performed Consultations</p>
                                 <p className="text-3xl sm:text-4xl font-bold">{stats.totalConsults}</p>
                             </div>
                             <div className="p-6 rounded-3xl bg-blue-50 border-2 border-blue-100 space-y-1 text-center">
@@ -850,7 +850,7 @@ export default function DoctorPortalPage() {
                                 <p className="text-3xl sm:text-4xl font-bold text-blue-600">{stats.uniquePatients}</p>
                             </div>
                         </div>
-                        <DialogFooter><Button variant="secondary" className="w-full h-14 font-bold rounded-2xl" onClick={() => setIsAuditOpen(false)}>Close Summary</Button></DialogFooter>
+                        <DialogFooter><Button variant="secondary" className="w-full h-14 font-bold rounded-2xl" onClick={() => setIsHistoryOpen(false)}>Close Summary</Button></DialogFooter>
                     </DialogContent>
                 </Dialog>
 

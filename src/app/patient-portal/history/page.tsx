@@ -81,16 +81,16 @@ export default function MedicalHistoryPage() {
                             </Link>
                         </Button>
                         <h1 className="text-3xl font-bold font-headline flex items-center gap-3 tracking-tight">
-                            <History className="h-8 w-8 text-primary" /> My Medical Records
+                            <History className="h-8 w-8 text-primary" /> My History
                         </h1>
-                        <p className="text-muted-foreground mt-1">Review all your previous consultations and clinical summaries.</p>
+                        <p className="text-muted-foreground mt-1">Review all your performed consultations and clinical summaries.</p>
                     </div>
                     <Card className="border-none shadow-xl bg-white p-6 rounded-2xl hidden md:flex items-center gap-6">
                         <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0 shadow-inner">
                             <ClipboardCheck className="h-6 w-6" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Total Archived Visits</p>
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Total History Visits</p>
                             <p className="text-2xl font-bold">{historyData.length}</p>
                         </div>
                     </Card>
@@ -120,8 +120,8 @@ export default function MedicalHistoryPage() {
                                     <ClipboardCheck className="h-10 w-10 opacity-10" />
                                 </div>
                                 <div>
-                                    <p className="font-bold text-lg text-slate-400">No Records Indexed</p>
-                                    <p className="text-sm px-8">Your clinical timeline will populate once sessions are completed.</p>
+                                    <p className="font-bold text-lg text-slate-400">No History Indexed</p>
+                                    <p className="text-sm px-8">Your history timeline will populate once sessions are performed.</p>
                                 </div>
                             </div>
                         ) : (
@@ -163,7 +163,7 @@ export default function MedicalHistoryPage() {
                                                             record.status === 'completed' ? "bg-green-100 text-green-800 border-green-200" : "text-amber-600 border-amber-200 bg-amber-50"
                                                         )}
                                                     >
-                                                        {record.status}
+                                                        {record.status === 'completed' ? 'Performed' : record.status}
                                                     </Badge>
                                                 </TableCell>
                                                 <TableCell className="text-right pr-10">
@@ -193,7 +193,7 @@ export default function MedicalHistoryPage() {
                             <h3 className="font-bold text-xl tracking-tight">Privacy Protocol</h3>
                         </div>
                         <p className="text-sm text-muted-foreground leading-relaxed italic">
-                            All clinical history is encrypted and exclusively accessible to you and your healthcare providers. We strictly adhere to HIPAA-compliant digital security standards to protect your medical integrity.
+                            All history is encrypted and exclusively accessible to you and your healthcare providers. We strictly adhere to HIPAA-compliant digital security standards to protect your medical integrity.
                         </p>
                     </Card>
                     <Card className="bg-slate-900 text-white border-none rounded-[2rem] shadow-2xl p-8 space-y-4">

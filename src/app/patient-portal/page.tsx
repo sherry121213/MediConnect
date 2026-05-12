@@ -18,6 +18,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { getNext7Days, timeSlots } from "@/lib/time";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
+import Autoplay from "embla-carousel-autoplay";
 
 function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean, onOpenChange: (o: boolean) => void, appointment: any }) {
     const firestore = useFirestore();
@@ -58,7 +60,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-2xl rounded-3xl border-none shadow-2xl overflow-hidden p-0">
+            <DialogContent className="sm:max-w-[2xl] rounded-3xl border-none shadow-2xl overflow-hidden p-0">
                 <div className="bg-primary p-8 text-white">
                     <DialogTitle className="text-2xl font-headline">Reschedule Consultation</DialogTitle>
                     <DialogDescription className="text-primary-foreground/80">Select a new 30-minute interval for your session.</DialogDescription>
@@ -111,7 +113,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
     );
 }
 
-const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any, isUpcoming: boolean, onPostpone: (a: any) => void, isMounted: boolean }) => {
+const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'default' }: { apt: any, isUpcoming: boolean, onPostpone: (a: any) => void, isMounted: boolean, variant?: 'default' | 'compact' }) => {
     const firestore = useFirestore();
     const doctorDocRef = useMemoFirebase(() => {
         if (!firestore || !apt?.doctorId) return null;
@@ -141,6 +143,40 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
     const handleJoin = () => {
         window.location.assign(`/consultation/${apt.id}`);
     };
+
+    if (variant === 'compact') {
+        return (
+            <Card className="h-full border-none shadow-md bg-white rounded-2xl overflow-hidden group hover:shadow-xl transition-all">
+                <CardContent className="p-4 flex flex-col gap-3 h-full">
+                    <div className="flex items-center gap-3">
+                         <div className="relative h-10 w-10 shrink-0 rounded-full overflow-hidden bg-primary/5">
+                            {photoSrc ? <Image src={photoSrc} alt="Doctor" fill className="object-cover" /> : <div className="h-full w-full flex items-center justify-center font-bold text-primary">{doctor?.firstName?.[0]}</div>}
+                         </div>
+                         <div className="min-w-0">
+                            <p className="font-bold text-xs truncate">Dr. {doctor?.lastName}</p>
+                            <p className="text-[8px] text-primary uppercase font-bold tracking-tight truncate">{doctor?.specialty}</p>
+                         </div>
+                    </div>
+                    <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
+                            <CalendarIcon className="h-2.5 w-2.5" /> {format(appointmentDate, "MMM dd")}
+                        </div>
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
+                            <Clock className="h-2.5 w-2.5" /> {format(appointmentDate, "p")}
+                        </div>
+                    </div>
+                    <div className="mt-auto pt-2 flex items-center justify-between">
+                         <Badge className={cn("text-[7px] uppercase font-bold", apt.status === 'completed' ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600")}>
+                            {apt.status === 'completed' ? 'Performed' : apt.status}
+                        </Badge>
+                        <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-[8px] font-bold text-primary">
+                            <Link href={`/appointments/${apt.id}`}>View</Link>
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+        )
+    }
 
     return (
         <Card className={cn(
@@ -231,9 +267,14 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                             </Dialog>
                         </>
                     ) : (
-                        <Button variant="ghost" asChild className="gap-2 text-primary font-bold hover:bg-primary/5 flex-1 sm:w-auto justify-center h-9 text-[10px]">
-                            <Link href={`/appointments/${apt.id}`}><FileText className="h-4 w-4" /> Visit Summary</Link>
-                        </Button>
+                        <div className="flex flex-col gap-1">
+                             <Button variant="ghost" asChild className="gap-2 text-primary font-bold hover:bg-primary/5 flex-1 sm:w-auto justify-center h-9 text-[10px]">
+                                <Link href={`/appointments/${apt.id}`}><FileText className="h-4 w-4" /> Visit Summary</Link>
+                            </Button>
+                            <Badge variant={apt.status === 'completed' ? 'secondary' : 'destructive'} className="text-[7px] uppercase h-4 mx-auto">
+                                {apt.status === 'completed' ? 'Performed' : apt.status}
+                            </Badge>
+                        </div>
                     )}
                 </div>
             </CardContent>
@@ -295,7 +336,7 @@ export default function PatientPortalPage() {
                 return isMissed || apt.status === 'completed' || apt.status === 'expired';
             })
             .sort((a, b) => b.appointmentDateTime.localeCompare(a.appointmentDateTime))
-            .slice(0, 8);
+            .slice(0, 10);
 
         return { upcomingAppointments: upcoming, recentPastAppointments: past, ringingApt: currentRinging };
     }, [appointments, mounted, nowState]);
@@ -341,7 +382,7 @@ export default function PatientPortalPage() {
                             <CardContent className="pt-6 sm:pt-8 space-y-3 px-6 sm:px-8">
                                 <Button className="w-full justify-start h-14 text-base font-bold shadow-lg rounded-xl" asChild><Link href="/find-a-doctor"><PlusCircle className="mr-3 h-5 w-5" /> Book Consultation</Link></Button>
                                 <Button variant="outline" className="w-full justify-start h-14 text-base font-bold border-2 rounded-xl" asChild><Link href="/patient-portal/messages"><MessageSquare className="mr-3 h-5 w-5 text-primary" /> Message Center</Link></Button>
-                                <Button variant="outline" className="w-full justify-start h-14 text-base font-bold border-2 rounded-xl" asChild><Link href="/patient-portal/history"><History className="mr-3 h-5 w-5 text-primary" /> Medical Records</Link></Button>
+                                <Button variant="outline" className="w-full justify-start h-14 text-base font-bold border-2 rounded-xl" asChild><Link href="/patient-portal/history"><History className="mr-3 h-5 w-5 text-primary" /> My History</Link></Button>
                             </CardContent>
                         </Card>
 
@@ -371,11 +412,30 @@ export default function PatientPortalPage() {
 
                         <section>
                             <div className="flex items-center justify-between mb-4 sm:mb-6">
-                                <h2 className="text-xl sm:text-2xl font-bold font-headline flex items-center gap-3"><div className="h-6 sm:h-8 w-1 bg-muted rounded-full"></div>Historical Audit</h2>
-                                {recentPastAppointments.length > 0 && <Button variant="ghost" size="sm" asChild className="text-primary font-bold text-xs"><Link href="/patient-portal/history">View All <ChevronRight className="h-4 w-4" /></Link></Button>}
+                                <h2 className="text-xl sm:text-2xl font-bold font-headline flex items-center gap-3"><div className="h-6 sm:h-8 w-1 bg-muted rounded-full"></div>History</h2>
+                                {recentPastAppointments.length > 0 && <Button variant="ghost" size="sm" asChild className="text-primary font-bold text-xs"><Link href="/patient-portal/history">View Archive <ChevronRight className="h-4 w-4" /></Link></Button>}
                             </div>
-                            {recentPastAppointments.length > 0 ? <div className="space-y-4">{recentPastAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={false} onPostpone={handlePostpone} isMounted={mounted} />)}</div> :
-                             <p className="text-center py-12 text-muted-foreground text-sm italic">No historical clinical records.</p>}
+                            
+                            {recentPastAppointments.length > 0 ? (
+                                <div className="relative group">
+                                    <Carousel
+                                        opts={{ align: "start", loop: false }}
+                                        className="w-full"
+                                    >
+                                        <CarouselContent className="-ml-4">
+                                            {recentPastAppointments.map(apt => (
+                                                <CarouselItem key={apt.id} className="pl-4 md:basis-1/2 lg:basis-1/2">
+                                                    <AppointmentCard apt={apt} isUpcoming={false} onPostpone={handlePostpone} isMounted={mounted} variant="compact" />
+                                                </CarouselItem>
+                                            ))}
+                                        </CarouselContent>
+                                        <CarouselPrevious className="hidden sm:flex -left-4 bg-white/90 backdrop-blur" />
+                                        <CarouselNext className="hidden sm:flex -right-4 bg-white/90 backdrop-blur" />
+                                    </Carousel>
+                                </div>
+                            ) : (
+                                <p className="text-center py-12 text-muted-foreground text-sm italic">No past clinical records.</p>
+                            )}
                         </section>
                     </div>
                 </div>
