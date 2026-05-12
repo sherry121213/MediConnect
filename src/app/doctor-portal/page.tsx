@@ -27,6 +27,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar as DayPickerCalendar } from "@/components/ui/calendar";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 function PatientHistoryTab({ patientId }: { patientId: string }) {
     const firestore = useFirestore();
@@ -106,47 +107,51 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[2xl] rounded-3xl border-none shadow-2xl overflow-hidden p-0">
-                <div className="bg-slate-900 p-8 text-white">
-                    <DialogTitle className="text-2xl font-headline">Clinical Rescheduling</DialogTitle>
+            <DialogContent className="sm:max-w-lg rounded-3xl border-none shadow-2xl overflow-hidden p-0 max-h-[90vh] flex flex-col">
+                <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
+                    <DialogTitle className="text-xl sm:text-2xl font-headline">Clinical Rescheduling</DialogTitle>
                     <DialogDescription className="text-slate-400">Modify the 30-minute interval for this patient.</DialogDescription>
                 </div>
-                <div className="p-8 space-y-8">
-                    <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">New Clinical Date</p>
-                        <div className="flex gap-3 overflow-x-auto pb-4 custom-scrollbar">
-                            {availableDates.map(day => (
-                                <button 
-                                    key={day.date.toISOString()}
-                                    onClick={() => setSelectedDate(day.date)}
-                                    className={cn(
-                                        "p-4 rounded-2xl border text-center transition-all shrink-0 w-20 flex flex-col items-center gap-1",
-                                        isSameDay(selectedDate, day.date) ? 'bg-primary text-primary-foreground border-primary shadow-lg' : 'bg-background hover:bg-muted border-muted'
-                                    )}
-                                >
-                                    <p className="text-[10px] font-bold uppercase opacity-80">{day.dayName}</p>
-                                    <p className="text-xl font-bold">{day.dayNumber}</p>
-                                </button>
-                            ))}
+                <ScrollArea className="flex-1">
+                    <div className="p-6 sm:p-8 space-y-8">
+                        <div>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">New Clinical Date</p>
+                            <div className="flex gap-3 overflow-x-auto pb-2 -mx-2 px-2 custom-scrollbar">
+                                {availableDates.map(day => (
+                                    <button 
+                                        key={day.date.toISOString()}
+                                        onClick={() => setSelectedDate(day.date)}
+                                        className={cn(
+                                            "p-4 rounded-2xl border text-center transition-all shrink-0 w-20 flex flex-col items-center gap-1",
+                                            isSameDay(selectedDate, day.date) ? 'bg-primary text-primary-foreground border-primary shadow-lg' : 'bg-background hover:bg-muted border-muted'
+                                        )}
+                                    >
+                                        <p className="text-[10px] font-bold uppercase opacity-80">{day.dayName}</p>
+                                        <p className="text-xl font-bold">{day.dayNumber}</p>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">Available 30m Slots</p>
+                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                                {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => (
+                                    <Button 
+                                        key={time}
+                                        variant={selectedTime === time ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setSelectedTime(time)}
+                                        className="rounded-xl text-[10px] font-bold h-9"
+                                    >
+                                        {time}
+                                    </Button>
+                                ))}
+                            </div>
                         </div>
                     </div>
-                    <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">Available 30m Slots</p>
-                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                            {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => (
-                                <Button 
-                                    key={time}
-                                    variant={selectedTime === time ? 'default' : 'outline'}
-                                    size="sm"
-                                    onClick={() => setSelectedTime(time)}
-                                    className="rounded-xl text-[10px] font-bold h-9"
-                                >
-                                    {time}
-                                </Button>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="flex gap-3 pt-4">
+                </ScrollArea>
+                <div className="p-6 sm:p-8 border-t bg-slate-50 shrink-0">
+                    <div className="flex gap-3">
                         <Button variant="ghost" className="flex-1 h-12 rounded-xl font-bold" onClick={() => onOpenChange(false)}>Cancel</Button>
                         <Button className="flex-1 h-12 rounded-xl font-bold shadow-lg bg-slate-900 hover:bg-slate-800" disabled={!selectedTime || isSaving} onClick={handleConfirm}>
                             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Move Session"}
@@ -189,8 +194,8 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
                 </div>
             </div>
             <div className="flex items-center gap-4">
-                {isLive && <Badge className="bg-red-600 text-white animate-pulse text-[9px] px-2">LIVE NOW</Badge>}
-                <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("shrink-0 text-[10px] px-2.5 py-0.5", apt.status === 'completed' ? "bg-green-100 text-green-800" : "text-primary border-primary/20")}>
+                {isLive && <Badge className="bg-red-600 text-white animate-pulse text-[9px] px-2 font-bold h-auto py-1">LIVE NOW</Badge>}
+                <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("shrink-0 text-[10px] px-2.5 py-1 h-auto font-bold", apt.status === 'completed' ? "bg-green-100 text-green-800" : "text-primary border-primary/20")}>
                     {apt.status === 'scheduled' ? (isLive ? 'Start' : 'Upcoming') : apt.status === 'completed' ? 'Performed' : apt.status}
                 </Badge>
             </div>
@@ -274,9 +279,9 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
             {appointment && (
                 <div className="flex items-center gap-2">
                     {appointment.status === 'completed' ? (
-                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-[9px] px-2.5 font-bold uppercase tracking-tight shrink-0">Performed</Badge>
+                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-[9px] px-2.5 py-1 font-bold uppercase tracking-tight shrink-0 h-auto">Performed</Badge>
                     ) : isExpired ? (
-                        <Badge variant="destructive" className="text-[9px] px-2.5 font-bold uppercase tracking-tight shrink-0">Expired</Badge>
+                        <Badge variant="destructive" className="text-[9px] px-2.5 py-1 font-bold uppercase tracking-tight shrink-0 h-auto">Expired</Badge>
                     ) : (
                         <Button 
                             size="sm" 
@@ -337,73 +342,75 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-3xl">
-                <Tabs defaultValue="overview" className="w-full">
-                    <div className="bg-slate-900 p-6 text-white">
+            <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-3xl max-h-[90vh] flex flex-col">
+                <Tabs defaultValue="overview" className="w-full flex-1 flex flex-col overflow-hidden">
+                    <div className="bg-slate-900 p-6 text-white shrink-0">
                         <DialogTitle className="text-xl font-headline mb-4 text-white">Patient Management</DialogTitle>
                         <TabsList className="bg-white/10 border-none text-white w-full grid grid-cols-3">
                             <TabsTrigger value="overview">Overview</TabsTrigger>
-                            <TabsTrigger value="history">Patient History</TabsTrigger>
-                            <TabsTrigger value="notes">Clinical Entry</TabsTrigger>
+                            <TabsTrigger value="history">History</TabsTrigger>
+                            <TabsTrigger value="notes">Notes</TabsTrigger>
                         </TabsList>
                     </div>
-                    <div className="p-4 sm:p-8">
-                        <TabsContent value="overview" className="space-y-6">
-                            <div className="flex items-center gap-4 p-5 border rounded-2xl bg-muted/20">
-                                <Avatar className="h-14 w-14 shadow-sm"><AvatarFallback className="bg-primary text-white font-bold">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback></Avatar>
-                                {patient && <div className="min-w-0"><p className="font-bold text-lg truncate">{patient.firstName} {patient.lastName}</p><p className="text-xs text-muted-foreground">{patient.email}</p></div>}
-                            </div>
-                            <div className="flex flex-col gap-3 pt-4">
-                                {isCompleted ? (
-                                     <div className="p-6 bg-green-50 border border-green-200 rounded-2xl text-center">
-                                        <ShieldCheck className="h-10 w-10 text-green-600 mx-auto mb-2" />
-                                        <p className="font-bold text-green-800">Session Successfully Performed</p>
-                                        <p className="text-xs text-green-600">This clinical record is immutable.</p>
-                                    </div>
-                                ) : isLive ? (
-                                    <Button onClick={handleStartRoom} className="h-14 text-base font-bold shadow-xl shadow-red-500/20 bg-red-600 hover:bg-red-700 animate-pulse rounded-2xl text-white">
-                                        <Video className="mr-3 h-6 w-6" /> Start Video Room
-                                    </Button>
-                                ) : isExpired ? (
-                                    <div className="space-y-4">
-                                        <div className="p-6 bg-red-50 border border-red-200 rounded-2xl text-center">
-                                            <AlertCircle className="h-10 w-10 text-red-600 mx-auto mb-2" />
-                                            <p className="font-bold text-red-800">30m Clinical Window Expired</p>
-                                            <p className="text-xs text-red-600">This session has concluded automatically.</p>
+                    <ScrollArea className="flex-1">
+                        <div className="p-6 sm:p-8">
+                            <TabsContent value="overview" className="space-y-6 m-0">
+                                <div className="flex items-center gap-4 p-5 border rounded-2xl bg-muted/20">
+                                    <Avatar className="h-14 w-14 shadow-sm"><AvatarFallback className="bg-primary text-white font-bold">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback></Avatar>
+                                    {patient && <div className="min-w-0"><p className="font-bold text-lg truncate">{patient.firstName} {patient.lastName}</p><p className="text-xs text-muted-foreground">{patient.email}</p></div>}
+                                </div>
+                                <div className="flex flex-col gap-3 pt-4">
+                                    {isCompleted ? (
+                                        <div className="p-6 bg-green-50 border border-green-200 rounded-2xl text-center">
+                                            <ShieldCheck className="h-10 w-10 text-green-600 mx-auto mb-2" />
+                                            <p className="font-bold text-green-800">Session Successfully Performed</p>
+                                            <p className="text-xs text-green-600">This clinical record is immutable.</p>
                                         </div>
-                                        <Button variant="outline" className="h-14 text-base font-bold w-full rounded-2xl gap-3 border-2" onClick={() => onPostpone(appointment)}>
-                                            <RefreshCw className="h-5 w-5 text-primary" /> Reschedule Session
+                                    ) : isLive ? (
+                                        <Button onClick={handleStartRoom} className="h-14 text-base font-bold shadow-xl shadow-red-500/20 bg-red-600 hover:bg-red-700 animate-pulse rounded-2xl text-white">
+                                            <Video className="mr-3 h-6 w-6" /> Start Video Room
                                         </Button>
-                                    </div>
-                                ) : (
-                                    <>
-                                        <Button className="h-14 text-base font-bold opacity-70 cursor-not-allowed w-full rounded-2xl" disabled>30m Window Locked <Clock className="ml-3 h-5 w-5" /></Button>
-                                        <Button variant="outline" className="h-14 text-base font-bold w-full rounded-2xl gap-3 border-2" onClick={() => onPostpone(appointment)}>
-                                            <RefreshCw className="h-5 w-5 text-primary" /> Postpone Session
-                                        </Button>
-                                    </>
-                                )}
-                            </div>
-                        </TabsContent>
-                        <TabsContent value="history">
-                            <PatientHistoryTab patientId={appointment.patientId} />
-                        </TabsContent>
-                        <TabsContent value="notes">
-                            <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                                <FormField control={form.control} name="diagnosis" render={({ field }) => (
-                                    <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Primary Diagnosis</FormLabel><FormControl><Input placeholder="Summary of findings..." className="h-12 border-2 rounded-xl" {...field} disabled={isCompleted} /></FormControl><FormMessage /></FormItem>
-                                )} />
-                                <FormField control={form.control} name="prescription" render={({ field }) => (
-                                    <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Treatment & Advice</FormLabel><FormControl><Textarea placeholder="Prescriptions and patient instructions..." rows={6} className="resize-none border-2 rounded-xl" {...field} disabled={isCompleted} /></FormControl><FormMessage /></FormItem>
-                                )} />
-                                {!isCompleted ? (
-                                    <Button type="submit" className="w-full h-14 text-lg font-bold rounded-2xl shadow-lg">Finalize & Perform Consultation</Button>
-                                ) : (
-                                    <div className="p-4 bg-muted text-center rounded-xl text-xs font-bold uppercase text-muted-foreground border border-dashed">Session Performed - Edits Disabled</div>
-                                )}
-                            </form></Form>
-                        </TabsContent>
-                    </div>
+                                    ) : isExpired ? (
+                                        <div className="space-y-4">
+                                            <div className="p-6 bg-red-50 border border-red-200 rounded-2xl text-center">
+                                                <AlertCircle className="h-10 w-10 text-red-600 mx-auto mb-2" />
+                                                <p className="font-bold text-red-800">30m Clinical Window Expired</p>
+                                                <p className="text-xs text-red-600">This session has concluded automatically.</p>
+                                            </div>
+                                            <Button variant="outline" className="h-14 text-base font-bold w-full rounded-2xl gap-3 border-2" onClick={() => onPostpone(appointment)}>
+                                                <RefreshCw className="h-5 w-5 text-primary" /> Reschedule Session
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <>
+                                            <Button className="h-14 text-base font-bold opacity-70 cursor-not-allowed w-full rounded-2xl" disabled>30m Window Locked <Clock className="ml-3 h-5 w-5" /></Button>
+                                            <Button variant="outline" className="h-14 text-base font-bold w-full rounded-2xl gap-3 border-2" onClick={() => onPostpone(appointment)}>
+                                                <RefreshCw className="h-5 w-5 text-primary" /> Postpone Session
+                                            </Button>
+                                        </>
+                                    )}
+                                </div>
+                            </TabsContent>
+                            <TabsContent value="history" className="m-0">
+                                <PatientHistoryTab patientId={appointment.patientId} />
+                            </TabsContent>
+                            <TabsContent value="notes" className="m-0">
+                                <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                                    <FormField control={form.control} name="diagnosis" render={({ field }) => (
+                                        <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Primary Diagnosis</FormLabel><FormControl><Input placeholder="Summary of findings..." className="h-12 border-2 rounded-xl" {...field} disabled={isCompleted} /></FormControl><FormMessage /></FormItem>
+                                    )} />
+                                    <FormField control={form.control} name="prescription" render={({ field }) => (
+                                        <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Treatment & Advice</FormLabel><FormControl><Textarea placeholder="Prescriptions and patient instructions..." rows={6} className="resize-none border-2 rounded-xl" {...field} disabled={isCompleted} /></FormControl><FormMessage /></FormItem>
+                                    )} />
+                                    {!isCompleted ? (
+                                        <Button type="submit" className="w-full h-14 text-lg font-bold rounded-2xl shadow-lg">Finalize & Perform Consultation</Button>
+                                    ) : (
+                                        <div className="p-4 bg-muted text-center rounded-xl text-xs font-bold uppercase text-muted-foreground border border-dashed">Session Performed - Edits Disabled</div>
+                                    )}
+                                </form></Form>
+                            </TabsContent>
+                        </div>
+                    </ScrollArea>
                 </Tabs>
             </DialogContent>
         </Dialog>
@@ -427,23 +434,27 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-[2xl] rounded-3xl">
-                <DialogHeader><DialogTitle className="text-xl font-headline">Clinical Hour Configuration</DialogTitle></DialogHeader>
-                <div className="space-y-8 py-6">
-                    <div className="p-4 bg-primary/5 rounded-xl border border-primary/10 flex gap-3">
-                        <AlertCircle className="h-5 w-5 text-primary shrink-0" />
-                        <p className="text-xs text-muted-foreground leading-relaxed">
-                            Unchecked slots are marked as <strong>Unavailable</strong> and are hidden from patient booking views.
-                        </p>
-                    </div>
-                    {Object.entries(timeSlots).map(([session, slots]) => (
-                        <div key={session} className="p-5 rounded-2xl bg-muted/20 border">
-                            <h5 className="text-[10px] font-bold uppercase mb-5 text-primary tracking-[0.2em]">{session} 30m Block</h5>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">{slots.map(slot => (<div key={slot} className="flex items-center space-x-3 p-3 border-2 rounded-xl bg-background hover:border-primary/30 transition-colors"><Checkbox checked={!disabledSlots.includes(slot)} onCheckedChange={() => setDisabledSlots(prev => prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot])}/><span className="text-xs font-bold">{slot}</span></div>))}</div>
+            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl rounded-3xl p-0 flex flex-col">
+                <DialogHeader className="p-6 border-b"><DialogTitle className="text-xl font-headline">Clinical Hour Configuration</DialogTitle></DialogHeader>
+                <ScrollArea className="flex-1">
+                    <div className="space-y-8 p-6">
+                        <div className="p-4 bg-primary/5 rounded-xl border border-primary/10 flex gap-3">
+                            <AlertCircle className="h-5 w-5 text-primary shrink-0" />
+                            <p className="text-xs text-muted-foreground leading-relaxed">
+                                Unchecked slots are marked as <strong>Unavailable</strong> and are hidden from patient booking views.
+                            </p>
                         </div>
-                    ))}
+                        {Object.entries(timeSlots).map(([session, slots]) => (
+                            <div key={session} className="p-5 rounded-2xl bg-muted/20 border">
+                                <h5 className="text-[10px] font-bold uppercase mb-5 text-primary tracking-[0.2em]">{session} 30m Block</h5>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">{slots.map(slot => (<div key={slot} className="flex items-center space-x-3 p-3 border-2 rounded-xl bg-background hover:border-primary/30 transition-colors"><Checkbox checked={!disabledSlots.includes(slot)} onCheckedChange={() => setDisabledSlots(prev => prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot])}/><span className="text-xs font-bold">{slot}</span></div>))}</div>
+                            </div>
+                        ))}
+                    </div>
+                </ScrollArea>
+                <div className="p-6 border-t bg-slate-50">
+                    <Button onClick={handleSave} className="w-full h-14 text-lg font-bold rounded-2xl" disabled={isSaving}>Apply Slot Schedule</Button>
                 </div>
-                <Button onClick={handleSave} className="w-full h-14 text-lg font-bold rounded-2xl" disabled={isSaving}>Apply Slot Schedule</Button>
             </DialogContent>
         </Dialog>
     );
@@ -603,15 +614,12 @@ export default function DoctorPortalPage() {
         const now = new Date();
         const yesterday = subDays(now, 1);
 
-        // Filter for "Today's Revenue" and "Today's Pool"
-        // Includes everything scheduled or performed for today (not cancelled)
         const allToday = appointments.filter(apt => {
             if (!apt || !apt.appointmentDateTime) return false;
             if (apt.status === 'cancelled') return false;
             return isSameDay(new Date(apt.appointmentDateTime), now);
         });
 
-        // Filter for "Active Queue" display
         const activeQueue = allToday.filter(apt => {
             if (apt.status === 'completed' || apt.status === 'expired') return false;
             const aptDate = new Date(apt.appointmentDateTime);
@@ -770,7 +778,7 @@ export default function DoctorPortalPage() {
                                     <CardTitle className="text-sm font-bold flex items-center gap-3 uppercase tracking-tighter text-foreground">
                                         <ClipboardCheck className="h-6 w-6 text-primary" /> Active Queue
                                     </CardTitle>
-                                    <Badge variant="outline" className="text-[9px] font-bold border-primary/20 text-primary bg-white px-2">REAL-TIME</Badge>
+                                    <Badge variant="outline" className="text-[9px] font-bold border-primary/20 text-primary bg-white px-2 h-auto py-1">REAL-TIME</Badge>
                                 </div>
                             </CardHeader>
                             <CardContent className="p-0">
@@ -816,7 +824,7 @@ export default function DoctorPortalPage() {
                                     </div>
                                 </div>
                             </CardHeader>
-                            <CardContent className="p-6 sm:p-12">
+                            <CardContent className="p-6 sm:p-10">
                                 {currentDayLeaveStatus === 'approved' && (
                                     <div className="absolute inset-x-0 bottom-0 top-[180px] sm:top-[140px] z-20 bg-white/95 backdrop-blur-[6px] flex items-center justify-center rounded-b-[2.5rem]">
                                         <div className="bg-white p-10 sm:p-14 rounded-[3rem] shadow-2xl border-2 text-center max-w-[90%] sm:max-w-md space-y-8 animate-in zoom-in-95">
@@ -828,7 +836,7 @@ export default function DoctorPortalPage() {
                                         </div>
                                     </div>
                                 )}
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-12">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-10">
                                     <div className="space-y-6">
                                         <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-4"><div className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-sm shrink-0" /> Morning</h3>
                                         <div className="space-y-2">{masterSchedule.morning.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
