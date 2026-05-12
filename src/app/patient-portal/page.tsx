@@ -69,22 +69,20 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                 <ScrollArea className="flex-1 bg-white">
                     <div className="p-6 sm:p-8 space-y-10 pb-20">
                         <div>
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 1: Select Date</p>
-                            <div className="space-y-3">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4">Step 1: Select Date</p>
+                            <div className="flex gap-3 overflow-x-auto pb-4 -mx-2 px-2 custom-scrollbar">
                                 {availableDates.map(day => (
                                     <button 
                                         key={day.date.toISOString()}
                                         onClick={() => setSelectedDate(day.date)}
                                         className={cn(
-                                            "w-full p-5 rounded-[1.5rem] border-2 transition-all flex items-center justify-between",
+                                            "p-4 rounded-2xl border-2 transition-all shrink-0 w-28 text-center flex flex-col items-center justify-center gap-1",
                                             isSameDay(selectedDate, day.date) ? 'bg-primary/5 border-primary shadow-sm' : 'bg-background hover:bg-muted border-slate-100'
                                         )}
                                     >
-                                        <div className="text-left">
-                                            <p className="text-[10px] font-bold uppercase text-muted-foreground">{day.dayName}</p>
-                                            <p className="text-lg font-bold font-headline text-slate-900">{format(day.date, "MMMM dd, yyyy")}</p>
-                                        </div>
-                                        {isSameDay(selectedDate, day.date) && <CheckCircle2 className="h-6 w-6 text-primary" />}
+                                        <p className="text-[10px] font-bold uppercase text-muted-foreground">{day.dayName}</p>
+                                        <p className="text-xl font-bold font-headline text-slate-900">{format(day.date, "dd")}</p>
+                                        <p className="text-[10px] text-muted-foreground">{format(day.date, "MMM")}</p>
                                     </button>
                                 ))}
                             </div>
@@ -358,7 +356,7 @@ export default function PatientPortalPage() {
         setIsPostponeOpen(true);
     };
 
-    if (!mounted || isUserLoading) return <div className="flex-grow flex items-center justify-center bg-secondary/30"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>;
+    if (!mounted || isUserLoading) return <div className="flex-grow flex items-center justify-center bg-secondary/30"><Loader2 className="h-10 w-10 animate-spin text-primary/30" /></div>;
 
     return (
         <main className="flex-grow bg-secondary/30 py-6 sm:py-10">

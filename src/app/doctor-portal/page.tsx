@@ -114,22 +114,20 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
                 <div className="flex-1 overflow-y-auto bg-white overscroll-contain">
                     <div className="p-6 sm:p-8 space-y-10 pb-32">
                         <div>
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 1: Pick Clinical Date</p>
-                            <div className="space-y-3">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4">Step 1: Pick Clinical Date</p>
+                            <div className="flex gap-3 overflow-x-auto pb-4 -mx-2 px-2 custom-scrollbar">
                                 {availableDates.map(day => (
                                     <button 
                                         key={day.date.toISOString()}
                                         onClick={() => setSelectedDate(day.date)}
                                         className={cn(
-                                            "w-full p-4 rounded-2xl border-2 transition-all flex items-center justify-between",
+                                            "p-4 rounded-2xl border-2 transition-all shrink-0 w-28 text-center flex flex-col items-center justify-center gap-1",
                                             isSameDay(selectedDate, day.date) ? 'bg-primary/5 border-primary shadow-sm' : 'bg-background hover:bg-muted border-slate-100'
                                         )}
                                     >
-                                        <div className="text-left">
-                                            <p className="text-[10px] font-bold uppercase text-muted-foreground">{day.dayName}</p>
-                                            <p className="text-lg font-bold font-headline text-slate-900">{format(day.date, "MMMM dd")}</p>
-                                        </div>
-                                        {isSameDay(selectedDate, day.date) && <CheckCircle2 className="h-6 w-6 text-primary" />}
+                                        <p className="text-[10px] font-bold uppercase text-muted-foreground">{day.dayName}</p>
+                                        <p className="text-xl font-bold font-headline text-slate-900">{format(day.date, "dd")}</p>
+                                        <p className="text-[10px] text-muted-foreground">{format(day.date, "MMM")}</p>
                                     </button>
                                 ))}
                             </div>
@@ -389,7 +387,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
                                                 <AlertCircle className="h-12 w-12 text-red-600 mx-auto" />
                                                 <div className="space-y-1">
                                                     <p className="font-bold text-xl text-red-800">30m Session Expired</p>
-                                                    <p className="text-xs text-red-600 font-medium italic">Clinical window has concluded automatically.</p>
+                                                    <p className="text-xs text-green-600 font-medium italic">Clinical window has concluded automatically.</p>
                                                 </div>
                                             </div>
                                             <Button variant="outline" className="h-16 text-lg font-bold w-full rounded-2xl gap-3 border-2 hover:bg-primary/5 transition-all" onClick={() => onPostpone(appointment)}>
