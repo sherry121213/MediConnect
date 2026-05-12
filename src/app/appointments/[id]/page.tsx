@@ -5,7 +5,7 @@ import AppFooter from "@/components/layout/footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Calendar, Clock, Download, Loader2, MessageSquare, Stethoscope, Video, FileText, MapPin, Star } from "lucide-react";
+import { ArrowLeft, Calendar, Clock, Download, Loader2, MessageSquare, Stethoscope, Video, FileText, MapPin, Star, Quote } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import Image from "next/image";
@@ -259,7 +259,7 @@ export default function AppointmentDetailsPage() {
                             <CardTitle className="text-3xl sm:text-4xl font-headline tracking-tight">Dr. {doctor?.firstName} {doctor?.lastName}</CardTitle>
                             <CardDescription className="text-lg text-white/80 font-bold uppercase tracking-[0.2em] mt-2">{doctor?.specialty || 'Medical Specialist'}</CardDescription>
                             <div className="flex items-center justify-center gap-2 mt-4">
-                                <Badge className="bg-white/20 text-white border-none px-4 py-1 rounded-full"><MapPin className="h-3 w-3 mr-1.5" /> {doctor?.location || 'Pakistan'}</Badge>
+                                <Badge className="bg-white/20 text-white border-none px-4 py-1 rounded-full font-bold h-auto"><MapPin className="h-3 w-3 mr-1.5" /> {doctor?.location || 'Pakistan'}</Badge>
                             </div>
                         </CardHeader>
                         <CardContent className="p-6 sm:p-12 space-y-12">
@@ -290,7 +290,7 @@ export default function AppointmentDetailsPage() {
                              <div className="grid md:grid-cols-2 gap-12 pt-4">
                                 <div className="space-y-6">
                                     <h3 className="font-bold text-xl flex items-center gap-3">
-                                        <div className="h-8 w-1.5 bg-primary rounded-full"></div>
+                                        <div className="h-8 w-1.5 bg-primary rounded-full shrink-0"></div>
                                         Clinical Diagnosis
                                     </h3>
                                     <div className="text-slate-700 bg-muted/30 p-8 rounded-[1.5rem] border-2 border-dashed border-primary/10 min-h-[160px] leading-relaxed italic">
@@ -299,7 +299,7 @@ export default function AppointmentDetailsPage() {
                                 </div>
                                 <div className="space-y-6">
                                     <h3 className="font-bold text-xl flex items-center gap-3 text-foreground">
-                                         <div className="h-8 w-1.5 bg-primary rounded-full"></div>
+                                         <div className="h-8 w-1.5 bg-primary rounded-full shrink-0"></div>
                                         Treatment & Advice
                                     </h3>
                                     <div className="text-slate-700 whitespace-pre-wrap bg-muted/30 p-8 rounded-[1.5rem] border-2 border-dashed border-primary/10 min-h-[160px] leading-relaxed">

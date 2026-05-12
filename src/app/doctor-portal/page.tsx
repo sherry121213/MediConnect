@@ -3,13 +3,13 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Siren, DollarSign, Trash2, RefreshCw, FileText } from "lucide-react";
+import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Siren, DollarSign, Trash2, RefreshCw, FileText, CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
 import { collection, query, where, doc } from "firebase/firestore";
 import type { Appointment, Patient, Doctor } from "@/lib/types";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -27,7 +27,6 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar as DayPickerCalendar } from "@/components/ui/calendar";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 
 function PatientHistoryTab({ patientId }: { patientId: string }) {
     const firestore = useFirestore();
@@ -107,46 +106,48 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl rounded-3xl border-none shadow-2xl overflow-hidden p-0 max-h-[90vh] flex flex-col">
-                <div className="bg-slate-900 p-6 sm:p-10 text-white shrink-0">
-                    <DialogTitle className="text-xl sm:text-3xl font-headline">Clinical Rescheduling</DialogTitle>
-                    <DialogDescription className="text-slate-400 mt-2">Modify the professional 30-minute interval for this patient.</DialogDescription>
+            <DialogContent className="sm:max-w-xl rounded-3xl border-none shadow-2xl overflow-hidden p-0 max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-200">
+                <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
+                    <DialogTitle className="text-xl sm:text-2xl font-headline">Clinical Rescheduling</DialogTitle>
+                    <DialogDescription className="text-slate-400 mt-1">Scroll to adjust the 30-minute clinical window.</DialogDescription>
                 </div>
-                <ScrollArea className="flex-1">
-                    <div className="p-6 sm:p-10 space-y-10">
+                <ScrollArea className="flex-1 bg-white">
+                    <div className="p-6 sm:p-8 space-y-10">
                         <div>
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 1: Select New Clinical Date</p>
-                            <Carousel opts={{ align: "start", loop: false }} className="w-full">
-                                <CarouselContent className="-ml-3">
-                                    {availableDates.map(day => (
-                                        <CarouselItem key={day.date.toISOString()} className="pl-3 basis-1/3 sm:basis-1/4">
-                                            <button 
-                                                onClick={() => setSelectedDate(day.date)}
-                                                className={cn(
-                                                    "w-full p-5 rounded-3xl border-2 text-center transition-all flex flex-col items-center gap-1",
-                                                    isSameDay(selectedDate, day.date) ? 'bg-primary text-primary-foreground border-primary shadow-xl scale-105' : 'bg-background hover:bg-muted border-slate-100 shadow-sm'
-                                                )}
-                                            >
-                                                <p className="text-[10px] font-bold uppercase opacity-80">{day.dayName}</p>
-                                                <p className="text-2xl font-bold font-headline">{day.dayNumber}</p>
-                                            </button>
-                                        </CarouselItem>
-                                    ))}
-                                </CarouselContent>
-                                <CarouselPrevious className="hidden sm:flex -left-4 bg-white/90 shadow-md" />
-                                <CarouselNext className="hidden sm:flex -right-4 bg-white/90 shadow-md" />
-                            </Carousel>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 1: Pick Clinical Date</p>
+                            <div className="space-y-3">
+                                {availableDates.map(day => (
+                                    <button 
+                                        key={day.date.toISOString()}
+                                        onClick={() => setSelectedDate(day.date)}
+                                        className={cn(
+                                            "w-full p-4 rounded-2xl border-2 transition-all flex items-center justify-between",
+                                            isSameDay(selectedDate, day.date) ? 'bg-primary/5 border-primary shadow-sm' : 'bg-background hover:bg-muted border-slate-100'
+                                        )}
+                                    >
+                                        <div className="text-left">
+                                            <p className="text-[10px] font-bold uppercase text-muted-foreground">{day.dayName}</p>
+                                            <p className="text-lg font-bold font-headline text-slate-900">{format(day.date, "MMMM dd")}</p>
+                                        </div>
+                                        {isSameDay(selectedDate, day.date) && <CheckCircle2 className="h-6 w-6 text-primary" />}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                        <div>
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 2: Available 30m Slots</p>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+                        <div className="border-t pt-10">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 2: Professional Time Slots</p>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                 {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => (
                                     <Button 
                                         key={time}
                                         variant={selectedTime === time ? 'default' : 'outline'}
                                         size="sm"
                                         onClick={() => setSelectedTime(time)}
-                                        className="rounded-xl text-[10px] font-bold h-11 border-2"
+                                        className={cn(
+                                            "rounded-xl text-[10px] font-bold h-12 border-2",
+                                            selectedTime === time ? "bg-primary border-primary text-white" : "border-slate-100 hover:border-primary/30"
+                                        )}
                                     >
                                         {time}
                                     </Button>
@@ -155,11 +156,11 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
                         </div>
                     </div>
                 </ScrollArea>
-                <div className="p-6 sm:p-10 border-t bg-slate-50 shrink-0">
+                <div className="p-6 sm:p-8 border-t bg-slate-50 shrink-0">
                     <div className="flex gap-4">
                         <Button variant="ghost" className="flex-1 h-14 rounded-2xl font-bold" onClick={() => onOpenChange(false)}>Cancel</Button>
                         <Button className="flex-1 h-14 rounded-2xl font-bold shadow-2xl shadow-primary/20 bg-slate-900 hover:bg-slate-800 text-white" disabled={!selectedTime || isSaving} onClick={handleConfirm}>
-                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Move Session"}
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Finalize Changes"}
                         </Button>
                     </div>
                 </div>
@@ -347,9 +348,9 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-[2rem] max-h-[90vh] flex flex-col">
+            <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-[2rem] max-h-[85vh] flex flex-col">
                 <Tabs defaultValue="overview" className="w-full flex-1 flex flex-col overflow-hidden">
-                    <div className="bg-slate-900 p-6 sm:p-10 text-white shrink-0">
+                    <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
                         <DialogTitle className="text-2xl font-headline mb-6 text-white">Patient Management</DialogTitle>
                         <TabsList className="bg-white/10 border-none text-white w-full grid grid-cols-3 h-12 p-1 rounded-xl">
                             <TabsTrigger value="overview" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900">Overview</TabsTrigger>
@@ -660,7 +661,7 @@ export default function DoctorPortalPage() {
 
         const pending = appointments.filter(apt => apt && apt.status === 'scheduled').length;
         
-        // Accurate real-time revenue: includes everything scheduled for today that was paid, OR everything performed today
+        // Include everything paid/valid today for revenue stats
         const todayPaidAndValid = allToday.filter(a => a.paymentStatus === 'approved');
         const todayRev = todayPaidAndValid.reduce((sum, a) => sum + (a.amount || 1500), 0);
         

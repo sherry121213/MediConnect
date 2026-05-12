@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, PhoneCall, RefreshCw, CalendarIcon, ShieldCheck, PhoneIncoming, X, HelpCircle, AlertCircle } from "lucide-react";
+import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, PhoneCall, RefreshCw, CalendarIcon, ShieldCheck, PhoneIncoming, X, HelpCircle, AlertCircle, CheckCircle2 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -61,37 +61,36 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl rounded-[2rem] border-none shadow-2xl overflow-hidden p-0 max-h-[90vh] flex flex-col">
-                <div className="bg-primary p-8 sm:p-10 text-white shrink-0">
-                    <DialogTitle className="text-2xl sm:text-3xl font-headline">Reschedule Consultation</DialogTitle>
-                    <DialogDescription className="text-primary-foreground/80 mt-2 font-medium">Select a new professional 30-minute interval for your session.</DialogDescription>
+            <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-200">
+                <div className="bg-primary p-6 sm:p-8 text-white shrink-0">
+                    <DialogTitle className="text-xl sm:text-2xl font-headline">Reschedule Consultation</DialogTitle>
+                    <DialogDescription className="text-primary-foreground/80 mt-1 font-medium">Scroll down to pick a new clinical window.</DialogDescription>
                 </div>
-                <ScrollArea className="flex-1">
-                    <div className="p-8 sm:p-10 space-y-10">
+                <ScrollArea className="flex-1 bg-white">
+                    <div className="p-6 sm:p-8 space-y-10">
                         <div>
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 1: Select Audit Date</p>
-                            <Carousel opts={{ align: "start", loop: false }} className="w-full">
-                                <CarouselContent className="-ml-3">
-                                    {availableDates.map(day => (
-                                        <CarouselItem key={day.date.toISOString()} className="pl-3 basis-1/3 sm:basis-1/4">
-                                            <button 
-                                                onClick={() => setSelectedDate(day.date)}
-                                                className={cn(
-                                                    "w-full p-5 rounded-3xl border-2 text-center transition-all flex flex-col items-center gap-1",
-                                                    isSameDay(selectedDate, day.date) ? 'bg-primary text-primary-foreground border-primary shadow-xl scale-105' : 'bg-background hover:bg-muted border-slate-100 shadow-sm'
-                                                )}
-                                            >
-                                                <p className="text-[10px] font-bold uppercase opacity-80">{day.dayName}</p>
-                                                <p className="text-2xl font-bold font-headline">{day.dayNumber}</p>
-                                            </button>
-                                        </CarouselItem>
-                                    ))}
-                                </CarouselContent>
-                                <CarouselPrevious className="hidden sm:flex -left-4 bg-white/90 shadow-md" />
-                                <CarouselNext className="hidden sm:flex -right-4 bg-white/90 shadow-md" />
-                            </Carousel>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 1: Select Date</p>
+                            <div className="space-y-3">
+                                {availableDates.map(day => (
+                                    <button 
+                                        key={day.date.toISOString()}
+                                        onClick={() => setSelectedDate(day.date)}
+                                        className={cn(
+                                            "w-full p-5 rounded-[1.5rem] border-2 transition-all flex items-center justify-between",
+                                            isSameDay(selectedDate, day.date) ? 'bg-primary/5 border-primary shadow-sm' : 'bg-background hover:bg-muted border-slate-100'
+                                        )}
+                                    >
+                                        <div className="text-left">
+                                            <p className="text-[10px] font-bold uppercase text-muted-foreground">{day.dayName}</p>
+                                            <p className="text-lg font-bold font-headline text-slate-900">{format(day.date, "MMMM dd, yyyy")}</p>
+                                        </div>
+                                        {isSameDay(selectedDate, day.date) && <CheckCircle2 className="h-6 w-6 text-primary" />}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
-                        <div>
+
+                        <div className="border-t pt-10">
                             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 2: Available 30m Slots</p>
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                 {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => (
@@ -100,7 +99,10 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                                         variant={selectedTime === time ? 'default' : 'outline'}
                                         size="sm"
                                         onClick={() => setSelectedTime(time)}
-                                        className="rounded-2xl text-[10px] font-bold h-11 border-2"
+                                        className={cn(
+                                            "rounded-xl text-[10px] font-bold h-12 border-2",
+                                            selectedTime === time ? "bg-primary border-primary text-white" : "border-slate-100"
+                                        )}
                                         disabled={doctor?.availability?.disabledSlots?.includes(time)}
                                     >
                                         {time}
@@ -110,7 +112,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                         </div>
                     </div>
                 </ScrollArea>
-                <div className="p-8 sm:p-10 border-t bg-slate-50 shrink-0">
+                <div className="p-6 sm:p-8 border-t bg-slate-50 shrink-0">
                     <div className="flex gap-4">
                         <Button variant="ghost" className="flex-1 h-14 rounded-2xl font-bold" onClick={() => onOpenChange(false)}>Cancel</Button>
                         <Button className="flex-1 h-14 rounded-2xl font-bold shadow-2xl shadow-primary/20 bg-primary text-white" disabled={!selectedTime || isSaving} onClick={handleConfirm}>
@@ -176,7 +178,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                         </div>
                     </div>
                     <div className="mt-auto pt-2 flex items-center justify-between gap-2">
-                         <Badge className={cn("text-[9px] uppercase font-bold px-2 py-0.5 shrink-0 h-auto", apt.status === 'completed' ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600")}>
+                         <Badge className={cn("text-[10px] uppercase font-bold px-2 py-0.5 shrink-0 h-auto", apt.status === 'completed' ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600")}>
                             {apt.status === 'completed' ? 'Performed' : apt.status}
                         </Badge>
                         <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-[9px] font-bold text-primary shrink-0">
