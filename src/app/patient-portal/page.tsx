@@ -62,7 +62,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200">
+            <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-primary p-6 sm:p-8 text-white shrink-0">
                     <DialogTitle className="text-xl sm:text-2xl font-headline">Reschedule Consultation</DialogTitle>
                     <DialogDescription className="text-primary-foreground/80 mt-1 font-medium">Scroll down to pick a new clinical window.</DialogDescription>
@@ -159,8 +159,8 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
 
     if (variant === 'compact') {
         return (
-            <Card className="h-full border-none shadow-md bg-white rounded-2xl overflow-hidden group hover:shadow-xl transition-all">
-                <CardContent className="p-4 flex flex-col gap-3 h-full">
+            <Card className="h-full border-none shadow-md bg-white rounded-2xl overflow-hidden group hover:shadow-xl transition-all" asChild>
+                <div className="p-4 flex flex-col gap-3 h-full">
                     <div className="flex items-center gap-3">
                          <div className="relative h-10 w-10 shrink-0 rounded-full overflow-hidden bg-primary/5">
                             {photoSrc ? <Image src={photoSrc} alt="Doctor" fill className="object-cover" /> : <div className="h-full w-full flex items-center justify-center font-bold text-primary">{doctor?.firstName?.[0]}</div>}
@@ -186,7 +186,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                             <Link href={`/appointments/${apt.id}`}>View</Link>
                         </Button>
                     </div>
-                </CardContent>
+                </div>
             </Card>
         )
     }
@@ -196,8 +196,8 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
             "hover:shadow-lg transition-all border-l-4 bg-card/50 backdrop-blur-sm overflow-hidden",
             isLive && apt.paymentStatus === 'approved' ? "border-l-red-500 bg-red-50/10 shadow-md scale-[1.01]" : "border-l-primary/40",
             (isExpired || apt.status === 'expired') && "opacity-60 border-l-destructive/40"
-        )}>
-            <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-8">
+        )} asChild>
+            <div className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-8">
                 <div className="flex items-center gap-4 sm:gap-6 flex-1 min-w-0">
                     <div className="relative h-12 w-12 sm:h-16 sm:w-16 shrink-0 shadow-inner rounded-full overflow-hidden bg-muted flex items-center justify-center">
                         {isLoadingDoctor ? (
@@ -290,7 +290,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                         </div>
                     )}
                 </div>
-            </CardContent>
+            </div>
         </Card>
     )
 };
@@ -366,8 +366,8 @@ export default function PatientPortalPage() {
             <div className="container mx-auto px-4">
                 {ringingApt && (
                     <div className="mb-8 animate-in slide-in-from-top-4 duration-500">
-                        <Card className="bg-red-600 text-white border-none shadow-2xl overflow-hidden rounded-3xl">
-                            <CardContent className="p-6 flex items-center justify-between gap-4">
+                        <Card className="bg-red-600 text-white border-none shadow-2xl overflow-hidden rounded-3xl" asChild>
+                            <div className="p-6 flex items-center justify-between gap-4">
                                 <div className="flex items-center gap-4">
                                     <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center animate-pulse">
                                         <PhoneIncoming className="h-6 w-6 text-white" />
@@ -380,7 +380,7 @@ export default function PatientPortalPage() {
                                 <Button asChild className="bg-white text-red-600 hover:bg-slate-100 font-bold px-8 h-12 rounded-2xl">
                                     <Link href={`/consultation/${ringingApt.id}`}>Join Now</Link>
                                 </Button>
-                            </CardContent>
+                            </div>
                         </Card>
                     </div>
                 )}
