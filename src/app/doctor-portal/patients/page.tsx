@@ -54,9 +54,12 @@ export default function DoctorPatientsPage() {
     const patientStats = useMemo(() => {
         if (!appointments) return { uniquePatients: [], stats: { total: 0, paid: 0, pending: 0, uniqueCount: 0 } };
         
-        const uniquePatientIds = Array.from(new Set(appointments.map(a => a.patientId)));
+        // Safety filter: Ensure we only map over valid appointment objects
+        const validAppointments = appointments.filter(a => !!a && !!a.patientId);
+        
+        const uniquePatientIds = Array.from(new Set(validAppointments.map(a => a.patientId)));
         const patientData = uniquePatientIds.map(pid => {
-            const apts = appointments.filter(a => a.patientId === pid);
+            const apts = validAppointments.filter(a => a.patientId === pid);
             const lastApt = apts.sort((a,b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime())[0];
             return {
                 id: pid,
@@ -69,9 +72,9 @@ export default function DoctorPatientsPage() {
         return {
             uniquePatients: patientData,
             stats: {
-                total: appointments.length,
-                paid: appointments.filter(a => a.paymentStatus === 'approved').length,
-                pending: appointments.filter(a => a.paymentStatus === 'pending' && a.paymentReceiptUrl).length,
+                total: validAppointments.length,
+                paid: validAppointments.filter(a => a.paymentStatus === 'approved').length,
+                pending: validAppointments.filter(a => a.paymentStatus === 'pending' && a.paymentReceiptUrl).length,
                 uniqueCount: uniquePatientIds.length
             }
         };
@@ -80,7 +83,7 @@ export default function DoctorPatientsPage() {
     const filteredPatients = useMemo(() => {
         if (!patientStats.uniquePatients) return [];
         if (!searchTerm) return patientStats.uniquePatients;
-        // Search filter would ideally join with patient names, but for now we list all
+        // Search filter logic
         return patientStats.uniquePatients;
     }, [patientStats.uniquePatients, searchTerm]);
 

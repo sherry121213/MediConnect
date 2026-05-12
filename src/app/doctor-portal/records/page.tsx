@@ -129,6 +129,8 @@ export default function AppointmentRecordsPage() {
         if (!appointments) return [];
         return appointments
             .filter(apt => {
+                if (!apt || !apt.appointmentDateTime) return false;
+                
                 const isPast = isBefore(new Date(apt.appointmentDateTime), startOfDay(new Date())) || apt.status === 'completed';
                 if (!isPast) return false;
 
