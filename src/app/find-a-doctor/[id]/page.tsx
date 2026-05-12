@@ -52,7 +52,7 @@ const ReviewItem = ({ review }: { review: Review }) => {
                     <div className="flex items-center gap-3">
                         <Avatar className="h-10 w-10 border-2 border-primary/5">
                             <AvatarFallback className="bg-primary/5 text-primary font-bold text-xs">
-                                {patient?.firstName?.[0]}{patient?.lastName?.[0]}
+                                {patient?.firstName?.[0] || '?'}{patient?.lastName?.[0] || '?'}
                             </AvatarFallback>
                         </Avatar>
                         <div className="min-w-0">
@@ -73,7 +73,7 @@ const ReviewItem = ({ review }: { review: Review }) => {
                     </p>
                 </div>
                 <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-widest text-right">
-                    {format(new Date(review.createdAt), "MMM yyyy")}
+                    {review.createdAt ? format(new Date(review.createdAt), "MMM yyyy") : 'Recently'}
                 </p>
             </CardContent>
         </Card>
