@@ -189,7 +189,7 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
                 </div>
             </div>
             <div className="flex items-center gap-4">
-                {isLive && <Badge className="bg-red-600 text-white animate-pulse text-[9px] h-5 px-2">LIVE NOW</Badge>}
+                {isLive && <Badge className="bg-red-600 text-white animate-pulse text-[9px] px-2">LIVE NOW</Badge>}
                 <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("shrink-0 text-[10px] px-2.5 py-0.5", apt.status === 'completed' ? "bg-green-100 text-green-800" : "text-primary border-primary/20")}>
                     {apt.status === 'scheduled' ? (isLive ? 'Start' : 'Upcoming') : apt.status === 'completed' ? 'Performed' : apt.status}
                 </Badge>
@@ -274,9 +274,9 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
             {appointment && (
                 <div className="flex items-center gap-2">
                     {appointment.status === 'completed' ? (
-                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-[9px] h-6 px-2.5 font-bold uppercase tracking-tight shrink-0">Performed</Badge>
+                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-[9px] px-2.5 font-bold uppercase tracking-tight shrink-0">Performed</Badge>
                     ) : isExpired ? (
-                        <Badge variant="destructive" className="text-[9px] h-6 px-2.5 font-bold uppercase tracking-tight shrink-0">Expired</Badge>
+                        <Badge variant="destructive" className="text-[9px] px-2.5 font-bold uppercase tracking-tight shrink-0">Expired</Badge>
                     ) : (
                         <Button 
                             size="sm" 
@@ -603,18 +603,25 @@ export default function DoctorPortalPage() {
         const now = new Date();
         const yesterday = subDays(now, 1);
 
-        const today = appointments.filter(apt => {
+        // Filter for "Today's Revenue" and "Today's Pool"
+        // Includes everything scheduled or performed for today (not cancelled)
+        const allToday = appointments.filter(apt => {
             if (!apt || !apt.appointmentDateTime) return false;
-            if (apt.status === 'completed' || apt.status === 'cancelled' || apt.status === 'expired') return false;
+            if (apt.status === 'cancelled') return false;
+            return isSameDay(new Date(apt.appointmentDateTime), now);
+        });
+
+        // Filter for "Active Queue" display
+        const activeQueue = allToday.filter(apt => {
+            if (apt.status === 'completed' || apt.status === 'expired') return false;
             const aptDate = new Date(apt.appointmentDateTime);
-            const isToday = isSameDay(aptDate, now);
             const endTime = aptDate.getTime() + (30 * 60 * 1000); 
             const isExpired = Date.now() > endTime;
-            return isToday && !isExpired;
+            return !isExpired;
         });
 
         const pending = appointments.filter(apt => apt && apt.status === 'scheduled').length;
-        const todayRev = today.reduce((sum, a) => sum + (a.amount || 1500), 0);
+        const todayRev = allToday.reduce((sum, a) => sum + (a.amount || 1500), 0);
         const lifetimeRev = appointments.reduce((sum, a) => sum + (a.amount || 1500), 0);
         const totalCompleted = appointments.filter(a => a && a.status === 'completed').length;
         const uniquePatients = new Set(appointments.filter(a => a && a.status === 'completed').map(a => a.patientId)).size;
@@ -666,8 +673,8 @@ export default function DoctorPortalPage() {
         const sortedNotifications = alerts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
         return { 
-            todayAppointments: today,
-            stats: { today: today.length, pending: pending, todayRevenue: todayRev, totalRevenue: lifetimeRev, totalConsults: totalCompleted, uniquePatients },
+            todayAppointments: activeQueue,
+            stats: { today: allToday.length, pending: pending, todayRevenue: todayRev, totalRevenue: lifetimeRev, totalConsults: totalCompleted, uniquePatients },
             masterSchedule: { morning: filterSlots(timeSlots.morning), afternoon: filterSlots(timeSlots.afternoon), evening: filterSlots(timeSlots.evening) },
             notifications: sortedNotifications,
             currentDayLeaveStatus: leaveStatus
