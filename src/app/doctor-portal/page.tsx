@@ -44,7 +44,7 @@ function PatientHistoryTab({ patientId }: { patientId: string }) {
     if (isLoading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
 
     return (
-        <div className="space-y-4 pr-2">
+        <div className="space-y-4 pr-2 pb-20">
             {pastApts && pastApts.length > 0 ? (
                 pastApts.sort((a,b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime()).map(apt => (
                     <div key={apt.id} className="p-4 border-2 rounded-2xl bg-muted/5 space-y-2">
@@ -106,13 +106,13 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-200">
+            <DialogContent className="sm:max-w-xl rounded-t-[2.5rem] sm:rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[95dvh] flex flex-col animate-in slide-in-from-bottom-5 duration-300">
                 <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
                     <DialogTitle className="text-xl sm:text-2xl font-headline">Clinical Rescheduling</DialogTitle>
                     <DialogDescription className="text-slate-400 mt-1 font-medium">Pick a new 30-minute clinical window.</DialogDescription>
                 </div>
-                <ScrollArea className="flex-1 bg-white">
-                    <div className="p-6 sm:p-8 space-y-10 pb-20">
+                <div className="flex-1 overflow-y-auto bg-white overscroll-contain">
+                    <div className="p-6 sm:p-8 space-y-10 pb-32">
                         <div>
                             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 1: Pick Clinical Date</p>
                             <div className="space-y-3">
@@ -155,8 +155,8 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
                             </div>
                         </div>
                     </div>
-                </ScrollArea>
-                <div className="p-6 sm:p-8 border-t bg-slate-50 shrink-0">
+                </div>
+                <div className="p-6 sm:p-8 border-t bg-slate-50 shrink-0 mt-auto">
                     <div className="flex gap-4">
                         <Button variant="ghost" className="flex-1 h-14 rounded-2xl font-bold" onClick={() => onOpenChange(false)}>Cancel</Button>
                         <Button className="flex-1 h-14 rounded-2xl font-bold shadow-2xl shadow-primary/20 bg-slate-900 hover:bg-slate-800 text-white" disabled={!selectedTime || isSaving} onClick={handleConfirm}>
@@ -214,7 +214,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
     const patientDocRef = useMemoFirebase(() => {
         if (!firestore || !appointment?.patientId) return null;
         return doc(firestore, 'patients', appointment.patientId);
-    }, [firestore, appointment?.patientId]);
+    }, [firestore, appointment.patientId]);
     const { data: patient } = useDoc<Patient>(patientDocRef);
 
     const isPast = useMemo(() => {
@@ -348,7 +348,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-[2.5rem] max-h-[85vh] flex flex-col">
+            <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-t-[2.5rem] sm:rounded-[2.5rem] max-h-[95dvh] flex flex-col">
                 <Tabs defaultValue="overview" className="w-full flex-1 flex flex-col overflow-hidden">
                     <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
                         <DialogTitle className="text-2xl font-headline mb-6 text-white">Patient Management</DialogTitle>
@@ -358,8 +358,8 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
                             <TabsTrigger value="notes" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 font-bold uppercase text-[10px]">Clinical Notes</TabsTrigger>
                         </TabsList>
                     </div>
-                    <ScrollArea className="flex-1 bg-white">
-                        <div className="p-6 sm:p-10 pb-20">
+                    <div className="flex-1 overflow-y-auto bg-white overscroll-contain">
+                        <div className="p-6 sm:p-10 pb-32">
                             <TabsContent value="overview" className="space-y-8 m-0">
                                 <div className="flex items-center gap-6 p-6 border-2 rounded-[2rem] bg-muted/20">
                                     <Avatar className="h-16 w-16 shadow-lg border-2 border-white"><AvatarFallback className="bg-primary text-white font-bold text-lg">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback></Avatar>
@@ -425,7 +425,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
                                 </form></Form>
                             </TabsContent>
                         </div>
-                    </ScrollArea>
+                    </div>
                 </Tabs>
             </DialogContent>
         </Dialog>
@@ -449,13 +449,13 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[85vh] overflow-hidden sm:max-w-xl rounded-3xl p-0 flex flex-col border-none shadow-2xl">
+            <DialogContent className="max-h-[95dvh] overflow-hidden sm:max-w-xl rounded-t-[2.5rem] sm:rounded-3xl p-0 flex flex-col border-none shadow-2xl">
                 <div className="p-8 sm:p-10 border-b bg-slate-900 text-white shrink-0">
                     <DialogTitle className="text-2xl font-headline">Clinical Hour Configuration</DialogTitle>
                     <DialogDescription className="text-slate-400 mt-1">Audit and update your available 30-minute blocks.</DialogDescription>
                 </div>
-                <ScrollArea className="flex-1 bg-white">
-                    <div className="space-y-8 p-8 sm:p-10 pb-20">
+                <div className="flex-1 overflow-y-auto bg-white overscroll-contain">
+                    <div className="space-y-8 p-8 sm:p-10 pb-32">
                         <div className="p-5 bg-primary/5 rounded-2xl border border-primary/10 flex gap-4">
                             <AlertCircle className="h-6 w-6 text-primary shrink-0" />
                             <p className="text-xs text-muted-foreground leading-relaxed font-medium italic">
@@ -481,8 +481,8 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
                             </div>
                         ))}
                     </div>
-                </ScrollArea>
-                <div className="p-8 sm:p-10 border-t bg-slate-50 shrink-0">
+                </div>
+                <div className="p-8 sm:p-10 border-t bg-slate-50 shrink-0 mt-auto">
                     <Button onClick={handleSave} className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl shadow-primary/20 text-white bg-primary" disabled={isSaving}>
                         {isSaving ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
                         Apply Slot Schedule
@@ -516,42 +516,44 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="rounded-[2.5rem] sm:max-w-md border-none shadow-2xl p-0 overflow-hidden">
-                <div className="bg-slate-900 p-8 text-white text-center">
+            <DialogContent className="rounded-t-[2.5rem] sm:rounded-[2.5rem] sm:max-w-md border-none shadow-2xl p-0 overflow-hidden max-h-[95dvh] flex flex-col">
+                <div className="bg-slate-900 p-8 text-white text-center shrink-0">
                     <DialogTitle className="text-2xl font-headline">Absence History Entry</DialogTitle>
                     <DialogDescription className="text-slate-400 mt-1">Audit trail for professional clinical pauses.</DialogDescription>
                 </div>
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 p-8 bg-white">
-                        <FormField control={form.control} name="requestedDate" render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                                <FormLabel className="text-[10px] uppercase font-bold tracking-[0.2em] text-muted-foreground ml-1">Select Clinical Date</FormLabel>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <FormControl>
-                                            <Button variant="outline" className="w-full h-14 border-2 rounded-2xl text-left font-bold px-5 text-sm">
-                                                <CalendarIcon className="mr-3 h-5 w-5 text-primary" />
-                                                {field.value ? format(field.value, "PPP") : "Pick an audit date"}
-                                            </Button>
-                                        </FormControl>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0 rounded-3xl shadow-2xl border-none" align="center">
-                                        <DayPickerCalendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(d) => isBefore(d, addDays(new Date(), 1))} initialFocus className="rounded-3xl" />
-                                    </PopoverContent>
-                                </Popover>
-                            </FormItem>
-                        )} />
-                        <FormField control={form.control} name="reason" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel className="text-[10px] uppercase font-bold tracking-[0.2em] text-muted-foreground ml-1">Professional Justification</FormLabel>
-                                <FormControl>
-                                    <Textarea placeholder="Detail the context (e.g. Travel, Workshop, Personal Audit)" rows={5} className="resize-none border-2 rounded-2xl p-5 text-sm focus:border-primary transition-colors" {...field} />
-                                </FormControl>
-                            </FormItem>
-                        )} />
-                        <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-2xl shadow-primary/20 text-white bg-primary">Log for History Audit</Button>
-                    </form>
-                </Form>
+                <div className="flex-1 overflow-y-auto bg-white overscroll-contain">
+                    <Form {...form}>
+                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 p-8 pb-24 bg-white">
+                            <FormField control={form.control} name="requestedDate" render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel className="text-[10px] uppercase font-bold tracking-[0.2em] text-muted-foreground ml-1">Select Clinical Date</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <FormControl>
+                                                <Button variant="outline" className="w-full h-14 border-2 rounded-2xl text-left font-bold px-5 text-sm">
+                                                    <CalendarIcon className="mr-3 h-5 w-5 text-primary" />
+                                                    {field.value ? format(field.value, "PPP") : "Pick an audit date"}
+                                                </Button>
+                                            </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0 rounded-3xl shadow-2xl border-none" align="center">
+                                            <DayPickerCalendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(d) => isBefore(d, addDays(new Date(), 1))} initialFocus className="rounded-3xl" />
+                                        </PopoverContent>
+                                    </Popover>
+                                </FormItem>
+                            )} />
+                            <FormField control={form.control} name="reason" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-[10px] uppercase font-bold tracking-[0.2em] text-muted-foreground ml-1">Professional Justification</FormLabel>
+                                    <FormControl>
+                                        <Textarea placeholder="Detail the context (e.g. Travel, Workshop, Personal Audit)" rows={5} className="resize-none border-2 rounded-2xl p-5 text-sm focus:border-primary transition-colors" {...field} />
+                                    </FormControl>
+                                </FormItem>
+                            )} />
+                            <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-2xl shadow-primary/20 text-white bg-primary">Log for History Audit</Button>
+                        </form>
+                    </Form>
+                </div>
             </DialogContent>
         </Dialog>
     );
@@ -750,12 +752,12 @@ export default function DoctorPortalPage() {
     if (!mounted || isUserLoading) return <div className="flex min-h-screen items-center justify-center bg-secondary/30"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
     return (
-        <main className="flex-grow bg-secondary/30 py-6 sm:py-10">
-            <div className="container mx-auto px-4 space-y-8 sm:space-y-12">
+        <main className="min-h-screen flex flex-col bg-secondary/30 py-6 sm:py-10 overflow-x-hidden overflow-y-auto overscroll-none">
+            <div className="container mx-auto px-4 space-y-8 sm:space-y-12 flex-1 pb-20">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
-                    <div>
+                    <div className="space-y-2">
                         <h1 className="text-3xl sm:text-4xl font-bold font-headline tracking-tight text-foreground">Clinical Command Center</h1>
-                        <p className="text-muted-foreground flex items-center gap-2 text-sm sm:text-base mt-2 font-medium">
+                        <p className="text-muted-foreground flex items-center gap-2 text-sm sm:text-base font-medium">
                             <Activity className="h-5 w-5 text-primary" /> Active Platform Surveillance • 30m Protocol
                         </p>
                     </div>
@@ -776,7 +778,7 @@ export default function DoctorPortalPage() {
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-10">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-10 items-start">
                     <div className="lg:col-span-4 space-y-8">
                         <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden">
                              <CardHeader className="pb-4 border-b bg-muted/10 px-6">
@@ -791,7 +793,7 @@ export default function DoctorPortalPage() {
                                     )}
                                 </div>
                             </CardHeader>
-                            <CardContent className="space-y-4 p-6 max-h-[350px] overflow-y-auto custom-scrollbar">
+                            <CardContent className="space-y-4 p-6 max-h-[400px] overflow-y-auto custom-scrollbar overscroll-contain">
                                 {notifications.length > 0 ? notifications.map(n => (
                                     <div key={n.id} className={cn(
                                         "p-4 rounded-2xl border-2 flex gap-4 items-start animate-in fade-in slide-in-from-right-3 transition-all",
@@ -824,7 +826,7 @@ export default function DoctorPortalPage() {
                                 {isLoadingAppointments ? (
                                     <div className="p-16 text-center"><Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" /></div>
                                 ) : todayAppointments.length > 0 ? (
-                                    <div className="divide-y max-h-[450px] overflow-y-auto custom-scrollbar">
+                                    <div className="divide-y max-h-[500px] overflow-y-auto custom-scrollbar overscroll-contain">
                                         {todayAppointments.map(apt => (
                                             <AppointmentRow key={apt.id} apt={apt} onSelect={handleSelectApt} isMounted={mounted} />
                                         ))}
@@ -839,9 +841,9 @@ export default function DoctorPortalPage() {
                         </Card>
                     </div>
 
-                    <div className="lg:col-span-8 space-y-8">
-                        <Card className="border-none shadow-2xl relative bg-white overflow-hidden rounded-[2.5rem]">
-                            <CardHeader className="border-b bg-muted/5 z-10 p-6 sm:p-10">
+                    <div className="lg:col-span-8 space-y-8 h-full">
+                        <Card className="border-none shadow-2xl relative bg-white overflow-hidden rounded-[2.5rem] flex flex-col">
+                            <CardHeader className="border-b bg-muted/5 z-10 p-6 sm:p-10 shrink-0">
                                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
                                     <div className="space-y-2">
                                         <CardTitle className="text-2xl sm:text-3xl font-headline flex items-center gap-4 text-foreground">
@@ -852,20 +854,20 @@ export default function DoctorPortalPage() {
                                     <div className="flex flex-wrap items-center gap-4">
                                         <div className="flex items-center gap-3 bg-white p-2 rounded-[1.25rem] border-2 shadow-sm w-full xl:w-auto justify-between sm:justify-start">
                                             <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl shrink-0" onClick={() => setViewDate(addDays(viewDate, -1))}><ChevronLeft className="h-5 w-5" /></Button>
-                                            <div className="px-6 text-sm font-bold min-w-[120px] text-center uppercase tracking-widest">{format(viewDate, "MMM dd")}</div>
+                                            <div className="px-4 text-xs sm:text-sm font-bold min-w-[100px] text-center uppercase tracking-widest">{format(viewDate, "MMM dd")}</div>
                                             <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl shrink-0" onClick={() => setViewDate(addDays(viewDate, 1))}><ChevronRight className="h-5 w-5" /></Button>
                                             <div className="hidden sm:flex h-8 w-px bg-muted mx-2" />
                                             <div className="flex items-center gap-2 shrink-0">
-                                                <Button variant="outline" size="sm" className="h-10 gap-2 font-bold px-4 text-xs rounded-xl border-2" onClick={() => setIsAvailabilityOpen(true)}><Settings2 className="h-4 w-4 text-primary" /> Slots</Button>
-                                                <Button size="sm" className="h-10 gap-2 font-bold px-4 text-xs rounded-xl shadow-lg text-white" onClick={() => setIsLeaveOpen(true)}><Moon className="h-4 w-4" /> Leave</Button>
+                                                <Button variant="outline" size="sm" className="h-10 gap-2 font-bold px-3 sm:px-4 text-[10px] sm:text-xs rounded-xl border-2" onClick={() => setIsAvailabilityOpen(true)}><Settings2 className="h-4 w-4 text-primary" /> Slots</Button>
+                                                <Button size="sm" className="h-10 gap-2 font-bold px-3 sm:px-4 text-[10px] sm:text-xs rounded-xl shadow-lg text-white" onClick={() => setIsLeaveOpen(true)}><Moon className="h-4 w-4" /> Leave</Button>
                                             </div>
                                         </div>
                                     </div>
                                 </div>
                             </CardHeader>
-                            <CardContent className="p-6 sm:p-10">
+                            <CardContent className="p-6 sm:p-10 flex-1 overflow-y-auto overscroll-contain">
                                 {currentDayLeaveStatus === 'approved' && (
-                                    <div className="absolute inset-x-0 bottom-0 top-[180px] sm:top-[140px] z-20 bg-white/95 backdrop-blur-[6px] flex items-center justify-center rounded-b-[2.5rem]">
+                                    <div className="absolute inset-x-0 bottom-0 top-[220px] sm:top-[160px] z-20 bg-white/95 backdrop-blur-[6px] flex items-center justify-center rounded-b-[2.5rem]">
                                         <div className="bg-white p-10 sm:p-14 rounded-[3rem] shadow-2xl border-2 text-center max-w-[90%] sm:max-w-md space-y-8 animate-in zoom-in-95">
                                             <div className="h-24 w-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto shadow-inner border-4 border-white"><ShieldCheck className="h-14 w-14" /></div>
                                             <div className="space-y-3">
@@ -875,7 +877,7 @@ export default function DoctorPortalPage() {
                                         </div>
                                     </div>
                                 )}
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-10">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-10 pb-24">
                                     <div className="space-y-6">
                                         <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-4"><div className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-sm shrink-0" /> Morning</h3>
                                         <div className="space-y-2">{masterSchedule.morning.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
@@ -895,14 +897,14 @@ export default function DoctorPortalPage() {
                 </div>
 
                 <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-                    <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-3xl p-0 overflow-hidden">
-                        <div className="bg-slate-900 p-8 text-white text-center">
+                    <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-t-[2.5rem] sm:rounded-3xl p-0 overflow-hidden max-h-[90dvh] flex flex-col">
+                        <div className="bg-slate-900 p-8 text-white text-center shrink-0">
                             <DialogTitle className="flex items-center justify-center gap-3 text-2xl font-headline text-white">
                                 <History className="h-6 w-6 text-primary" /> My History
                             </DialogTitle>
                             <DialogDescription className="text-slate-400 mt-1">Summary of your professional clinical activity.</DialogDescription>
                         </div>
-                        <div className="grid grid-cols-1 gap-6 p-8 bg-white">
+                        <div className="flex-1 overflow-y-auto bg-white p-8 space-y-6 overscroll-contain pb-24">
                             <div className="p-6 rounded-3xl bg-primary/5 border-2 border-primary/10 space-y-1 text-center">
                                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Aggregate Earnings</p>
                                 <p className="text-3xl sm:text-4xl font-bold text-primary">PKR {stats.totalRevenue.toLocaleString()}</p>
@@ -916,7 +918,7 @@ export default function DoctorPortalPage() {
                                 <p className="text-3xl sm:text-4xl font-bold text-blue-600">{stats.uniquePatients}</p>
                             </div>
                         </div>
-                        <DialogFooter className="p-8 pt-0 bg-white"><Button variant="secondary" className="w-full h-14 font-bold rounded-2xl" onClick={() => setIsHistoryOpen(false)}>Close Summary</Button></DialogFooter>
+                        <DialogFooter className="p-8 pt-0 bg-white shrink-0 mt-auto"><Button variant="secondary" className="w-full h-14 font-bold rounded-2xl" onClick={() => setIsHistoryOpen(false)}>Close Summary</Button></DialogFooter>
                     </DialogContent>
                 </Dialog>
 

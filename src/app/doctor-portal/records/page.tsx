@@ -40,61 +40,61 @@ function RecordDetailDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[500px]">
-                <DialogHeader>
+            <DialogContent className="sm:max-w-[500px] rounded-t-[2rem] sm:rounded-2xl max-h-[90dvh] flex flex-col p-0 overflow-hidden border-none shadow-2xl">
+                <DialogHeader className="p-6 bg-slate-900 text-white shrink-0">
                     <div className="flex items-center gap-2 text-primary mb-2">
                         <ClipboardCheck className="h-5 w-5" />
-                        <span className="text-xs font-bold uppercase tracking-wider">Historical Record</span>
+                        <span className="text-[10px] font-bold uppercase tracking-wider">Historical Record</span>
                     </div>
-                    <DialogTitle className="text-xl font-headline">Consultation Summary</DialogTitle>
-                    <DialogDescription>
+                    <DialogTitle className="text-xl font-headline text-white">Consultation Summary</DialogTitle>
+                    <DialogDescription className="text-slate-400">
                         Details for the session on {format(new Date(appointment.appointmentDateTime), "PPP")}
                     </DialogDescription>
                 </DialogHeader>
                 
-                <div className="space-y-6 py-4">
-                    <div className="flex items-center gap-4 p-4 border rounded-lg bg-muted/20">
+                <div className="flex-1 overflow-y-auto bg-white p-6 space-y-6 overscroll-contain pb-24">
+                    <div className="flex items-center gap-4 p-4 border rounded-2xl bg-muted/20">
                         <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                             <User className="h-6 w-6" />
                         </div>
-                        <div>
-                            <p className="font-bold text-lg">{patient ? `${patient.firstName} ${patient.lastName}` : 'Loading...'}</p>
-                            <p className="text-sm text-muted-foreground">{patient?.email || '...'}</p>
+                        <div className="min-w-0">
+                            <p className="font-bold text-lg truncate">{patient ? `${patient.firstName} ${patient.lastName}` : 'Loading...'}</p>
+                            <p className="text-xs text-muted-foreground truncate">{patient?.email || '...'}</p>
                         </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 text-sm">
                         <div className="space-y-1">
-                            <p className="text-muted-foreground flex items-center gap-1"><Clock className="h-3 w-3" /> Time</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1"><Clock className="h-3 w-3" /> Time</p>
                             <p className="font-medium">{format(new Date(appointment.appointmentDateTime), "p")}</p>
                         </div>
                         <div className="space-y-1">
-                            <p className="text-muted-foreground">Type</p>
+                            <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Type</p>
                             <p className="font-medium capitalize">{appointment.appointmentType}</p>
                         </div>
                     </div>
 
-                    <div className="space-y-4">
+                    <div className="space-y-6">
                         <div>
-                            <h4 className="text-sm font-bold text-primary uppercase tracking-tighter mb-1">Diagnosis</h4>
-                            <div className="p-3 rounded-md bg-muted/30 border text-sm min-h-[60px]">
-                                {appointment.diagnosis || <span className="italic text-muted-foreground">No diagnosis recorded.</span>}
+                            <h4 className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">Clinical Diagnosis</h4>
+                            <div className="p-4 rounded-xl bg-muted/30 border text-sm min-h-[60px] italic text-slate-700 leading-relaxed">
+                                {appointment.diagnosis || "No diagnosis recorded."}
                             </div>
                         </div>
                         <div>
-                            <h4 className="text-sm font-bold text-primary uppercase tracking-tighter mb-1">Prescription & Advice</h4>
-                            <div className="p-3 rounded-md bg-muted/30 border text-sm min-h-[100px] whitespace-pre-wrap">
-                                {appointment.prescription || <span className="italic text-muted-foreground">No prescription details available.</span>}
+                            <h4 className="text-[10px] font-bold text-primary uppercase tracking-widest mb-2">Treatment & Advice</h4>
+                            <div className="p-4 rounded-xl bg-muted/30 border text-sm min-h-[100px] whitespace-pre-wrap text-slate-700 leading-relaxed">
+                                {appointment.prescription || "No prescription details available."}
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <DialogFooter className="sm:justify-between items-center gap-4 border-t pt-4">
-                    <div className="text-[10px] text-muted-foreground italic">
+                <DialogFooter className="p-6 bg-slate-50 border-t sm:justify-between items-center gap-4 shrink-0 mt-auto">
+                    <div className="text-[9px] text-muted-foreground italic">
                         Last updated: {appointment.updatedAt ? format(new Date(appointment.updatedAt), "PP p") : 'N/A'}
                     </div>
-                    <Button variant="outline" asChild size="sm">
+                    <Button variant="outline" asChild size="sm" className="rounded-xl font-bold h-10 border-2">
                         <Link href={`/appointments/${appointment.id}`}>
                             View Full PDF <FileText className="ml-2 h-4 w-4" />
                         </Link>
@@ -156,26 +156,26 @@ export default function AppointmentRecordsPage() {
     const paginatedRecords = filteredRecords.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage);
 
     return (
-        <main className="flex-grow bg-secondary/30 py-8">
-            <div className="container mx-auto px-4">
+        <main className="min-h-screen flex flex-col bg-secondary/30 py-8 overflow-x-hidden overflow-y-auto overscroll-none">
+            <div className="container mx-auto px-4 flex-1 pb-20">
                 <div className="mb-6 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold font-headline">Consultation History</h1>
-                        <p className="text-muted-foreground">Review and manage records of all completed patient sessions.</p>
+                        <h1 className="text-3xl font-bold font-headline tracking-tight">Consultation History</h1>
+                        <p className="text-muted-foreground mt-1">Review and manage records of all completed patient sessions.</p>
                     </div>
-                    <Button variant="outline" asChild>
+                    <Button variant="outline" asChild className="rounded-xl border-2 font-bold shadow-sm h-11 px-6 bg-white">
                         <Link href="/doctor-portal">Back to Dashboard</Link>
                     </Button>
                 </div>
 
-                <Card className="mb-8">
-                    <CardHeader className="pb-4 border-b">
+                <Card className="mb-8 border-none shadow-2xl rounded-3xl overflow-hidden">
+                    <CardHeader className="pb-4 border-b bg-muted/5 p-6 sm:p-8">
                         <div className="flex flex-col md:flex-row md:items-center gap-4">
                             <div className="relative flex-1">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input 
-                                    placeholder="Search by diagnosis keywords..." 
-                                    className="pl-9"
+                                    placeholder="Search by keywords..." 
+                                    className="pl-9 h-11 border-2 rounded-xl bg-white"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
@@ -183,12 +183,12 @@ export default function AppointmentRecordsPage() {
                             
                             <Popover>
                                 <PopoverTrigger asChild>
-                                    <Button variant="outline" className={cn("justify-start text-left font-normal min-w-[200px]", !dateFilter && "text-muted-foreground")}>
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                    <Button variant="outline" className={cn("justify-start text-left font-bold min-w-[200px] h-11 rounded-xl border-2 bg-white", !dateFilter && "text-muted-foreground")}>
+                                        <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
                                         {dateFilter ? format(dateFilter, "PPP") : "Filter by date"}
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="end">
+                                <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl" align="end">
                                     <DayPickerCalendar
                                         mode="single"
                                         selected={dateFilter}
@@ -199,48 +199,51 @@ export default function AppointmentRecordsPage() {
                             </Popover>
 
                             {(dateFilter || searchTerm) && (
-                                <Button variant="ghost" onClick={() => { setDateFilter(undefined); setSearchTerm(''); }} size="sm">
-                                    <X className="mr-2 h-4 w-4" /> Clear
+                                <Button variant="ghost" onClick={() => { setDateFilter(undefined); setSearchTerm(''); }} size="sm" className="font-bold text-xs uppercase tracking-widest text-muted-foreground hover:text-destructive">
+                                    <X className="mr-2 h-4 w-4" /> Clear Filters
                                 </Button>
                             )}
                         </div>
                     </CardHeader>
                     <CardContent className="p-0">
                         {isLoading ? (
-                            <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+                            <div className="flex justify-center py-24"><Loader2 className="h-10 w-10 animate-spin text-primary" /></div>
                         ) : filteredRecords.length > 0 ? (
-                            <div className="p-6">
-                                <div className="border rounded-md overflow-hidden">
+                            <div className="p-0">
+                                <div className="overflow-x-auto custom-scrollbar">
                                     <Table>
-                                        <TableHeader>
-                                            <TableRow className="bg-muted/50">
-                                                <TableHead>Visit Date</TableHead>
-                                                <TableHead>Patient</TableHead>
-                                                <TableHead>Diagnosis Summary</TableHead>
-                                                <TableHead>Status</TableHead>
-                                                <TableHead className="text-right">Actions</TableHead>
+                                        <TableHeader className="bg-muted/10">
+                                            <TableRow>
+                                                <TableHead className="py-5 pl-8 font-bold">Visit Date</TableHead>
+                                                <TableHead className="font-bold">Patient</TableHead>
+                                                <TableHead className="font-bold">Diagnosis</TableHead>
+                                                <TableHead className="font-bold">Status</TableHead>
+                                                <TableHead className="text-right pr-8 font-bold">Audit</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {paginatedRecords.map((apt) => (
-                                                <TableRow key={apt.id} className="hover:bg-muted/30 cursor-pointer" onClick={() => handleSelectRow(apt)}>
-                                                    <TableCell className="font-medium whitespace-nowrap">
+                                                <TableRow key={apt.id} className="hover:bg-primary/5 cursor-pointer transition-colors" onClick={() => handleSelectRow(apt)}>
+                                                    <TableCell className="font-bold py-5 pl-8 whitespace-nowrap">
                                                         {format(new Date(apt.appointmentDateTime), "MMM dd, yyyy")}
-                                                        <p className="text-[10px] text-muted-foreground">{format(new Date(apt.appointmentDateTime), "p")}</p>
+                                                        <p className="text-[10px] text-muted-foreground font-medium">{format(new Date(apt.appointmentDateTime), "p")}</p>
                                                     </TableCell>
                                                     <TableCell>
-                                                        <PatientCell patientId={apt.patientId} />
+                                                        <div className="flex items-center gap-2">
+                                                            <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold">P</div>
+                                                            <PatientCell patientId={apt.patientId} />
+                                                        </div>
                                                     </TableCell>
-                                                    <TableCell className="max-w-xs truncate">
-                                                        {apt.diagnosis || <span className="text-muted-foreground italic text-xs">No records</span>}
+                                                    <TableCell className="max-w-[150px] truncate text-xs text-muted-foreground italic">
+                                                        {apt.diagnosis || "No records logged"}
                                                     </TableCell>
                                                     <TableCell>
-                                                        <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={apt.status === 'completed' ? 'bg-green-100 text-green-800' : ''}>
+                                                        <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("text-[9px] uppercase font-bold", apt.status === 'completed' ? 'bg-green-100 text-green-800' : '')}>
                                                             {apt.status}
                                                         </Badge>
                                                     </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); handleSelectRow(apt); }}>
+                                                    <TableCell className="text-right pr-8">
+                                                        <Button variant="ghost" size="icon" className="h-9 w-9 rounded-xl hover:bg-primary hover:text-white" onClick={(e) => { e.stopPropagation(); handleSelectRow(apt); }}>
                                                             <FileText className="h-4 w-4" />
                                                         </Button>
                                                     </TableCell>
@@ -250,19 +253,21 @@ export default function AppointmentRecordsPage() {
                                     </Table>
                                 </div>
                                 {pageCount > 1 && (
-                                    <div className="flex items-center justify-end space-x-2 py-4">
+                                    <div className="flex items-center justify-end space-x-2 p-6 border-t">
                                         <Button
                                             variant="outline"
                                             size="sm"
+                                            className="rounded-xl border-2 font-bold"
                                             onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                                             disabled={currentPage === 1}
                                         >
                                             <ChevronLeft className="h-4 w-4" /> Previous
                                         </Button>
-                                        <span className="text-xs text-muted-foreground px-4">Page {currentPage} of {pageCount}</span>
+                                        <span className="text-[10px] uppercase font-bold text-muted-foreground px-4">Page {currentPage} of {pageCount}</span>
                                         <Button
                                             variant="outline"
                                             size="sm"
+                                            className="rounded-xl border-2 font-bold"
                                             onClick={() => setCurrentPage(prev => Math.min(prev + 1, pageCount))}
                                             disabled={currentPage === pageCount}
                                         >
@@ -272,10 +277,10 @@ export default function AppointmentRecordsPage() {
                                 )}
                             </div>
                         ) : (
-                            <div className="text-center py-24 text-muted-foreground">
-                                <FileText className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                                <p className="text-lg font-medium">No historical records found</p>
-                                <p className="text-sm">Adjust your filters or search criteria to see past appointments.</p>
+                            <div className="text-center py-32 text-muted-foreground bg-white">
+                                <FileText className="h-16 w-16 mx-auto mb-4 opacity-10" />
+                                <p className="text-lg font-bold text-slate-400">No historical records found</p>
+                                <p className="text-xs mt-1">Adjust your filters to audit past consultations.</p>
                             </div>
                         )}
                     </CardContent>
