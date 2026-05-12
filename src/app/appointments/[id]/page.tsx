@@ -66,82 +66,102 @@ export default function AppointmentDetailsPage() {
     const handleDownload = () => {
         if (!appointment || !doctor || !userData) return;
 
-        const doc = new jsPDF();
-        const patientName = `${userData.firstName} ${userData.lastName}`;
-        const doctorName = `Dr. ${doctor.firstName} ${doctor.lastName}`;
+        try {
+            const doc = new jsPDF();
+            const patientName = `${userData.firstName} ${userData.lastName}`;
+            const doctorName = `Dr. ${doctor.firstName} ${doctor.lastName}`;
 
-        // Header Style
-        doc.setFillColor(20, 184, 166); // Primary Color
-        doc.rect(0, 0, 210, 40, 'F');
-        
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(26);
-        doc.text("Mediconnect", 20, 20);
-        doc.setFontSize(10);
-        doc.text("OFFICIAL CONSULTATION SUMMARY", 20, 30);
+            // Header Style
+            doc.setFillColor(20, 184, 166); // Primary Color
+            doc.rect(0, 0, 210, 45, 'F');
+            
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(26);
+            doc.setFont("helvetica", "bold");
+            doc.text("Mediconnect", 20, 22);
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "normal");
+            doc.text("OFFICIAL CLINICAL CONSULTATION SUMMARY", 20, 32);
+            doc.text(`Case ID: ${appointment.id.toUpperCase()}`, 20, 38);
 
-        // Reset Text Color
-        doc.setTextColor(40, 40, 40);
-        
-        // Doctor & Patient Block
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("Healthcare Professional", 20, 55);
-        doc.setFont("helvetica", "normal");
-        doc.text(doctorName, 20, 62);
-        doc.text(doctor.specialty || 'Medical Specialist', 20, 68);
-        doc.text(doctor.location || 'Pakistan', 20, 74);
+            // Reset Text Color
+            doc.setTextColor(40, 40, 40);
+            
+            // Doctor & Patient Block
+            doc.setFontSize(11);
+            doc.setFont("helvetica", "bold");
+            doc.text("Healthcare Professional", 20, 60);
+            doc.setFont("helvetica", "normal");
+            doc.text(doctorName, 20, 67);
+            doc.text(doctor.specialty || 'Medical Specialist', 20, 73);
+            doc.text(doctor.location || 'Pakistan', 20, 79);
 
-        doc.setFont("helvetica", "bold");
-        doc.text("Patient Information", 120, 55);
-        doc.setFont("helvetica", "normal");
-        doc.text(patientName, 120, 62);
-        doc.text(`ID: ${userData.id.slice(0, 8)}`, 120, 68);
-        doc.text(`Contact: ${userData.phone || 'N/A'}`, 120, 74);
+            doc.setFont("helvetica", "bold");
+            doc.text("Patient Record", 120, 60);
+            doc.setFont("helvetica", "normal");
+            doc.text(patientName, 120, 67);
+            doc.text(`User ID: ${userData.id.slice(0, 8).toUpperCase()}`, 120, 73);
+            doc.text(`Contact: ${userData.phone || 'N/A'}`, 120, 79);
 
-        doc.setDrawColor(200, 200, 200);
-        doc.line(20, 85, 190, 85);
+            doc.setDrawColor(230, 230, 230);
+            doc.line(20, 88, 190, 88);
 
-        // Appointment Metadata
-        doc.setFontSize(10);
-        doc.setFont("helvetica", "bold");
-        doc.text("Session Metadata:", 20, 95);
-        doc.setFont("helvetica", "normal");
-        doc.text(`Date: ${format(new Date(appointment.appointmentDateTime), "PPP")}`, 20, 102);
-        doc.text(`Time: ${format(new Date(appointment.appointmentDateTime), "p")}`, 20, 108);
-        doc.text(`Mode: ${appointment.appointmentType}`, 120, 102);
-        doc.text(`Fee: PKR ${appointment.amount?.toLocaleString() || '1,500'} (Approved)`, 120, 108);
+            // Appointment Metadata
+            doc.setFontSize(10);
+            doc.setFont("helvetica", "bold");
+            doc.text("Session Metadata:", 20, 98);
+            doc.setFont("helvetica", "normal");
+            doc.text(`Date: ${format(new Date(appointment.appointmentDateTime), "PPPP")}`, 20, 105);
+            doc.text(`Time: ${format(new Date(appointment.appointmentDateTime), "p")}`, 20, 111);
+            doc.text(`Mode: ${appointment.appointmentType}`, 120, 105);
+            doc.text(`Status: Performed (Paid)`, 120, 111);
 
-        // Clinical Findings
-        doc.setFillColor(245, 245, 245);
-        doc.rect(20, 115, 170, 40, 'F');
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("Clinical Diagnosis", 25, 125);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(10);
-        const splitDiagnosis = doc.splitTextToSize(appointment.diagnosis || 'No diagnosis recorded during session.', 160);
-        doc.text(splitDiagnosis, 25, 132);
+            // Clinical Findings
+            doc.setFillColor(248, 250, 252);
+            doc.rect(20, 120, 170, 45, 'F');
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.text("Clinical Diagnosis", 26, 132);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            const splitDiagnosis = doc.splitTextToSize(appointment.diagnosis || 'No specific clinical findings recorded.', 158);
+            doc.text(splitDiagnosis, 26, 140);
 
-        // Prescriptions
-        doc.setFontSize(12);
-        doc.setFont("helvetica", "bold");
-        doc.text("Treatment & Advice", 20, 165);
-        doc.setFont("helvetica", "normal");
-        doc.setFontSize(10);
-        const splitPrescription = doc.splitTextToSize(appointment.prescription || 'No specific prescription provided.', 170);
-        doc.text(splitPrescription, 20, 172);
+            // Prescriptions
+            doc.setFontSize(12);
+            doc.setFont("helvetica", "bold");
+            doc.text("Treatment & Advice", 20, 180);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(10);
+            const splitPrescription = doc.splitTextToSize(appointment.prescription || 'No specific prescription provided. Follow regular care protocols.', 170);
+            doc.text(splitPrescription, 20, 188);
 
-        // Footer
-        const pageHeight = doc.internal.pageSize.height;
-        doc.setDrawColor(20, 184, 166);
-        doc.line(20, pageHeight - 30, 190, pageHeight - 30);
-        doc.setFontSize(8);
-        doc.setTextColor(150, 150, 150);
-        doc.text("This is an electronically generated record. No signature required.", 105, pageHeight - 20, { align: 'center' });
-        doc.text("For any queries, contact support@mediconnect.com", 105, pageHeight - 15, { align: 'center' });
-        
-        doc.save(`Mediconnect-Summary-${appointment.id.slice(0, 8)}.pdf`);
+            // Footer
+            const pageHeight = doc.internal.pageSize.height;
+            doc.setDrawColor(20, 184, 166);
+            doc.setLineWidth(0.5);
+            doc.line(20, pageHeight - 35, 190, pageHeight - 35);
+            
+            doc.setFontSize(8);
+            doc.setTextColor(150, 150, 150);
+            doc.text("This document is an electronically verified medical summary. Signature is generated upon finalization by provider.", 105, pageHeight - 25, { align: 'center' });
+            doc.text("Mediconnect - Secure Digital Healthcare Platform", 105, pageHeight - 20, { align: 'center' });
+            doc.text(`Generated on ${format(new Date(), "PP p")}`, 105, pageHeight - 15, { align: 'center' });
+            
+            doc.save(`Mediconnect-Summary-${appointment.id.slice(0, 8)}.pdf`);
+            
+            toast({
+                title: "Summary Exported",
+                description: "Clinical PDF has been saved to your device.",
+            });
+        } catch (error) {
+            console.error("PDF generation failed:", error);
+            toast({
+                variant: "destructive",
+                title: "Export Error",
+                description: "Could not generate PDF. Please try again or contact support.",
+            });
+        }
     }
 
     const onSubmitReview = async (values: any) => {
@@ -361,7 +381,7 @@ export default function AppointmentDetailsPage() {
                                                         <FormLabel className="text-[10px] uppercase font-bold tracking-[0.2em] text-muted-foreground">Detailed Testimonial</FormLabel>
                                                         <FormControl>
                                                             <Textarea 
-                                                                placeholder="How was your consultation? Describe Dr. {doctor?.lastName}'s approach..." 
+                                                                placeholder={`How was your consultation? Describe Dr. ${doctor?.lastName}'s approach...`} 
                                                                 rows={4}
                                                                 className="resize-none rounded-2xl border-2"
                                                                 {...field}
