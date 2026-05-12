@@ -165,7 +165,7 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
     const { data: patient } = useDoc<Patient>(patientDocRef);
 
     const appointmentDate = new Date(apt.appointmentDateTime);
-    const now = isMounted ? new Date().getTime() : 0;
+    const now = isMounted ? Date.now() : 0;
     const startTime = appointmentDate.getTime() - (10 * 60 * 1000); 
     const endTime = appointmentDate.getTime() + (30 * 60 * 1000); 
     const isLive = isMounted && now >= startTime && now < endTime && apt.status === 'scheduled';
@@ -207,6 +207,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
     const isPast = useMemo(() => {
         if (!isMounted) return false;
         const now = new Date();
+        if (isBefore(viewDate, startOfDay(now))) return true;
         if (!isSameDay(viewDate, now)) return false;
         
         const [timePart, ampm] = time.split(' ');
@@ -223,7 +224,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
     const isLive = useMemo(() => {
         if (!appointment || !isMounted || appointment.status !== 'scheduled') return false;
         const aptDate = new Date(appointment.appointmentDateTime);
-        const now = new Date().getTime();
+        const now = Date.now();
         const startTime = aptDate.getTime() - (10 * 60 * 1000);
         const endTime = aptDate.getTime() + (30 * 60 * 1000);
         return now >= startTime && now < endTime;
@@ -232,7 +233,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
     const isExpired = useMemo(() => {
         if (!appointment || !isMounted) return false;
         const aptDate = new Date(appointment.appointmentDateTime);
-        const now = new Date().getTime();
+        const now = Date.now();
         const endTime = aptDate.getTime() + (30 * 60 * 1000);
         return now >= endTime && appointment.status === 'scheduled';
     }, [appointment, isMounted]);
@@ -252,7 +253,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
                 <p className="text-[10px] sm:text-xs font-bold text-muted-foreground w-14 sm:w-16 shrink-0">{time}</p>
                 {appointment ? (
                     <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                        <div className={cn("h-5 v-5 sm:h-6 sm:w-6 rounded-full flex items-center justify-center shrink-0", appointment.status === 'completed' ? "bg-green-100 text-green-600" : "bg-primary/10 text-primary")}>
+                        <div className={cn("h-5 w-5 sm:h-6 sm:w-6 rounded-full flex items-center justify-center shrink-0", appointment.status === 'completed' ? "bg-green-100 text-green-600" : "bg-primary/10 text-primary")}>
                             <User className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                         </div>
                         <p className={cn("text-xs sm:text-sm font-semibold truncate", appointment.status === 'completed' && "text-green-800")}>
@@ -321,7 +322,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
     };
 
     const appointmentDate = new Date(appointment.appointmentDateTime);
-    const now = isMounted ? new Date().getTime() : 0;
+    const now = isMounted ? Date.now() : 0;
     const startTime = appointmentDate.getTime() - (10 * 60 * 1000); 
     const endTime = appointmentDate.getTime() + (30 * 60 * 1000); 
     const isLive = isMounted && now >= startTime && now < endTime && appointment.status === 'scheduled';
@@ -419,7 +420,7 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-2xl rounded-3xl">
+            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-[2xl] rounded-3xl">
                 <DialogHeader><DialogTitle className="text-xl font-headline">Clinical Hour Configuration</DialogTitle></DialogHeader>
                 <div className="space-y-8 py-6">
                     <div className="p-4 bg-primary/5 rounded-xl border border-primary/10 flex gap-3">
@@ -515,11 +516,11 @@ export default function DoctorPortalPage() {
     const [mounted, setMounted] = useState(false);
     const [viewDate, setViewDate] = useState(new Date());
     const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string>>(new Set());
-    const [nowState, setNowState] = useState(new Date().getTime());
+    const [nowState, setNowState] = useState(Date.now());
 
     useEffect(() => {
         setMounted(true);
-        const timer = setInterval(() => setNowState(new Date().getTime()), 15000);
+        const timer = setInterval(() => setNowState(Date.now()), 15000);
         
         const saved = localStorage.getItem('dismissed_alerts');
         if (saved) {
@@ -535,7 +536,12 @@ export default function DoctorPortalPage() {
 
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
-        return query(collection(firestore, 'appointments'), where('doctorId', '==', user.uid));
+        // REQUIREMENT: Only show verified appointments in the portal
+        return query(
+            collection(firestore, 'appointments'), 
+            where('doctorId', '==', user.uid),
+            where('paymentStatus', '==', 'approved')
+        );
     }, [firestore, user]);
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
@@ -549,7 +555,7 @@ export default function DoctorPortalPage() {
         if (!mounted || !appointments || !firestore || !user) return;
 
         const checkMissedSessions = async () => {
-            const now = new Date().getTime();
+            const now = Date.now();
             const missedAppointments = appointments.filter(apt => {
                 if (!apt || apt.status !== 'scheduled' || !apt.appointmentDateTime) return false;
                 const endTime = new Date(apt.appointmentDateTime).getTime() + (30 * 60 * 1000); 
@@ -591,19 +597,20 @@ export default function DoctorPortalPage() {
         const now = new Date();
         const yesterday = subDays(now, 1);
 
+        // Filter approved today appointments
         const today = appointments.filter(apt => {
             if (!apt || !apt.appointmentDateTime) return false;
             if (apt.status === 'completed' || apt.status === 'cancelled' || apt.status === 'expired') return false;
             const aptDate = new Date(apt.appointmentDateTime);
             const isToday = isSameDay(aptDate, now);
             const endTime = aptDate.getTime() + (30 * 60 * 1000); 
-            const isExpired = now.getTime() > endTime;
+            const isExpired = Date.now() > endTime;
             return isToday && !isExpired;
         });
 
         const pending = appointments.filter(apt => apt && apt.status === 'scheduled').length;
-        const todayRev = today.filter(a => a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
-        const lifetimeRev = appointments.filter(a => a && a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
+        const todayRev = today.reduce((sum, a) => sum + (a.amount || 1500), 0);
+        const lifetimeRev = appointments.reduce((sum, a) => sum + (a.amount || 1500), 0);
         const totalCompleted = appointments.filter(a => a && a.status === 'completed').length;
         const uniquePatients = new Set(appointments.filter(a => a && a.status === 'completed').map(a => a.patientId)).size;
 
@@ -636,15 +643,17 @@ export default function DoctorPortalPage() {
                 return;
             }
             
+            // REQUIREMENT: Notification for new approved appointments
             const isNew = isAfter(new Date(a.createdAt), yesterday);
             if (isNew && a.status === 'scheduled') {
                 alerts.push({ id: alertId, msg: `New Booking: ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary', timestamp: new Date(a.createdAt).getTime() });
             }
 
+            // REQUIREMENT: Notification when time starts (Patient Waiting)
             const aptDate = new Date(a.appointmentDateTime);
-            const startTime = aptDate.getTime() - (10 * 60 * 1000);
+            const startTime = aptDate.getTime() - (10 * 60 * 1000); // 10 min buffer
             const endTime = aptDate.getTime() + (30 * 60 * 1000); 
-            const currentTime = now.getTime();
+            const currentTime = Date.now();
             
             if (currentTime >= startTime && currentTime < endTime && a.status === 'scheduled') {
                 alerts.push({ id: alertId + '-live', msg: "PATIENT WAITING - JOIN NOW", icon: Siren, color: 'text-red-500 animate-pulse font-bold', isReminder: true, timestamp: Date.now() + 1000000 });

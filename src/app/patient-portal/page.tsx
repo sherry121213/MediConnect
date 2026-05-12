@@ -129,7 +129,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
         return isValid(d) ? d : null;
     }, [apt?.appointmentDateTime]);
     
-    const now = isMounted ? new Date().getTime() : 0;
+    const now = isMounted ? Date.now() : 0;
     const startTime = appointmentDate ? appointmentDate.getTime() - (10 * 60 * 1000) : 0; 
     const endTime = appointmentDate ? appointmentDate.getTime() + (30 * 60 * 1000) : 0; 
     
@@ -181,7 +181,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
     return (
         <Card className={cn(
             "hover:shadow-lg transition-all border-l-4 bg-card/50 backdrop-blur-sm overflow-hidden",
-            isLive ? "border-l-red-500 bg-red-50/10 shadow-md scale-[1.01]" : "border-l-primary/40",
+            isLive && apt.paymentStatus === 'approved' ? "border-l-red-500 bg-red-50/10 shadow-md scale-[1.01]" : "border-l-primary/40",
             (isExpired || apt.status === 'expired') && "opacity-60 border-l-destructive/40"
         )}>
             <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-8">
@@ -208,7 +208,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                             <p className="font-bold text-base sm:text-lg leading-tight tracking-tight truncate max-w-full">
                                 {isLoadingDoctor ? 'Loading...' : `Dr. ${doctor?.firstName} ${doctor?.lastName}`}
                             </p>
-                            {isLive && apt.status === 'scheduled' && <Badge className="bg-red-600 text-white animate-pulse h-4 text-[7px] px-1.5 uppercase font-bold">LIVE</Badge>}
+                            {isLive && apt.status === 'scheduled' && apt.paymentStatus === 'approved' && <Badge className="bg-red-600 text-white animate-pulse h-4 text-[7px] px-1.5 uppercase font-bold">LIVE</Badge>}
                             {(isExpired || apt.status === 'expired') && <Badge variant="destructive" className="h-4 text-[7px] px-1.5 uppercase font-bold">EXPIRED</Badge>}
                         </div>
                         <p className="text-[10px] sm:text-xs text-primary font-bold uppercase tracking-wider opacity-80 truncate">{doctor?.specialty || 'Medical Specialist'}</p>
@@ -288,11 +288,11 @@ export default function PatientPortalPage() {
     const [mounted, setMounted] = useState(false);
     const [selectedApt, setSelectedApt] = useState<any>(null);
     const [isPostponeOpen, setIsPostponeOpen] = useState(false);
-    const [nowState, setNowState] = useState(new Date().getTime());
+    const [nowState, setNowState] = useState(Date.now());
 
     useEffect(() => {
         setMounted(true);
-        const timer = setInterval(() => setNowState(new Date().getTime()), 15000);
+        const timer = setInterval(() => setNowState(Date.now()), 15000);
         return () => clearInterval(timer);
     }, []);
 
