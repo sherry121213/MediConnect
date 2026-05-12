@@ -20,7 +20,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 const PatientCell = ({ patientId }: { patientId: string }) => {
     const firestore = useFirestore();
     const patientDocRef = useMemoFirebase(() => {
-        if (!firestore) return null;
+        if (!firestore || !patientId) return null;
         return doc(firestore, 'patients', patientId);
     }, [firestore, patientId]);
     const { data: patient } = useDoc<Patient>(patientDocRef);
@@ -31,7 +31,7 @@ const PatientCell = ({ patientId }: { patientId: string }) => {
 function RecordDetailDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment | null }) {
     const firestore = useFirestore();
     const patientDocRef = useMemoFirebase(() => {
-        if (!firestore || !appointment) return null;
+        if (!firestore || !appointment || !appointment.patientId) return null;
         return doc(firestore, 'patients', appointment.patientId);
     }, [firestore, appointment]);
     const { data: patient } = useDoc<Patient>(patientDocRef);
@@ -48,7 +48,7 @@ function RecordDetailDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
                     </div>
                     <DialogTitle className="text-xl font-headline text-white">Consultation Summary</DialogTitle>
                     <DialogDescription className="text-slate-400">
-                        Details for the session on {format(new Date(appointment.appointmentDateTime), "PPP")}
+                        Details for the session on {appointment.appointmentDateTime ? format(new Date(appointment.appointmentDateTime), "PPP") : 'Unknown Date'}
                     </DialogDescription>
                 </DialogHeader>
                 
@@ -66,7 +66,7 @@ function RecordDetailDialog({ isOpen, onOpenChange, appointment }: { isOpen: boo
                     <div className="grid grid-cols-2 gap-4 text-sm">
                         <div className="space-y-1">
                             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest flex items-center gap-1"><Clock className="h-3 w-3" /> Time</p>
-                            <p className="font-medium">{format(new Date(appointment.appointmentDateTime), "p")}</p>
+                            <p className="font-medium">{appointment.appointmentDateTime ? format(new Date(appointment.appointmentDateTime), "p") : 'N/A'}</p>
                         </div>
                         <div className="space-y-1">
                             <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Type</p>
@@ -146,7 +146,10 @@ export default function AppointmentRecordsPage() {
 
                 return true; 
             })
-            .sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime());
+            .sort((a, b) => {
+                if (!a || !b || !a.appointmentDateTime || !b.appointmentDateTime) return 0;
+                return new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime();
+            });
     }, [appointments, dateFilter, searchTerm]);
 
     const handleSelectRow = (apt: Appointment) => {
@@ -224,16 +227,16 @@ export default function AppointmentRecordsPage() {
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {paginatedRecords.map((apt) => (
+                                            {paginatedRecords.map((apt) => apt && apt.id && (
                                                 <TableRow key={apt.id} className="hover:bg-primary/5 cursor-pointer transition-colors" onClick={() => handleSelectRow(apt)}>
                                                     <TableCell className="font-bold py-5 pl-8 whitespace-nowrap">
-                                                        {format(new Date(apt.appointmentDateTime), "MMM dd, yyyy")}
-                                                        <p className="text-[10px] text-muted-foreground font-medium">{format(new Date(apt.appointmentDateTime), "p")}</p>
+                                                        {apt.appointmentDateTime ? format(new Date(apt.appointmentDateTime), "MMM dd, yyyy") : 'Unknown Date'}
+                                                        <p className="text-[10px] text-muted-foreground font-medium">{apt.appointmentDateTime ? format(new Date(apt.appointmentDateTime), "p") : ''}</p>
                                                     </TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-2">
                                                             <div className="h-7 w-7 rounded-full bg-primary/10 flex items-center justify-center text-primary text-[10px] font-bold">P</div>
-                                                            <PatientCell patientId={apt.patientId} />
+                                                            {apt.patientId ? <PatientCell patientId={apt.patientId} /> : <span>Unknown</span>}
                                                         </div>
                                                     </TableCell>
                                                     <TableCell className="max-w-[150px] truncate text-xs text-muted-foreground italic">

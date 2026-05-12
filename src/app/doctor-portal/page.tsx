@@ -46,7 +46,7 @@ function PatientHistoryTab({ patientId }: { patientId: string }) {
     return (
         <div className="space-y-4 pr-2 pb-20">
             {pastApts && pastApts.length > 0 ? (
-                pastApts.sort((a,b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime()).map(apt => (
+                pastApts.filter(a => a && a.appointmentDateTime).sort((a,b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime()).map(apt => (
                     <div key={apt.id} className="p-4 border-2 rounded-2xl bg-muted/5 space-y-2">
                         <div className="flex justify-between items-start">
                             <p className="text-[10px] font-bold text-primary uppercase tracking-widest">{format(new Date(apt.appointmentDateTime), "PPP")}</p>
@@ -618,6 +618,7 @@ export default function DoctorPortalPage() {
             });
 
             for (const apt of missedAppointments) {
+                if (!apt || !apt.id) continue;
                 const aptRef = doc(firestore, 'appointments', apt.id);
                 updateDocumentNonBlocking(aptRef, { status: 'expired', updatedAt: new Date().toISOString() });
 
@@ -668,7 +669,7 @@ export default function DoctorPortalPage() {
 
         const pending = appointments.filter(apt => apt && apt.status === 'scheduled').length;
         
-        const todayPaidAndValid = allToday.filter(a => a.paymentStatus === 'approved');
+        const todayPaidAndValid = allToday.filter(a => a && a.paymentStatus === 'approved');
         const todayRev = todayPaidAndValid.reduce((sum, a) => sum + (a.amount || 1500), 0);
         
         const lifetimeRev = appointments.filter(a => a && a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
@@ -737,7 +738,7 @@ export default function DoctorPortalPage() {
 
     const handleClearNotifications = () => {
         const newDismissed = new Set(dismissedAlertIds);
-        notifications.forEach(n => newDismissed.add(n.id));
+        notifications.forEach(n => n && n.id && newDismissed.add(n.id));
         setDismissedAlertIds(newDismissed);
         localStorage.setItem('dismissed_alerts', JSON.stringify(Array.from(newDismissed)));
         toast({ title: "Operational history archived." });
@@ -794,7 +795,7 @@ export default function DoctorPortalPage() {
                                 </div>
                             </CardHeader>
                             <CardContent className="space-y-4 p-6 max-h-[400px] overflow-y-auto custom-scrollbar overscroll-contain">
-                                {notifications.length > 0 ? notifications.map(n => (
+                                {notifications.length > 0 ? notifications.map(n => n && (
                                     <div key={n.id} className={cn(
                                         "p-4 rounded-2xl border-2 flex gap-4 items-start animate-in fade-in slide-in-from-right-3 transition-all",
                                         n.isReminder ? "bg-red-50 border-red-200 shadow-lg shadow-red-500/10" : "bg-muted/30 border-muted/50"
@@ -827,7 +828,7 @@ export default function DoctorPortalPage() {
                                     <div className="p-16 text-center"><Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" /></div>
                                 ) : todayAppointments.length > 0 ? (
                                     <div className="divide-y max-h-[500px] overflow-y-auto custom-scrollbar overscroll-contain">
-                                        {todayAppointments.map(apt => (
+                                        {todayAppointments.map(apt => apt && (
                                             <AppointmentRow key={apt.id} apt={apt} onSelect={handleSelectApt} isMounted={mounted} />
                                         ))}
                                     </div>
@@ -907,7 +908,7 @@ export default function DoctorPortalPage() {
                         <div className="flex-1 overflow-y-auto bg-white p-8 space-y-6 overscroll-contain pb-24">
                             <div className="p-6 rounded-3xl bg-primary/5 border-2 border-primary/10 space-y-1 text-center">
                                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Aggregate Earnings</p>
-                                <p className="text-3xl sm:text-4xl font-bold text-primary">PKR {stats.totalRevenue.toLocaleString()}</p>
+                                <p className="text-3xl sm:text-4xl font-bold text-primary">PKR {stats.todayRevenue.toLocaleString()}</p>
                             </div>
                             <div className="p-6 rounded-3xl bg-muted/30 border-2 border-muted/50 space-y-1 text-center">
                                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Performed Consultations</p>

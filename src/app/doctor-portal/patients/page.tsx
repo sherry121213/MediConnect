@@ -16,7 +16,7 @@ import { format } from "date-fns";
 const PatientProfileCell = ({ patientId, onShowHistory }: { patientId: string, onShowHistory: (pid: string) => void }) => {
     const firestore = useFirestore();
     const patientDocRef = useMemoFirebase(() => {
-        if (!firestore) return null;
+        if (!firestore || !patientId) return null;
         return doc(firestore, 'patients', patientId);
     }, [firestore, patientId]);
     const { data: patient } = useDoc<Patient>(patientDocRef);
@@ -55,17 +55,19 @@ export default function DoctorPatientsPage() {
         if (!appointments) return { uniquePatients: [], stats: { total: 0, paid: 0, pending: 0, uniqueCount: 0 } };
         
         // Safety filter: Ensure we only map over valid appointment objects
-        const validAppointments = appointments.filter(a => !!a && !!a.patientId);
+        const validAppointments = appointments.filter(a => a && a.patientId);
         
         const uniquePatientIds = Array.from(new Set(validAppointments.map(a => a.patientId)));
         const patientData = uniquePatientIds.map(pid => {
             const apts = validAppointments.filter(a => a.patientId === pid);
-            const lastApt = apts.sort((a,b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime())[0];
+            const sortedApts = apts.filter(a => a && a.appointmentDateTime).sort((a,b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime());
+            const lastApt = sortedApts[0];
+            
             return {
                 id: pid,
                 totalVisits: apts.length,
-                lastVisit: lastApt.appointmentDateTime,
-                lastStatus: lastApt.status
+                lastVisit: lastApt?.appointmentDateTime || '',
+                lastStatus: lastApt?.status || 'Unknown'
             };
         });
 
@@ -159,7 +161,7 @@ export default function DoctorPatientsPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {filteredPatients.map((p) => (
+                                        {filteredPatients.map((p) => p && p.id && (
                                             <TableRow key={p.id} className="hover:bg-primary/5 transition-all group">
                                                 <TableCell className="py-5 pl-8">
                                                     <PatientProfileCell patientId={p.id} onShowHistory={() => {}} />
@@ -172,7 +174,7 @@ export default function DoctorPatientsPage() {
                                                 <TableCell>
                                                     <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
                                                         <Clock className="h-3 w-3 text-muted-foreground" />
-                                                        {format(new Date(p.lastVisit), "MMM dd, yyyy")}
+                                                        {p.lastVisit ? format(new Date(p.lastVisit), "MMM dd, yyyy") : 'N/A'}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-right pr-8">
