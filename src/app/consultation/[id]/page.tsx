@@ -7,7 +7,7 @@ import { collection, doc, setDoc, onSnapshot, addDoc, deleteDoc, updateDoc } fro
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, User, Clock, Camera, AlertCircle, PhoneIncoming, Maximize, Minimize } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -55,9 +55,14 @@ export default function ConsultationRoomPage() {
 
   // 1. Initial Media Acquisition
   useEffect(() => {
+    let isMounted = true;
     const acquireMedia = async () => {
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        if (!isMounted) {
+            stream.getTracks().forEach(t => t.stop());
+            return;
+        }
         localStream.current = stream;
         setHasCameraPermission(true);
         if (localVideoRef.current) {
@@ -65,16 +70,19 @@ export default function ConsultationRoomPage() {
         }
       } catch (err) {
         console.error("Media Error:", err);
-        setSignalingStatus("Camera Access Required to Proceed.");
-        toast({
-            variant: "destructive",
-            title: "Hardware Error",
-            description: "Please allow camera and microphone access in your browser settings.",
-        });
+        if (isMounted) {
+            setSignalingStatus("Camera Access Required to Proceed.");
+            toast({
+                variant: "destructive",
+                title: "Hardware Error",
+                description: "Please allow camera and microphone access in your browser settings.",
+            });
+        }
       }
     };
     acquireMedia();
     return () => {
+      isMounted = false;
       localStream.current?.getTracks().forEach(t => t.stop());
     };
   }, [toast]);
@@ -83,23 +91,31 @@ export default function ConsultationRoomPage() {
   useEffect(() => {
     if (!firestore || !appointmentId || !user || !hasCameraPermission || !userData) return;
 
+    let isEffectActive = true;
+    const unsubs: (() => void)[] = [];
+
     const setupSignaling = async () => {
       try {
         pc.current = new RTCPeerConnection(servers);
 
         localStream.current?.getTracks().forEach((track) => {
-          pc.current?.addTrack(track, localStream.current!);
+          if (localStream.current) {
+            pc.current?.addTrack(track, localStream.current);
+          }
         });
 
         pc.current.ontrack = (event) => {
           if (remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = event.streams[0];
-            setIsPeerConnected(true);
-            setSignalingStatus("Clinical Handshake Successful");
+            if (isEffectActive) {
+                setIsPeerConnected(true);
+                setSignalingStatus("Clinical Handshake Successful");
+            }
           }
         };
 
         pc.current.onconnectionstatechange = () => {
+            if (!isEffectActive) return;
             if (pc.current?.connectionState === 'disconnected' || pc.current?.connectionState === 'failed') {
                 setIsPeerConnected(false);
                 setSignalingStatus("Connection Lost. Reconnecting...");
@@ -121,61 +137,70 @@ export default function ConsultationRoomPage() {
           // DOCTOR: The Caller
           updateDoc(doc(firestore, 'appointments', appointmentId), { doctorInRoom: true });
           
-          setSignalingStatus("Initiating Professional Stream...");
+          if (isEffectActive) setSignalingStatus("Initiating Professional Stream...");
           const offerDescription = await pc.current.createOffer();
           await pc.current.setLocalDescription(offerDescription);
 
           await setDoc(callDoc, { offer: { sdp: offerDescription.sdp, type: offerDescription.type } });
 
-          onSnapshot(callDoc, (snapshot) => {
+          const unsubCall = onSnapshot(callDoc, (snapshot) => {
             const data = snapshot.data();
-            if (!pc.current?.currentRemoteDescription && data?.answer) {
+            if (pc.current && !pc.current.currentRemoteDescription && data?.answer) {
               const answerDescription = new RTCSessionDescription(data.answer);
-              pc.current?.setRemoteDescription(answerDescription);
+              pc.current.setRemoteDescription(answerDescription);
             }
           });
+          unsubs.push(unsubCall);
 
-          onSnapshot(answerCandidates, (snapshot) => {
+          const unsubCandidates = onSnapshot(answerCandidates, (snapshot) => {
             snapshot.docChanges().forEach((change) => {
-              if (change.type === 'added') {
-                pc.current?.addIceCandidate(new RTCIceCandidate(change.doc.data()));
+              if (change.type === 'added' && pc.current) {
+                pc.current.addIceCandidate(new RTCIceCandidate(change.doc.data()));
               }
             });
           });
+          unsubs.push(unsubCandidates);
         } else {
           // PATIENT: The Receiver
-          setSignalingStatus("Connecting to Healthcare Provider...");
-          onSnapshot(callDoc, async (snapshot) => {
+          if (isEffectActive) setSignalingStatus("Connecting to Healthcare Provider...");
+          const unsubCall = onSnapshot(callDoc, async (snapshot) => {
             const data = snapshot.data();
-            if (!pc.current?.currentRemoteDescription && data?.offer) {
-              await pc.current?.setRemoteDescription(new RTCSessionDescription(data.offer));
-              const answerDescription = await pc.current?.createAnswer();
-              await pc.current?.setLocalDescription(answerDescription);
+            if (pc.current && !pc.current.currentRemoteDescription && data?.offer) {
+              await pc.current.setRemoteDescription(new RTCSessionDescription(data.offer));
+              const answerDescription = await pc.current.createAnswer();
+              await pc.current.setLocalDescription(answerDescription);
               await setDoc(callDoc, { answer: { type: answerDescription?.type, sdp: answerDescription?.sdp } }, { merge: true });
             }
           });
+          unsubs.push(unsubCall);
 
-          onSnapshot(offerCandidates, (snapshot) => {
+          const unsubCandidates = onSnapshot(offerCandidates, (snapshot) => {
             snapshot.docChanges().forEach((change) => {
-              if (change.type === 'added') {
-                pc.current?.addIceCandidate(new RTCIceCandidate(change.doc.data()));
+              if (change.type === 'added' && pc.current) {
+                pc.current.addIceCandidate(new RTCIceCandidate(change.doc.data()));
               }
             });
           });
+          unsubs.push(unsubCandidates);
         }
       } catch (e) {
         console.error("Signaling Error:", e);
-        setSignalingStatus("Secure Channel Negotiating...");
+        if (isEffectActive) setSignalingStatus("Secure Channel Negotiating...");
       }
     };
 
     setupSignaling();
 
     return () => {
+      isEffectActive = false;
+      unsubs.forEach(unsub => unsub());
       if (userData?.role === 'doctor') {
-        updateDoc(doc(firestore, 'appointments', appointmentId), { doctorInRoom: false });
+        updateDoc(doc(firestore, 'appointments', appointmentId), { doctorInRoom: false }).catch(() => {});
       }
-      pc.current?.close();
+      if (pc.current) {
+        pc.current.close();
+        pc.current = null;
+      }
     };
   }, [firestore, appointmentId, user, hasCameraPermission, userData]);
 
@@ -196,7 +221,10 @@ export default function ConsultationRoomPage() {
   // 4. Session Window (50m Limit)
   useEffect(() => {
     if (!appointment || isEnding) return;
-    const startTime = new Date(appointment.appointmentDateTime).getTime();
+    const startTimeStr = appointment.appointmentDateTime;
+    if (!startTimeStr) return;
+    
+    const startTime = new Date(startTimeStr).getTime();
     const endTime = startTime + (50 * 60 * 1000); 
 
     const interval = setInterval(() => {
@@ -241,7 +269,7 @@ export default function ConsultationRoomPage() {
   const handleEndSession = () => {
     setIsEnding(true);
     if (userData?.role === 'doctor' && firestore && appointment) {
-        updateDoc(doc(firestore, 'appointments', appointmentId), { doctorInRoom: false });
+        updateDocumentNonBlocking(doc(firestore, 'appointments', appointmentId), { doctorInRoom: false });
         addDocumentNonBlocking(collection(firestore, 'consultationLogs'), {
             appointmentId,
             doctorId: userData.id,
@@ -402,6 +430,9 @@ export default function ConsultationRoomPage() {
           <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
             {messages.length > 0 ? messages.map((msg: any) => {
                 const isMe = msg.senderId === user?.uid;
+                const msgDate = new Date(msg.timestamp);
+                const displayTime = isValid(msgDate) ? format(msgDate, "p") : '';
+
                 return (
                     <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
                         <div className={cn(
@@ -411,7 +442,7 @@ export default function ConsultationRoomPage() {
                             <p className="leading-relaxed">{msg.content}</p>
                         </div>
                         <span className="text-[8px] text-slate-500 mt-1 uppercase font-bold tracking-tighter">
-                            {isMe ? 'You' : (peer?.firstName || 'Provider')} • {format(new Date(msg.timestamp), "p")}
+                            {isMe ? 'You' : (peer?.firstName || 'Provider')} • {displayTime}
                         </span>
                     </div>
                 );
