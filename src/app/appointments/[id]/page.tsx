@@ -1,10 +1,10 @@
-
 'use client';
 
 import AppHeader from "@/components/layout/header";
 import AppFooter from "@/components/layout/footer";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { ArrowLeft, Calendar, Clock, Download, Loader2, MessageSquare, Stethoscope, Video, FileText, MapPin, Star } from "lucide-react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
