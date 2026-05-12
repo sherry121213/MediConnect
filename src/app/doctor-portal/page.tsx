@@ -224,7 +224,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
             {appointment && (
                 <div className="flex items-center gap-2">
                     {isExpired ? (
-                        <Badge variant="destructive" className="text-[8px] h-5 font-bold uppercase tracking-tight">Missed</Badge>
+                        <Badge variant="destructive" className="text-[8px] h-5 font-bold uppercase tracking-tight">Expired</Badge>
                     ) : appointment.status === 'completed' ? (
                         <Badge variant="secondary" className="bg-green-100 text-green-800 text-[8px] h-5 font-bold uppercase tracking-tight">Closed</Badge>
                     ) : (
@@ -278,6 +278,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
     const startTime = appointmentDate.getTime() - (10 * 60 * 1000); 
     const endTime = appointmentDate.getTime() + (30 * 60 * 1000); 
     const isLive = isMounted && now >= startTime && now < endTime && appointment.status === 'scheduled';
+    const isExpired = isMounted && now >= endTime && appointment.status === 'scheduled';
 
     const handleStartRoom = () => {
         onOpenChange(false);
@@ -312,6 +313,12 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
                                     <Button onClick={handleStartRoom} className="h-14 text-base font-bold shadow-xl shadow-red-500/20 bg-red-600 hover:bg-red-700 animate-pulse rounded-2xl text-white">
                                         <Video className="mr-3 h-6 w-6" /> Start Video Room
                                     </Button>
+                                ) : isExpired ? (
+                                    <div className="p-6 bg-red-50 border border-red-200 rounded-2xl text-center">
+                                        <AlertCircle className="h-10 w-10 text-red-600 mx-auto mb-2" />
+                                        <p className="font-bold text-red-800">30m Clinical Window Expired</p>
+                                        <p className="text-xs text-red-600">This session has concluded automatically.</p>
+                                    </div>
                                 ) : (
                                     <>
                                         <Button className="h-14 text-base font-bold opacity-70 cursor-not-allowed w-full rounded-2xl" disabled>30m Window Locked <Clock className="ml-3 h-5 w-5" /></Button>
@@ -514,7 +521,7 @@ export default function DoctorPortalPage() {
                 toast({
                     variant: 'destructive',
                     title: "Session Time-Out",
-                    description: `The 30m clinical window has passed. Logged for admin audit.`,
+                    description: `The 30m clinical window has passed for a session. Logged for admin audit.`,
                 });
             }
         };

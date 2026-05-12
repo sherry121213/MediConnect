@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -12,7 +11,7 @@ import { useUserData, useFirestore, useCollection, useMemoFirebase, useDoc } fro
 import { collection, query, where, doc } from "firebase/firestore";
 import type { Appointment, Doctor } from "@/lib/types";
 import { useMemo, useState, useEffect } from "react";
-import { format, isAfter, subHours, isSameDay, startOfDay, isBefore, isValid, addDays } from "date-fns";
+import { format, isAfter, subHours, isSameDay, startOfDay, isBefore, isValid, addDays, addMinutes } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
@@ -147,7 +146,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
         <Card className={cn(
             "hover:shadow-lg transition-all border-l-4 bg-card/50 backdrop-blur-sm overflow-hidden",
             isLive ? "border-l-red-500 bg-red-50/10 shadow-md scale-[1.01]" : "border-l-primary/40",
-            isExpired && "opacity-60 border-l-destructive/40"
+            (isExpired || apt.status === 'expired') && "opacity-60 border-l-destructive/40"
         )}>
             <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-8">
                 <div className="flex items-center gap-4 sm:gap-6 flex-1 min-w-0">
@@ -173,8 +172,8 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                             <p className="font-bold text-base sm:text-lg leading-tight tracking-tight truncate max-w-full">
                                 {isLoadingDoctor ? 'Loading...' : `Dr. ${doctor?.firstName} ${doctor?.lastName}`}
                             </p>
-                            {isLive && <Badge className="bg-red-600 text-white animate-pulse h-4 text-[7px] px-1.5 uppercase font-bold">LIVE</Badge>}
-                            {isExpired && <Badge variant="destructive" className="h-4 text-[7px] px-1.5 uppercase font-bold">EXPIRED</Badge>}
+                            {isLive && apt.status === 'scheduled' && <Badge className="bg-red-600 text-white animate-pulse h-4 text-[7px] px-1.5 uppercase font-bold">LIVE</Badge>}
+                            {(isExpired || apt.status === 'expired') && <Badge variant="destructive" className="h-4 text-[7px] px-1.5 uppercase font-bold">EXPIRED</Badge>}
                         </div>
                         <p className="text-[10px] sm:text-xs text-primary font-bold uppercase tracking-wider opacity-80 truncate">{doctor?.specialty || 'Medical Specialist'}</p>
                         <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-1">
@@ -202,7 +201,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                             </Badge>
                             <p className="text-[8px] text-destructive text-center uppercase font-bold tracking-tighter">Contact Support Chat</p>
                         </div>
-                    ) : isUpcoming && !isExpired ? (
+                    ) : isUpcoming && !isExpired && apt.status === 'scheduled' ? (
                         <>
                             {!isLive && (
                                 <Button variant="outline" size="sm" className="font-bold border-2 h-9 flex-1 sm:w-auto text-[10px]" onClick={() => onPostpone(apt)}>
@@ -218,7 +217,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                                 <DialogContent className="w-[95vw] sm:max-w-lg rounded-2xl border-none shadow-2xl">
                                     <DialogHeader>
                                         <DialogTitle className="text-xl font-headline">Clinical Connection</DialogTitle>
-                                        <DialogDescription>Secure room window closes at {appointmentDate ? format(new Date(appointmentDate.getTime() + (30 * 60 * 1000)), "p") : "the end of the session"}.</DialogDescription>
+                                        <DialogDescription>Secure room window closes at {appointmentDate ? format(addMinutes(appointmentDate, 30), "p") : "the end of the session"}.</DialogDescription>
                                     </DialogHeader>
                                     <div className="grid grid-cols-1 gap-4 py-4 sm:py-6">
                                         <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group bg-muted/5" onClick={handleJoin}>
@@ -272,7 +271,7 @@ export default function PatientPortalPage() {
             apt.doctorInRoom === true && 
             apt.status === 'scheduled' && 
             apt.paymentStatus === 'approved' &&
-            Math.abs(now.getTime() - new Date(apt.appointmentDateTime).getTime()) < (40 * 60 * 1000)
+            Math.abs(now.getTime() - new Date(apt.appointmentDateTime).getTime()) < (30 * 60 * 1000)
         );
 
         const upcoming = validAppointments
@@ -282,7 +281,7 @@ export default function PatientPortalPage() {
                 const endTime = d.getTime() + (30 * 60 * 1000); 
                 const isMissed = now.getTime() > endTime;
                 return !isMissed && 
-                       apt.status === 'scheduled' &&
+                       (apt.status === 'scheduled' || apt.status === 'expired') &&
                        (apt.paymentStatus === 'approved' || apt.paymentStatus === 'pending' || apt.paymentStatus === 'rejected');
             })
             .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
