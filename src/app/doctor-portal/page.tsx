@@ -197,6 +197,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
         <div className={cn(
             "flex items-center justify-between p-3 rounded-lg border transition-all mb-2",
             appointment ? (
+                appointment.status === 'completed' ? "bg-green-50 border-green-200" :
                 isLive ? "bg-primary/10 border-primary shadow-md scale-[1.02]" : 
                 isExpired ? "bg-destructive/5 border-destructive/20 opacity-70" :
                 "bg-primary/5 border-primary/20 shadow-sm"
@@ -207,10 +208,12 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
                 <p className="text-[10px] sm:text-xs font-bold text-muted-foreground w-14 sm:w-16 shrink-0">{time}</p>
                 {appointment ? (
                     <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                        <div className="h-5 v-5 sm:h-6 sm:w-6 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+                        <div className={cn("h-5 v-5 sm:h-6 sm:w-6 rounded-full flex items-center justify-center shrink-0", appointment.status === 'completed' ? "bg-green-100 text-green-600" : "bg-primary/10 text-primary")}>
                             <User className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
                         </div>
-                        <p className="text-xs sm:text-sm font-semibold truncate">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
+                        <p className={cn("text-xs sm:text-sm font-semibold truncate", appointment.status === 'completed' && "text-green-800")}>
+                            {patient ? `${patient.firstName} ${patient.lastName}` : '...'}
+                        </p>
                     </div>
                 ) : (
                     <p className={cn(
@@ -223,10 +226,10 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
             </div>
             {appointment && (
                 <div className="flex items-center gap-2">
-                    {isExpired ? (
+                    {appointment.status === 'completed' ? (
+                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-[8px] h-5 font-bold uppercase tracking-tight">Completed</Badge>
+                    ) : isExpired ? (
                         <Badge variant="destructive" className="text-[8px] h-5 font-bold uppercase tracking-tight">Expired</Badge>
-                    ) : appointment.status === 'completed' ? (
-                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-[8px] h-5 font-bold uppercase tracking-tight">Closed</Badge>
                     ) : (
                         <Button 
                             size="sm" 
@@ -268,7 +271,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
     const onSubmit = (values: any) => {
         if (!firestore || isCompleted) return;
         const appointmentRef = doc(firestore, 'appointments', appointment.id);
-        updateDocumentNonBlocking(appointmentRef, { ...values, status: 'completed', updatedAt: new Date().toISOString() });
+        updateDocumentNonBlocking(appointmentRef, { ...values, status: 'completed', updatedAt: new Date().toISOString(), doctorInRoom: false });
         toast({ title: "Consultation Logged", description: "Patient records have been archived." });
         onOpenChange(false);
     };
