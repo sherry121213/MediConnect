@@ -1,4 +1,3 @@
-
 "use client"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Globe, Calendar, Siren, ArrowRight, Activity, Loader2, TrendingUp, BarChart3, Target, CheckCircle2, AlertCircle, Trash2, User, Stethoscope, ShieldCheck, Zap, Layers, History, DollarSign } from "lucide-react";
@@ -287,7 +286,7 @@ export default function AdminDashboardPage() {
                     <Stethoscope className="h-7 w-7" />
                 </div>
                 <div>
-                    <h4 className="font-bold text-base text-slate-900">Registry Audit</h4>
+                    <h4 className="font-bold text-base text-slate-900">Registry History</h4>
                     <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-0.5">Manage Providers</p>
                 </div>
             </Link>
@@ -309,7 +308,7 @@ export default function AdminDashboardPage() {
                     <History className="h-7 w-7" />
                 </div>
                 <div>
-                    <h4 className="font-bold text-base text-slate-900">Historical Audit</h4>
+                    <h4 className="font-bold text-base text-slate-900">Missed Session History</h4>
                     <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-0.5">Full Archive View</p>
                 </div>
             </Link>

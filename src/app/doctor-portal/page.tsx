@@ -93,6 +93,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
 
         updateDocumentNonBlocking(doc(firestore, 'appointments', appointment.id), {
             appointmentDateTime: newDateTime.toISOString(),
+            status: 'scheduled', // Reset status if it was expired
             updatedAt: new Date().toISOString(),
             doctorInRoom: false
         });
@@ -363,10 +364,15 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
                                         <Video className="mr-3 h-6 w-6" /> Start Video Room
                                     </Button>
                                 ) : isExpired ? (
-                                    <div className="p-6 bg-red-50 border border-red-200 rounded-2xl text-center">
-                                        <AlertCircle className="h-10 w-10 text-red-600 mx-auto mb-2" />
-                                        <p className="font-bold text-red-800">30m Clinical Window Expired</p>
-                                        <p className="text-xs text-red-600">This session has concluded automatically.</p>
+                                    <div className="space-y-4">
+                                        <div className="p-6 bg-red-50 border border-red-200 rounded-2xl text-center">
+                                            <AlertCircle className="h-10 w-10 text-red-600 mx-auto mb-2" />
+                                            <p className="font-bold text-red-800">30m Clinical Window Expired</p>
+                                            <p className="text-xs text-red-600">This session has concluded automatically.</p>
+                                        </div>
+                                        <Button variant="outline" className="h-14 text-base font-bold w-full rounded-2xl gap-3 border-2" onClick={() => onPostpone(appointment)}>
+                                            <RefreshCw className="h-5 w-5 text-primary" /> Reschedule Session
+                                        </Button>
                                     </div>
                                 ) : (
                                     <>
@@ -536,7 +542,6 @@ export default function DoctorPortalPage() {
 
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
-        // REQUIREMENT: Only show verified appointments in the portal
         return query(
             collection(firestore, 'appointments'), 
             where('doctorId', '==', user.uid),
@@ -597,7 +602,6 @@ export default function DoctorPortalPage() {
         const now = new Date();
         const yesterday = subDays(now, 1);
 
-        // Filter approved today appointments
         const today = appointments.filter(apt => {
             if (!apt || !apt.appointmentDateTime) return false;
             if (apt.status === 'completed' || apt.status === 'cancelled' || apt.status === 'expired') return false;
@@ -643,15 +647,13 @@ export default function DoctorPortalPage() {
                 return;
             }
             
-            // REQUIREMENT: Notification for new approved appointments
             const isNew = isAfter(new Date(a.createdAt), yesterday);
             if (isNew && a.status === 'scheduled') {
                 alerts.push({ id: alertId, msg: `New Booking: ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary', timestamp: new Date(a.createdAt).getTime() });
             }
 
-            // REQUIREMENT: Notification when time starts (Patient Waiting)
             const aptDate = new Date(a.appointmentDateTime);
-            const startTime = aptDate.getTime() - (10 * 60 * 1000); // 10 min buffer
+            const startTime = aptDate.getTime() - (10 * 60 * 1000); 
             const endTime = aptDate.getTime() + (30 * 60 * 1000); 
             const currentTime = Date.now();
             

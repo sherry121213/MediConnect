@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -55,7 +54,7 @@ export default function AdminSidebar() {
     { href: '/admin/patients', label: 'Patients', icon: Users },
     { href: '/admin/requests', label: 'Clinical Requests', icon: CalendarClock, badge: pendingRequests?.length },
     { href: '/admin/payments', label: 'Payments', icon: CreditCard, badge: pendingPayments?.length },
-    { href: '/admin/missed-slots', label: 'Missed Audits', icon: AlertCircle },
+    { href: '/admin/missed-slots', label: 'History', icon: AlertCircle },
   ];
 
   const handleLogout = () => {

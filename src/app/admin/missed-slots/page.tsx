@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -48,8 +47,8 @@ export default function AdminMissedSlotsPage() {
     <div className="p-4 md:p-8 space-y-8">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold font-headline tracking-tight">Missed Session Archive</h1>
-          <p className="text-muted-foreground text-sm">Comprehensive audit trail of untended professional slots.</p>
+          <h1 className="text-3xl font-bold font-headline tracking-tight">Missed Session History</h1>
+          <p className="text-muted-foreground text-sm">Comprehensive archive of untended professional slots.</p>
         </div>
         <div className="relative w-full md:w-96">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
@@ -65,7 +64,7 @@ export default function AdminMissedSlotsPage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="border-none shadow-xl bg-destructive text-white rounded-2xl overflow-hidden">
               <CardContent className="p-6">
-                  <p className="text-[10px] font-bold uppercase opacity-60 tracking-[0.2em] mb-1">Audit Record Volume</p>
+                  <p className="text-[10px] font-bold uppercase opacity-60 tracking-[0.2em] mb-1">Total Missed Records</p>
                   <p className="text-4xl font-bold tracking-tighter">{audits?.length || 0}</p>
               </CardContent>
           </Card>
@@ -75,8 +74,8 @@ export default function AdminMissedSlotsPage() {
                       <History className="h-6 w-6" />
                   </div>
                   <div>
-                      <p className="text-sm font-bold tracking-tight">Permanent Operational Log</p>
-                      <p className="text-xs text-muted-foreground">This page maintains the overall historical record of clinical window expiries for regulatory surveillance.</p>
+                      <p className="text-sm font-bold tracking-tight">Clinical Session Archive</p>
+                      <p className="text-xs text-muted-foreground">This page maintains the overall history of clinical window expiries for regulatory surveillance.</p>
                   </div>
               </CardContent>
           </Card>
@@ -85,7 +84,7 @@ export default function AdminMissedSlotsPage() {
       <Card className="border-none shadow-2xl bg-white rounded-[2rem] overflow-hidden">
         <CardHeader className="bg-primary/5 border-b py-6 px-8">
           <CardTitle className="text-lg flex items-center gap-2">
-            <Filter className="h-5 w-5 text-primary" /> Historical Audit Data
+            <Filter className="h-5 w-5 text-primary" /> Session Audit Data
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
@@ -148,7 +147,7 @@ export default function AdminMissedSlotsPage() {
           ) : (
             <div className="text-center py-32 text-muted-foreground italic">
               <AlertCircle className="h-16 w-16 mx-auto mb-4 opacity-10" />
-              <p className="text-lg font-bold text-slate-400 tracking-tight">No audit records found matching your search.</p>
+              <p className="text-lg font-bold text-slate-400 tracking-tight">No history records found matching your search.</p>
             </div>
           )}
         </CardContent>
