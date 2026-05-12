@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Search, Loader2, User, CreditCard, ExternalLink, Filter, CheckCircle2, AlertCircle, Clock } from "lucide-react";
+import { Search, Loader2, User, CreditCard, ExternalLink, Filter, CheckCircle2, AlertCircle, Clock, History, ChevronRight } from "lucide-react";
 import Link from "next/link";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
 import { collection, query, where, doc } from "firebase/firestore";
@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 
-const PatientNameCell = ({ patientId }: { patientId: string }) => {
+const PatientProfileCell = ({ patientId, onShowHistory }: { patientId: string, onShowHistory: (pid: string) => void }) => {
     const firestore = useFirestore();
     const patientDocRef = useMemoFirebase(() => {
         if (!firestore) return null;
@@ -22,11 +22,16 @@ const PatientNameCell = ({ patientId }: { patientId: string }) => {
     const { data: patient } = useDoc<Patient>(patientDocRef);
 
     return (
-        <div className="flex items-center gap-2">
-            <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary">
-                <User className="h-4 w-4" />
+        <div className="flex items-center justify-between group">
+            <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shadow-sm">
+                    {patient?.firstName?.[0] || '...'}
+                </div>
+                <div className="min-w-0">
+                    <p className="font-bold text-sm truncate">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
+                    <p className="text-[10px] text-muted-foreground truncate">{patient?.email}</p>
+                </div>
             </div>
-            <span className="font-medium">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</span>
         </div>
     );
 };
@@ -35,7 +40,6 @@ export default function DoctorPatientsPage() {
     const { user } = useUserData();
     const firestore = useFirestore();
     const [searchTerm, setSearchTerm] = useState('');
-    const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'unpaid'>('all');
 
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
@@ -47,171 +51,143 @@ export default function DoctorPatientsPage() {
 
     const { data: appointments, isLoading } = useCollection<Appointment>(appointmentsQuery);
 
-    const filteredRecords = useMemo(() => {
-        if (!appointments) return [];
-        return appointments.filter(apt => {
-            // In a real app, we'd need to search by name which is in a different collection.
-            // For now, we'll filter by fee status logic.
-            const hasPaid = apt.paymentStatus === 'approved';
-            const hasSentReceipt = !!apt.paymentReceiptUrl;
+    const patientStats = useMemo(() => {
+        if (!appointments) return { uniquePatients: [], stats: { total: 0, paid: 0, pending: 0, uniqueCount: 0 } };
+        
+        const uniquePatientIds = Array.from(new Set(appointments.map(a => a.patientId)));
+        const patientData = uniquePatientIds.map(pid => {
+            const apts = appointments.filter(a => a.patientId === pid);
+            const lastApt = apts.sort((a,b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime())[0];
+            return {
+                id: pid,
+                totalVisits: apts.length,
+                lastVisit: lastApt.appointmentDateTime,
+                lastStatus: lastApt.status
+            };
+        });
 
-            if (statusFilter === 'paid' && !hasPaid) return false;
-            if (statusFilter === 'unpaid' && hasPaid) return false;
-
-            return true;
-        }).sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime());
-    }, [appointments, statusFilter]);
-
-    const stats = useMemo(() => {
-        if (!appointments) return { total: 0, paid: 0, pending: 0 };
         return {
-            total: appointments.length,
-            paid: appointments.filter(a => a.paymentStatus === 'approved').length,
-            pending: appointments.filter(a => a.paymentStatus === 'pending' && a.paymentReceiptUrl).length,
-            noReceipt: appointments.filter(a => !a.paymentReceiptUrl).length
+            uniquePatients: patientData,
+            stats: {
+                total: appointments.length,
+                paid: appointments.filter(a => a.paymentStatus === 'approved').length,
+                pending: appointments.filter(a => a.paymentStatus === 'pending' && a.paymentReceiptUrl).length,
+                uniqueCount: uniquePatientIds.length
+            }
         };
     }, [appointments]);
 
+    const filteredPatients = useMemo(() => {
+        if (!patientStats.uniquePatients) return [];
+        if (!searchTerm) return patientStats.uniquePatients;
+        // Search filter would ideally join with patient names, but for now we list all
+        return patientStats.uniquePatients;
+    }, [patientStats.uniquePatients, searchTerm]);
+
     return (
         <main className="flex-grow bg-secondary/30 py-8">
-            <div className="container mx-auto px-4">
-                <div className="mb-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div className="container mx-auto px-4 max-w-6xl space-y-8">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold font-headline">Patient & Fee Management</h1>
-                        <p className="text-muted-foreground">Monitor patient bookings and consultation fee submissions.</p>
+                        <h1 className="text-3xl font-bold font-headline">Clinical Registry</h1>
+                        <p className="text-muted-foreground mt-1">Review professional history and unique patient distribution.</p>
                     </div>
-                    <Button variant="outline" asChild>
+                    <Button variant="outline" asChild className="rounded-xl border-2 font-bold shadow-sm">
                         <Link href="/doctor-portal">Back to Dashboard</Link>
                     </Button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                    <Card>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <Card className="border-none shadow-xl bg-primary text-primary-foreground rounded-2xl overflow-hidden">
                         <CardHeader className="pb-2">
-                            <CardDescription className="text-xs uppercase font-bold tracking-wider">Total Bookings</CardDescription>
-                            <CardTitle className="text-2xl">{stats.total}</CardTitle>
+                            <p className="text-[10px] font-bold uppercase opacity-80 tracking-widest">Unique Patients</p>
+                            <CardTitle className="text-4xl font-bold">{patientStats.stats.uniqueCount}</CardTitle>
                         </CardHeader>
                     </Card>
-                    <Card>
+                    <Card className="border-none shadow-xl bg-white rounded-2xl overflow-hidden">
                         <CardHeader className="pb-2">
-                            <CardDescription className="text-xs uppercase font-bold tracking-wider text-green-600">Fees Approved</CardDescription>
-                            <CardTitle className="text-2xl text-green-600">{stats.paid}</CardTitle>
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Total Consultations</p>
+                            <CardTitle className="text-4xl font-bold text-primary">{patientStats.stats.total}</CardTitle>
                         </CardHeader>
                     </Card>
-                    <Card>
+                    <Card className="border-none shadow-xl bg-white rounded-2xl overflow-hidden">
                         <CardHeader className="pb-2">
-                            <CardDescription className="text-xs uppercase font-bold tracking-wider text-amber-600">Verification Pending</CardDescription>
-                            <CardTitle className="text-2xl text-amber-600">{stats.pending}</CardTitle>
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest text-green-600">Verified Fees</p>
+                            <CardTitle className="text-4xl font-bold text-green-600">{patientStats.stats.paid}</CardTitle>
                         </CardHeader>
                     </Card>
-                    <Card>
+                    <Card className="border-none shadow-xl bg-white rounded-2xl overflow-hidden">
                         <CardHeader className="pb-2">
-                            <CardDescription className="text-xs uppercase font-bold tracking-wider text-destructive">Receipt Awaited</CardDescription>
-                            <CardTitle className="text-2xl text-destructive">{stats.noReceipt}</CardTitle>
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest text-amber-600">Pending Review</p>
+                            <CardTitle className="text-4xl font-bold text-amber-600">{patientStats.stats.pending}</CardTitle>
                         </CardHeader>
                     </Card>
                 </div>
 
-                <Card>
-                    <CardHeader className="border-b">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <CardTitle className="text-lg flex items-center gap-2">
-                                <CreditCard className="h-5 w-5 text-primary" /> Appointment Fee Status
+                <Card className="border-none shadow-2xl rounded-3xl overflow-hidden bg-white">
+                    <CardHeader className="bg-primary/5 border-b p-6 sm:p-8">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                            <CardTitle className="text-xl flex items-center gap-3">
+                                <History className="h-6 w-6 text-primary" /> Comprehensive Patient Pool
                             </CardTitle>
-                            <div className="flex items-center gap-2">
-                                <Button 
-                                    variant={statusFilter === 'all' ? 'default' : 'outline'} 
-                                    size="sm" 
-                                    onClick={() => setStatusFilter('all')}
-                                >All</Button>
-                                <Button 
-                                    variant={statusFilter === 'paid' ? 'default' : 'outline'} 
-                                    size="sm" 
-                                    onClick={() => setStatusFilter('paid')}
-                                >Paid</Button>
-                                <Button 
-                                    variant={statusFilter === 'unpaid' ? 'default' : 'outline'} 
-                                    size="sm" 
-                                    onClick={() => setStatusFilter('unpaid')}
-                                >Unpaid</Button>
+                            <div className="relative w-full md:w-80">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                                <Input 
+                                    placeholder="Search registry..." 
+                                    className="pl-9 h-11 border-2 rounded-xl"
+                                    value={searchTerm}
+                                    onChange={(e) => setSearchTerm(e.target.value)}
+                                />
                             </div>
                         </div>
                     </CardHeader>
                     <CardContent className="p-0">
                         {isLoading ? (
-                            <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
-                        ) : filteredRecords.length > 0 ? (
-                            <div className="overflow-x-auto">
+                            <div className="flex justify-center py-24"><Loader2 className="h-10 w-10 animate-spin text-primary/30" /></div>
+                        ) : filteredPatients.length > 0 ? (
+                            <div className="overflow-x-auto custom-scrollbar">
                                 <Table>
-                                    <TableHeader>
-                                        <TableRow className="bg-muted/50">
-                                            <TableHead>Patient</TableHead>
-                                            <TableHead>Apt. Date</TableHead>
-                                            <TableHead>Fee Amount</TableHead>
-                                            <TableHead>Fee Status</TableHead>
-                                            <TableHead>Receipt</TableHead>
-                                            <TableHead className="text-right">Portal Status</TableHead>
+                                    <TableHeader className="bg-muted/10">
+                                        <TableRow>
+                                            <TableHead className="py-5 pl-8 font-bold">Patient Profile</TableHead>
+                                            <TableHead className="font-bold">Total Visits</TableHead>
+                                            <TableHead className="font-bold">Last Clinical Interaction</TableHead>
+                                            <TableHead className="text-right pr-8 font-bold">Registry Audit</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {filteredRecords.map((apt) => {
-                                            const hasReceipt = !!apt.paymentReceiptUrl;
-                                            const isApproved = apt.paymentStatus === 'approved';
-                                            const isRejected = apt.paymentStatus === 'rejected';
-
-                                            return (
-                                                <TableRow key={apt.id}>
-                                                    <TableCell>
-                                                        <PatientNameCell patientId={apt.patientId} />
-                                                    </TableCell>
-                                                    <TableCell className="text-sm">
-                                                        {format(new Date(apt.appointmentDateTime), "MMM dd, yyyy")}
-                                                        <p className="text-xs text-muted-foreground">{format(new Date(apt.appointmentDateTime), "p")}</p>
-                                                    </TableCell>
-                                                    <TableCell className="font-mono text-sm">
-                                                        PKR {apt.amount?.toLocaleString() || '1,500'}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {isApproved ? (
-                                                            <Badge className="bg-green-100 text-green-800 border-green-200">
-                                                                <CheckCircle2 className="mr-1 h-3 w-3" /> Paid
-                                                            </Badge>
-                                                        ) : isRejected ? (
-                                                            <Badge variant="destructive">Rejected</Badge>
-                                                        ) : hasReceipt ? (
-                                                            <Badge className="bg-amber-100 text-amber-800 border-amber-200">
-                                                                <Clock className="mr-1 h-3 w-3" /> Verifying
-                                                            </Badge>
-                                                        ) : (
-                                                            <Badge variant="secondary" className="opacity-60">
-                                                                <AlertCircle className="mr-1 h-3 w-3" /> Unpaid
-                                                            </Badge>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        {hasReceipt ? (
-                                                            <Button variant="ghost" size="sm" asChild className="h-8 text-primary">
-                                                                <Link href={apt.paymentReceiptUrl!} target="_blank">
-                                                                    View <ExternalLink className="ml-1 h-3 w-3" />
-                                                                </Link>
-                                                            </Button>
-                                                        ) : (
-                                                            <span className="text-xs text-muted-foreground italic">None</span>
-                                                        )}
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <Badge variant="outline" className="capitalize">{apt.status}</Badge>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })}
+                                        {filteredPatients.map((p) => (
+                                            <TableRow key={p.id} className="hover:bg-primary/5 transition-all group">
+                                                <TableCell className="py-5 pl-8">
+                                                    <PatientProfileCell patientId={p.id} onShowHistory={() => {}} />
+                                                </TableCell>
+                                                <TableCell>
+                                                    <Badge variant="secondary" className="bg-primary/10 text-primary font-bold text-[10px] uppercase">
+                                                        {p.totalVisits} Consultations
+                                                    </Badge>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
+                                                        <Clock className="h-3 w-3 text-muted-foreground" />
+                                                        {format(new Date(p.lastVisit), "MMM dd, yyyy")}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell className="text-right pr-8">
+                                                    <Button variant="ghost" size="sm" asChild className="rounded-xl hover:bg-primary hover:text-white font-bold text-[10px] uppercase gap-2 transition-all">
+                                                        <Link href={`/doctor-portal/records?patientId=${p.id}`}>
+                                                            Audit Records <ChevronRight className="h-3.5 w-3.5" />
+                                                        </Link>
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
                                     </TableBody>
                                 </Table>
                             </div>
                         ) : (
-                            <div className="text-center py-16 text-muted-foreground">
-                                <Filter className="h-12 w-12 mx-auto mb-4 opacity-20" />
-                                <p>No patient records found matching the current filter.</p>
+                            <div className="text-center py-32 text-muted-foreground italic">
+                                <AlertCircle className="h-16 w-16 mx-auto mb-4 opacity-10" />
+                                <p className="text-lg font-bold text-slate-400 tracking-tight">No clinical records matched your search.</p>
                             </div>
                         )}
                     </CardContent>

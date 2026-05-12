@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { History, Search, Loader2, FileText, ArrowLeft, Download, ClipboardCheck } from "lucide-react";
+import { History, Search, Loader2, FileText, ArrowLeft, Download, ClipboardCheck, Clock } from "lucide-react";
 import Link from "next/link";
 import { useUserData, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, query, where, doc } from "firebase/firestore";
@@ -13,7 +13,6 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import jsPDF from 'jspdf';
 
 const DoctorInfoCell = ({ doctorId }: { doctorId: string }) => {
     const firestore = useFirestore();
@@ -63,15 +62,6 @@ export default function MedicalHistoryPage() {
             .sort((a, b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime());
     }, [appointments, searchTerm, now]);
 
-    const handleQuickDownload = async (record: Appointment) => {
-        if (!userData || !record.diagnosis) return;
-
-        // Note: For history download, we'd ideally fetch the doctor info first
-        // But since this is a quick action, we direct to detail page or fetch here.
-        // For efficiency, we just navigate to the detail page summary button.
-        window.location.assign(`/appointments/${record.id}`);
-    };
-
     if (isUserLoading || isLoadingAppointments || !now) {
         return (
             <div className="flex-grow flex items-center justify-center bg-secondary/30">
@@ -82,29 +72,41 @@ export default function MedicalHistoryPage() {
 
     return (
         <main className="flex-grow bg-secondary/30 py-10">
-            <div className="container mx-auto px-4">
-                <div className="mb-8">
-                    <Button variant="ghost" asChild className="mb-4 rounded-xl hover:bg-white border shadow-sm">
-                        <Link href="/patient-portal">
-                            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
-                        </Link>
-                    </Button>
-                    <h1 className="text-3xl font-bold font-headline flex items-center gap-3 tracking-tight">
-                        <History className="h-8 w-8 text-primary" /> My Medical Records
-                    </h1>
-                    <p className="text-muted-foreground mt-1">Review all your previous consultations and professional diagnosis records.</p>
+            <div className="container mx-auto px-4 max-w-6xl space-y-8">
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+                    <div>
+                        <Button variant="ghost" asChild className="mb-4 rounded-xl hover:bg-white border shadow-sm px-4">
+                            <Link href="/patient-portal">
+                                <ArrowLeft className="mr-2 h-4 w-4" /> Back to Portal
+                            </Link>
+                        </Button>
+                        <h1 className="text-3xl font-bold font-headline flex items-center gap-3 tracking-tight">
+                            <History className="h-8 w-8 text-primary" /> My Medical Records
+                        </h1>
+                        <p className="text-muted-foreground mt-1">Review all your previous consultations and clinical summaries.</p>
+                    </div>
+                    <Card className="border-none shadow-xl bg-white p-6 rounded-2xl hidden md:flex items-center gap-6">
+                        <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0 shadow-inner">
+                            <ClipboardCheck className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Total Archived Visits</p>
+                            <p className="text-2xl font-bold">{historyData.length}</p>
+                        </div>
+                    </Card>
                 </div>
 
-                <Card className="mb-8 border-none shadow-xl overflow-hidden bg-white/80 backdrop-blur-md rounded-2xl">
-                    <CardHeader className="pb-4 border-b bg-muted/10">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                            <CardTitle className="text-lg flex items-center gap-2">
-                                <Search className="h-5 w-5 text-muted-foreground" /> Filter Archives
+                <Card className="border-none shadow-2xl overflow-hidden bg-white/80 backdrop-blur-md rounded-[2.5rem]">
+                    <CardHeader className="bg-primary/5 border-b p-6 sm:p-10">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
+                            <CardTitle className="text-xl flex items-center gap-3">
+                                <Search className="h-6 w-6 text-muted-foreground" /> Clinical Filter
                             </CardTitle>
                             <div className="relative w-full md:w-96">
+                                <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input 
-                                    placeholder="Search by keywords..." 
-                                    className="pl-4 bg-white rounded-xl border-2"
+                                    placeholder="Search by diagnosis keywords (e.g. fever, cardiac)..." 
+                                    className="pl-11 bg-white h-12 rounded-2xl border-2"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
                                 />
@@ -113,37 +115,45 @@ export default function MedicalHistoryPage() {
                     </CardHeader>
                     <CardContent className="p-0">
                         {historyData.length === 0 ? (
-                            <div className="py-32 text-center text-muted-foreground">
-                                <ClipboardCheck className="h-16 w-16 mx-auto mb-4 opacity-10" />
-                                <p className="font-bold text-lg">No clinical records found.</p>
-                                <p className="text-sm px-4">Completed consultation summaries will appear here for your audit.</p>
+                            <div className="py-32 text-center text-muted-foreground space-y-4">
+                                <div className="h-20 w-20 bg-muted/20 rounded-full flex items-center justify-center mx-auto">
+                                    <ClipboardCheck className="h-10 w-10 opacity-10" />
+                                </div>
+                                <div>
+                                    <p className="font-bold text-lg text-slate-400">No Records Indexed</p>
+                                    <p className="text-sm px-8">Your clinical timeline will populate once sessions are completed.</p>
+                                </div>
                             </div>
                         ) : (
-                            <div className="overflow-x-auto">
+                            <div className="overflow-x-auto custom-scrollbar">
                                 <Table>
                                     <TableHeader className="bg-muted/30">
                                         <TableRow>
-                                            <TableHead className="font-bold py-5 pl-6">Visit Date</TableHead>
-                                            <TableHead className="font-bold">Healthcare Professional</TableHead>
-                                            <TableHead className="hidden md:table-cell font-bold">Diagnosis Summary</TableHead>
-                                            <TableHead className="font-bold">Status</TableHead>
-                                            <TableHead className="text-right font-bold pr-6">Archive</TableHead>
+                                            <TableHead className="font-bold py-6 pl-10 min-w-[200px]">Visit Date</TableHead>
+                                            <TableHead className="font-bold min-w-[250px]">Consultant Professional</TableHead>
+                                            <TableHead className="hidden md:table-cell font-bold min-w-[300px]">Diagnosis Summary</TableHead>
+                                            <TableHead className="font-bold">Portal Status</TableHead>
+                                            <TableHead className="text-right font-bold pr-10">Audit File</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
                                         {historyData.map((record) => (
                                             <TableRow key={record.id} className="hover:bg-primary/5 transition-all group">
-                                                <TableCell className="font-medium whitespace-nowrap py-5 pl-6">
-                                                    <p className="font-bold text-slate-800">{format(new Date(record.appointmentDateTime), "MMM dd, yyyy")}</p>
-                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">{format(new Date(record.appointmentDateTime), "p")}</p>
+                                                <TableCell className="py-6 pl-10">
+                                                    <div className="space-y-0.5">
+                                                        <p className="font-bold text-slate-900">{format(new Date(record.appointmentDateTime), "MMM dd, yyyy")}</p>
+                                                        <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-bold uppercase tracking-tighter">
+                                                            <Clock className="h-2.5 w-2.5" /> {format(new Date(record.appointmentDateTime), "p")}
+                                                        </div>
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <DoctorInfoCell doctorId={record.doctorId} />
                                                 </TableCell>
-                                                <TableCell className="hidden md:table-cell max-w-xs">
-                                                    <p className="text-xs line-clamp-1 italic text-muted-foreground bg-muted/20 p-2 rounded-lg border-2 border-transparent group-hover:border-primary/5 transition-all">
-                                                        {record.diagnosis || "Visit record pending..."}
-                                                    </p>
+                                                <TableCell className="hidden md:table-cell">
+                                                    <div className="text-xs italic text-muted-foreground bg-muted/20 p-3 rounded-2xl border-2 border-transparent group-hover:border-primary/5 transition-all line-clamp-2 leading-relaxed">
+                                                        {record.diagnosis || "Visit record pending initialization..."}
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell>
                                                     <Badge 
@@ -156,23 +166,14 @@ export default function MedicalHistoryPage() {
                                                         {record.status}
                                                     </Badge>
                                                 </TableCell>
-                                                <TableCell className="text-right space-x-2 pr-6">
-                                                    <Button variant="ghost" size="icon" asChild title="View Details" className="h-9 w-9 rounded-xl hover:bg-primary/10 transition-colors">
-                                                        <Link href={`/appointments/${record.id}`}>
-                                                            <FileText className="h-4 w-4 text-primary" />
-                                                        </Link>
-                                                    </Button>
-                                                    {record.diagnosis && (
-                                                        <Button 
-                                                            variant="ghost" 
-                                                            size="icon" 
-                                                            title="Download PDF" 
-                                                            className="h-9 w-9 rounded-xl text-slate-400 hover:text-primary hover:bg-primary/10 transition-colors"
-                                                            onClick={() => handleQuickDownload(record)}
-                                                        >
-                                                            <Download className="h-4 w-4" />
+                                                <TableCell className="text-right pr-10">
+                                                    <div className="flex justify-end gap-2">
+                                                        <Button asChild size="sm" className="rounded-xl h-10 px-4 font-bold shadow-lg shadow-primary/20 gap-2">
+                                                            <Link href={`/appointments/${record.id}`}>
+                                                                <FileText className="h-4 w-4" /> View Summary
+                                                            </Link>
                                                         </Button>
-                                                    )}
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))}
@@ -183,32 +184,28 @@ export default function MedicalHistoryPage() {
                     </CardContent>
                 </Card>
 
-                <div className="grid md:grid-cols-2 gap-8">
-                    <Card className="bg-primary/5 border-2 border-primary/10 rounded-3xl shadow-lg shadow-primary/5">
-                        <CardHeader>
-                            <CardTitle className="text-lg flex items-center gap-3">
-                                <div className="h-8 w-1.5 bg-primary rounded-full" />
-                                Patient Privacy Protocol
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-muted-foreground leading-relaxed italic">
-                                Your clinical history is encrypted and exclusively shared between you and your healthcare providers. We strictly adhere to digital security standards to protect your medical integrity.
-                            </p>
-                        </CardContent>
+                <div className="grid md:grid-cols-2 gap-8 pb-10">
+                    <Card className="bg-primary/5 border-2 border-primary/10 rounded-[2rem] shadow-xl p-8 space-y-4">
+                        <div className="flex items-center gap-4">
+                            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
+                                <ShieldCheck className="h-6 w-6 text-primary" />
+                            </div>
+                            <h3 className="font-bold text-xl tracking-tight">Privacy Protocol</h3>
+                        </div>
+                        <p className="text-sm text-muted-foreground leading-relaxed italic">
+                            All clinical history is encrypted and exclusively accessible to you and your healthcare providers. We strictly adhere to HIPAA-compliant digital security standards to protect your medical integrity.
+                        </p>
                     </Card>
-                    <Card className="bg-slate-900 text-white border-none rounded-3xl shadow-xl">
-                        <CardHeader>
-                            <CardTitle className="text-lg flex items-center gap-3">
-                                <div className="h-8 w-1.5 bg-accent rounded-full" />
-                                Audit Assistance
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent>
-                            <p className="text-sm text-slate-400 leading-relaxed">
-                                Discrepancies in your consultation summaries should be reported to clinical support immediately. All PDFs include an encrypted trace-ID for authenticity verification.
-                            </p>
-                        </CardContent>
+                    <Card className="bg-slate-900 text-white border-none rounded-[2rem] shadow-2xl p-8 space-y-4">
+                        <div className="flex items-center gap-4">
+                            <div className="h-10 w-10 rounded-full bg-white/10 flex items-center justify-center">
+                                <AlertCircle className="h-6 w-6 text-accent" />
+                            </div>
+                            <h3 className="font-bold text-xl tracking-tight">Audit Support</h3>
+                        </div>
+                        <p className="text-sm text-slate-400 leading-relaxed">
+                            Discrepancies in your consultation summaries should be reported to clinical support immediately via the Support Messenger. All PDFs include an encrypted trace-ID for authenticity verification.
+                        </p>
                     </Card>
                 </div>
             </div>

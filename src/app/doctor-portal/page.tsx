@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Siren, DollarSign, Trash2, RefreshCw } from "lucide-react";
+import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Siren, DollarSign, Trash2, RefreshCw, FileText } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
@@ -26,6 +26,50 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar as DayPickerCalendar } from "@/components/ui/calendar";
+
+function PatientHistoryTab({ patientId }: { patientId: string }) {
+    const firestore = useFirestore();
+    const historyQuery = useMemoFirebase(() => {
+        if (!firestore || !patientId) return null;
+        return query(
+            collection(firestore, 'appointments'),
+            where('patientId', '==', patientId),
+            where('status', '==', 'completed')
+        );
+    }, [firestore, patientId]);
+
+    const { data: pastApts, isLoading } = useCollection<Appointment>(historyQuery);
+
+    if (isLoading) return <div className="flex justify-center py-12"><Loader2 className="h-6 w-6 animate-spin text-primary" /></div>;
+
+    return (
+        <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+            {pastApts && pastApts.length > 0 ? (
+                pastApts.sort((a,b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime()).map(apt => (
+                    <div key={apt.id} className="p-4 border-2 rounded-2xl bg-muted/5 space-y-2">
+                        <div className="flex justify-between items-start">
+                            <p className="text-[10px] font-bold text-primary uppercase tracking-widest">{format(new Date(apt.appointmentDateTime), "PPP")}</p>
+                            <Badge variant="outline" className="text-[8px] h-4">Archived</Badge>
+                        </div>
+                        <div>
+                            <p className="text-xs font-bold text-slate-700">Diagnosis:</p>
+                            <p className="text-xs text-muted-foreground italic">{apt.diagnosis}</p>
+                        </div>
+                        <div>
+                            <p className="text-xs font-bold text-slate-700">Advice:</p>
+                            <p className="text-xs text-muted-foreground line-clamp-2">{apt.prescription}</p>
+                        </div>
+                    </div>
+                ))
+            ) : (
+                <div className="text-center py-12 text-muted-foreground italic">
+                    <FileText className="h-10 w-10 mx-auto mb-2 opacity-10" />
+                    <p className="text-xs font-bold uppercase tracking-widest">No Prior Records Found</p>
+                </div>
+            )}
+        </div>
+    );
+}
 
 function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean, onOpenChange: (o: boolean) => void, appointment: any }) {
     const firestore = useFirestore();
@@ -290,12 +334,13 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-3xl">
+            <DialogContent className="sm:max-w-[650px] p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-3xl">
                 <Tabs defaultValue="overview" className="w-full">
                     <div className="bg-slate-900 p-6 text-white">
                         <DialogTitle className="text-xl font-headline mb-4 text-white">Patient Management</DialogTitle>
-                        <TabsList className="bg-white/10 border-none text-white w-full grid grid-cols-2">
-                            <TabsTrigger value="overview">Live Consultation</TabsTrigger>
+                        <TabsList className="bg-white/10 border-none text-white w-full grid grid-cols-3">
+                            <TabsTrigger value="overview">Overview</TabsTrigger>
+                            <TabsTrigger value="history">Patient History</TabsTrigger>
                             <TabsTrigger value="notes">Clinical Entry</TabsTrigger>
                         </TabsList>
                     </div>
@@ -331,6 +376,9 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
                                     </>
                                 )}
                             </div>
+                        </TabsContent>
+                        <TabsContent value="history">
+                            <PatientHistoryTab patientId={appointment.patientId} />
                         </TabsContent>
                         <TabsContent value="notes">
                             <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
@@ -473,7 +521,6 @@ export default function DoctorPortalPage() {
         setMounted(true);
         const timer = setInterval(() => setNowState(new Date().getTime()), 15000);
         
-        // PERSISTENCE: Load dismissed alerts from localStorage
         const saved = localStorage.getItem('dismissed_alerts');
         if (saved) {
             try {
@@ -535,7 +582,7 @@ export default function DoctorPortalPage() {
     const { todayAppointments, stats, masterSchedule, notifications, currentDayLeaveStatus } = useMemo(() => {
         if (!mounted || !appointments) return { 
             todayAppointments: [], 
-            stats: { today: 0, pending: 0, todayRevenue: 0, totalRevenue: 0, totalConsults: 0 }, 
+            stats: { today: 0, pending: 0, todayRevenue: 0, totalRevenue: 0, totalConsults: 0, uniquePatients: 0 }, 
             masterSchedule: { morning: [], afternoon: [], evening: [] },
             notifications: [],
             currentDayLeaveStatus: null as string | null
@@ -558,6 +605,7 @@ export default function DoctorPortalPage() {
         const todayRev = today.filter(a => a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
         const lifetimeRev = appointments.filter(a => a && a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
         const totalCompleted = appointments.filter(a => a && a.status === 'completed').length;
+        const uniquePatients = new Set(appointments.filter(a => a && a.status === 'completed').map(a => a.patientId)).size;
 
         const activeRequest = requests?.find(r => r && r.requestedDate && isSameDay(new Date(r.requestedDate), viewDate));
         const leaveStatus = activeRequest?.status || null;
@@ -603,12 +651,11 @@ export default function DoctorPortalPage() {
             }
         });
 
-        // SORT: Newest on Top
         const sortedNotifications = alerts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
 
         return { 
             todayAppointments: today,
-            stats: { today: today.length, pending: pending, todayRevenue: todayRev, totalRevenue: lifetimeRev, totalConsults: totalCompleted },
+            stats: { today: today.length, pending: pending, todayRevenue: todayRev, totalRevenue: lifetimeRev, totalConsults: totalCompleted, uniquePatients },
             masterSchedule: { morning: filterSlots(timeSlots.morning), afternoon: filterSlots(timeSlots.afternoon), evening: filterSlots(timeSlots.evening) },
             notifications: sortedNotifications,
             currentDayLeaveStatus: leaveStatus
@@ -797,6 +844,10 @@ export default function DoctorPortalPage() {
                             <div className="p-6 rounded-3xl bg-muted/30 border-2 border-muted/50 space-y-1 text-center">
                                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Archived 30m Consultations</p>
                                 <p className="text-3xl sm:text-4xl font-bold">{stats.totalConsults}</p>
+                            </div>
+                            <div className="p-6 rounded-3xl bg-blue-50 border-2 border-blue-100 space-y-1 text-center">
+                                <p className="text-[10px] font-bold text-blue-400 uppercase tracking-[0.2em]">Unique Patients Pool</p>
+                                <p className="text-3xl sm:text-4xl font-bold text-blue-600">{stats.uniquePatients}</p>
                             </div>
                         </div>
                         <DialogFooter><Button variant="secondary" className="w-full h-14 font-bold rounded-2xl" onClick={() => setIsAuditOpen(false)}>Close Summary</Button></DialogFooter>

@@ -129,7 +129,7 @@ export default function AppointmentRecordsPage() {
         if (!appointments) return [];
         return appointments
             .filter(apt => {
-                const isPast = isBefore(new Date(apt.appointmentDateTime), startOfDay(new Date()));
+                const isPast = isBefore(new Date(apt.appointmentDateTime), startOfDay(new Date())) || apt.status === 'completed';
                 if (!isPast) return false;
 
                 if (dateFilter) {
@@ -138,8 +138,6 @@ export default function AppointmentRecordsPage() {
                     if (aptDate !== filterDate) return false;
                 }
 
-                // Note: Comprehensive search by patient name would require patient data fetched beforehand or joined.
-                // For now, we filter by simple presence of ID or diagnosis string if searching.
                 if (searchTerm && !apt.diagnosis?.toLowerCase().includes(searchTerm.toLowerCase())) {
                     return false;
                 }
