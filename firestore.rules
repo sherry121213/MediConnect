@@ -3,9 +3,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     /**
-     * CLINICAL_PROTOTYPE_STABILIZATION
-     * Open access for prototype development and clinical workflow verification.
-     * Covers: Patients, Doctors, Appointments, Reviews, and Support Channels.
+     * CLINICAL_PROTOTYPE_OPEN_ACCESS
+     * Providing unrestricted access to all collections (Patients, Doctors, Appointments, Reviews, etc.)
+     * for clinical workflow verification and rapid prototyping.
      */
     match /{document=**} {
       allow read, write: if true;
