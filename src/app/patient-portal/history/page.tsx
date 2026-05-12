@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { History, Search, Loader2, FileText, ArrowLeft, Download, ClipboardCheck, Clock } from "lucide-react";
+import { History, Search, Loader2, FileText, ArrowLeft, Download, ClipboardCheck, Clock, ShieldCheck, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import { useUserData, useFirestore, useCollection, useMemoFirebase, useDoc } from "@/firebase";
 import { collection, query, where, doc } from "firebase/firestore";
