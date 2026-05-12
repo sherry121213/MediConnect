@@ -5,6 +5,7 @@ service cloud.firestore {
     /**
      * STABILIZATION_RINGING_PROTOCOL_V2
      * Standardized access control for clinical, administrative, and support workflows.
+     * Updated to include reviews, credentials, and contact archives.
      */
     match /{document=**} {
       allow read, write: if true;
@@ -19,5 +20,8 @@ service cloud.firestore {
     match /doctorUnavailabilityRequests/{doc=**} { allow read, write: if true; }
     match /adminDoctorChatSessions/{doc=**} { allow read, write: if true; }
     match /consultationSessions/{doc=**} { allow read, write: if true; }
+    match /reviews/{doc=**} { allow read, write: if true; }
+    match /doctorCredentials/{doc=**} { allow read, write: if true; }
+    match /contacts/{doc=**} { allow read, write: if true; }
   }
 }
