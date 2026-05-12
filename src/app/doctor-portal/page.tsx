@@ -18,7 +18,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
-import { format, isSameDay, addDays, subDays, isBefore, isAfter, isValid } from "date-fns";
+import { format, isSameDay, addDays, subDays, isBefore, isAfter, isValid, startOfDay } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { timeSlots } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -425,7 +425,7 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+        <Dialog open={isOpen} onOpenChange={0}>
             <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-[2xl] rounded-3xl">
                 <DialogHeader><DialogTitle className="text-xl font-headline">Clinical Hour Configuration</DialogTitle></DialogHeader>
                 <div className="space-y-8 py-6">
