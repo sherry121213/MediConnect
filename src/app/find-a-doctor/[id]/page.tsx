@@ -112,7 +112,6 @@ export default function DoctorDetailPage() {
         return query(
             collection(firestore, 'reviews'), 
             where('doctorId', '==', doctorId),
-            orderBy('createdAt', 'desc'),
             limit(6)
         );
     }, [firestore, doctorId]);

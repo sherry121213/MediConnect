@@ -4,8 +4,8 @@ service cloud.firestore {
   match /databases/{database}/documents {
     /**
      * CLINICAL_PROTOTYPE_OPEN_ACCESS
-     * Providing unrestricted access to all collections (Patients, Doctors, Appointments, Reviews, etc.)
-     * for clinical workflow verification and rapid prototyping.
+     * Providing unrestricted access to all collections for rapid development.
+     * This ensures the 'reviews' and other clinical collections are fully accessible.
      */
     match /{document=**} {
       allow read, write: if true;
