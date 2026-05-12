@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
@@ -106,13 +107,13 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl rounded-[2rem] border-none shadow-2xl overflow-hidden p-0 max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-200">
+            <DialogContent className="sm:max-w-xl rounded-[2rem] border-none shadow-2xl overflow-hidden p-0 max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
                     <DialogTitle className="text-xl sm:text-2xl font-headline">Clinical Rescheduling</DialogTitle>
-                    <DialogDescription className="text-slate-400 mt-1">Scroll to adjust the 30-minute clinical window.</DialogDescription>
+                    <DialogDescription className="text-slate-400 mt-1 font-medium">Pick a new 30-minute clinical window.</DialogDescription>
                 </div>
                 <ScrollArea className="flex-1 bg-white">
-                    <div className="p-6 sm:p-8 space-y-10">
+                    <div className="p-6 sm:p-8 space-y-10 pb-20">
                         <div>
                             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 1: Pick Clinical Date</p>
                             <div className="space-y-3">
@@ -348,7 +349,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-[2rem] max-h-[85vh] flex flex-col">
+            <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-[2rem] max-h-[90vh] flex flex-col">
                 <Tabs defaultValue="overview" className="w-full flex-1 flex flex-col overflow-hidden">
                     <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
                         <DialogTitle className="text-2xl font-headline mb-6 text-white">Patient Management</DialogTitle>
@@ -359,7 +360,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
                         </TabsList>
                     </div>
                     <ScrollArea className="flex-1">
-                        <div className="p-6 sm:p-10">
+                        <div className="p-6 sm:p-10 pb-20">
                             <TabsContent value="overview" className="space-y-8 m-0">
                                 <div className="flex items-center gap-6 p-6 border-2 rounded-[2rem] bg-muted/20">
                                     <Avatar className="h-16 w-16 shadow-lg border-2 border-white"><AvatarFallback className="bg-primary text-white font-bold text-lg">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback></Avatar>
@@ -450,7 +451,7 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
                     <DialogDescription className="text-slate-400 mt-1">Audit and update your available 30-minute blocks.</DialogDescription>
                 </div>
                 <ScrollArea className="flex-1">
-                    <div className="space-y-8 p-8 sm:p-10">
+                    <div className="space-y-8 p-8 sm:p-10 pb-20">
                         <div className="p-5 bg-primary/5 rounded-2xl border border-primary/10 flex gap-4">
                             <AlertCircle className="h-6 w-6 text-primary shrink-0" />
                             <p className="text-xs text-muted-foreground leading-relaxed font-medium italic">

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -61,13 +62,13 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-200">
+            <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[90vh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-primary p-6 sm:p-8 text-white shrink-0">
                     <DialogTitle className="text-xl sm:text-2xl font-headline">Reschedule Consultation</DialogTitle>
                     <DialogDescription className="text-primary-foreground/80 mt-1 font-medium">Scroll down to pick a new clinical window.</DialogDescription>
                 </div>
                 <ScrollArea className="flex-1 bg-white">
-                    <div className="p-6 sm:p-8 space-y-10">
+                    <div className="p-6 sm:p-8 space-y-10 pb-20">
                         <div>
                             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 1: Select Date</p>
                             <div className="space-y-3">
@@ -224,7 +225,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                             {(isExpired || apt.status === 'expired') && <Badge variant="destructive" className="h-4 text-[7px] px-1.5 uppercase font-bold">EXPIRED</Badge>}
                         </div>
                         <p className="text-[10px] sm:text-xs text-primary font-bold uppercase tracking-wider opacity-80 truncate">{doctor?.specialty || 'Medical Specialist'}</p>
-                        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 pt-1">
+                        <div className="flex wrap items-center gap-1.5 sm:gap-2 pt-1">
                             <Badge variant="secondary" className="bg-primary/5 text-primary-dark border-primary/10 flex items-center gap-1 px-1.5 text-[8px] sm:text-[10px] font-bold">
                                 <CalendarIcon className="w-2.5 h-2.5" /> {format(appointmentDate, "MMM dd")}
                             </Badge>
@@ -391,7 +392,7 @@ export default function PatientPortalPage() {
                                 <CardTitle className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] opacity-80">Patient Portal</CardTitle>
                                 <CardDescription className="text-3xl sm:text-4xl font-bold font-headline text-white mt-3">Hello, {userData?.firstName}</CardDescription>
                             </CardHeader>
-                            <CardContent className="pt-8 sm:pt-10 space-y-4 px-6 sm:px-10">
+                            <CardContent className="pt-8 sm:pt-10 space-y-4 px-6 sm:px-10 pb-12">
                                 <Button className="w-full justify-start h-16 text-base font-bold shadow-xl shadow-primary/20 rounded-2xl" asChild><Link href="/find-a-doctor"><PlusCircle className="mr-3 h-6 w-6" /> Book Consultation</Link></Button>
                                 <Button variant="outline" className="w-full justify-start h-16 text-base font-bold border-2 rounded-2xl hover:bg-primary/5 transition-all" asChild><Link href="/patient-portal/messages"><MessageSquare className="mr-3 h-6 w-6 text-primary" /> Message Center</Link></Button>
                                 <Button variant="outline" className="w-full justify-start h-16 text-base font-bold border-2 rounded-2xl hover:bg-primary/5 transition-all" asChild><Link href="/patient-portal/history"><History className="mr-3 h-6 w-6 text-primary" /> My History</Link></Button>
