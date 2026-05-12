@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Siren, DollarSign, Trash2, RefreshCw, FileText, CheckCircle2 } from "lucide-react";
+import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Siren, Trash2, RefreshCw, FileText, CheckCircle2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
@@ -354,17 +353,17 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
                     <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
                         <DialogTitle className="text-2xl font-headline mb-6 text-white">Patient Management</DialogTitle>
                         <TabsList className="bg-white/10 border-none text-white w-full grid grid-cols-3 h-12 p-1 rounded-xl">
-                            <TabsTrigger value="overview" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900">Overview</TabsTrigger>
-                            <TabsTrigger value="history" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900">History</TabsTrigger>
-                            <TabsTrigger value="notes" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900">Notes</TabsTrigger>
+                            <TabsTrigger value="overview" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 font-bold uppercase text-[10px]">Overview</TabsTrigger>
+                            <TabsTrigger value="history" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 font-bold uppercase text-[10px]">History</TabsTrigger>
+                            <TabsTrigger value="notes" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 font-bold uppercase text-[10px]">Clinical Notes</TabsTrigger>
                         </TabsList>
                     </div>
-                    <ScrollArea className="flex-1">
+                    <ScrollArea className="flex-1 bg-white">
                         <div className="p-6 sm:p-10 pb-20">
                             <TabsContent value="overview" className="space-y-8 m-0">
                                 <div className="flex items-center gap-6 p-6 border-2 rounded-[2rem] bg-muted/20">
                                     <Avatar className="h-16 w-16 shadow-lg border-2 border-white"><AvatarFallback className="bg-primary text-white font-bold text-lg">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback></Avatar>
-                                    {patient && <div className="min-w-0"><p className="font-bold text-xl truncate text-slate-900">{patient.firstName} {patient.lastName}</p><p className="text-xs text-muted-foreground font-medium uppercase tracking-widest">{patient.email}</p></div>}
+                                    {patient && <div className="min-w-0"><p className="font-bold text-xl truncate text-slate-900">{patient.firstName} {patient.lastName}</p><p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{patient.email}</p></div>}
                                 </div>
                                 <div className="flex flex-col gap-4 pt-4">
                                     {isCompleted ? (
@@ -376,9 +375,14 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
                                             </div>
                                         </div>
                                     ) : isLive ? (
-                                        <Button onClick={handleStartRoom} className="h-16 text-lg font-bold shadow-2xl shadow-red-500/20 bg-red-600 hover:bg-red-700 animate-pulse rounded-2xl text-white">
-                                            <Video className="mr-3 h-6 w-6" /> Start Video Room
-                                        </Button>
+                                        <>
+                                            <Button onClick={handleStartRoom} className="h-16 text-lg font-bold shadow-2xl shadow-red-500/20 bg-red-600 hover:bg-red-700 animate-pulse rounded-2xl text-white">
+                                                <Video className="mr-3 h-6 w-6" /> Start Video Room
+                                            </Button>
+                                            <Button variant="outline" className="h-14 text-sm font-bold w-full rounded-2xl gap-3 border-2" onClick={() => onPostpone(appointment)}>
+                                                <RefreshCw className="h-4 w-4 text-primary" /> Postpone Session
+                                            </Button>
+                                        </>
                                     ) : isExpired ? (
                                         <div className="space-y-6">
                                             <div className="p-8 bg-red-50 border-2 border-red-100 rounded-3xl text-center space-y-3">
@@ -450,7 +454,7 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
                     <DialogTitle className="text-2xl font-headline">Clinical Hour Configuration</DialogTitle>
                     <DialogDescription className="text-slate-400 mt-1">Audit and update your available 30-minute blocks.</DialogDescription>
                 </div>
-                <ScrollArea className="flex-1">
+                <ScrollArea className="flex-1 bg-white">
                     <div className="space-y-8 p-8 sm:p-10 pb-20">
                         <div className="p-5 bg-primary/5 rounded-2xl border border-primary/10 flex gap-4">
                             <AlertCircle className="h-6 w-6 text-primary shrink-0" />
@@ -518,7 +522,7 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
                     <DialogDescription className="text-slate-400 mt-1">Audit trail for professional clinical pauses.</DialogDescription>
                 </div>
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 p-8">
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 p-8 bg-white">
                         <FormField control={form.control} name="requestedDate" render={({ field }) => (
                             <FormItem className="flex flex-col">
                                 <FormLabel className="text-[10px] uppercase font-bold tracking-[0.2em] text-muted-foreground ml-1">Select Clinical Date</FormLabel>
@@ -662,7 +666,6 @@ export default function DoctorPortalPage() {
 
         const pending = appointments.filter(apt => apt && apt.status === 'scheduled').length;
         
-        // Include everything paid/valid today for revenue stats
         const todayPaidAndValid = allToday.filter(a => a.paymentStatus === 'approved');
         const todayRev = todayPaidAndValid.reduce((sum, a) => sum + (a.amount || 1500), 0);
         
@@ -899,7 +902,7 @@ export default function DoctorPortalPage() {
                             </DialogTitle>
                             <DialogDescription className="text-slate-400 mt-1">Summary of your professional clinical activity.</DialogDescription>
                         </div>
-                        <div className="grid grid-cols-1 gap-6 p-8">
+                        <div className="grid grid-cols-1 gap-6 p-8 bg-white">
                             <div className="p-6 rounded-3xl bg-primary/5 border-2 border-primary/10 space-y-1 text-center">
                                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Aggregate Earnings</p>
                                 <p className="text-3xl sm:text-4xl font-bold text-primary">PKR {stats.totalRevenue.toLocaleString()}</p>
@@ -913,7 +916,7 @@ export default function DoctorPortalPage() {
                                 <p className="text-3xl sm:text-4xl font-bold text-blue-600">{stats.uniquePatients}</p>
                             </div>
                         </div>
-                        <DialogFooter className="p-8 pt-0"><Button variant="secondary" className="w-full h-14 font-bold rounded-2xl" onClick={() => setIsHistoryOpen(false)}>Close Summary</Button></DialogFooter>
+                        <DialogFooter className="p-8 pt-0 bg-white"><Button variant="secondary" className="w-full h-14 font-bold rounded-2xl" onClick={() => setIsHistoryOpen(false)}>Close Summary</Button></DialogFooter>
                     </DialogContent>
                 </Dialog>
 
@@ -936,6 +939,7 @@ function getNext7Days() {
             date: date,
             dayName: days[date.getDay()],
             dayNumber: date.getDate(),
+            fullDayName: days[date.getDay()] 
         });
     }
     return next7Days;

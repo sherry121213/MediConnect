@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,7 +64,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
             <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-primary p-6 sm:p-8 text-white shrink-0">
                     <DialogTitle className="text-xl sm:text-2xl font-headline">Reschedule Consultation</DialogTitle>
-                    <DialogDescription className="text-primary-foreground/80 mt-1 font-medium">Scroll down to pick a new clinical window.</DialogDescription>
+                    <DialogDescription className="text-primary-foreground/80 mt-1 font-medium">Pick a new 30-minute clinical window.</DialogDescription>
                 </div>
                 <ScrollArea className="flex-1 bg-white">
                     <div className="p-6 sm:p-8 space-y-10 pb-20">
@@ -263,7 +262,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                                         {isLive ? "Join Now" : "Upcoming"}
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent className="w-[95vw] sm:max-w-lg rounded-2xl border-none shadow-2xl">
+                                <DialogContent className="w-[95vw] sm:max-w-lg rounded-2xl border-none shadow-2xl bg-white">
                                     <DialogHeader>
                                         <DialogTitle className="text-xl font-headline">Clinical Connection</DialogTitle>
                                         <DialogDescription>Secure room window closes at {appointmentDate ? format(addMinutes(appointmentDate, 30), "p") : "the end of the session"}.</DialogDescription>
