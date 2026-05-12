@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
@@ -49,7 +50,7 @@ function PatientHistoryTab({ patientId }: { patientId: string }) {
                     <div key={apt.id} className="p-4 border-2 rounded-2xl bg-muted/5 space-y-2">
                         <div className="flex justify-between items-start">
                             <p className="text-[10px] font-bold text-primary uppercase tracking-widest">{format(new Date(apt.appointmentDateTime), "PPP")}</p>
-                            <Badge variant="outline" className="text-[8px] h-4">Performed</Badge>
+                            <Badge variant="outline" className="text-[9px] h-5 px-2">Performed</Badge>
                         </div>
                         <div>
                             <p className="text-xs font-bold text-slate-700">Diagnosis:</p>
@@ -93,7 +94,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
 
         updateDocumentNonBlocking(doc(firestore, 'appointments', appointment.id), {
             appointmentDateTime: newDateTime.toISOString(),
-            status: 'scheduled', // Reset status if it was expired
+            status: 'scheduled', 
             updatedAt: new Date().toISOString(),
             doctorInRoom: false
         });
@@ -187,9 +188,9 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
                     </p>
                 </div>
             </div>
-            <div className="flex items-center gap-2">
-                {isLive && <Badge className="bg-red-600 text-white animate-pulse text-[8px] h-4">LIVE NOW</Badge>}
-                <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("ml-2 shrink-0 text-[10px]", apt.status === 'completed' ? "bg-green-100 text-green-800" : "text-primary border-primary/20")}>
+            <div className="flex items-center gap-4">
+                {isLive && <Badge className="bg-red-600 text-white animate-pulse text-[9px] h-5 px-2">LIVE NOW</Badge>}
+                <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("shrink-0 text-[10px] px-2.5 py-0.5", apt.status === 'completed' ? "bg-green-100 text-green-800" : "text-primary border-primary/20")}>
                     {apt.status === 'scheduled' ? (isLive ? 'Start' : 'Upcoming') : apt.status === 'completed' ? 'Performed' : apt.status}
                 </Badge>
             </div>
@@ -251,11 +252,11 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
             isDisabled && !appointment && "bg-destructive/5 border-destructive/10"
         )}>
             <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <p className="text-[10px] sm:text-xs font-bold text-muted-foreground w-14 sm:w-16 shrink-0">{time}</p>
+                <p className="text-[10px] sm:text-xs font-bold text-muted-foreground w-20 shrink-0">{time}</p>
                 {appointment ? (
                     <div className="flex items-center gap-2 sm:gap-3 min-w-0">
                         <div className={cn("h-5 w-5 sm:h-6 sm:w-6 rounded-full flex items-center justify-center shrink-0", appointment.status === 'completed' ? "bg-green-100 text-green-600" : "bg-primary/10 text-primary")}>
-                            <User className="h-2.5 w-2.5 sm:h-3 sm:w-3" />
+                            <User className="h-3 w-3" />
                         </div>
                         <p className={cn("text-xs sm:text-sm font-semibold truncate", appointment.status === 'completed' && "text-green-800")}>
                             {patient ? `${patient.firstName} ${patient.lastName}` : '...'}
@@ -273,15 +274,15 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
             {appointment && (
                 <div className="flex items-center gap-2">
                     {appointment.status === 'completed' ? (
-                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-[8px] h-5 font-bold uppercase tracking-tight">Performed</Badge>
+                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-[9px] h-6 px-2.5 font-bold uppercase tracking-tight shrink-0">Performed</Badge>
                     ) : isExpired ? (
-                        <Badge variant="destructive" className="text-[8px] h-5 font-bold uppercase tracking-tight">Expired</Badge>
+                        <Badge variant="destructive" className="text-[9px] h-6 px-2.5 font-bold uppercase tracking-tight shrink-0">Expired</Badge>
                     ) : (
                         <Button 
                             size="sm" 
                             variant={isLive ? "default" : "ghost"} 
                             className={cn(
-                                "h-7 px-2 sm:px-3 text-[10px] font-bold uppercase tracking-wider shrink-0",
+                                "h-8 px-3 text-[10px] font-bold uppercase tracking-wider shrink-0 rounded-lg",
                                 isLive ? "bg-red-600 hover:bg-red-700 animate-pulse text-white" : "hover:bg-primary/10"
                             )} 
                             onClick={() => onSelect(appointment)}
@@ -425,7 +426,7 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={0}>
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-[2xl] rounded-3xl">
                 <DialogHeader><DialogTitle className="text-xl font-headline">Clinical Hour Configuration</DialogTitle></DialogHeader>
                 <div className="space-y-8 py-6">
@@ -822,15 +823,15 @@ export default function DoctorPortalPage() {
                                 )}
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-12">
                                     <div className="space-y-6">
-                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-3"><div className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-sm" /> Morning</h3>
+                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-4"><div className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-sm shrink-0" /> Morning</h3>
                                         <div className="space-y-2">{masterSchedule.morning.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
                                     </div>
                                     <div className="space-y-6">
-                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-3"><div className="h-2.5 w-2.5 rounded-full bg-blue-400 shadow-sm" /> Afternoon</h3>
+                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-4"><div className="h-2.5 w-2.5 rounded-full bg-blue-400 shadow-sm shrink-0" /> Afternoon</h3>
                                         <div className="space-y-2">{masterSchedule.afternoon.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
                                     </div>
                                     <div className="space-y-6">
-                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-3"><Moon className="h-4 w-4 text-indigo-400" /> Evening</h3>
+                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-4"><Moon className="h-4 w-4 text-indigo-400 shrink-0" /> Evening</h3>
                                         <div className="space-y-2">{masterSchedule.evening.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
                                     </div>
                                 </div>

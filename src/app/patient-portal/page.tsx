@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -159,17 +160,17 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                     </div>
                     <div className="space-y-1">
                         <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
-                            <CalendarIcon className="h-2.5 w-2.5" /> {format(appointmentDate, "MMM dd")}
+                            <CalendarIcon className="h-3 w-3" /> {format(appointmentDate, "MMM dd")}
                         </div>
                         <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
-                            <Clock className="h-2.5 w-2.5" /> {format(appointmentDate, "p")}
+                            <Clock className="h-3 w-3" /> {format(appointmentDate, "p")}
                         </div>
                     </div>
-                    <div className="mt-auto pt-2 flex items-center justify-between">
-                         <Badge className={cn("text-[7px] uppercase font-bold", apt.status === 'completed' ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600")}>
+                    <div className="mt-auto pt-2 flex items-center justify-between gap-2">
+                         <Badge className={cn("text-[9px] uppercase font-bold px-2 py-0.5 shrink-0", apt.status === 'completed' ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600")}>
                             {apt.status === 'completed' ? 'Performed' : apt.status}
                         </Badge>
-                        <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-[8px] font-bold text-primary">
+                        <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-[9px] font-bold text-primary shrink-0">
                             <Link href={`/appointments/${apt.id}`}>View</Link>
                         </Button>
                     </div>
@@ -267,11 +268,11 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                             </Dialog>
                         </>
                     ) : (
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-col gap-2">
                              <Button variant="ghost" asChild className="gap-2 text-primary font-bold hover:bg-primary/5 flex-1 sm:w-auto justify-center h-9 text-[10px]">
                                 <Link href={`/appointments/${apt.id}`}><FileText className="h-4 w-4" /> Visit Summary</Link>
                             </Button>
-                            <Badge variant={apt.status === 'completed' ? 'secondary' : 'destructive'} className="text-[7px] uppercase h-4 mx-auto">
+                            <Badge variant={apt.status === 'completed' ? 'secondary' : 'destructive'} className="text-[9px] uppercase px-2 py-0.5 mx-auto shrink-0">
                                 {apt.status === 'completed' ? 'Performed' : apt.status}
                             </Badge>
                         </div>
@@ -403,7 +404,10 @@ export default function PatientPortalPage() {
                     <div className="lg:col-span-8 space-y-8 sm:space-y-12">
                         <section>
                             <div className="flex items-center justify-between mb-4 sm:mb-6">
-                                <h2 className="text-xl sm:text-2xl font-bold font-headline flex items-center gap-3"><div className="h-6 sm:h-8 w-1 bg-primary rounded-full"></div>Scheduled consultations</h2>
+                                <h2 className="text-xl sm:text-2xl font-bold font-headline flex items-center gap-4">
+                                    <div className="h-6 sm:h-8 w-1.5 bg-primary rounded-full shrink-0"></div>
+                                    Scheduled consultations
+                                </h2>
                             </div>
                             {isLoadingAppointments ? <div className="py-12 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary/30" /></div> : 
                              upcomingAppointments.length === 0 ? <Card className="border-dashed border-2 bg-transparent rounded-2xl"><CardContent className="py-12 sm:py-16 text-center px-4"><Calendar className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" /><p className="text-muted-foreground">No upcoming 30m consultations.</p></CardContent></Card> :
@@ -412,7 +416,10 @@ export default function PatientPortalPage() {
 
                         <section>
                             <div className="flex items-center justify-between mb-4 sm:mb-6">
-                                <h2 className="text-xl sm:text-2xl font-bold font-headline flex items-center gap-3"><div className="h-6 sm:h-8 w-1 bg-muted rounded-full"></div>History</h2>
+                                <h2 className="text-xl sm:text-2xl font-bold font-headline flex items-center gap-4">
+                                    <div className="h-6 sm:h-8 w-1.5 bg-muted rounded-full shrink-0"></div>
+                                    History
+                                </h2>
                                 {recentPastAppointments.length > 0 && <Button variant="ghost" size="sm" asChild className="text-primary font-bold text-xs"><Link href="/patient-portal/history">View Archive <ChevronRight className="h-4 w-4" /></Link></Button>}
                             </div>
                             
