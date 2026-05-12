@@ -1,6 +1,6 @@
 import type {NextConfig} from 'next';
 
-const nextConfig = {
+const nextConfig: NextConfig = {
   /* config options here */
   devIndicators: false,
   typescript: {
@@ -8,6 +8,16 @@ const nextConfig = {
   },
   eslint: {
     ignoreDuringBuilds: true,
+  },
+  experimental: {
+    allowedDevOrigins: [
+      '*.cloudworkstations.dev',
+      '*.firebaseapp.com',
+      '*.web.app',
+      'localhost:9000',
+      'localhost:9001',
+      'localhost:9002'
+    ],
   },
   images: {
     remotePatterns: [
