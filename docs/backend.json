@@ -67,6 +67,21 @@
         "prescription": { "type": "string" },
         "doctorInRoom": { "type": "boolean" }
       }
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Patient feedback and rating for a doctor.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "patientId": { "type": "string" },
+        "doctorId": { "type": "string" },
+        "appointmentId": { "type": "string" },
+        "rating": { "type": "number" },
+        "comment": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["patientId", "doctorId", "appointmentId", "rating"]
     }
   },
   "auth": {
@@ -88,6 +103,10 @@
     "/appointments/{appointmentId}": {
       "schema": { "$ref": "#/backend/entities/Appointment" },
       "description": "Clinical booking records."
+    },
+    "/reviews/{reviewId}": {
+      "schema": { "$ref": "#/backend/entities/Review" },
+      "description": "Public patient feedback records."
     }
   }
 }

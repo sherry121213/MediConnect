@@ -1,3 +1,4 @@
+
 export type Specialty = 'Psychiatrist' | 'Cardiologist' | 'General Physician' | 'Gynecologist' | 'Dermatology' | 'Orthopedics';
 
 export interface DoctorAvailability {
@@ -52,7 +53,7 @@ export interface Appointment {
   doctorId: string;
   appointmentDateTime: string;
   appointmentType: string;
-  status: 'scheduled' | 'completed' | 'cancelled';
+  status: 'scheduled' | 'completed' | 'cancelled' | 'expired';
   diagnosis?: string;
   prescription?: string;
   createdAt: string;
@@ -61,4 +62,15 @@ export interface Appointment {
   paymentReceiptUrl?: string;
   paymentStatus?: 'pending' | 'approved' | 'rejected';
   paymentMethod?: string;
+  doctorInRoom?: boolean;
+}
+
+export interface Review {
+  id: string;
+  patientId: string;
+  doctorId: string;
+  appointmentId: string;
+  rating: number;
+  comment?: string;
+  createdAt: string;
 }
