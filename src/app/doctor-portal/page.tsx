@@ -214,7 +214,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
     const patientDocRef = useMemoFirebase(() => {
         if (!firestore || !appointment?.patientId) return null;
         return doc(firestore, 'patients', appointment.patientId);
-    }, [firestore, appointment.patientId]);
+    }, [firestore, appointment?.patientId]);
     const { data: patient } = useDoc<Patient>(patientDocRef);
 
     const isPast = useMemo(() => {
