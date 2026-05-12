@@ -3,10 +3,10 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, setDoc, onSnapshot, addDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, addDoc, updateDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, User, Clock, Camera, AlertCircle, PhoneIncoming, Maximize, Minimize } from 'lucide-react';
+import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, User, Clock, Video as VideoIcon } from 'lucide-react';
 import { format, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -53,7 +53,7 @@ export default function ConsultationRoomPage() {
 
   const { data: appointment, isLoading: isLoadingAppointment } = useDoc<any>(appointmentDocRef);
 
-  // 1. Initial Media Acquisition
+  // 1. Hardware Acquisition
   useEffect(() => {
     let isMounted = true;
     const acquireMedia = async () => {
@@ -68,6 +68,7 @@ export default function ConsultationRoomPage() {
         if (localVideoRef.current) {
           localVideoRef.current.srcObject = stream;
         }
+        setSignalingStatus("Hardware Secured. Connecting...");
       } catch (err) {
         console.error("Media Error:", err);
         if (isMounted) {
@@ -75,7 +76,7 @@ export default function ConsultationRoomPage() {
             toast({
                 variant: "destructive",
                 title: "Hardware Access Error",
-                description: "Please allow camera and microphone access to proceed with the consultation.",
+                description: "Please allow camera and microphone access to proceed.",
             });
         }
       }
@@ -87,7 +88,7 @@ export default function ConsultationRoomPage() {
     };
   }, [toast]);
 
-  // WhatsApp-style Local Preview Heartbeat (Ensures local video is never black)
+  // Local Video Mirror Heartbeat
   useEffect(() => {
     const timer = setInterval(() => {
         if (localVideoRef.current && localStream.current && !localVideoRef.current.srcObject) {
@@ -97,7 +98,7 @@ export default function ConsultationRoomPage() {
     return () => clearInterval(timer);
   }, [hasCameraPermission]);
 
-  // 2. Signaling Handshake & WebRTC Logic
+  // 2. WebRTC Signaling Logic
   useEffect(() => {
     if (!firestore || !appointmentId || !user || !hasCameraPermission || !userData) return;
 
@@ -106,11 +107,15 @@ export default function ConsultationRoomPage() {
 
     const setupSignaling = async () => {
       try {
-        if (pc.current) return; // Prevent multiple connections
+        // Clean start for every signaling effect run
+        if (pc.current) {
+          pc.current.close();
+          pc.current = null;
+        }
 
         pc.current = new RTCPeerConnection(servers);
 
-        // Add local tracks to peer connection
+        // Add tracks immediately
         localStream.current?.getTracks().forEach((track) => {
           if (localStream.current && pc.current) {
             pc.current.addTrack(track, localStream.current);
@@ -122,7 +127,7 @@ export default function ConsultationRoomPage() {
             remoteVideoRef.current.srcObject = event.streams[0];
             if (isEffectActive) {
                 setIsPeerConnected(true);
-                setSignalingStatus("Secure Clinical Connection Active");
+                setSignalingStatus("Clinical Connection Active");
             }
           }
         };
@@ -130,9 +135,10 @@ export default function ConsultationRoomPage() {
         pc.current.onconnectionstatechange = () => {
             if (!isEffectActive) return;
             const state = pc.current?.connectionState;
+            if (state === 'connected') setIsPeerConnected(true);
             if (state === 'disconnected' || state === 'failed') {
                 setIsPeerConnected(false);
-                setSignalingStatus("Reconnecting to Secure Hub...");
+                setSignalingStatus("Reconnecting...");
             }
         };
 
@@ -148,14 +154,13 @@ export default function ConsultationRoomPage() {
         };
 
         if (userData.role === 'doctor') {
-          // DOCTOR: The Caller (Initiator)
-          setSignalingStatus("Negotiating End-to-End Encryption...");
+          setSignalingStatus("Negotiating Clinical Handshake...");
           
-          // FORCE CLEANUP: Reset signaling doc to prevent stale handshakes
+          // DOCTOR RESET: Clear stale session data
           await setDoc(callDoc, { doctorJoinedAt: new Date().toISOString() });
           
-          // Signal that doctor is ready in the main appointment record
-          setDoc(doc(firestore, 'appointments', appointmentId), { doctorInRoom: true }, { merge: true });
+          // Signal Presence
+          updateDoc(doc(firestore, 'appointments', appointmentId), { doctorInRoom: true }).catch(() => {});
           
           const offerDescription = await pc.current.createOffer();
           await pc.current.setLocalDescription(offerDescription);
@@ -184,8 +189,7 @@ export default function ConsultationRoomPage() {
           unsubs.push(unsubCandidates);
           
         } else {
-          // PATIENT: The Receiver
-          setSignalingStatus("Establishing Clinical Handshake...");
+          setSignalingStatus("Awaiting Provider Entrance...");
           
           const unsubCall = onSnapshot(callDoc, async (snapshot) => {
             const data = snapshot.data();
@@ -211,8 +215,8 @@ export default function ConsultationRoomPage() {
           unsubs.push(unsubCandidates);
         }
       } catch (e) {
-        console.error("Signaling Handshake Failed:", e);
-        if (isEffectActive) setSignalingStatus("Secure Channel Negotiating...");
+        console.error("Signaling Error:", e);
+        if (isEffectActive) setSignalingStatus("Encryption Reset Required.");
       }
     };
 
@@ -231,7 +235,7 @@ export default function ConsultationRoomPage() {
     };
   }, [firestore, appointmentId, user, hasCameraPermission, userData]);
 
-  // 3. Administrative Logging
+  // Clinical Logging
   useEffect(() => {
     if (userData?.role === 'doctor' && appointment && firestore && hasCameraPermission) {
       addDocumentNonBlocking(collection(firestore, 'consultationLogs'), {
@@ -240,29 +244,10 @@ export default function ConsultationRoomPage() {
         patientId: appointment.patientId,
         action: 'started',
         timestamp: new Date().toISOString(),
-        description: `Dr. ${userData.firstName} ${userData.lastName} has established the clinical link for session ${appointmentId.slice(0,8)}.`
+        description: `Clinical link established for session ${appointmentId.slice(0,8)}.`
       });
     }
   }, [userData, appointment, firestore, appointmentId, hasCameraPermission]);
-
-  // 4. Session Window (50m Limit)
-  useEffect(() => {
-    if (!appointment || isEnding) return;
-    const startTimeStr = appointment.appointmentDateTime;
-    if (!startTimeStr) return;
-    
-    const startTime = new Date(startTimeStr).getTime();
-    const endTime = startTime + (50 * 60 * 1000); 
-
-    const interval = setInterval(() => {
-      if (Date.now() > endTime) {
-        setIsEnding(true);
-        toast({ title: "Session Time-Out", description: "The 50-minute clinical window has concluded automatically." });
-        router.push(userData?.role === 'doctor' ? '/doctor-portal' : '/patient-portal');
-      }
-    }, 15000);
-    return () => clearInterval(interval);
-  }, [appointment, router, userData, toast, isEnding]);
 
   const messagesQuery = useMemoFirebase(() => {
     if (!firestore || !appointmentId) return null;
@@ -297,13 +282,6 @@ export default function ConsultationRoomPage() {
     setIsEnding(true);
     if (userData?.role === 'doctor' && firestore && appointment) {
         updateDocumentNonBlocking(doc(firestore, 'appointments', appointmentId), { doctorInRoom: false });
-        addDocumentNonBlocking(collection(firestore, 'consultationLogs'), {
-            appointmentId,
-            doctorId: userData.id,
-            patientId: appointment.patientId,
-            action: 'ended',
-            timestamp: new Date().toISOString(),
-        });
     }
     router.push(userData?.role === 'doctor' ? '/doctor-portal' : '/patient-portal');
   };
@@ -332,44 +310,34 @@ export default function ConsultationRoomPage() {
   const { data: peer } = useDoc<any>(peerDocRef);
 
   if (isUserLoading || isLoadingAppointment) {
-    return <div className="flex h-screen items-center justify-center bg-slate-950 text-white"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    return <div className="flex h-screen items-center justify-center bg-slate-950"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
   return (
-    <div className="flex h-screen bg-slate-950 overflow-hidden font-body text-white">
-      {/* Header Overlay */}
-      <header className="absolute top-0 left-0 right-0 z-50 p-4 sm:p-6 pointer-events-none">
+    <div className="flex h-screen bg-slate-950 overflow-hidden text-white">
+      {/* Header */}
+      <header className="absolute top-0 left-0 right-0 z-50 p-6 pointer-events-none">
         <div className="container mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3 bg-slate-900/60 backdrop-blur-xl p-2 pr-6 rounded-full border border-white/10 pointer-events-auto">
             <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
               <ShieldCheck className="text-primary h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-white font-bold tracking-tight text-xs sm:text-sm uppercase">Secure Hub</h1>
-              <p className="text-[9px] text-slate-400 font-bold tracking-widest">{signalingStatus}</p>
+              <h1 className="font-bold text-sm uppercase">Secure Consultation</h1>
+              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{signalingStatus}</p>
             </div>
           </div>
-          
           <div className="flex items-center gap-3 pointer-events-auto">
-            <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/20 gap-1.5 px-3 py-1 text-[10px] h-8 font-bold">
-              <div className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" /> LIVE
+            <Badge variant="outline" className="bg-red-500/10 text-red-400 border-red-500/20 gap-1.5 px-3 py-1 text-[10px] font-bold">
+              <div className="h-1.5 w-1.5 rounded-full bg-red-500 animate-pulse" /> LIVE SESSION
             </Badge>
-            <Button 
-                variant="ghost" 
-                size="icon" 
-                className="h-10 w-10 rounded-full bg-slate-900/60 backdrop-blur-xl border border-white/10 text-white"
-                onClick={() => setIsChatOpen(!isChatOpen)}
-            >
-                {isChatOpen ? <Minimize className="h-4 w-4" /> : <MessageSquare className="h-4 w-4" />}
-            </Button>
           </div>
         </div>
       </header>
 
-      {/* Main Video Arena */}
+      {/* Video Content */}
       <main className="relative flex-1 flex flex-col lg:flex-row overflow-hidden bg-black">
-        <div className="flex-1 relative flex items-center justify-center">
-          {/* Remote Video (Full Screen) */}
+        <div className="flex-1 relative">
           <video 
             ref={remoteVideoRef} 
             className={cn("w-full h-full object-cover transition-opacity duration-1000", isPeerConnected ? "opacity-100" : "opacity-0")} 
@@ -377,9 +345,8 @@ export default function ConsultationRoomPage() {
             playsInline 
           />
           
-          {/* Connection Overlay */}
           {!isPeerConnected && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-8 text-center px-8 z-10 bg-slate-950">
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-8 bg-slate-950 z-10">
                 <div className="relative">
                     <div className="h-32 w-32 rounded-full border-2 border-primary/30 border-dashed animate-spin duration-[3s]" />
                     <div className="absolute inset-0 flex items-center justify-center">
@@ -390,17 +357,15 @@ export default function ConsultationRoomPage() {
                         </Avatar>
                     </div>
                 </div>
-                <div className="space-y-3">
-                    <p className="text-white font-bold text-xl tracking-tight">Establishing Clinical Link...</p>
-                    <p className="text-[10px] text-slate-500 uppercase tracking-[0.3em] font-bold max-w-xs mx-auto leading-relaxed">
-                        End-to-end encrypted video tunnel with {peer?.firstName || 'the patient'}.
-                    </p>
+                <div className="text-center">
+                    <p className="font-bold text-xl mb-2">Establishing Secure Link</p>
+                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Encrypted Video Tunnel Active</p>
                 </div>
             </div>
           )}
 
-          {/* Local Video Overlay (WhatsApp Style - Mirrored PiP) */}
-          <div className="absolute top-20 right-4 sm:top-24 sm:right-8 w-28 sm:w-48 aspect-video rounded-3xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900 z-30 transition-all hover:scale-105">
+          {/* Local PIP */}
+          <div className="absolute top-24 right-8 w-32 sm:w-48 aspect-video rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900 z-30 transition-all">
              <video 
                 ref={localVideoRef} 
                 className={cn("w-full h-full object-cover -scale-x-100", isVideoOff && "hidden")} 
@@ -409,71 +374,47 @@ export default function ConsultationRoomPage() {
                 playsInline 
              />
              {isVideoOff && (
-                <div className="w-full h-full flex flex-col items-center justify-center gap-2 bg-slate-800 text-slate-500">
+                <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800 text-slate-500">
                     <VideoOff className="h-6 w-6" />
-                    <span className="text-[8px] font-bold uppercase tracking-tighter">Privacy Mode</span>
+                    <span className="text-[8px] font-bold uppercase mt-1">Privacy Mode</span>
                 </div>
              )}
           </div>
 
-          {/* Controls Bar */}
-          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-3 sm:gap-6 px-6 py-4 bg-slate-900/80 backdrop-blur-2xl rounded-[2.5rem] border border-white/10 shadow-[0_0_50px_rgba(0,0,0,0.5)] z-40">
-             <Button 
-                size="icon" 
-                variant={isMuted ? "destructive" : "secondary"} 
-                className="h-12 w-12 sm:h-14 sm:w-14 rounded-full transition-all active:scale-90" 
-                onClick={toggleMute}
-             >
-                {isMuted ? <MicOff className="h-5 w-5 sm:h-6 sm:w-6" /> : <Mic className="h-5 w-5 sm:h-6 sm:w-6" />}
+          {/* Controls */}
+          <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 px-6 py-4 bg-slate-900/80 backdrop-blur-2xl rounded-full border border-white/10 shadow-2xl z-40">
+             <Button size="icon" variant={isMuted ? "destructive" : "secondary"} className="h-12 w-12 rounded-full" onClick={toggleMute}>
+                {isMuted ? <MicOff /> : <Mic />}
              </Button>
-             <Button 
-                size="icon" 
-                variant={isVideoOff ? "destructive" : "secondary"} 
-                className="h-12 w-12 sm:h-14 sm:w-14 rounded-full transition-all active:scale-90" 
-                onClick={toggleVideo}
-             >
-                {isVideoOff ? <VideoOff className="h-5 w-5 sm:h-6 sm:w-6" /> : <Video className="h-5 w-5 sm:h-6 sm:w-6" />}
+             <Button size="icon" variant={isVideoOff ? "destructive" : "secondary"} className="h-12 w-12 rounded-full" onClick={toggleVideo}>
+                {isVideoOff ? <VideoOff /> : <Video />}
              </Button>
-             <div className="w-px h-10 bg-white/10 mx-2" />
-             <Button 
-                variant="destructive" 
-                className="h-12 sm:h-14 px-6 sm:px-10 rounded-full font-bold gap-3 text-xs sm:text-sm uppercase tracking-widest shadow-xl shadow-red-500/20" 
-                onClick={handleEndSession} 
-                disabled={isEnding}
-             >
-                {isEnding ? <Loader2 className="h-4 w-4 animate-spin" /> : <PhoneOff className="h-4 w-4" />} 
-                <span className="hidden sm:inline">End Session</span>
+             <div className="w-px h-8 bg-white/10 mx-2" />
+             <Button variant="destructive" className="h-12 px-8 rounded-full font-bold gap-2 text-xs uppercase" onClick={handleEndSession} disabled={isEnding}>
+                <PhoneOff className="h-4 w-4" /> End Session
              </Button>
           </div>
         </div>
 
-        {/* Clinical Sidebar Chat */}
+        {/* Sidebar Chat */}
         <aside className={cn(
-            "w-full lg:w-[400px] bg-slate-950/40 backdrop-blur-3xl border-l border-white/10 flex flex-col z-20 transition-all duration-500 ease-in-out",
+            "w-full lg:w-[380px] bg-slate-950/40 backdrop-blur-3xl border-l border-white/10 flex flex-col z-20 transition-all duration-500",
             isChatOpen ? "h-[300px] lg:h-auto opacity-100" : "h-0 lg:w-0 opacity-0 overflow-hidden"
         )}>
           <div className="p-4 border-b border-white/5 flex items-center justify-between">
             <div className="flex items-center gap-2">
                 <MessageSquare className="text-primary h-4 w-4" />
-                <h3 className="text-[10px] font-bold text-white uppercase tracking-[0.2em]">Clinical Chat</h3>
+                <h3 className="text-[10px] font-bold uppercase tracking-widest">Clinical Chat</h3>
             </div>
-            <Badge variant="outline" className="text-[8px] text-amber-500 border-amber-500/20 font-bold uppercase py-0.5">
-                <Clock className="h-2.5 w-2.5 mr-1" /> 50m Slot
-            </Badge>
           </div>
           
           <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
-            {messages.length > 0 ? messages.map((msg: any) => {
+            {messages.map((msg: any) => {
                 const isMe = msg.senderId === user?.uid;
-                const msgDate = msg.timestamp ? new Date(msg.timestamp) : null;
-                const displayTime = msgDate && isValid(msgDate) ? format(msgDate, "p") : '';
-
+                const displayTime = msg.timestamp ? format(new Date(msg.timestamp), "p") : '';
                 return (
                     <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
-                        <div className={cn(
-                            "max-w-[85%] p-3 rounded-2xl text-xs shadow-lg", 
-                            isMe ? "bg-primary text-white rounded-br-none" : "bg-slate-900/80 text-slate-200 rounded-bl-none border border-white/5"
-                        )}>
+                        <div className={cn("max-w-[85%] p-3 rounded-2xl text-xs shadow-lg", isMe ? "bg-primary text-white rounded-br-none" : "bg-slate-900/80 border border-white/5 rounded-bl-none")}>
                             <p className="leading-relaxed">{msg.content}</p>
                         </div>
                         <span className="text-[8px] text-slate-500 mt-1 uppercase font-bold tracking-tighter">
@@ -481,29 +422,18 @@ export default function ConsultationRoomPage() {
                         </span>
                     </div>
                 );
-            }) : (
-                <div className="h-full flex flex-col items-center justify-center text-slate-500 italic text-center p-8">
-                    <div className="h-12 w-12 rounded-full bg-white/5 flex items-center justify-center mb-4">
-                        <ShieldCheck className="h-6 w-6 opacity-20" />
-                    </div>
-                    <p className="text-[10px] uppercase font-bold tracking-[0.2em] opacity-40">Encryption Active</p>
-                </div>
-            )}
+            })}
             <div ref={chatScrollRef} />
           </div>
 
           <form onSubmit={handleSendMessage} className="p-4 bg-slate-950/80 border-t border-white/5 flex gap-2">
             <Input 
                 placeholder="Secure message..." 
-                className="bg-slate-900/50 border-white/10 text-white h-11 text-xs rounded-2xl focus:ring-primary placeholder:text-slate-600" 
+                className="bg-slate-900/50 border-white/10 text-white h-11 text-xs rounded-2xl" 
                 value={newMessage} 
                 onChange={(e) => setNewMessage(e.target.value)} 
             />
-            <Button 
-                type="submit" 
-                disabled={!newMessage.trim()} 
-                className="bg-primary hover:bg-primary/90 h-11 w-11 p-0 rounded-2xl shrink-0 shadow-lg shadow-primary/10"
-            >
+            <Button type="submit" disabled={!newMessage.trim()} className="bg-primary h-11 w-11 p-0 rounded-2xl">
                 <Send className="h-4 w-4" />
             </Button>
           </form>
