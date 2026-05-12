@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
@@ -28,6 +27,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar as DayPickerCalendar } from "@/components/ui/calendar";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 
 function PatientHistoryTab({ patientId }: { patientId: string }) {
     const firestore = useFirestore();
@@ -51,7 +51,7 @@ function PatientHistoryTab({ patientId }: { patientId: string }) {
                     <div key={apt.id} className="p-4 border-2 rounded-2xl bg-muted/5 space-y-2">
                         <div className="flex justify-between items-start">
                             <p className="text-[10px] font-bold text-primary uppercase tracking-widest">{format(new Date(apt.appointmentDateTime), "PPP")}</p>
-                            <Badge variant="outline" className="text-[9px] h-5 px-2">Performed</Badge>
+                            <Badge variant="outline" className="text-[10px] font-bold px-2.5 py-0.5 h-auto">Performed</Badge>
                         </div>
                         <div>
                             <p className="text-xs font-bold text-slate-700">Diagnosis:</p>
@@ -107,41 +107,46 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-lg rounded-3xl border-none shadow-2xl overflow-hidden p-0 max-h-[90vh] flex flex-col">
-                <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
-                    <DialogTitle className="text-xl sm:text-2xl font-headline">Clinical Rescheduling</DialogTitle>
-                    <DialogDescription className="text-slate-400">Modify the 30-minute interval for this patient.</DialogDescription>
+            <DialogContent className="sm:max-w-xl rounded-3xl border-none shadow-2xl overflow-hidden p-0 max-h-[90vh] flex flex-col">
+                <div className="bg-slate-900 p-6 sm:p-10 text-white shrink-0">
+                    <DialogTitle className="text-xl sm:text-3xl font-headline">Clinical Rescheduling</DialogTitle>
+                    <DialogDescription className="text-slate-400 mt-2">Modify the professional 30-minute interval for this patient.</DialogDescription>
                 </div>
                 <ScrollArea className="flex-1">
-                    <div className="p-6 sm:p-8 space-y-8">
+                    <div className="p-6 sm:p-10 space-y-10">
                         <div>
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">New Clinical Date</p>
-                            <div className="flex gap-3 overflow-x-auto pb-2 -mx-2 px-2 custom-scrollbar">
-                                {availableDates.map(day => (
-                                    <button 
-                                        key={day.date.toISOString()}
-                                        onClick={() => setSelectedDate(day.date)}
-                                        className={cn(
-                                            "p-4 rounded-2xl border text-center transition-all shrink-0 w-20 flex flex-col items-center gap-1",
-                                            isSameDay(selectedDate, day.date) ? 'bg-primary text-primary-foreground border-primary shadow-lg' : 'bg-background hover:bg-muted border-muted'
-                                        )}
-                                    >
-                                        <p className="text-[10px] font-bold uppercase opacity-80">{day.dayName}</p>
-                                        <p className="text-xl font-bold">{day.dayNumber}</p>
-                                    </button>
-                                ))}
-                            </div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 1: Select New Clinical Date</p>
+                            <Carousel opts={{ align: "start", loop: false }} className="w-full">
+                                <CarouselContent className="-ml-3">
+                                    {availableDates.map(day => (
+                                        <CarouselItem key={day.date.toISOString()} className="pl-3 basis-1/3 sm:basis-1/4">
+                                            <button 
+                                                onClick={() => setSelectedDate(day.date)}
+                                                className={cn(
+                                                    "w-full p-5 rounded-3xl border-2 text-center transition-all flex flex-col items-center gap-1",
+                                                    isSameDay(selectedDate, day.date) ? 'bg-primary text-primary-foreground border-primary shadow-xl scale-105' : 'bg-background hover:bg-muted border-slate-100 shadow-sm'
+                                                )}
+                                            >
+                                                <p className="text-[10px] font-bold uppercase opacity-80">{day.dayName}</p>
+                                                <p className="text-2xl font-bold font-headline">{day.dayNumber}</p>
+                                            </button>
+                                        </CarouselItem>
+                                    ))}
+                                </CarouselContent>
+                                <CarouselPrevious className="hidden sm:flex -left-4 bg-white/90 shadow-md" />
+                                <CarouselNext className="hidden sm:flex -right-4 bg-white/90 shadow-md" />
+                            </Carousel>
                         </div>
                         <div>
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">Available 30m Slots</p>
-                            <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 2: Available 30m Slots</p>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                                 {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => (
                                     <Button 
                                         key={time}
                                         variant={selectedTime === time ? 'default' : 'outline'}
                                         size="sm"
                                         onClick={() => setSelectedTime(time)}
-                                        className="rounded-xl text-[10px] font-bold h-9"
+                                        className="rounded-xl text-[10px] font-bold h-11 border-2"
                                     >
                                         {time}
                                     </Button>
@@ -150,10 +155,10 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
                         </div>
                     </div>
                 </ScrollArea>
-                <div className="p-6 sm:p-8 border-t bg-slate-50 shrink-0">
-                    <div className="flex gap-3">
-                        <Button variant="ghost" className="flex-1 h-12 rounded-xl font-bold" onClick={() => onOpenChange(false)}>Cancel</Button>
-                        <Button className="flex-1 h-12 rounded-xl font-bold shadow-lg bg-slate-900 hover:bg-slate-800" disabled={!selectedTime || isSaving} onClick={handleConfirm}>
+                <div className="p-6 sm:p-10 border-t bg-slate-50 shrink-0">
+                    <div className="flex gap-4">
+                        <Button variant="ghost" className="flex-1 h-14 rounded-2xl font-bold" onClick={() => onOpenChange(false)}>Cancel</Button>
+                        <Button className="flex-1 h-14 rounded-2xl font-bold shadow-2xl shadow-primary/20 bg-slate-900 hover:bg-slate-800 text-white" disabled={!selectedTime || isSaving} onClick={handleConfirm}>
                             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Move Session"}
                         </Button>
                     </div>
@@ -342,49 +347,53 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-3xl max-h-[90vh] flex flex-col">
+            <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-[2rem] max-h-[90vh] flex flex-col">
                 <Tabs defaultValue="overview" className="w-full flex-1 flex flex-col overflow-hidden">
-                    <div className="bg-slate-900 p-6 text-white shrink-0">
-                        <DialogTitle className="text-xl font-headline mb-4 text-white">Patient Management</DialogTitle>
-                        <TabsList className="bg-white/10 border-none text-white w-full grid grid-cols-3">
-                            <TabsTrigger value="overview">Overview</TabsTrigger>
-                            <TabsTrigger value="history">History</TabsTrigger>
-                            <TabsTrigger value="notes">Notes</TabsTrigger>
+                    <div className="bg-slate-900 p-6 sm:p-10 text-white shrink-0">
+                        <DialogTitle className="text-2xl font-headline mb-6 text-white">Patient Management</DialogTitle>
+                        <TabsList className="bg-white/10 border-none text-white w-full grid grid-cols-3 h-12 p-1 rounded-xl">
+                            <TabsTrigger value="overview" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900">Overview</TabsTrigger>
+                            <TabsTrigger value="history" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900">History</TabsTrigger>
+                            <TabsTrigger value="notes" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900">Notes</TabsTrigger>
                         </TabsList>
                     </div>
                     <ScrollArea className="flex-1">
-                        <div className="p-6 sm:p-8">
-                            <TabsContent value="overview" className="space-y-6 m-0">
-                                <div className="flex items-center gap-4 p-5 border rounded-2xl bg-muted/20">
-                                    <Avatar className="h-14 w-14 shadow-sm"><AvatarFallback className="bg-primary text-white font-bold">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback></Avatar>
-                                    {patient && <div className="min-w-0"><p className="font-bold text-lg truncate">{patient.firstName} {patient.lastName}</p><p className="text-xs text-muted-foreground">{patient.email}</p></div>}
+                        <div className="p-6 sm:p-10">
+                            <TabsContent value="overview" className="space-y-8 m-0">
+                                <div className="flex items-center gap-6 p-6 border-2 rounded-[2rem] bg-muted/20">
+                                    <Avatar className="h-16 w-16 shadow-lg border-2 border-white"><AvatarFallback className="bg-primary text-white font-bold text-lg">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback></Avatar>
+                                    {patient && <div className="min-w-0"><p className="font-bold text-xl truncate text-slate-900">{patient.firstName} {patient.lastName}</p><p className="text-xs text-muted-foreground font-medium uppercase tracking-widest">{patient.email}</p></div>}
                                 </div>
-                                <div className="flex flex-col gap-3 pt-4">
+                                <div className="flex flex-col gap-4 pt-4">
                                     {isCompleted ? (
-                                        <div className="p-6 bg-green-50 border border-green-200 rounded-2xl text-center">
-                                            <ShieldCheck className="h-10 w-10 text-green-600 mx-auto mb-2" />
-                                            <p className="font-bold text-green-800">Session Successfully Performed</p>
-                                            <p className="text-xs text-green-600">This clinical record is immutable.</p>
+                                        <div className="p-8 bg-green-50 border-2 border-green-100 rounded-3xl text-center space-y-3">
+                                            <ShieldCheck className="h-12 w-12 text-green-600 mx-auto" />
+                                            <div className="space-y-1">
+                                                <p className="font-bold text-xl text-green-800">Session Performed</p>
+                                                <p className="text-xs text-green-600 font-medium italic">Clinical record secured and archived.</p>
+                                            </div>
                                         </div>
                                     ) : isLive ? (
-                                        <Button onClick={handleStartRoom} className="h-14 text-base font-bold shadow-xl shadow-red-500/20 bg-red-600 hover:bg-red-700 animate-pulse rounded-2xl text-white">
+                                        <Button onClick={handleStartRoom} className="h-16 text-lg font-bold shadow-2xl shadow-red-500/20 bg-red-600 hover:bg-red-700 animate-pulse rounded-2xl text-white">
                                             <Video className="mr-3 h-6 w-6" /> Start Video Room
                                         </Button>
                                     ) : isExpired ? (
-                                        <div className="space-y-4">
-                                            <div className="p-6 bg-red-50 border border-red-200 rounded-2xl text-center">
-                                                <AlertCircle className="h-10 w-10 text-red-600 mx-auto mb-2" />
-                                                <p className="font-bold text-red-800">30m Clinical Window Expired</p>
-                                                <p className="text-xs text-red-600">This session has concluded automatically.</p>
+                                        <div className="space-y-6">
+                                            <div className="p-8 bg-red-50 border-2 border-red-100 rounded-3xl text-center space-y-3">
+                                                <AlertCircle className="h-12 w-12 text-red-600 mx-auto" />
+                                                <div className="space-y-1">
+                                                    <p className="font-bold text-xl text-red-800">30m Session Expired</p>
+                                                    <p className="text-xs text-red-600 font-medium italic">Clinical window has concluded automatically.</p>
+                                                </div>
                                             </div>
-                                            <Button variant="outline" className="h-14 text-base font-bold w-full rounded-2xl gap-3 border-2" onClick={() => onPostpone(appointment)}>
+                                            <Button variant="outline" className="h-16 text-lg font-bold w-full rounded-2xl gap-3 border-2 hover:bg-primary/5 transition-all" onClick={() => onPostpone(appointment)}>
                                                 <RefreshCw className="h-5 w-5 text-primary" /> Reschedule Session
                                             </Button>
                                         </div>
                                     ) : (
                                         <>
-                                            <Button className="h-14 text-base font-bold opacity-70 cursor-not-allowed w-full rounded-2xl" disabled>30m Window Locked <Clock className="ml-3 h-5 w-5" /></Button>
-                                            <Button variant="outline" className="h-14 text-base font-bold w-full rounded-2xl gap-3 border-2" onClick={() => onPostpone(appointment)}>
+                                            <Button className="h-16 text-lg font-bold opacity-70 cursor-not-allowed w-full rounded-2xl bg-slate-100 text-slate-500" disabled>30m Window Locked <Clock className="ml-3 h-6 w-6" /></Button>
+                                            <Button variant="outline" className="h-16 text-lg font-bold w-full rounded-2xl gap-3 border-2 hover:bg-primary/5 transition-all" onClick={() => onPostpone(appointment)}>
                                                 <RefreshCw className="h-5 w-5 text-primary" /> Postpone Session
                                             </Button>
                                         </>
@@ -395,17 +404,17 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
                                 <PatientHistoryTab patientId={appointment.patientId} />
                             </TabsContent>
                             <TabsContent value="notes" className="m-0">
-                                <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                                <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                                     <FormField control={form.control} name="diagnosis" render={({ field }) => (
-                                        <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Primary Diagnosis</FormLabel><FormControl><Input placeholder="Summary of findings..." className="h-12 border-2 rounded-xl" {...field} disabled={isCompleted} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-[0.2em] text-muted-foreground">Clinical Findings</FormLabel><FormControl><Input placeholder="Summary of primary diagnosis..." className="h-14 border-2 rounded-2xl px-5" {...field} disabled={isCompleted} /></FormControl><FormMessage /></FormItem>
                                     )} />
                                     <FormField control={form.control} name="prescription" render={({ field }) => (
-                                        <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-widest text-muted-foreground">Treatment & Advice</FormLabel><FormControl><Textarea placeholder="Prescriptions and patient instructions..." rows={6} className="resize-none border-2 rounded-xl" {...field} disabled={isCompleted} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-[0.2em] text-muted-foreground">Treatment & Advice</FormLabel><FormControl><Textarea placeholder="Prescriptions, dosage, and follow-up patient instructions..." rows={8} className="resize-none border-2 rounded-2xl p-5" {...field} disabled={isCompleted} /></FormControl><FormMessage /></FormItem>
                                     )} />
                                     {!isCompleted ? (
-                                        <Button type="submit" className="w-full h-14 text-lg font-bold rounded-2xl shadow-lg">Finalize & Perform Consultation</Button>
+                                        <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-2xl shadow-primary/20 bg-primary text-white">Finalize & Perform Consultation</Button>
                                     ) : (
-                                        <div className="p-4 bg-muted text-center rounded-xl text-xs font-bold uppercase text-muted-foreground border border-dashed">Session Performed - Edits Disabled</div>
+                                        <div className="p-5 bg-muted/30 text-center rounded-2xl text-xs font-bold uppercase tracking-widest text-muted-foreground border-2 border-dashed">Session Performed • Edits Locked</div>
                                     )}
                                 </form></Form>
                             </TabsContent>
@@ -434,26 +443,44 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl rounded-3xl p-0 flex flex-col">
-                <DialogHeader className="p-6 border-b"><DialogTitle className="text-xl font-headline">Clinical Hour Configuration</DialogTitle></DialogHeader>
+            <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl rounded-3xl p-0 flex flex-col border-none shadow-2xl">
+                <div className="p-8 sm:p-10 border-b bg-slate-900 text-white shrink-0">
+                    <DialogTitle className="text-2xl font-headline">Clinical Hour Configuration</DialogTitle>
+                    <DialogDescription className="text-slate-400 mt-1">Audit and update your available 30-minute blocks.</DialogDescription>
+                </div>
                 <ScrollArea className="flex-1">
-                    <div className="space-y-8 p-6">
-                        <div className="p-4 bg-primary/5 rounded-xl border border-primary/10 flex gap-3">
-                            <AlertCircle className="h-5 w-5 text-primary shrink-0" />
-                            <p className="text-xs text-muted-foreground leading-relaxed">
-                                Unchecked slots are marked as <strong>Unavailable</strong> and are hidden from patient booking views.
+                    <div className="space-y-8 p-8 sm:p-10">
+                        <div className="p-5 bg-primary/5 rounded-2xl border border-primary/10 flex gap-4">
+                            <AlertCircle className="h-6 w-6 text-primary shrink-0" />
+                            <p className="text-xs text-muted-foreground leading-relaxed font-medium italic">
+                                Unchecked slots are marked as <strong>Unavailable</strong> and are instantly hidden from patient booking views across the platform.
                             </p>
                         </div>
                         {Object.entries(timeSlots).map(([session, slots]) => (
-                            <div key={session} className="p-5 rounded-2xl bg-muted/20 border">
-                                <h5 className="text-[10px] font-bold uppercase mb-5 text-primary tracking-[0.2em]">{session} 30m Block</h5>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">{slots.map(slot => (<div key={slot} className="flex items-center space-x-3 p-3 border-2 rounded-xl bg-background hover:border-primary/30 transition-colors"><Checkbox checked={!disabledSlots.includes(slot)} onCheckedChange={() => setDisabledSlots(prev => prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot])}/><span className="text-xs font-bold">{slot}</span></div>))}</div>
+                            <div key={session} className="p-6 rounded-[2rem] bg-muted/20 border">
+                                <h5 className="text-[10px] font-bold uppercase mb-6 text-primary tracking-[0.2em]">{session} 30m Session Block</h5>
+                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                                    {slots.map(slot => (
+                                        <div key={slot} className="flex items-center space-x-3 p-4 border-2 rounded-2xl bg-white hover:border-primary/30 transition-all shadow-sm group">
+                                            <Checkbox 
+                                                id={`slot-${slot}`} 
+                                                checked={!disabledSlots.includes(slot)} 
+                                                onCheckedChange={() => setDisabledSlots(prev => prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot])}
+                                                className="h-5 w-5 rounded-lg border-2"
+                                            />
+                                            <label htmlFor={`slot-${slot}`} className="text-xs font-bold cursor-pointer select-none group-hover:text-primary transition-colors">{slot}</label>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         ))}
                     </div>
                 </ScrollArea>
-                <div className="p-6 border-t bg-slate-50">
-                    <Button onClick={handleSave} className="w-full h-14 text-lg font-bold rounded-2xl" disabled={isSaving}>Apply Slot Schedule</Button>
+                <div className="p-8 sm:p-10 border-t bg-slate-50 shrink-0">
+                    <Button onClick={handleSave} className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl shadow-primary/20 text-white bg-primary" disabled={isSaving}>
+                        {isSaving ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
+                        Apply Slot Schedule
+                    </Button>
                 </div>
             </DialogContent>
         </Dialog>
@@ -483,37 +510,40 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="rounded-3xl sm:max-w-md">
-                <DialogHeader><DialogTitle className="text-xl font-headline">Absence History Entry</DialogTitle></DialogHeader>
+            <DialogContent className="rounded-[2.5rem] sm:max-w-md border-none shadow-2xl p-0 overflow-hidden">
+                <div className="bg-slate-900 p-8 text-white text-center">
+                    <DialogTitle className="text-2xl font-headline">Absence History Entry</DialogTitle>
+                    <DialogDescription className="text-slate-400 mt-1">Audit trail for professional clinical pauses.</DialogDescription>
+                </div>
                 <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6 pt-4">
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 p-8">
                         <FormField control={form.control} name="requestedDate" render={({ field }) => (
                             <FormItem className="flex flex-col">
-                                <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Select Clinical Date</FormLabel>
+                                <FormLabel className="text-[10px] uppercase font-bold tracking-[0.2em] text-muted-foreground ml-1">Select Clinical Date</FormLabel>
                                 <Popover>
                                     <PopoverTrigger asChild>
                                         <FormControl>
-                                            <Button variant="outline" className="w-full h-12 border-2 rounded-xl text-left font-normal px-4">
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {field.value ? format(field.value, "PPP") : "Select"}
+                                            <Button variant="outline" className="w-full h-14 border-2 rounded-2xl text-left font-bold px-5 text-sm">
+                                                <CalendarIcon className="mr-3 h-5 w-5 text-primary" />
+                                                {field.value ? format(field.value, "PPP") : "Pick an audit date"}
                                             </Button>
                                         </FormControl>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                        <DayPickerCalendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(d) => isBefore(d, addDays(new Date(), 1))} initialFocus />
+                                    <PopoverContent className="w-auto p-0 rounded-3xl shadow-2xl border-none" align="center">
+                                        <DayPickerCalendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(d) => isBefore(d, addDays(new Date(), 1))} initialFocus className="rounded-3xl" />
                                     </PopoverContent>
                                 </Popover>
                             </FormItem>
                         )} />
                         <FormField control={form.control} name="reason" render={({ field }) => (
                             <FormItem>
-                                <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground">Justification</FormLabel>
+                                <FormLabel className="text-[10px] uppercase font-bold tracking-[0.2em] text-muted-foreground ml-1">Professional Justification</FormLabel>
                                 <FormControl>
-                                    <Textarea placeholder="Planned leave context (e.g. Travel, Workshop)" rows={4} className="resize-none border-2 rounded-xl" {...field} />
+                                    <Textarea placeholder="Detail the context (e.g. Travel, Workshop, Personal Audit)" rows={5} className="resize-none border-2 rounded-2xl p-5 text-sm focus:border-primary transition-colors" {...field} />
                                 </FormControl>
                             </FormItem>
                         )} />
-                        <Button type="submit" className="w-full h-14 text-lg font-bold rounded-2xl">Log for History</Button>
+                        <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-2xl shadow-primary/20 text-white bg-primary">Log for History Audit</Button>
                     </form>
                 </Form>
             </DialogContent>
@@ -629,8 +659,12 @@ export default function DoctorPortalPage() {
         });
 
         const pending = appointments.filter(apt => apt && apt.status === 'scheduled').length;
-        const todayRev = allToday.reduce((sum, a) => sum + (a.amount || 1500), 0);
-        const lifetimeRev = appointments.reduce((sum, a) => sum + (a.amount || 1500), 0);
+        
+        // Accurate real-time revenue: includes everything scheduled for today that was paid, OR everything performed today
+        const todayPaidAndValid = allToday.filter(a => a.paymentStatus === 'approved');
+        const todayRev = todayPaidAndValid.reduce((sum, a) => sum + (a.amount || 1500), 0);
+        
+        const lifetimeRev = appointments.filter(a => a && a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
         const totalCompleted = appointments.filter(a => a && a.status === 'completed').length;
         const uniquePatients = new Set(appointments.filter(a => a && a.status === 'completed').map(a => a.patientId)).size;
 
@@ -856,14 +890,14 @@ export default function DoctorPortalPage() {
                 </div>
 
                 <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-                    <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-3xl">
-                        <DialogHeader>
-                            <DialogTitle className="flex items-center gap-3 text-2xl font-headline text-foreground">
-                                <History className="h-6 w-6 text-primary" /> Clinical Analytics
+                    <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-3xl p-0 overflow-hidden">
+                        <div className="bg-slate-900 p-8 text-white text-center">
+                            <DialogTitle className="flex items-center justify-center gap-3 text-2xl font-headline text-white">
+                                <History className="h-6 w-6 text-primary" /> My History
                             </DialogTitle>
-                            <DialogDescription className="text-sm">Summary of your professional history.</DialogDescription>
-                        </DialogHeader>
-                        <div className="grid grid-cols-1 gap-6 py-8">
+                            <DialogDescription className="text-slate-400 mt-1">Summary of your professional clinical activity.</DialogDescription>
+                        </div>
+                        <div className="grid grid-cols-1 gap-6 p-8">
                             <div className="p-6 rounded-3xl bg-primary/5 border-2 border-primary/10 space-y-1 text-center">
                                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Aggregate Earnings</p>
                                 <p className="text-3xl sm:text-4xl font-bold text-primary">PKR {stats.totalRevenue.toLocaleString()}</p>
@@ -877,7 +911,7 @@ export default function DoctorPortalPage() {
                                 <p className="text-3xl sm:text-4xl font-bold text-blue-600">{stats.uniquePatients}</p>
                             </div>
                         </div>
-                        <DialogFooter><Button variant="secondary" className="w-full h-14 font-bold rounded-2xl" onClick={() => setIsHistoryOpen(false)}>Close Summary</Button></DialogFooter>
+                        <DialogFooter className="p-8 pt-0"><Button variant="secondary" className="w-full h-14 font-bold rounded-2xl" onClick={() => setIsHistoryOpen(false)}>Close Summary</Button></DialogFooter>
                     </DialogContent>
                 </Dialog>
 

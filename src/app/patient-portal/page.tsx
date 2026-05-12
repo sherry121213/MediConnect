@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,6 +20,7 @@ import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean, onOpenChange: (o: boolean) => void, appointment: any }) {
     const firestore = useFirestore();
@@ -61,50 +61,59 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-[2xl] rounded-3xl border-none shadow-2xl overflow-hidden p-0">
-                <div className="bg-primary p-8 text-white">
-                    <DialogTitle className="text-2xl font-headline">Reschedule Consultation</DialogTitle>
-                    <DialogDescription className="text-primary-foreground/80">Select a new 30-minute interval for your session.</DialogDescription>
+            <DialogContent className="sm:max-w-xl rounded-[2rem] border-none shadow-2xl overflow-hidden p-0 max-h-[90vh] flex flex-col">
+                <div className="bg-primary p-8 sm:p-10 text-white shrink-0">
+                    <DialogTitle className="text-2xl sm:text-3xl font-headline">Reschedule Consultation</DialogTitle>
+                    <DialogDescription className="text-primary-foreground/80 mt-2 font-medium">Select a new professional 30-minute interval for your session.</DialogDescription>
                 </div>
-                <div className="p-8 space-y-8">
-                    <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">Step 1: Select Date</p>
-                        <div className="flex gap-3 overflow-x-auto pb-4 custom-scrollbar">
-                            {availableDates.map(day => (
-                                <button 
-                                    key={day.date.toISOString()}
-                                    onClick={() => setSelectedDate(day.date)}
-                                    className={cn(
-                                        "p-4 rounded-2xl border text-center transition-all shrink-0 w-20 flex flex-col items-center gap-1",
-                                        isSameDay(selectedDate, day.date) ? 'bg-primary text-primary-foreground border-primary shadow-lg' : 'bg-background hover:bg-muted border-muted'
-                                    )}
-                                >
-                                    <p className="text-[10px] font-bold uppercase opacity-80">{day.dayName}</p>
-                                    <p className="text-xl font-bold">{day.dayNumber}</p>
-                                </button>
-                            ))}
+                <ScrollArea className="flex-1">
+                    <div className="p-8 sm:p-10 space-y-10">
+                        <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 1: Select Audit Date</p>
+                            <Carousel opts={{ align: "start", loop: false }} className="w-full">
+                                <CarouselContent className="-ml-3">
+                                    {availableDates.map(day => (
+                                        <CarouselItem key={day.date.toISOString()} className="pl-3 basis-1/3 sm:basis-1/4">
+                                            <button 
+                                                onClick={() => setSelectedDate(day.date)}
+                                                className={cn(
+                                                    "w-full p-5 rounded-3xl border-2 text-center transition-all flex flex-col items-center gap-1",
+                                                    isSameDay(selectedDate, day.date) ? 'bg-primary text-primary-foreground border-primary shadow-xl scale-105' : 'bg-background hover:bg-muted border-slate-100 shadow-sm'
+                                                )}
+                                            >
+                                                <p className="text-[10px] font-bold uppercase opacity-80">{day.dayName}</p>
+                                                <p className="text-2xl font-bold font-headline">{day.dayNumber}</p>
+                                            </button>
+                                        </CarouselItem>
+                                    ))}
+                                </CarouselContent>
+                                <CarouselPrevious className="hidden sm:flex -left-4 bg-white/90 shadow-md" />
+                                <CarouselNext className="hidden sm:flex -right-4 bg-white/90 shadow-md" />
+                            </Carousel>
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 2: Available 30m Slots</p>
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => (
+                                    <Button 
+                                        key={time}
+                                        variant={selectedTime === time ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setSelectedTime(time)}
+                                        className="rounded-2xl text-[10px] font-bold h-11 border-2"
+                                        disabled={doctor?.availability?.disabledSlots?.includes(time)}
+                                    >
+                                        {time}
+                                    </Button>
+                                ))}
+                            </div>
                         </div>
                     </div>
-                    <div>
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4">Step 2: Select 30m Slot</p>
-                        <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
-                            {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => (
-                                <Button 
-                                    key={time}
-                                    variant={selectedTime === time ? 'default' : 'outline'}
-                                    size="sm"
-                                    onClick={() => setSelectedTime(time)}
-                                    className="rounded-xl text-[10px] font-bold h-9"
-                                    disabled={doctor?.availability?.disabledSlots?.includes(time)}
-                                >
-                                    {time}
-                                </Button>
-                            ))}
-                        </div>
-                    </div>
-                    <div className="flex gap-3 pt-4">
-                        <Button variant="ghost" className="flex-1 h-12 rounded-xl font-bold" onClick={() => onOpenChange(false)}>Cancel</Button>
-                        <Button className="flex-1 h-12 rounded-xl font-bold shadow-lg shadow-primary/20" disabled={!selectedTime || isSaving} onClick={handleConfirm}>
+                </ScrollArea>
+                <div className="p-8 sm:p-10 border-t bg-slate-50 shrink-0">
+                    <div className="flex gap-4">
+                        <Button variant="ghost" className="flex-1 h-14 rounded-2xl font-bold" onClick={() => onOpenChange(false)}>Cancel</Button>
+                        <Button className="flex-1 h-14 rounded-2xl font-bold shadow-2xl shadow-primary/20 bg-primary text-white" disabled={!selectedTime || isSaving} onClick={handleConfirm}>
                             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm Postpone"}
                         </Button>
                     </div>
@@ -167,7 +176,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                         </div>
                     </div>
                     <div className="mt-auto pt-2 flex items-center justify-between gap-2">
-                         <Badge className={cn("text-[9px] uppercase font-bold px-2 py-0.5 shrink-0", apt.status === 'completed' ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600")}>
+                         <Badge className={cn("text-[9px] uppercase font-bold px-2 py-0.5 shrink-0 h-auto", apt.status === 'completed' ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600")}>
                             {apt.status === 'completed' ? 'Performed' : apt.status}
                         </Badge>
                         <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-[9px] font-bold text-primary shrink-0">
@@ -226,14 +235,14 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                 <div className="flex flex-row sm:flex-col gap-2 shrink-0 w-full sm:w-auto">
                     {apt.paymentStatus === 'pending' ? (
                         <div className="flex flex-col gap-2 w-full min-w-[150px]">
-                            <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 px-3 py-2 font-bold text-[9px] sm:text-[10px] whitespace-nowrap w-full justify-center">
+                            <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 px-3 py-2 font-bold text-[9px] sm:text-[10px] whitespace-nowrap w-full justify-center h-auto">
                                 <Clock className="w-3 h-3 mr-1.5" /> Payment Under Review
                             </Badge>
                             <p className="text-[8px] text-muted-foreground text-center uppercase font-bold tracking-tighter">Awaiting Admin Approval</p>
                         </div>
                     ) : apt.paymentStatus === 'rejected' ? (
                         <div className="flex flex-col gap-2 w-full min-w-[150px]">
-                            <Badge variant="destructive" className="px-3 py-2 font-bold text-[9px] sm:text-[10px] whitespace-nowrap w-full justify-center">
+                            <Badge variant="destructive" className="px-3 py-2 font-bold text-[9px] sm:text-[10px] whitespace-nowrap w-full justify-center h-auto">
                                 <X className="w-3 h-3 mr-1.5" /> Payment Rejected
                             </Badge>
                             <p className="text-[8px] text-destructive text-center uppercase font-bold tracking-tighter">Contact Support Chat</p>
@@ -272,7 +281,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                              <Button variant="ghost" asChild className="gap-2 text-primary font-bold hover:bg-primary/5 flex-1 sm:w-auto justify-center h-9 text-[10px]">
                                 <Link href={`/appointments/${apt.id}`}><FileText className="h-4 w-4" /> Visit Summary</Link>
                             </Button>
-                            <Badge variant={apt.status === 'completed' ? 'secondary' : 'destructive'} className="text-[9px] uppercase px-2 py-0.5 mx-auto shrink-0">
+                            <Badge variant={apt.status === 'completed' ? 'secondary' : 'destructive'} className="text-[10px] font-bold uppercase tracking-wider px-3 py-0.5 mx-auto shrink-0 h-auto">
                                 {apt.status === 'completed' ? 'Performed' : apt.status}
                             </Badge>
                         </div>
@@ -375,52 +384,54 @@ export default function PatientPortalPage() {
 
                 <div className="grid lg:grid-cols-12 gap-8 lg:gap-10">
                     <div className="lg:col-span-4 space-y-6">
-                        <Card className="overflow-hidden border-none shadow-2xl bg-white/80 backdrop-blur-md">
-                            <CardHeader className="bg-primary text-primary-foreground pb-8 pt-8 sm:pb-10 sm:pt-10 px-6 sm:px-8">
-                                <CardTitle className="text-[10px] sm:text-xs font-bold uppercase tracking-widest opacity-80">Patient Portal</CardTitle>
-                                <CardDescription className="text-2xl sm:text-3xl font-bold font-headline text-white mt-2">Hello, {userData?.firstName}</CardDescription>
+                        <Card className="overflow-hidden border-none shadow-2xl bg-white/80 backdrop-blur-md rounded-[2rem]">
+                            <CardHeader className="bg-primary text-primary-foreground pb-8 pt-8 sm:pb-12 sm:pt-12 px-6 sm:px-10">
+                                <CardTitle className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] opacity-80">Patient Portal</CardTitle>
+                                <CardDescription className="text-3xl sm:text-4xl font-bold font-headline text-white mt-3">Hello, {userData?.firstName}</CardDescription>
                             </CardHeader>
-                            <CardContent className="pt-6 sm:pt-8 space-y-3 px-6 sm:px-8">
-                                <Button className="w-full justify-start h-14 text-base font-bold shadow-lg rounded-xl" asChild><Link href="/find-a-doctor"><PlusCircle className="mr-3 h-5 w-5" /> Book Consultation</Link></Button>
-                                <Button variant="outline" className="w-full justify-start h-14 text-base font-bold border-2 rounded-xl" asChild><Link href="/patient-portal/messages"><MessageSquare className="mr-3 h-5 w-5 text-primary" /> Message Center</Link></Button>
-                                <Button variant="outline" className="w-full justify-start h-14 text-base font-bold border-2 rounded-xl" asChild><Link href="/patient-portal/history"><History className="mr-3 h-5 w-5 text-primary" /> My History</Link></Button>
+                            <CardContent className="pt-8 sm:pt-10 space-y-4 px-6 sm:px-10">
+                                <Button className="w-full justify-start h-16 text-base font-bold shadow-xl shadow-primary/20 rounded-2xl" asChild><Link href="/find-a-doctor"><PlusCircle className="mr-3 h-6 w-6" /> Book Consultation</Link></Button>
+                                <Button variant="outline" className="w-full justify-start h-16 text-base font-bold border-2 rounded-2xl hover:bg-primary/5 transition-all" asChild><Link href="/patient-portal/messages"><MessageSquare className="mr-3 h-6 w-6 text-primary" /> Message Center</Link></Button>
+                                <Button variant="outline" className="w-full justify-start h-16 text-base font-bold border-2 rounded-2xl hover:bg-primary/5 transition-all" asChild><Link href="/patient-portal/history"><History className="mr-3 h-6 w-6 text-primary" /> My History</Link></Button>
                             </CardContent>
                         </Card>
 
-                        <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden rounded-3xl">
-                            <CardContent className="p-6 space-y-4 text-center">
-                                <div className="h-12 w-12 rounded-full bg-primary/20 flex items-center justify-center mx-auto">
-                                    <HelpCircle className="h-6 w-6 text-primary" />
+                        <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden rounded-[2rem]">
+                            <CardContent className="p-8 space-y-5 text-center">
+                                <div className="h-14 w-14 rounded-3xl bg-primary/20 flex items-center justify-center mx-auto shadow-inner">
+                                    <HelpCircle className="h-7 w-7 text-primary" />
                                 </div>
-                                <h4 className="font-bold">Need Help?</h4>
-                                <p className="text-xs text-slate-400">Facing issues with payments or bookings? Chat with our Admin team instantly.</p>
+                                <div className="space-y-2">
+                                    <h4 className="font-bold text-lg">Need Help?</h4>
+                                    <p className="text-xs text-slate-400 leading-relaxed">Facing issues with payments or bookings? Chat with our Admin team instantly using the bubble below.</p>
+                                </div>
                                 <div className="p-3 bg-white/5 rounded-xl border border-white/10 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                                    Use the Messenger Bubble Below
+                                    Encrypted Support Link Active
                                 </div>
                             </CardContent>
                         </Card>
                     </div>
 
-                    <div className="lg:col-span-8 space-y-8 sm:space-y-12">
+                    <div className="lg:col-span-8 space-y-10 sm:space-y-16">
                         <section>
-                            <div className="flex items-center justify-between mb-4 sm:mb-6">
-                                <h2 className="text-xl sm:text-2xl font-bold font-headline flex items-center gap-4">
-                                    <div className="h-6 sm:h-8 w-1.5 bg-primary rounded-full shrink-0"></div>
+                            <div className="flex items-center justify-between mb-6 sm:mb-8">
+                                <h2 className="text-2xl sm:text-3xl font-bold font-headline flex items-center gap-5">
+                                    <div className="h-8 sm:h-10 w-2 bg-primary rounded-full shrink-0"></div>
                                     Scheduled consultations
                                 </h2>
                             </div>
-                            {isLoadingAppointments ? <div className="py-12 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary/30" /></div> : 
-                             upcomingAppointments.length === 0 ? <Card className="border-dashed border-2 bg-transparent rounded-2xl"><CardContent className="py-12 sm:py-16 text-center px-4"><Calendar className="h-12 w-12 text-muted-foreground/20 mx-auto mb-4" /><p className="text-muted-foreground">No upcoming 30m consultations.</p></CardContent></Card> :
-                             <div className="space-y-4">{upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={true} onPostpone={handlePostpone} isMounted={mounted} />)}</div>}
+                            {isLoadingAppointments ? <div className="py-16 flex justify-center"><Loader2 className="h-10 w-10 animate-spin text-primary/30" /></div> : 
+                             upcomingAppointments.length === 0 ? <Card className="border-dashed border-4 bg-transparent rounded-[2.5rem]"><CardContent className="py-20 sm:py-24 text-center px-4"><Calendar className="h-16 w-16 text-muted-foreground/10 mx-auto mb-6" /><p className="text-muted-foreground font-medium">No upcoming 30m consultations.</p></CardContent></Card> :
+                             <div className="space-y-5">{upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={true} onPostpone={handlePostpone} isMounted={mounted} />)}</div>}
                         </section>
 
                         <section>
-                            <div className="flex items-center justify-between mb-4 sm:mb-6">
-                                <h2 className="text-xl sm:text-2xl font-bold font-headline flex items-center gap-4">
-                                    <div className="h-6 sm:h-8 w-1.5 bg-muted rounded-full shrink-0"></div>
+                            <div className="flex items-center justify-between mb-6 sm:mb-8">
+                                <h2 className="text-2xl sm:text-3xl font-bold font-headline flex items-center gap-5">
+                                    <div className="h-8 sm:h-10 w-2 bg-muted rounded-full shrink-0"></div>
                                     History
                                 </h2>
-                                {recentPastAppointments.length > 0 && <Button variant="ghost" size="sm" asChild className="text-primary font-bold text-xs"><Link href="/patient-portal/history">View Archive <ChevronRight className="h-4 w-4" /></Link></Button>}
+                                {recentPastAppointments.length > 0 && <Button variant="ghost" size="sm" asChild className="text-primary font-bold text-sm hover:bg-primary/5 px-4 h-10 rounded-xl"><Link href="/patient-portal/history">View Full Archive <ChevronRight className="ml-2 h-4 w-4" /></Link></Button>}
                             </div>
                             
                             {recentPastAppointments.length > 0 ? (
@@ -436,12 +447,14 @@ export default function PatientPortalPage() {
                                                 </CarouselItem>
                                             ))}
                                         </CarouselContent>
-                                        <CarouselPrevious className="hidden sm:flex -left-4 bg-white/90 backdrop-blur" />
-                                        <CarouselNext className="hidden sm:flex -right-4 bg-white/90 backdrop-blur" />
+                                        <CarouselPrevious className="hidden sm:flex -left-4 bg-white/90 backdrop-blur shadow-lg border-none" />
+                                        <CarouselNext className="hidden sm:flex -right-4 bg-white/90 backdrop-blur shadow-lg border-none" />
                                     </Carousel>
                                 </div>
                             ) : (
-                                <p className="text-center py-12 text-muted-foreground text-sm italic">No past clinical records.</p>
+                                <div className="text-center py-20 bg-muted/10 rounded-[2.5rem] border-2 border-dashed">
+                                    <p className="text-muted-foreground text-sm italic font-medium">No past clinical records found.</p>
+                                </div>
                             )}
                         </section>
                     </div>
