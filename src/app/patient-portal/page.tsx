@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, PhoneCall, RefreshCw, CalendarIcon, ShieldCheck, PhoneIncoming, X, HelpCircle } from "lucide-react";
+import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, PhoneCall, RefreshCw, CalendarIcon, ShieldCheck, PhoneIncoming, X, HelpCircle, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -189,9 +189,19 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted }: { apt: any,
                 </div>
                 <div className="flex flex-row sm:flex-col gap-2 shrink-0 w-full sm:w-auto">
                     {apt.paymentStatus === 'pending' ? (
-                        <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 px-3 py-2 font-bold text-[9px] sm:text-[10px] whitespace-nowrap w-full justify-center">
-                            <Clock className="w-3 h-3 mr-1.5" /> Verifying Payment
-                        </Badge>
+                        <div className="flex flex-col gap-2 w-full min-w-[150px]">
+                            <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 px-3 py-2 font-bold text-[9px] sm:text-[10px] whitespace-nowrap w-full justify-center">
+                                <Clock className="w-3 h-3 mr-1.5" /> Payment Under Review
+                            </Badge>
+                            <p className="text-[8px] text-muted-foreground text-center uppercase font-bold tracking-tighter">Awaiting Admin Approval</p>
+                        </div>
+                    ) : apt.paymentStatus === 'rejected' ? (
+                        <div className="flex flex-col gap-2 w-full min-w-[150px]">
+                            <Badge variant="destructive" className="px-3 py-2 font-bold text-[9px] sm:text-[10px] whitespace-nowrap w-full justify-center">
+                                <X className="w-3 h-3 mr-1.5" /> Payment Rejected
+                            </Badge>
+                            <p className="text-[8px] text-destructive text-center uppercase font-bold tracking-tighter">Contact Support Chat</p>
+                        </div>
                     ) : isUpcoming && !isExpired ? (
                         <>
                             {!isLive && (
@@ -273,7 +283,7 @@ export default function PatientPortalPage() {
                 const isMissed = now.getTime() > endTime;
                 return !isMissed && 
                        apt.status === 'scheduled' &&
-                       apt.paymentStatus === 'approved';
+                       (apt.paymentStatus === 'approved' || apt.paymentStatus === 'pending' || apt.paymentStatus === 'rejected');
             })
             .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
 
