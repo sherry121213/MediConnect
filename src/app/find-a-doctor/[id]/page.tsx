@@ -27,13 +27,13 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useState, useMemo, useEffect } from 'react';
-import { getNext7Days, generateAvailableTimes } from '@/lib/time';
+import { getNext7Days } from '@/lib/time';
 import { cn } from '@/lib/utils';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { format, isSameDay, addMinutes, isBefore, isValid } from 'date-fns';
+import { format, isSameDay, addMinutes, isBefore, isValid, parse } from 'date-fns';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
@@ -89,7 +89,7 @@ export default function DoctorDetailPage() {
     const doctorId = params.id as string;
 
     const [selectedDate, setSelectedDate] = useState(getNext7Days()[0].date);
-    const [selectedTime, setSelectedTime] = useState<string | null>(null);
+    const [selectedTime, setSelectedTime] = useState<string>('09:00'); // HH:mm format
     const [appointmentType, setAppointmentType] = useState<'Video Call' | 'Audio Call'>('Video Call');
     const [paymentMethod, setPaymentMethod] = useState<string>('Easypaisa');
     const [isBooking, setIsBooking] = useState(false);
@@ -149,22 +149,16 @@ export default function DoctorDetailPage() {
 
     /**
      * Checks if a proposed 30-minute window overlaps with existing booked sessions.
-     * This removes the "Fixed Slot" restriction while maintaining medical window integrity.
      */
     const isSlotAvailable = (timeStr: string) => {
-        if (!existingAppointments || !selectedDate || !mounted) return true;
+        if (!existingAppointments || !selectedDate || !mounted || !timeStr) return true;
         
-        const now = new Date();
-        const [timePart, ampm] = timeStr.split(' ');
-        const [hours, minutes] = timePart.split(':');
-        let numericHours = parseInt(hours);
-        if (ampm === 'PM' && numericHours !== 12) numericHours += 12;
-        if (ampm === 'AM' && numericHours === 12) numericHours = 0;
-        
+        const [hours, minutes] = timeStr.split(':').map(Number);
         const proposedStart = new Date(selectedDate);
-        proposedStart.setHours(numericHours, parseInt(minutes), 0, 0);
+        proposedStart.setHours(hours, minutes, 0, 0);
         const proposedEnd = addMinutes(proposedStart, 30);
 
+        const now = new Date();
         // Don't allow past times today
         if (isSameDay(selectedDate, now) && proposedStart < now) return false;
 
@@ -173,12 +167,10 @@ export default function DoctorDetailPage() {
             const aptStart = new Date(apt.appointmentDateTime);
             const aptEnd = addMinutes(aptStart, 30);
             
-            // Overlap check logic
+            // Overlap check: Start of A < End of B AND End of A > Start of B
             return proposedStart < aptEnd && proposedEnd > aptStart;
         });
     };
-
-    const availableTimes = useMemo(() => generateAvailableTimes(), []);
 
     const averageRating = useMemo(() => {
         if (!reviews || reviews.length === 0) return 0;
@@ -196,7 +188,12 @@ export default function DoctorDetailPage() {
         }
 
         if (!selectedTime || !firestore || !doctor) {
-            toast({ variant: 'destructive', title: 'Booking Error', description: 'Please select a date and time.' });
+            toast({ variant: 'destructive', title: 'Booking Error', description: 'Please select a valid time.' });
+            return;
+        }
+
+        if (!isSlotAvailable(selectedTime)) {
+            toast({ variant: 'destructive', title: 'Overlap Error', description: 'This time window is already reserved.' });
             return;
         }
         
@@ -207,13 +204,9 @@ export default function DoctorDetailPage() {
 
         setIsBooking(true);
 
+        const [hours, minutes] = selectedTime.split(':').map(Number);
         const appointmentDateTime = new Date(selectedDate);
-        const [hours, minutesPart] = selectedTime.split(':');
-        const [minutes, ampm] = minutesPart.split(' ');
-        let numericHours = parseInt(hours);
-        if (ampm === 'PM' && numericHours !== 12) numericHours += 12;
-        if (ampm === 'AM' && numericHours === 12) numericHours = 0;
-        appointmentDateTime.setHours(numericHours, parseInt(minutes), 0, 0);
+        appointmentDateTime.setHours(hours, minutes, 0, 0);
 
         const newAppointment = {
             patientId: user.uid,
@@ -268,6 +261,7 @@ export default function DoctorDetailPage() {
 
     const doctorImage = placeholderImages.find(p => p.id === doctor.profileImageId);
     const dateOptions = getNext7Days();
+    const isCurrentTimeAvailable = isSlotAvailable(selectedTime);
 
     return (
         <div className="flex flex-col min-h-screen">
@@ -384,7 +378,7 @@ export default function DoctorDetailPage() {
                                                 {dateOptions.map(day => (
                                                     <button 
                                                         key={day.date.toISOString()}
-                                                        onClick={() => { setSelectedDate(day.date); setSelectedTime(null); }}
+                                                        onClick={() => setSelectedDate(day.date)}
                                                         className={cn(
                                                             "p-5 rounded-3xl border text-center transition-all shrink-0 w-28 flex flex-col items-center gap-1",
                                                             selectedDate.toDateString() === day.date.toDateString() 
@@ -401,25 +395,36 @@ export default function DoctorDetailPage() {
 
                                         <div>
                                              <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6 flex items-center gap-3">
-                                                <div className="h-1 w-6 bg-primary rounded-full" /> Step 2: Pick any free 30m window
+                                                <div className="h-1 w-6 bg-primary rounded-full" /> Step 2: Select Precise Time
                                             </h4>
-                                            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar pb-4">
-                                                {availableTimes.map(time => {
-                                                    const available = isSlotAvailable(time);
-                                                    if (!available) return null;
-                                                    return (
-                                                        <Button 
-                                                            key={time}
-                                                            variant={selectedTime === time ? 'default' : 'outline'}
-                                                            onClick={() => setSelectedTime(time)}
-                                                            className={cn("rounded-xl font-bold h-12 text-[11px] border-2", selectedTime === time ? 'bg-primary border-primary shadow-lg shadow-primary/20' : 'hover:border-primary/40')}
-                                                        >
-                                                            {time}
-                                                        </Button>
-                                                    );
-                                                })}
+                                            <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-end">
+                                                <div className="w-full sm:flex-1 space-y-2">
+                                                    <Label htmlFor="precise-time" className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest ml-1">Pick Start Time (09:00 - 22:00)</Label>
+                                                    <Input 
+                                                        id="precise-time"
+                                                        type="time"
+                                                        value={selectedTime}
+                                                        onChange={(e) => setSelectedTime(e.target.value)}
+                                                        className="h-16 rounded-2xl border-2 text-xl font-bold px-6 focus:ring-primary focus:border-primary transition-all"
+                                                        min="09:00"
+                                                        max="22:00"
+                                                    />
+                                                </div>
+                                                <div className={cn(
+                                                    "w-full sm:flex-1 p-6 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center text-center transition-all",
+                                                    isCurrentTimeAvailable ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-700"
+                                                )}>
+                                                    <div className="flex items-center gap-2 font-bold uppercase text-[10px] tracking-widest mb-1">
+                                                        {isCurrentTimeAvailable ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                                                        {isCurrentTimeAvailable ? 'Availability Confirmed' : 'Clinical Conflict'}
+                                                    </div>
+                                                    <p className="text-[9px] opacity-70 leading-tight">
+                                                        {isCurrentTimeAvailable 
+                                                            ? `A professional 30-minute window is available starting at ${selectedTime}.` 
+                                                            : `This selection overlaps with an existing consultation. Please shift by ±30 minutes.`}
+                                                    </p>
+                                                </div>
                                             </div>
-                                            <p className="text-[10px] text-muted-foreground italic mt-4 text-center">Only available start times are displayed based on current bookings.</p>
                                         </div>
 
                                         <div>
@@ -456,7 +461,10 @@ export default function DoctorDetailPage() {
 
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
-                                                <Button className="w-full h-20 text-xl font-bold rounded-3xl shadow-2xl shadow-primary/20" disabled={!selectedTime || isBooking}>
+                                                <Button 
+                                                    className="w-full h-20 text-xl font-bold rounded-3xl shadow-2xl shadow-primary/20" 
+                                                    disabled={!isCurrentTimeAvailable || isBooking}
+                                                >
                                                     Finalize Booking {selectedTime && `@ ${selectedTime}`}
                                                 </Button>
                                             </AlertDialogTrigger>

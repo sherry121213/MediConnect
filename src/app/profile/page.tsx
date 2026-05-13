@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState } from 'react';
@@ -164,7 +165,7 @@ export default function ProfilePage() {
                         <FormLabel>Current Password</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Input type={showCurrentPassword ? "text" : "password"} {...field} />
+                            <Input type={showCurrentPassword ? "text" : "password"} {...field} className="pr-10" />
                             <Button
                                 type="button"
                                 variant="ghost"
@@ -188,7 +189,7 @@ export default function ProfilePage() {
                         <FormLabel>New Password</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Input type={showNewPassword ? "text" : "password"} {...field} />
+                            <Input type={showNewPassword ? "text" : "password"} {...field} className="pr-10" />
                             <Button
                                 type="button"
                                 variant="ghost"

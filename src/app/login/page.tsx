@@ -1,3 +1,4 @@
+
 'use client';
 import Link from "next/link";
 import AppHeader from "@/components/layout/header";
@@ -200,6 +201,7 @@ export default function LoginPage() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         disabled={loading}
+                        className="pr-10"
                     />
                     <Button
                         type="button"

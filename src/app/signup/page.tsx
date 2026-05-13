@@ -1,3 +1,4 @@
+
 'use client';
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -301,6 +302,7 @@ export default function SignupPage() {
                                 type={showPassword ? "text" : "password"} 
                                 {...field} 
                                 disabled={loading} 
+                                className="pr-10"
                             />
                             <Button
                                 type="button"
@@ -322,7 +324,7 @@ export default function SignupPage() {
                   name="role"
                   render={({ field }) => (
                     <FormItem className="space-y-2">
-                      <FormLabel>I am a...</FormLabel>
+                      <FormLabel>I am a...</Label>
                       <FormControl>
                         <RadioGroup
                           onValueChange={field.onChange}

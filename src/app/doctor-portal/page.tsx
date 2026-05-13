@@ -80,7 +80,6 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
     const availableDates = getNext7Days();
 
     const handleConfirm = async () => {
-        // Logically we would allow any time here too, but for speed we'll just move to the same time next day
         if (!firestore || !appointment) return;
         setIsSaving(true);
         const newDateTime = addDays(new Date(appointment.appointmentDateTime), 1);
@@ -289,7 +288,6 @@ export default function DoctorPortalPage() {
     const { toast } = useToast();
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
     const [isConsultOpen, setIsConsultOpen] = useState(false);
-    const [isLeaveOpen, setIsLeaveOpen] = useState(false);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [isPostponeOpen, setIsPostponeOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
@@ -316,14 +314,20 @@ export default function DoctorPortalPage() {
     }, [firestore, user]);
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
+    // OPTIMIZED PATIENT FETCHING (Targets only relevant patient IDs)
     useEffect(() => {
         if (!appointments || !firestore) return;
         const fetchPatients = async () => {
             const pIds = Array.from(new Set(appointments.map(a => a?.patientId).filter(Boolean)));
             if (pIds.length === 0) return;
-            const newMap = new Map<string, Patient>();
-            for (let i = 0; i < pIds.length; i += 30) {
-                const chunk = pIds.slice(i, i + 30);
+            
+            const newMap = new Map<string, Patient>(patientsMap);
+            const missingIds = pIds.filter(id => !newMap.has(id));
+            
+            if (missingIds.length === 0) return;
+
+            for (let i = 0; i < missingIds.length; i += 30) {
+                const chunk = missingIds.slice(i, i + 30);
                 const q = query(collection(firestore, 'patients'), where('id', 'in', chunk));
                 const snap = await getDocs(q);
                 snap.forEach(doc => newMap.set(doc.id, doc.data() as Patient));
@@ -357,8 +361,6 @@ export default function DoctorPortalPage() {
         
         const now = new Date();
         const yesterday = subDays(now, 1);
-        const dayStart = startOfDay(viewDate);
-        const dayEnd = addDays(dayStart, 1);
 
         const allToday = appointments.filter(apt => apt && apt.appointmentDateTime && isSameDay(new Date(apt.appointmentDateTime), now) && apt.status !== 'cancelled');
         const viewDayApts = appointments.filter(apt => apt && apt.appointmentDateTime && isSameDay(new Date(apt.appointmentDateTime), viewDate) && apt.status !== 'cancelled')
