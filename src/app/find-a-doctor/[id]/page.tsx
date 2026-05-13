@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck, Video, PhoneCall, Moon, ShieldAlert, CreditCard, Wallet, Landmark, CheckCircle2, XCircle, Quote, User } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck, Video, PhoneCall, Moon, ShieldAlert, CreditCard, Wallet, Landmark, CheckCircle2, XCircle, Quote, User, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -27,13 +27,13 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useState, useMemo, useEffect } from 'react';
-import { getNext7Days, timeSlots } from '@/lib/time';
+import { getNext7Days, generateAvailableTimes } from '@/lib/time';
 import { cn } from '@/lib/utils';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { format, isSameDay } from 'date-fns';
+import { format, isSameDay, addMinutes, isBefore, isValid } from 'date-fns';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
@@ -125,7 +125,7 @@ export default function DoctorDetailPage() {
         );
     }, [firestore, doctorId]);
 
-    const { data: existingAppointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
+    const { data: existingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
     const unavailabilityQuery = useMemoFirebase(() => {
       if (!firestore || !doctorId) return null;
@@ -147,12 +147,38 @@ export default function DoctorDetailPage() {
       );
     }, [allLeaveRequests, selectedDate]);
 
-    const bookedTimes = useMemo(() => {
-        if (!existingAppointments || !selectedDate || !mounted) return [];
-        return existingAppointments
-            .filter(apt => apt && apt.appointmentDateTime && isSameDay(new Date(apt.appointmentDateTime), selectedDate) && apt.status !== 'cancelled')
-            .map(apt => format(new Date(apt.appointmentDateTime), "hh:mm a"));
-    }, [existingAppointments, selectedDate, mounted]);
+    /**
+     * Checks if a proposed 30-minute window overlaps with existing booked sessions.
+     * This removes the "Fixed Slot" restriction while maintaining medical window integrity.
+     */
+    const isSlotAvailable = (timeStr: string) => {
+        if (!existingAppointments || !selectedDate || !mounted) return true;
+        
+        const now = new Date();
+        const [timePart, ampm] = timeStr.split(' ');
+        const [hours, minutes] = timePart.split(':');
+        let numericHours = parseInt(hours);
+        if (ampm === 'PM' && numericHours !== 12) numericHours += 12;
+        if (ampm === 'AM' && numericHours === 12) numericHours = 0;
+        
+        const proposedStart = new Date(selectedDate);
+        proposedStart.setHours(numericHours, parseInt(minutes), 0, 0);
+        const proposedEnd = addMinutes(proposedStart, 30);
+
+        // Don't allow past times today
+        if (isSameDay(selectedDate, now) && proposedStart < now) return false;
+
+        return !existingAppointments.some(apt => {
+            if (!apt || apt.status === 'cancelled' || !apt.appointmentDateTime) return false;
+            const aptStart = new Date(apt.appointmentDateTime);
+            const aptEnd = addMinutes(aptStart, 30);
+            
+            // Overlap check logic
+            return proposedStart < aptEnd && proposedEnd > aptStart;
+        });
+    };
+
+    const availableTimes = useMemo(() => generateAvailableTimes(), []);
 
     const averageRating = useMemo(() => {
         if (!reviews || reviews.length === 0) return 0;
@@ -207,7 +233,7 @@ export default function DoctorDetailPage() {
         
         toast({ 
             title: "Receipt Submitted!", 
-            description: "Once your payment is approved your booking will be done. Please check your portal for status updates.",
+            description: "Once your payment is approved your booking will be confirmed.",
             duration: 6000
         });
 
@@ -241,47 +267,7 @@ export default function DoctorDetailPage() {
     }
 
     const doctorImage = placeholderImages.find(p => p.id === doctor.profileImageId);
-    const availableDates = getNext7Days();
-    const now = new Date();
-
-    const isTimeSlotPast = (time: string, date: Date) => {
-        const isToday = date.toDateString() === now.toDateString();
-        if (!isToday) return false;
-        const [timePart, ampm] = time.split(' ');
-        const [hours, minutes] = timePart.split(':');
-        let numericHours = parseInt(hours);
-        if (ampm === 'PM' && numericHours !== 12) numericHours += 12;
-        if (ampm === 'AM' && numericHours === 12) numericHours = 0;
-        const timeSlotDateTime = new Date(date);
-        timeSlotDateTime.setHours(numericHours, parseInt(minutes), 0, 0);
-        return timeSlotDateTime < now;
-    };
-
-    const isSlotDisabledByDoctor = (time: string) => doctor.availability?.disabledSlots?.includes(time);
-
-    const TimeButton = ({ time }: { time: string }) => {
-        const isPast = isTimeSlotPast(time, selectedDate);
-        const isBooked = bookedTimes.includes(time);
-        const isDisabledByDoctor = isSlotDisabledByDoctor(time);
-        
-        if (isDisabledByDoctor && !isBooked) return null; 
-
-        return (
-            <Button 
-                variant={selectedTime === time ? 'default' : 'outline'}
-                onClick={() => setSelectedTime(time)}
-                disabled={isPast || isBooked || isDayOffByAdmin}
-                className={cn(
-                    "relative rounded-xl font-bold h-11", 
-                    isBooked && "opacity-50 grayscale cursor-not-allowed border-destructive/30",
-                    isPast && "border-slate-200 bg-slate-50 text-slate-400 cursor-not-allowed"
-                )}
-            >
-                {isPast ? "Closed" : isBooked ? "Booked" : time}
-                {isBooked && !isPast && <span className="absolute -top-1 -right-1 flex h-2 w-2 rounded-full bg-destructive" />}
-            </Button>
-        );
-    };
+    const dateOptions = getNext7Days();
 
     return (
         <div className="flex flex-col min-h-screen">
@@ -294,7 +280,7 @@ export default function DoctorDetailPage() {
 
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
                         <div className="lg:col-span-4 space-y-8">
-                            <Card className="rounded-[2rem] border-none shadow-2xl overflow-hidden bg-white">
+                            <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-white">
                                 <CardHeader className="items-center text-center bg-primary/5 p-8 sm:p-10">
                                     <div className="relative h-40 w-40 shadow-2xl rounded-full border-4 border-white mb-6 overflow-hidden">
                                         <Image src={doctor.photoURL || doctorImage?.imageUrl || ''} alt={doctor.firstName} fill className="object-cover" />
@@ -342,14 +328,10 @@ export default function DoctorDetailPage() {
                                 </CardContent>
                             </Card>
 
-                            {/* REVIEWS SIDEBAR */}
                             <div className="space-y-6">
-                                <div className="flex items-center justify-between px-2">
-                                    <h3 className="font-bold text-lg font-headline flex items-center gap-2">
-                                        <Star className="h-5 w-5 text-amber-500 fill-amber-500" /> Patient Feedback
-                                    </h3>
-                                    <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px] font-bold">LATEST</Badge>
-                                </div>
+                                <h3 className="font-bold text-lg font-headline flex items-center gap-2 px-2">
+                                    <Star className="h-5 w-5 text-amber-500 fill-amber-500" /> Patient Feedback
+                                </h3>
                                 <div className="space-y-4">
                                     {isLoadingReviews ? (
                                         <div className="flex justify-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary/20" /></div>
@@ -371,23 +353,24 @@ export default function DoctorDetailPage() {
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-1">
                                             <CardTitle className="text-2xl font-headline flex items-center gap-3">
-                                                <CalendarDays className="h-7 w-7 text-primary"/> Clinical Scheduler
+                                                <CalendarDays className="h-7 w-7 text-primary"/> Clinical Availability
                                             </CardTitle>
-                                            <p className="text-sm text-muted-foreground">Encrypted 30-minute professional sessions.</p>
+                                            <p className="text-sm text-muted-foreground">Dynamic scheduling without pre-defined slot restrictions.</p>
                                         </div>
-                                        <Badge className="bg-green-100 text-green-800 border-green-200 font-bold px-3 py-1">AVAILABLE</Badge>
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-green-600">Live Status</span>
+                                        </div>
                                     </div>
                                 </CardHeader>
                                 <CardContent className="p-8 sm:p-12">
                                     {isDayOffByAdmin ? (
-                                      <div className="bg-destructive/5 border border-destructive/10 rounded-[2.5rem] p-12 text-center space-y-6 animate-in zoom-in-95">
-                                        <div className="h-24 w-24 bg-destructive/10 text-destructive rounded-full flex items-center justify-center mx-auto shadow-inner">
-                                            <ShieldAlert className="h-12 w-12" />
-                                        </div>
+                                      <div className="bg-destructive/5 border border-destructive/10 rounded-[2.5rem] p-12 text-center space-y-6">
+                                        <ShieldAlert className="h-20 w-20 text-destructive mx-auto opacity-50" />
                                         <div className="space-y-2">
-                                            <h4 className="text-3xl font-bold text-destructive tracking-tight font-headline">Practice Suspended</h4>
-                                            <p className="text-muted-foreground text-sm max-w-md mx-auto leading-relaxed">
-                                                Dr. {doctor.lastName} is officially off-duty for administrative audit or clinical pause on this date.
+                                            <h4 className="text-2xl font-bold text-destructive font-headline">Practice Suspended</h4>
+                                            <p className="text-muted-foreground text-sm max-w-md mx-auto">
+                                                Dr. {doctor.lastName} is unavailable for consultation on this date due to clinical audit or personal pause.
                                             </p>
                                         </div>
                                       </div>
@@ -395,10 +378,10 @@ export default function DoctorDetailPage() {
                                     <div className="space-y-12">
                                         <div>
                                             <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6 flex items-center gap-3">
-                                                <div className="h-1 w-6 bg-primary rounded-full" /> Step 1: Select clinical date
+                                                <div className="h-1 w-6 bg-primary rounded-full" /> Step 1: Select Date
                                             </h4>
                                             <div className="flex gap-4 overflow-x-auto pb-6 -mx-4 px-4 custom-scrollbar">
-                                                {availableDates.map(day => (
+                                                {dateOptions.map(day => (
                                                     <button 
                                                         key={day.date.toISOString()}
                                                         onClick={() => { setSelectedDate(day.date); setSelectedTime(null); }}
@@ -416,43 +399,32 @@ export default function DoctorDetailPage() {
                                             </div>
                                         </div>
 
-                                        <div className="space-y-10">
-                                             <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4 flex items-center gap-3">
-                                                <div className="h-1 w-6 bg-primary rounded-full" /> Step 2: Available 30m slots
+                                        <div>
+                                             <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6 flex items-center gap-3">
+                                                <div className="h-1 w-6 bg-primary rounded-full" /> Step 2: Pick any free 30m window
                                             </h4>
-                                            <div className="space-y-8">
-                                                <div className="space-y-4">
-                                                    <h5 className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary flex items-center gap-2 px-1">
-                                                        <div className="h-1.5 w-1.5 rounded-full bg-amber-400" /> Morning
-                                                    </h5>
-                                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                                        {timeSlots.morning.map(time => <TimeButton key={time} time={time} />)}
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-4">
-                                                    <h5 className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary flex items-center gap-2 px-1">
-                                                        <div className="h-1.5 w-1.5 rounded-full bg-blue-400" /> Afternoon
-                                                    </h5>
-                                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                                        {timeSlots.afternoon.map(time => <TimeButton key={time} time={time} />)}
-                                                    </div>
-                                                </div>
-
-                                                <div className="space-y-4">
-                                                    <h5 className="text-[10px] font-bold uppercase tracking-[0.2em] text-primary flex items-center gap-2 px-1">
-                                                        <div className="h-1.5 w-1.5 rounded-full bg-indigo-400" /> Evening
-                                                    </h5>
-                                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                                                        {timeSlots.evening.map(time => <TimeButton key={time} time={time} />)}
-                                                    </div>
-                                                </div>
+                                            <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar pb-4">
+                                                {availableTimes.map(time => {
+                                                    const available = isSlotAvailable(time);
+                                                    if (!available) return null;
+                                                    return (
+                                                        <Button 
+                                                            key={time}
+                                                            variant={selectedTime === time ? 'default' : 'outline'}
+                                                            onClick={() => setSelectedTime(time)}
+                                                            className={cn("rounded-xl font-bold h-12 text-[11px] border-2", selectedTime === time ? 'bg-primary border-primary shadow-lg shadow-primary/20' : 'hover:border-primary/40')}
+                                                        >
+                                                            {time}
+                                                        </Button>
+                                                    );
+                                                })}
                                             </div>
+                                            <p className="text-[10px] text-muted-foreground italic mt-4 text-center">Only available start times are displayed based on current bookings.</p>
                                         </div>
 
                                         <div>
                                             <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6 flex items-center gap-3">
-                                                <div className="h-1 w-6 bg-primary rounded-full" /> Step 3: Consultation channel
+                                                <div className="h-1 w-6 bg-primary rounded-full" /> Step 3: Consultation Channel
                                             </h4>
                                             <RadioGroup defaultValue="Video Call" onValueChange={(val) => setAppointmentType(val as any)} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                                 <div className="flex items-center space-x-3 p-6 rounded-3xl border-2 hover:bg-muted/30 transition-all cursor-pointer group bg-muted/5">
@@ -475,7 +447,7 @@ export default function DoctorDetailPage() {
                                                         </div>
                                                         <div className="min-w-0">
                                                             <p className="text-sm">Audio Call</p>
-                                                            <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">Clear Voice link</p>
+                                                            <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">Voice Tunnel</p>
                                                         </div>
                                                     </Label>
                                                 </div>
@@ -484,121 +456,71 @@ export default function DoctorDetailPage() {
 
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
-                                                <Button className="w-full h-20 text-xl font-bold rounded-3xl shadow-2xl shadow-primary/20 animate-in slide-in-from-bottom-2" disabled={!selectedTime || isBooking}>
+                                                <Button className="w-full h-20 text-xl font-bold rounded-3xl shadow-2xl shadow-primary/20" disabled={!selectedTime || isBooking}>
                                                     Finalize Booking {selectedTime && `@ ${selectedTime}`}
                                                 </Button>
                                             </AlertDialogTrigger>
                                             <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-lg max-h-[95vh] overflow-y-auto custom-scrollbar p-0">
-                                                <div className="p-6 sm:p-10 space-y-6">
+                                                <div className="p-8 sm:p-10 space-y-8">
                                                     <AlertDialogHeader>
-                                                        <AlertDialogTitle className="text-2xl font-headline">Secure Payment Gateway</AlertDialogTitle>
-                                                        <AlertDialogDescription>Complete your consultation fee transfer to confirm booking.</AlertDialogDescription>
+                                                        <AlertDialogTitle className="text-2xl font-headline">Secure Payment</AlertDialogTitle>
+                                                        <AlertDialogDescription>Please complete the consultation fee transfer to confirm this session.</AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     
-                                                    <div className="space-y-8">
-                                                        <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10 text-center">
-                                                            <p className="text-[10px] uppercase font-bold text-primary tracking-widest mb-1">Consultation Fee</p>
-                                                            <p className="text-5xl font-bold text-foreground font-headline">PKR 1,500</p>
-                                                        </div>
-
-                                                        <div className="space-y-4">
-                                                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Step 1: Select Channel</Label>
-                                                            <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid grid-cols-1 gap-3">
-                                                                <div className={cn(
-                                                                    "relative flex items-center gap-4 p-5 rounded-3xl border-2 transition-all cursor-pointer group",
-                                                                    paymentMethod === 'Easypaisa' ? "border-primary bg-primary/5 shadow-inner" : "border-slate-100 hover:border-slate-200"
-                                                                )}>
-                                                                    <RadioGroupItem value="Easypaisa" id="ep" className="sr-only" />
-                                                                    <div className={cn(
-                                                                        "h-12 w-12 rounded-2xl flex items-center justify-center transition-colors shadow-sm",
-                                                                        paymentMethod === 'Easypaisa' ? "bg-primary text-white" : "bg-slate-50 text-slate-400"
-                                                                    )}>
-                                                                        <Wallet className="h-6 w-6" />
-                                                                    </div>
-                                                                    <Label htmlFor="ep" className="flex-1 cursor-pointer">
-                                                                        <div className="flex justify-between items-center">
-                                                                            <p className="font-bold text-base">Easypaisa</p>
-                                                                            {paymentMethod === 'Easypaisa' && <CheckCircle2 className="h-5 w-5 text-primary" />}
-                                                                        </div>
-                                                                        <p className="text-xs font-mono text-muted-foreground">03120555772</p>
-                                                                    </Label>
-                                                                </div>
-
-                                                                <div className={cn(
-                                                                    "relative flex items-center gap-4 p-5 rounded-3xl border-2 transition-all cursor-pointer group",
-                                                                    paymentMethod === 'Jazzcash' ? "border-primary bg-primary/5 shadow-inner" : "border-slate-100 hover:border-slate-200"
-                                                                )}>
-                                                                    <RadioGroupItem value="Jazzcash" id="jc" className="sr-only" />
-                                                                    <div className={cn(
-                                                                        "h-12 w-12 rounded-2xl flex items-center justify-center transition-colors shadow-sm",
-                                                                        paymentMethod === 'Jazzcash' ? "bg-primary text-white" : "bg-slate-50 text-slate-400"
-                                                                    )}>
-                                                                        <Wallet className="h-6 w-6" />
-                                                                    </div>
-                                                                    <Label htmlFor="jc" className="flex-1 cursor-pointer">
-                                                                        <div className="flex justify-between items-center">
-                                                                            <p className="font-bold text-base">Jazzcash</p>
-                                                                            {paymentMethod === 'Jazzcash' && <CheckCircle2 className="h-5 w-5 text-primary" />}
-                                                                        </div>
-                                                                        <p className="text-xs font-mono text-muted-foreground">03120555772</p>
-                                                                    </Label>
-                                                                </div>
-
-                                                                <div className={cn(
-                                                                    "relative flex items-center gap-4 p-5 rounded-3xl border-2 transition-all cursor-pointer group",
-                                                                    paymentMethod === 'MasterCard' ? "border-primary bg-primary/5 shadow-inner" : "border-slate-100 hover:border-slate-200"
-                                                                )}>
-                                                                    <RadioGroupItem value="MasterCard" id="mc" className="sr-only" />
-                                                                    <div className={cn(
-                                                                        "h-12 w-12 rounded-2xl flex items-center justify-center transition-colors shadow-sm",
-                                                                        paymentMethod === 'MasterCard' ? "bg-primary text-white" : "bg-slate-50 text-slate-400"
-                                                                    )}>
-                                                                        <Landmark className="h-6 w-6" />
-                                                                    </div>
-                                                                    <Label htmlFor="mc" className="flex-1 cursor-pointer">
-                                                                        <div className="flex justify-between items-center">
-                                                                            <p className="font-bold text-base">Bank Transfer</p>
-                                                                            {paymentMethod === 'MasterCard' && <CheckCircle2 className="h-5 w-5 text-primary" />}
-                                                                        </div>
-                                                                        <p className="text-[10px] font-mono text-muted-foreground">pk013120555772</p>
-                                                                    </Label>
-                                                                </div>
-                                                            </RadioGroup>
-                                                        </div>
-
-                                                        <div className="space-y-4">
-                                                            <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Step 2: Upload Proof</Label>
-                                                            <div className="relative">
-                                                                <label htmlFor="receipt-upload" className="flex flex-col items-center justify-center w-full h-36 border-4 border-dashed rounded-[2rem] cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors border-slate-200">
-                                                                    <div className="flex flex-col items-center justify-center pt-4 pb-5">
-                                                                        <Landmark className="w-8 h-8 mb-3 text-slate-400" />
-                                                                        <p className="mb-1 text-sm text-slate-500"><span className="font-bold text-primary">Click to upload</span></p>
-                                                                        <p className="text-[9px] text-slate-400 uppercase font-bold tracking-tighter">Receipt Screenshot</p>
-                                                                    </div>
-                                                                    <Input 
-                                                                        id="receipt-upload"
-                                                                        type="file" 
-                                                                        accept="image/*" 
-                                                                        className="hidden" 
-                                                                        onChange={(e) => {
-                                                                            const file = e.target.files?.[0];
-                                                                            if (!file) return;
-                                                                            const reader = new FileReader();
-                                                                            reader.onloadend = () => setPaymentReceipt(reader.result as string);
-                                                                            reader.readAsDataURL(file);
-                                                                        }} 
-                                                                    />
-                                                                </label>
-                                                                {paymentReceipt && (
-                                                                    <div className="mt-3 flex items-center gap-2 p-2 bg-green-50 rounded-xl border border-green-100 animate-in fade-in zoom-in-95">
-                                                                        <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                                                        <span className="text-[10px] font-bold text-green-700 uppercase">Screenshot Attached</span>
-                                                                    </div>
-                                                                )}
-                                                            </div>
-                                                        </div>
+                                                    <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10 text-center">
+                                                        <p className="text-[10px] uppercase font-bold text-primary tracking-widest mb-1">Standard Fee</p>
+                                                        <p className="text-5xl font-bold text-foreground font-headline">PKR 1,500</p>
                                                     </div>
-                                                    
+
+                                                    <div className="space-y-4">
+                                                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Step 1: Select Method</Label>
+                                                        <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid grid-cols-1 gap-3">
+                                                            {['Easypaisa', 'Jazzcash', 'MasterCard'].map(m => (
+                                                                <div key={m} className={cn(
+                                                                    "flex items-center gap-4 p-5 rounded-3xl border-2 transition-all cursor-pointer",
+                                                                    paymentMethod === m ? "border-primary bg-primary/5" : "border-slate-100 hover:border-slate-200"
+                                                                )}>
+                                                                    <RadioGroupItem value={m} id={m} className="sr-only" />
+                                                                    <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center", paymentMethod === m ? "bg-primary text-white" : "bg-slate-50")}>
+                                                                        {m === 'MasterCard' ? <Landmark className="h-5 w-5" /> : <Wallet className="h-5 w-5" />}
+                                                                    </div>
+                                                                    <Label htmlFor={m} className="flex-1 cursor-pointer font-bold">{m} <span className="block text-[10px] font-mono font-normal text-muted-foreground mt-0.5">{m === 'MasterCard' ? 'pk013120555772' : '03120555772'}</span></Label>
+                                                                    {paymentMethod === m && <CheckCircle2 className="h-5 w-5 text-primary" />}
+                                                                </div>
+                                                            ))}
+                                                        </RadioGroup>
+                                                    </div>
+
+                                                    <div className="space-y-4">
+                                                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Step 2: Proof of Transfer</Label>
+                                                        <label htmlFor="receipt-upload" className="flex flex-col items-center justify-center w-full h-36 border-4 border-dashed rounded-[2rem] cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors border-slate-200">
+                                                            <div className="flex flex-col items-center justify-center pt-4 pb-5 text-center px-4">
+                                                                <Activity className="w-8 h-8 mb-3 text-primary/30" />
+                                                                <p className="text-sm font-bold text-primary">Click to upload receipt</p>
+                                                                <p className="text-[9px] text-muted-foreground uppercase mt-1">High-fidelity audit required</p>
+                                                            </div>
+                                                            <Input 
+                                                                id="receipt-upload"
+                                                                type="file" 
+                                                                accept="image/*" 
+                                                                className="hidden" 
+                                                                onChange={(e) => {
+                                                                    const file = e.target.files?.[0];
+                                                                    if (!file) return;
+                                                                    const reader = new FileReader();
+                                                                    reader.onloadend = () => setPaymentReceipt(reader.result as string);
+                                                                    reader.readAsDataURL(file);
+                                                                }} 
+                                                            />
+                                                        </label>
+                                                        {paymentReceipt && (
+                                                            <div className="mt-3 flex items-center gap-2 p-3 bg-green-50 rounded-2xl border border-green-100">
+                                                                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                                                <span className="text-[10px] font-bold text-green-700 uppercase">Evidence Logged Successfully</span>
+                                                            </div>
+                                                        )}
+                                                    </div>
+
                                                     <AlertDialogFooter className="flex flex-col sm:flex-row gap-3 pt-6">
                                                         <AlertDialogCancel className="rounded-2xl h-14 border-2 flex-1">Go Back</AlertDialogCancel>
                                                         <AlertDialogAction onClick={handleConfirmBooking} disabled={!paymentReceipt || isBooking} className="rounded-2xl h-14 bg-primary font-bold shadow-2xl shadow-primary/20 flex-1">

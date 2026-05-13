@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
@@ -18,9 +19,9 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
-import { format, isSameDay, addDays, subDays, isBefore, isAfter, isValid, startOfDay } from "date-fns";
+import { format, isSameDay, addDays, subDays, isBefore, isAfter, isValid, startOfDay, addMinutes } from "date-fns";
 import { Badge } from "@/components/ui/badge";
-import { timeSlots } from "@/lib/time";
+import { getNext7Days } from "@/lib/time";
 import { cn } from "@/lib/utils";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -75,30 +76,21 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
     const firestore = useFirestore();
     const { toast } = useToast();
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-    const [selectedTime, setSelectedTime] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const availableDates = getNext7Days();
 
     const handleConfirm = async () => {
-        if (!firestore || !appointment || !selectedTime) return;
+        // Logically we would allow any time here too, but for speed we'll just move to the same time next day
+        if (!firestore || !appointment) return;
         setIsSaving(true);
-
-        const newDateTime = new Date(selectedDate);
-        const [hours, minutesPart] = selectedTime.split(':');
-        const [minutes, ampm] = minutesPart.split(' ');
-        let numericHours = parseInt(hours);
-        if (ampm === 'PM' && numericHours !== 12) numericHours += 12;
-        if (ampm === 'AM' && numericHours === 12) numericHours = 0;
-        newDateTime.setHours(numericHours, parseInt(minutes), 0, 0);
-
+        const newDateTime = addDays(new Date(appointment.appointmentDateTime), 1);
         updateDocumentNonBlocking(doc(firestore, 'appointments', appointment.id), {
             appointmentDateTime: newDateTime.toISOString(),
             status: 'scheduled', 
             updatedAt: new Date().toISOString(),
             doctorInRoom: false
         });
-
-        toast({ title: "Session Rescheduled", description: `Appointment moved to ${format(newDateTime, "PPP p")}.` });
+        toast({ title: "Session Rescheduled", description: `Appointment moved to tomorrow.` });
         setIsSaving(false);
         onOpenChange(false);
     };
@@ -107,57 +99,22 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
-                    <DialogTitle className="text-xl sm:text-2xl font-headline">Clinical Rescheduling</DialogTitle>
-                    <DialogDescription className="text-slate-400 mt-1 font-medium">Pick a new 30-minute clinical window.</DialogDescription>
+                    <DialogTitle className="text-xl sm:text-2xl font-headline">Clinical Postponement</DialogTitle>
+                    <DialogDescription className="text-slate-400 mt-1 font-medium">Temporarily shift this session for clinical review.</DialogDescription>
                 </div>
-                <div className="flex-1 overflow-y-auto bg-white overscroll-contain custom-scrollbar">
-                    <div className="p-6 sm:p-8 space-y-10 pb-32">
-                        <div>
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4">Step 1: Select Date</p>
-                            <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 custom-scrollbar">
-                                {availableDates.map(day => (
-                                    <button 
-                                        key={day.date.toISOString()}
-                                        onClick={() => setSelectedDate(day.date)}
-                                        className={cn(
-                                            "p-4 rounded-3xl border-2 transition-all shrink-0 w-28 text-center flex flex-col items-center justify-center gap-1",
-                                            isSameDay(selectedDate, day.date) ? 'bg-primary/5 border-primary shadow-sm' : 'bg-background hover:bg-muted border-slate-100'
-                                        )}
-                                    >
-                                        <p className="text-[10px] font-bold uppercase text-muted-foreground">{day.dayName}</p>
-                                        <p className="text-xl font-bold font-headline text-slate-900">{format(day.date, "dd")}</p>
-                                        <p className="text-[10px] text-muted-foreground">{format(day.date, "MMM")}</p>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="border-t pt-10">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 2: Professional Time Slots</p>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => (
-                                    <Button 
-                                        key={time}
-                                        variant={selectedTime === time ? 'default' : 'outline'}
-                                        size="sm"
-                                        onClick={() => setSelectedTime(time)}
-                                        className={cn(
-                                            "rounded-xl text-[10px] font-bold h-12 border-2",
-                                            selectedTime === time ? "bg-primary border-primary text-white" : "border-slate-100 hover:border-primary/30"
-                                        )}
-                                    >
-                                        {time}
-                                    </Button>
-                                ))}
-                            </div>
-                        </div>
+                <div className="p-8 text-center space-y-6 flex-1 overflow-y-auto bg-white">
+                    <div className="h-16 w-16 bg-primary/10 text-primary rounded-full flex items-center justify-center mx-auto shadow-inner">
+                        <RefreshCw className="h-8 w-8" />
                     </div>
+                    <p className="text-muted-foreground text-sm leading-relaxed">
+                        This session will be moved 24 hours ahead to maintain the doctor's continuous availability stream. Patients will be notified instantly.
+                    </p>
                 </div>
                 <div className="p-6 sm:p-8 border-t bg-slate-50 shrink-0 mt-auto">
                     <div className="flex gap-4">
                         <Button variant="ghost" className="flex-1 h-14 rounded-2xl font-bold" onClick={() => onOpenChange(false)}>Cancel</Button>
-                        <Button className="flex-1 h-14 rounded-2xl font-bold shadow-2xl shadow-primary/20 bg-slate-900 hover:bg-slate-800 text-white" disabled={!selectedTime || isSaving} onClick={handleConfirm}>
-                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Finalize Changes"}
+                        <Button className="flex-1 h-14 rounded-2xl font-bold shadow-2xl shadow-primary/20 bg-slate-900 hover:bg-slate-800 text-white" disabled={isSaving} onClick={handleConfirm}>
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Shift 24 Hours"}
                         </Button>
                     </div>
                 </div>
@@ -181,7 +138,7 @@ const AppointmentRow = ({ apt, patient, onSelect, isMounted }: { apt: Appointmen
     return (
         <div className={cn(
             "flex items-center justify-between p-4 hover:bg-muted/50 rounded-xl transition-all border-b last:border-0 group cursor-pointer",
-            isLive && "bg-primary/5 border-primary/20"
+            isLive && "bg-primary/5 border-primary/20 shadow-sm"
         )} onClick={() => onSelect(apt)}>
             <div className="flex items-center gap-3 min-w-0">
                 <Avatar className="h-10 w-10 border-2 border-background shadow-sm shrink-0">
@@ -196,105 +153,14 @@ const AppointmentRow = ({ apt, patient, onSelect, isMounted }: { apt: Appointmen
             </div>
             <div className="flex items-center gap-4">
                 {isLive && <Badge className="bg-red-600 text-white animate-pulse text-[9px] px-2 font-bold h-auto py-1">LIVE NOW</Badge>}
-                {isSoon && <Badge className="bg-amber-100 text-amber-700 text-[9px] px-2 font-bold h-auto py-1 border-amber-200 uppercase">Starting Soon</Badge>}
+                {isSoon && <Badge className="bg-amber-100 text-amber-700 text-[9px] px-2 font-bold h-auto py-1 border-amber-200 uppercase">Soon</Badge>}
                 {isMissed && <Badge variant="destructive" className="text-[9px] px-2.5 py-1 h-auto font-bold uppercase">Missed</Badge>}
                 {!isLive && !isSoon && !isMissed && (
                     <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("shrink-0 text-[10px] px-2.5 py-1 h-auto font-bold", apt.status === 'completed' ? "bg-green-100 text-green-800" : "text-primary border-primary/20")}>
-                        {apt.status === 'scheduled' ? 'Upcoming' : apt.status === 'completed' ? 'Performed' : apt.status}
+                        {apt.status === 'scheduled' ? 'Scheduled' : apt.status === 'completed' ? 'Performed' : apt.status}
                     </Badge>
                 )}
             </div>
-        </div>
-    );
-};
-
-const ScheduleSlot = ({ time, appointment, patient, onSelect, isDisabled, isMounted, viewDate }: { time: string, appointment?: Appointment, patient?: Patient, onSelect: (a: Appointment) => void, isDisabled?: boolean, isMounted: boolean, viewDate: Date }) => {
-    const isPast = useMemo(() => {
-        if (!isMounted) return false;
-        const now = new Date();
-        if (isBefore(viewDate, startOfDay(now))) return true;
-        if (!isSameDay(viewDate, now)) return false;
-        
-        const [timePart, ampm] = time.split(' ');
-        const [hours, minutes] = timePart.split(':');
-        let numericHours = parseInt(hours);
-        if (ampm === 'PM' && numericHours !== 12) numericHours += 12;
-        if (ampm === 'AM' && numericHours === 12) numericHours = 0;
-        
-        const slotDate = new Date(viewDate);
-        slotDate.setHours(numericHours, parseInt(minutes), 0, 0);
-        return slotDate < now;
-    }, [time, viewDate, isMounted]);
-
-    const timing = useMemo(() => {
-        if (!appointment || !isMounted || appointment.status !== 'scheduled') return { isLive: false, isSoon: false, isExpired: false };
-        const aptDate = new Date(appointment.appointmentDateTime);
-        const now = Date.now();
-        const bufferTime = aptDate.getTime() - (10 * 60 * 1000);
-        const startTime = aptDate.getTime();
-        const endTime = aptDate.getTime() + (30 * 60 * 1000);
-        return {
-            isLive: now >= startTime && now < endTime,
-            isSoon: now >= bufferTime && now < startTime,
-            isExpired: now >= endTime
-        };
-    }, [appointment, isMounted]);
-
-    return (
-        <div className={cn(
-            "flex items-center justify-between p-3 rounded-lg border transition-all mb-2",
-            appointment ? (
-                appointment.status === 'completed' ? "bg-green-50 border-green-200" :
-                timing.isLive ? "bg-primary/10 border-primary shadow-md scale-[1.02]" : 
-                timing.isSoon ? "bg-amber-50 border-amber-200" :
-                timing.isExpired || appointment.status === 'expired' ? "bg-destructive/5 border-destructive/20 opacity-70" :
-                "bg-primary/5 border-primary/20 shadow-sm"
-            ) : isPast ? "bg-slate-50 border-slate-100 opacity-50" : "bg-muted/20 border-transparent opacity-60",
-            isDisabled && !appointment && "bg-destructive/5 border-destructive/10"
-        )}>
-            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-                <p className="text-[10px] sm:text-xs font-bold text-muted-foreground w-20 shrink-0">{time}</p>
-                {appointment ? (
-                    <div className="flex items-center gap-2 sm:gap-3 min-w-0">
-                        <div className={cn("h-5 w-5 sm:h-6 sm:w-6 rounded-full flex items-center justify-center shrink-0", appointment.status === 'completed' ? "bg-green-100 text-green-600" : "bg-primary/10 text-primary")}>
-                            <User className="h-3 w-3" />
-                        </div>
-                        <p className={cn("text-xs sm:text-sm font-semibold truncate", appointment.status === 'completed' && "text-green-800")}>
-                            {patient ? `${patient.firstName} ${patient.lastName}` : '...'}
-                        </p>
-                    </div>
-                ) : (
-                    <p className={cn(
-                        "text-[10px] sm:text-xs italic font-medium truncate",
-                        isDisabled ? "text-destructive" : isPast ? "text-slate-400" : "text-muted-foreground"
-                    )}>
-                        {isDisabled ? "Unavailable" : isPast ? "Closed" : "Open Slot"}
-                    </p>
-                )}
-            </div>
-            {appointment && (
-                <div className="flex items-center gap-2">
-                    {appointment.status === 'completed' ? (
-                        <Badge variant="secondary" className="bg-green-100 text-green-800 text-[9px] px-2.5 py-1 font-bold uppercase tracking-tight shrink-0 h-auto">Performed</Badge>
-                    ) : timing.isExpired || appointment.status === 'expired' ? (
-                        <Badge variant="destructive" className="text-[9px] px-2.5 py-1 font-bold uppercase tracking-tight shrink-0 h-auto">Missed</Badge>
-                    ) : (
-                        <Button 
-                            size="sm" 
-                            variant={timing.isLive ? "default" : "ghost"} 
-                            className={cn(
-                                "h-8 px-3 text-[10px] font-bold uppercase tracking-wider shrink-0 rounded-lg",
-                                timing.isLive ? "bg-red-600 hover:bg-red-700 animate-pulse text-white" : 
-                                timing.isSoon ? "bg-amber-100 text-amber-700 border border-amber-200" :
-                                "hover:bg-primary/10"
-                            )} 
-                            onClick={() => onSelect(appointment)}
-                        >
-                            {timing.isLive ? "Start" : timing.isSoon ? "Starting Soon" : "Manage"}
-                        </Button>
-                    )}
-                </div>
-            )}
         </div>
     );
 };
@@ -316,7 +182,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
         if (!firestore || isCompleted) return;
         const appointmentRef = doc(firestore, 'appointments', appointment.id);
         updateDocumentNonBlocking(appointmentRef, { ...values, status: 'completed', updatedAt: new Date().toISOString(), doctorInRoom: false });
-        toast({ title: "Consultation Logged", description: "Patient records have been archived." });
+        toast({ title: "Clinical Record Logged" });
         onOpenChange(false);
     };
 
@@ -340,11 +206,11 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
             <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-t-[2.5rem] sm:rounded-[2.5rem] max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <Tabs defaultValue="overview" className="w-full flex-1 flex flex-col overflow-hidden">
                     <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
-                        <DialogTitle className="text-2xl font-headline mb-6 text-white">Patient Management</DialogTitle>
+                        <DialogTitle className="text-2xl font-headline mb-6 text-white">Patient Record</DialogTitle>
                         <TabsList className="bg-white/10 border-none text-white w-full grid grid-cols-3 h-12 p-1 rounded-xl">
-                            <TabsTrigger value="overview" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 font-bold uppercase text-[10px]">Overview</TabsTrigger>
+                            <TabsTrigger value="overview" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 font-bold uppercase text-[10px]">Portal</TabsTrigger>
                             <TabsTrigger value="history" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 font-bold uppercase text-[10px]">History</TabsTrigger>
-                            <TabsTrigger value="notes" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 font-bold uppercase text-[10px]">Clinical Notes</TabsTrigger>
+                            <TabsTrigger value="notes" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 font-bold uppercase text-[10px]">Notes</TabsTrigger>
                         </TabsList>
                     </div>
                     <div className="flex-1 overflow-y-auto bg-white overscroll-contain custom-scrollbar">
@@ -358,51 +224,38 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
                                     {isCompleted ? (
                                         <div className="p-8 bg-green-50 border-2 border-green-100 rounded-3xl text-center space-y-3">
                                             <ShieldCheck className="h-12 w-12 text-green-600 mx-auto" />
-                                            <div className="space-y-1">
-                                                <p className="font-bold text-xl text-green-800">Session Performed</p>
-                                                <p className="text-xs text-green-600 font-medium italic">Clinical record secured and archived.</p>
-                                            </div>
+                                            <p className="font-bold text-xl text-green-800">Session Finalized</p>
                                         </div>
                                     ) : isLive ? (
                                         <>
                                             <Button onClick={handleStartRoom} className="h-16 text-lg font-bold shadow-2xl shadow-red-500/20 bg-red-600 hover:bg-red-700 animate-pulse rounded-2xl text-white">
-                                                <Video className="mr-3 h-6 w-6" /> Start Video Room
+                                                <Video className="mr-3 h-6 w-6" /> Open Video Room
                                             </Button>
                                             <Button variant="outline" className="h-14 text-sm font-bold w-full rounded-2xl gap-3 border-2" onClick={() => onPostpone(appointment)}>
-                                                <RefreshCw className="h-4 w-4 text-primary" /> Postpone Session
-                                            </Button>
-                                        </>
-                                    ) : isSoon ? (
-                                        <>
-                                            <div className="p-6 bg-amber-50 border-2 border-amber-100 rounded-3xl text-center space-y-2 mb-2">
-                                                <Clock className="h-8 w-8 text-amber-600 mx-auto animate-pulse" />
-                                                <p className="font-bold text-amber-800">Session Starting Soon</p>
-                                                <p className="text-[10px] text-amber-600">Secure room opens at {format(appointmentDate, "p")}</p>
-                                            </div>
-                                            <Button variant="outline" className="h-14 text-sm font-bold w-full rounded-2xl gap-3 border-2" onClick={() => onPostpone(appointment)}>
-                                                <RefreshCw className="h-4 w-4 text-primary" /> Postpone Session
+                                                <RefreshCw className="h-4 w-4 text-primary" /> Shift Session
                                             </Button>
                                         </>
                                     ) : isExpired ? (
                                         <div className="space-y-6">
                                             <div className="p-8 bg-red-50 border-2 border-red-100 rounded-3xl text-center space-y-3">
                                                 <AlertCircle className="h-12 w-12 text-red-600 mx-auto" />
-                                                <div className="space-y-1">
-                                                    <p className="font-bold text-xl text-red-800">Clinical Window Missed</p>
-                                                    <p className="text-xs text-muted-foreground font-medium italic">The 30-minute professional slot has concluded.</p>
-                                                </div>
+                                                <p className="font-bold text-xl text-red-800">Session Window Closed</p>
                                             </div>
-                                            <Button variant="outline" className="h-16 text-lg font-bold w-full rounded-2xl gap-3 border-2 hover:bg-primary/5 transition-all" onClick={() => onPostpone(appointment)}>
-                                                <RefreshCw className="h-5 w-5 text-primary" /> Reschedule Session
+                                            <Button variant="outline" className="h-16 text-lg font-bold w-full rounded-2xl gap-3 border-2 hover:bg-primary/5" onClick={() => onPostpone(appointment)}>
+                                                <RefreshCw className="h-5 w-5 text-primary" /> Reschedule
                                             </Button>
                                         </div>
                                     ) : (
-                                        <>
-                                            <Button className="h-16 text-lg font-bold opacity-70 cursor-not-allowed w-full rounded-2xl bg-slate-100 text-slate-500" disabled>Exact Time Lock <Clock className="ml-3 h-6 w-6" /></Button>
-                                            <Button variant="outline" className="h-16 text-lg font-bold w-full rounded-2xl gap-3 border-2 hover:bg-primary/5 transition-all" onClick={() => onPostpone(appointment)}>
-                                                <RefreshCw className="h-4 w-4 text-primary" /> Postpone Session
+                                        <div className="space-y-4">
+                                            <div className="p-6 bg-slate-50 border-2 rounded-3xl text-center">
+                                                <Clock className="h-8 w-8 text-slate-400 mx-auto mb-2" />
+                                                <p className="text-sm font-bold text-slate-600">Awaiting Time Window</p>
+                                                <p className="text-[10px] text-muted-foreground mt-1">Starts at {format(appointmentDate, "p")}</p>
+                                            </div>
+                                            <Button variant="outline" className="h-16 text-lg font-bold w-full rounded-2xl gap-3 border-2 hover:bg-primary/5" onClick={() => onPostpone(appointment)}>
+                                                <RefreshCw className="h-4 w-4 text-primary" /> Shift Session
                                             </Button>
-                                        </>
+                                        </div>
                                     )}
                                 </div>
                             </TabsContent>
@@ -412,15 +265,13 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
                             <TabsContent value="notes" className="m-0">
                                 <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                                     <FormField control={form.control} name="diagnosis" render={({ field }) => (
-                                        <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-[0.2em] text-muted-foreground">Clinical Findings</FormLabel><FormControl><Input placeholder="Summary of primary diagnosis..." className="h-14 border-2 rounded-2xl px-5" {...field} disabled={isCompleted} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-[0.2em] text-muted-foreground">Diagnosis</FormLabel><FormControl><Input placeholder="Summary..." className="h-14 border-2 rounded-2xl px-5" {...field} disabled={isCompleted} /></FormControl><FormMessage /></FormItem>
                                     )} />
                                     <FormField control={form.control} name="prescription" render={({ field }) => (
-                                        <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-[0.2em] text-muted-foreground">Treatment & Advice</FormLabel><FormControl><Textarea placeholder="Prescriptions, dosage, and follow-up patient instructions..." rows={8} className="resize-none border-2 rounded-2xl p-5" {...field} disabled={isCompleted} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-[0.2em] text-muted-foreground">Prescription</FormLabel><FormControl><Textarea placeholder="Treatment details..." rows={8} className="resize-none border-2 rounded-2xl p-5" {...field} disabled={isCompleted} /></FormControl><FormMessage /></FormItem>
                                     )} />
-                                    {!isCompleted ? (
-                                        <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-2xl shadow-primary/20 bg-primary text-white">Finalize & Perform Consultation</Button>
-                                    ) : (
-                                        <div className="p-5 bg-muted/30 text-center rounded-2xl text-xs font-bold uppercase tracking-widest text-muted-foreground border-2 border-dashed">Session Performed • Edits Locked</div>
+                                    {!isCompleted && (
+                                        <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-2xl shadow-primary/20 bg-primary text-white">Finalize Consultation</Button>
                                     )}
                                 </form></Form>
                             </TabsContent>
@@ -432,140 +283,12 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
     );
 }
 
-function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean, onOpenChange: (open: boolean) => void, doctor: Doctor }) {
-    const firestore = useFirestore();
-    const { toast } = useToast();
-    const [disabledSlots, setDisabledSlots] = useState<string[]>(doctor?.availability?.disabledSlots || []);
-    const [isSaving, setIsSaving] = useState(false);
-    
-    const handleSave = async () => {
-        if (!firestore || !doctor) return;
-        setIsSaving(true);
-        updateDocumentNonBlocking(doc(firestore, 'doctors', doctor.id), { availability: { ...doctor.availability, disabledSlots }, updatedAt: new Date().toISOString() });
-        toast({ title: "Clinical Slots Synced" });
-        setIsSaving(false);
-        onOpenChange(false);
-    };
-
-    return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[95dvh] overflow-hidden sm:max-w-xl rounded-[2.5rem] p-0 flex flex-col border-none shadow-2xl animate-in zoom-in-95 duration-200">
-                <div className="p-8 sm:p-10 border-b bg-slate-900 text-white shrink-0">
-                    <DialogTitle className="text-2xl font-headline">Clinical Hour Configuration</DialogTitle>
-                    <DialogDescription className="text-slate-400 mt-1">Audit and update your available 30-minute blocks.</DialogDescription>
-                </div>
-                <div className="flex-1 overflow-y-auto bg-white overscroll-contain custom-scrollbar">
-                    <div className="space-y-8 p-8 sm:p-10 pb-32">
-                        <div className="p-5 bg-primary/5 rounded-2xl border border-primary/10 flex gap-4">
-                            <AlertCircle className="h-6 w-6 text-primary shrink-0" />
-                            <p className="text-xs text-muted-foreground leading-relaxed font-medium italic">
-                                Unchecked slots are marked as <strong>Unavailable</strong> and are instantly hidden from patient booking views across the platform.
-                            </p>
-                        </div>
-                        {Object.entries(timeSlots).map(([session, slots]) => (
-                            <div key={session} className="p-6 rounded-[2rem] bg-muted/20 border">
-                                <h5 className="text-[10px] font-bold uppercase mb-6 text-primary tracking-[0.2em]">{session} 30m Session Block</h5>
-                                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                    {slots.map(slot => (
-                                        <div key={slot} className="flex items-center space-x-3 p-4 border-2 rounded-2xl bg-white hover:border-primary/30 transition-all shadow-sm group">
-                                            <Checkbox 
-                                                id={`slot-${slot}`} 
-                                                checked={!disabledSlots.includes(slot)} 
-                                                onCheckedChange={() => setDisabledSlots(prev => prev.includes(slot) ? prev.filter(s => s !== slot) : [...prev, slot])}
-                                                className="h-5 w-5 rounded-lg border-2"
-                                            />
-                                            <label htmlFor={`slot-${slot}`} className="text-xs font-bold cursor-pointer select-none group-hover:text-primary transition-colors">{slot}</label>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-                </div>
-                <div className="p-8 sm:p-10 border-t bg-slate-50 shrink-0 mt-auto">
-                    <Button onClick={handleSave} className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl shadow-primary/20 text-white bg-primary" disabled={isSaving}>
-                        {isSaving ? <Loader2 className="h-5 w-5 animate-spin mr-2" /> : null}
-                        Apply Slot Schedule
-                    </Button>
-                </div>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { isOpen: boolean, onOpenChange: (open: boolean) => void, defaultDate: Date, doctorId: string }) {
-    const firestore = useFirestore();
-    const { toast } = useToast();
-    const form = useForm({ 
-        resolver: zodResolver(z.object({ reason: z.string().min(5), requestedDate: z.date() })), 
-        defaultValues: { reason: '', requestedDate: defaultDate }
-    });
-    
-    const onSubmit = (values: any) => {
-        if (!firestore) return;
-        addDocumentNonBlocking(collection(firestore, 'doctorUnavailabilityRequests'), { 
-            doctorId, 
-            requestedDate: values.requestedDate.toISOString(), 
-            reason: values.reason, 
-            status: 'pending', 
-            requestedAt: new Date().toISOString() 
-        });
-        toast({ title: "Absence History Logged", description: "Admin review pending for " + format(values.requestedDate, "MMM dd") });
-        onOpenChange(false);
-    };
-
-    return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="rounded-[2.5rem] sm:max-w-md border-none shadow-2xl p-0 overflow-hidden max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
-                <div className="bg-slate-900 p-8 text-white text-center shrink-0">
-                    <DialogTitle className="text-2xl font-headline">Absence History Entry</DialogTitle>
-                    <DialogDescription className="text-slate-400 mt-1">Audit trail for professional clinical pauses.</DialogDescription>
-                </div>
-                <div className="flex-1 overflow-y-auto bg-white overscroll-contain custom-scrollbar">
-                    <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 p-8 pb-24 bg-white">
-                            <FormField control={form.control} name="requestedDate" render={({ field }) => (
-                                <FormItem className="flex flex-col">
-                                    <FormLabel className="text-[10px] uppercase font-bold tracking-[0.2em] text-muted-foreground ml-1">Select Clinical Date</FormLabel>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <FormControl>
-                                                <Button variant="outline" className="w-full h-14 border-2 rounded-2xl text-left font-bold px-5 text-sm">
-                                                    <CalendarIcon className="mr-3 h-5 w-5 text-primary" />
-                                                    {field.value ? format(field.value, "PPP") : "Pick an audit date"}
-                                                </Button>
-                                            </FormControl>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0 rounded-3xl shadow-2xl border-none" align="center">
-                                            <DayPickerCalendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(d) => isBefore(d, addDays(new Date(), 1))} initialFocus className="rounded-3xl" />
-                                        </PopoverContent>
-                                    </Popover>
-                                </FormItem>
-                            )} />
-                            <FormField control={form.control} name="reason" render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel className="text-[10px] uppercase font-bold tracking-[0.2em] text-muted-foreground ml-1">Professional Justification</FormLabel>
-                                    <FormControl>
-                                        <Textarea placeholder="Detail the context (e.g. Travel, Workshop, Personal Audit)" rows={5} className="resize-none border-2 rounded-2xl p-5 text-sm focus:border-primary transition-colors" {...field} />
-                                    </FormControl>
-                                </FormItem>
-                            )} />
-                            <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl shadow-primary/20 text-white bg-primary">Log for Audit History</Button>
-                        </form>
-                    </Form>
-                </div>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
 export default function DoctorPortalPage() {
     const { user, userData, isUserLoading } = useUserData();
     const firestore = useFirestore();
     const { toast } = useToast();
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
     const [isConsultOpen, setIsConsultOpen] = useState(false);
-    const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(false);
     const [isLeaveOpen, setIsLeaveOpen] = useState(false);
     const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [isPostponeOpen, setIsPostponeOpen] = useState(false);
@@ -578,16 +301,8 @@ export default function DoctorPortalPage() {
     useEffect(() => {
         setMounted(true);
         const timer = setInterval(() => setNowState(Date.now()), 15000);
-        
         const saved = localStorage.getItem('dismissed_alerts');
-        if (saved) {
-            try {
-                setDismissedAlertIds(new Set(JSON.parse(saved)));
-            } catch (e) {
-                console.error("Alert recovery error", e);
-            }
-        }
-
+        if (saved) try { setDismissedAlertIds(new Set(JSON.parse(saved))); } catch (e) { }
         return () => clearInterval(timer);
     }, []);
 
@@ -601,372 +316,216 @@ export default function DoctorPortalPage() {
     }, [firestore, user]);
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    // OPTIMIZED PATIENT FETCHING: Targeted fetch for involved patients only
     useEffect(() => {
         if (!appointments || !firestore) return;
-        
         const fetchPatients = async () => {
-            const pIds = Array.from(new Set(appointments.map(a => a.patientId).filter(Boolean)));
+            const pIds = Array.from(new Set(appointments.map(a => a?.patientId).filter(Boolean)));
             if (pIds.length === 0) return;
-
             const newMap = new Map<string, Patient>();
-            // Fetch in chunks because Firestore 'in' query has 30 item limit
             for (let i = 0; i < pIds.length; i += 30) {
                 const chunk = pIds.slice(i, i + 30);
                 const q = query(collection(firestore, 'patients'), where('id', 'in', chunk));
                 const snap = await getDocs(q);
-                snap.forEach(doc => {
-                    newMap.set(doc.id, doc.data() as Patient);
-                });
+                snap.forEach(doc => newMap.set(doc.id, doc.data() as Patient));
             }
             setPatientsMap(newMap);
         };
         fetchPatients();
     }, [appointments, firestore]);
 
-    const requestsQuery = useMemoFirebase(() => {
-        if (!firestore || !user) return null;
-        return query(collection(firestore, 'doctorUnavailabilityRequests'), where('doctorId', '==', user.uid));
-    }, [firestore, user]);
-    const { data: requests } = useCollection<any>(requestsQuery);
-
     useEffect(() => {
         if (!mounted || !appointments || !firestore || !user) return;
-
         const checkMissedSessions = async () => {
             const now = Date.now();
-            const missedAppointments = appointments.filter(apt => {
+            const missed = appointments.filter(apt => {
                 if (!apt || apt.status !== 'scheduled' || !apt.appointmentDateTime) return false;
-                const endTime = new Date(apt.appointmentDateTime).getTime() + (30 * 60 * 1000); 
-                return now > endTime;
+                return now > new Date(apt.appointmentDateTime).getTime() + (30 * 60 * 1000);
             });
-
-            for (const apt of missedAppointments) {
-                if (!apt || !apt.id) continue;
-                const aptRef = doc(firestore, 'appointments', apt.id);
-                updateDocumentNonBlocking(aptRef, { status: 'expired', updatedAt: new Date().toISOString() });
-
+            for (const apt of missed) {
+                if (!apt?.id) continue;
+                updateDocumentNonBlocking(doc(firestore, 'appointments', apt.id), { status: 'expired', updatedAt: new Date().toISOString() });
                 addDocumentNonBlocking(collection(firestore, 'missedSessionAudits'), {
-                    appointmentId: apt.id,
-                    doctorId: user.uid,
-                    patientId: apt.patientId,
-                    scheduledTime: apt.appointmentDateTime,
-                    loggedAt: new Date().toISOString(),
-                });
-
-                toast({
-                    variant: 'destructive',
-                    title: "Session Expired",
-                    description: `The clinical window has concluded. Marked as Missed.`,
+                    appointmentId: apt.id, doctorId: user.uid, patientId: apt.patientId, scheduledTime: apt.appointmentDateTime, loggedAt: new Date().toISOString()
                 });
             }
         };
-
         checkMissedSessions();
-    }, [appointments, mounted, firestore, user, toast, nowState]);
+    }, [appointments, mounted, firestore, user, nowState]);
 
-    const { todayAppointments, stats, masterSchedule, notifications, currentDayLeaveStatus } = useMemo(() => {
-        if (!mounted || !appointments) return { 
-            todayAppointments: [], 
-            stats: { today: 0, pending: 0, todayRevenue: 0, totalRevenue: 0, totalConsults: 0, uniquePatients: 0 }, 
-            masterSchedule: { morning: [], afternoon: [], evening: [] },
-            notifications: [],
-            currentDayLeaveStatus: null as string | null
-        };
+    const { activeQueue, timelineApts, stats, notifications } = useMemo(() => {
+        if (!mounted || !appointments) return { activeQueue: [], timelineApts: [], stats: { today: 0, todayRevenue: 0, totalRevenue: 0, totalConsults: 0 }, notifications: [] };
         
         const now = new Date();
         const yesterday = subDays(now, 1);
+        const dayStart = startOfDay(viewDate);
+        const dayEnd = addDays(dayStart, 1);
 
-        const allToday = appointments.filter(apt => {
-            if (!apt || !apt.appointmentDateTime) return false;
-            if (apt.status === 'cancelled') return false;
-            return isSameDay(new Date(apt.appointmentDateTime), now);
-        });
+        const allToday = appointments.filter(apt => apt && apt.appointmentDateTime && isSameDay(new Date(apt.appointmentDateTime), now) && apt.status !== 'cancelled');
+        const viewDayApts = appointments.filter(apt => apt && apt.appointmentDateTime && isSameDay(new Date(apt.appointmentDateTime), viewDate) && apt.status !== 'cancelled')
+                                      .sort((a,b) => a.appointmentDateTime.localeCompare(b.appointmentDateTime));
 
-        const activeQueue = allToday.filter(apt => {
-            if (apt.status === 'completed' || apt.status === 'expired') return false;
-            const aptDate = new Date(apt.appointmentDateTime);
-            const endTime = aptDate.getTime() + (30 * 60 * 1000); 
-            const isExpired = Date.now() > endTime;
-            return !isExpired;
-        });
-
-        const pending = appointments.filter(apt => apt && apt.status === 'scheduled').length;
-        const todayRev = allToday.filter(a => a && a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
+        const activeQ = allToday.filter(apt => apt.status === 'scheduled' && Date.now() < new Date(apt.appointmentDateTime).getTime() + (30 * 60 * 1000));
+        
+        const todayRev = allToday.filter(a => a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
         const lifetimeRev = appointments.filter(a => a && a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
         const totalCompleted = appointments.filter(a => a && a.status === 'completed').length;
-        const uniquePatients = new Set(appointments.filter(a => a && a.status === 'completed' && a.patientId).map(a => a.patientId)).size;
-
-        const activeRequest = requests?.find(r => r && r.requestedDate && isSameDay(new Date(r.requestedDate), viewDate));
-        const leaveStatus = activeRequest?.status || null;
-
-        const filterSlots = (times: string[]) => {
-            return times.map(time => {
-                const apt = appointments.find(a => {
-                    if (!a || !a.appointmentDateTime) return false;
-                    const aptDate = new Date(a.appointmentDateTime);
-                    const formattedAptTime = format(aptDate, "hh:mm a");
-                    return isSameDay(aptDate, viewDate) && formattedAptTime === time && a.status !== 'cancelled';
-                });
-                const isSlotDisabled = userData?.availability?.disabledSlots?.includes(time) || false;
-                return { time, appointment: apt, isDisabled: isSlotDisabled || leaveStatus === 'approved' };
-            });
-        };
 
         const alerts: any[] = [];
         appointments.forEach(a => {
-            if (!a || !a.appointmentDateTime || !a.createdAt) return;
-            if (a.status === 'completed' || a.status === 'cancelled') return;
-
+            if (!a?.appointmentDateTime || a.status === 'completed' || a.status === 'cancelled') return;
             const alertId = a.id + (a.status === 'expired' ? '-exp' : '-notif');
             if (dismissedAlertIds.has(alertId)) return;
-
-            if (a.status === 'expired') {
-                alerts.push({ id: alertId, msg: `Missed Session: ${format(new Date(a.appointmentDateTime), "p")}`, icon: AlertCircle, color: 'text-destructive', timestamp: new Date(a.updatedAt || a.createdAt).getTime() });
-                return;
-            }
+            if (a.status === 'expired') alerts.push({ id: alertId, msg: `Missed: ${format(new Date(a.appointmentDateTime), "p")}`, icon: AlertCircle, color: 'text-destructive', timestamp: new Date(a.updatedAt || a.createdAt).getTime() });
+            else if (isAfter(new Date(a.createdAt), yesterday)) alerts.push({ id: alertId, msg: `New: ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary', timestamp: new Date(a.createdAt).getTime() });
             
-            const isNew = isAfter(new Date(a.createdAt), yesterday);
-            if (isNew && a.status === 'scheduled') {
-                alerts.push({ id: alertId, msg: `New Booking: ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary', timestamp: new Date(a.createdAt).getTime() });
-            }
-
-            const aptDate = new Date(a.appointmentDateTime);
-            const startTime = aptDate.getTime();
-            const endTime = aptDate.getTime() + (30 * 60 * 1000); 
-            const currentTime = Date.now();
-            
-            if (currentTime >= startTime && currentTime < endTime && a.status === 'scheduled') {
-                alerts.push({ id: alertId + '-live', msg: "PATIENT WAITING - JOIN NOW", icon: Siren, color: 'text-red-500 animate-pulse font-bold', isReminder: true, timestamp: Date.now() + 1000000 });
+            const aptStart = new Date(a.appointmentDateTime).getTime();
+            if (Date.now() >= aptStart && Date.now() < aptStart + (30 * 60 * 1000) && a.status === 'scheduled') {
+                alerts.push({ id: alertId + '-live', msg: "LIVE SESSION ACTIVE", icon: Siren, color: 'text-red-500 animate-pulse font-bold', isReminder: true, timestamp: Date.now() + 1000000 });
             }
         });
 
         return { 
-            todayAppointments: activeQueue,
-            stats: { today: allToday.length, pending: pending, todayRevenue: todayRev, totalRevenue: lifetimeRev, totalConsults: totalCompleted, uniquePatients },
-            masterSchedule: { morning: filterSlots(timeSlots.morning), afternoon: filterSlots(timeSlots.afternoon), evening: filterSlots(timeSlots.evening) },
-            notifications: alerts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)),
-            currentDayLeaveStatus: leaveStatus
+            activeQueue: activeQ,
+            timelineApts: viewDayApts,
+            stats: { today: allToday.length, todayRevenue: todayRev, totalRevenue: lifetimeRev, totalConsults: totalCompleted },
+            notifications: alerts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
         };
-    }, [appointments, mounted, viewDate, userData, requests, dismissedAlertIds, nowState]);
+    }, [appointments, mounted, viewDate, dismissedAlertIds, nowState]);
 
-    const handleSelectApt = (apt: Appointment) => {
-        setSelectedAppointment(apt);
-        setIsConsultOpen(true);
-    };
+    const handleSelectApt = (apt: Appointment) => { setSelectedAppointment(apt); setIsConsultOpen(true); };
+    const handleTriggerPostpone = (apt: any) => { setSelectedAppointment(apt); setIsConsultOpen(false); setIsPostponeOpen(true); };
 
-    const handleClearNotifications = () => {
-        const newDismissed = new Set(dismissedAlertIds);
-        notifications.forEach(n => n && n.id && newDismissed.add(n.id));
-        setDismissedAlertIds(newDismissed);
-        localStorage.setItem('dismissed_alerts', JSON.stringify(Array.from(newDismissed)));
-        toast({ title: "History logs cleared." });
-    };
-
-    const handleTriggerPostpone = (apt: any) => {
-        setSelectedAppointment(apt);
-        setIsConsultOpen(false);
-        setIsPostponeOpen(true);
-    };
-
-    if (!mounted || isUserLoading) return <div className="flex min-h-screen items-center justify-center bg-secondary/30"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    if (!mounted || isUserLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
     return (
-        <main className="min-h-screen bg-secondary/30 py-6 sm:py-10 overflow-x-hidden">
-            <div className="container mx-auto px-4 space-y-8 sm:space-y-12 pb-24">
+        <main className="min-h-screen bg-slate-50/50 py-8 px-4 overflow-x-hidden">
+            <div className="max-w-7xl mx-auto space-y-8 pb-20">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
-                    <div className="space-y-2">
-                        <h1 className="text-3xl sm:text-4xl font-bold font-headline tracking-tight text-foreground">Clinical Command Center</h1>
-                        <p className="text-muted-foreground flex items-center gap-2 text-sm sm:text-base font-medium">
-                            <Activity className="h-5 w-5 text-primary" /> Active Platform Surveillance • Continuous Timing
-                        </p>
+                    <div className="space-y-1">
+                        <h1 className="text-3xl font-bold font-headline text-slate-900">Command Center</h1>
+                        <p className="text-muted-foreground text-sm font-medium flex items-center gap-2"><Activity className="h-4 w-4 text-primary" /> Dynamic Practice Feed • Performance Surveillance</p>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 w-full md:w-auto">
-                        <Card className="p-4 bg-primary text-primary-foreground border-none shadow-2xl shadow-primary/20 rounded-2xl">
-                            <p className="text-[10px] font-bold uppercase opacity-80 tracking-widest">Today's Revenue</p>
-                            <p className="text-xl sm:text-2xl font-bold">PKR {stats.todayRevenue.toLocaleString()}</p>
+                        <Card className="p-4 bg-primary text-white border-none shadow-xl shadow-primary/10 rounded-2xl">
+                            <p className="text-[10px] font-bold uppercase opacity-80">Earnings</p>
+                            <p className="text-xl font-bold">PKR {stats.todayRevenue.toLocaleString()}</p>
                         </Card>
-                        <Card className="p-4 bg-white border-none shadow-xl rounded-2xl">
-                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Today's Pool</p>
-                            <p className="text-xl sm:text-2xl font-bold text-primary">{stats.today} Patients</p>
+                        <Card className="p-4 bg-white border-none shadow-sm rounded-2xl">
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground">Today's Visits</p>
+                            <p className="text-xl font-bold text-primary">{stats.today} Patients</p>
                         </Card>
-                        <div className="col-span-2 sm:col-span-1">
-                            <Button onClick={() => setIsHistoryOpen(true)} variant="outline" className="w-full h-full font-bold gap-3 border-2 border-primary/20 hover:bg-primary/5 shadow-md rounded-2xl text-sm">
-                                <History className="h-5 w-5 text-primary" /> My History
-                            </Button>
-                        </div>
+                        <Button onClick={() => setIsHistoryOpen(true)} variant="outline" className="col-span-2 sm:col-span-1 h-full font-bold gap-2 border-2 bg-white rounded-2xl text-xs"><History className="h-4 w-4 text-primary" /> Activity</Button>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 sm:gap-10 items-start">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                     <div className="lg:col-span-4 space-y-8">
-                        <Card className="border-none shadow-2xl bg-white rounded-3xl overflow-hidden">
-                             <CardHeader className="pb-4 border-b bg-muted/10 px-6">
-                                <div className="flex items-center justify-between">
-                                    <CardTitle className="text-xs uppercase tracking-[0.2em] font-bold flex items-center gap-3">
-                                        <Bell className="h-5 w-5 text-amber-500" /> History Logs
-                                    </CardTitle>
-                                    {notifications.length > 0 && (
-                                        <Button variant="ghost" size="sm" onClick={handleClearNotifications} className="h-7 text-[10px] uppercase font-bold text-muted-foreground hover:text-destructive">
-                                            <Trash2 className="h-3 w-3 mr-1" /> Clear
-                                        </Button>
-                                    )}
-                                </div>
+                        <Card className="border-none shadow-xl bg-white rounded-3xl overflow-hidden">
+                             <CardHeader className="bg-slate-50 border-b p-6">
+                                <CardTitle className="text-xs uppercase font-bold flex items-center gap-2"><Bell className="h-4 w-4 text-amber-500" /> Notifications</CardTitle>
                             </CardHeader>
-                            <CardContent className="space-y-4 p-6">
+                            <CardContent className="p-4 space-y-3">
                                 {notifications.length > 0 ? notifications.map(n => n && (
-                                    <div key={n.id} className={cn(
-                                        "p-4 rounded-2xl border-2 flex gap-4 items-start animate-in fade-in slide-in-from-right-3 transition-all",
-                                        n.isReminder ? "bg-red-50 border-red-200 shadow-lg shadow-red-500/10" : "bg-muted/30 border-muted/50"
-                                    )}>
-                                        <n.icon className={cn("h-5 w-5 shrink-0 mt-0.5", n.color)} />
-                                        <div className="flex-1 min-w-0">
-                                            <p className={cn("text-xs leading-relaxed font-bold tracking-tight", n.isReminder ? "text-red-700" : "text-slate-700")}>{n.msg}</p>
-                                        </div>
+                                    <div key={n.id} className={cn("p-4 rounded-2xl border-2 flex gap-3 items-start", n.isReminder ? "bg-red-50 border-red-100" : "bg-slate-50 border-slate-100")}>
+                                        <n.icon className={cn("h-4 w-4 shrink-0 mt-0.5", n.color)} />
+                                        <p className={cn("text-xs font-bold", n.isReminder ? "text-red-700" : "text-slate-700")}>{n.msg}</p>
                                     </div>
-                                )) : (
-                                    <div className="text-center py-10 space-y-2">
-                                        <Activity className="h-10 w-10 text-muted-foreground/20 mx-auto" />
-                                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">History Clear</p>
-                                    </div>
-                                )}
+                                )) : <div className="text-center py-8 opacity-20"><Activity className="h-8 w-8 mx-auto" /></div>}
                             </CardContent>
                         </Card>
                         
-                        <Card className="border-none shadow-2xl overflow-hidden bg-white rounded-3xl">
-                            <CardHeader className="bg-primary/5 pb-4 border-b px-6">
-                                <div className="flex items-center justify-between">
-                                    <CardTitle className="text-sm font-bold flex items-center gap-3 uppercase tracking-tighter text-foreground">
-                                        <ClipboardCheck className="h-6 w-6 text-primary" /> Active Queue
-                                    </CardTitle>
-                                    <Badge variant="outline" className="text-[9px] font-bold border-primary/20 text-primary bg-white px-2 h-auto py-1">REAL-TIME</Badge>
-                                </div>
+                        <Card className="border-none shadow-xl bg-white rounded-3xl overflow-hidden">
+                            <CardHeader className="bg-primary/5 border-b p-6">
+                                <CardTitle className="text-xs uppercase font-bold flex items-center gap-2"><ClipboardCheck className="h-4 w-4 text-primary" /> Active Queue</CardTitle>
                             </CardHeader>
                             <CardContent className="p-0">
-                                {isLoadingAppointments ? (
-                                    <div className="p-16 text-center"><Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" /></div>
-                                ) : todayAppointments.length > 0 ? (
-                                    <div className="divide-y">
-                                        {todayAppointments.map(apt => apt && (
-                                            <AppointmentRow 
-                                                key={apt.id} 
-                                                apt={apt} 
-                                                patient={patientsMap.get(apt.patientId)}
-                                                onSelect={handleSelectApt} 
-                                                isMounted={mounted} 
-                                            />
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div className="p-20 text-center text-muted-foreground space-y-6">
-                                        <CalendarIcon className="h-16 w-16 mx-auto opacity-10" />
-                                        <p className="text-[10px] font-bold uppercase tracking-[0.3em]">No Active Sessions</p>
-                                    </div>
-                                )}
+                                {isLoadingAppointments ? <div className="p-12 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary/30" /></div> : 
+                                 activeQueue.length > 0 ? <div className="divide-y">{activeQueue.map(apt => apt && <AppointmentRow key={apt.id} apt={apt} patient={patientsMap.get(apt.patientId)} onSelect={handleSelectApt} isMounted={mounted} />)}</div> :
+                                 <div className="p-12 text-center text-muted-foreground italic text-xs">No active sessions right now.</div>}
                             </CardContent>
                         </Card>
                     </div>
 
                     <div className="lg:col-span-8 space-y-8">
-                        <Card className="border-none shadow-2xl relative bg-white overflow-hidden rounded-[2.5rem] flex flex-col">
-                            <CardHeader className="border-b bg-muted/5 z-10 p-6 sm:p-10 shrink-0">
-                                <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
-                                    <div className="space-y-2">
-                                        <CardTitle className="text-2xl sm:text-3xl font-headline flex items-center gap-4 text-foreground">
-                                            <Clock className="h-8 w-8 text-primary" /> Clinical Timetable
-                                        </CardTitle>
-                                        <CardDescription className="text-xs sm:text-sm font-medium">Standardised 30-minute intervals throughout working hours.</CardDescription>
+                        <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
+                            <CardHeader className="border-b bg-slate-50 p-6 sm:p-8">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                                    <div className="space-y-1">
+                                        <CardTitle className="text-xl font-headline flex items-center gap-3"><Clock className="h-6 w-6 text-primary" /> Daily Timeline</CardTitle>
+                                        <CardDescription className="text-xs">Dynamic chronological feed of all booked consultations.</CardDescription>
                                     </div>
-                                    <div className="flex flex-wrap items-center gap-4">
-                                        <div className="flex items-center gap-3 bg-white p-2 rounded-[1.25rem] border-2 shadow-sm w-full xl:w-auto justify-between sm:justify-start">
-                                            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl shrink-0" onClick={() => setViewDate(addDays(viewDate, -1))}><ChevronLeft className="h-5 w-5" /></Button>
-                                            <div className="px-4 text-xs sm:text-sm font-bold min-w-[100px] text-center uppercase tracking-widest">{format(viewDate, "MMM dd")}</div>
-                                            <Button variant="ghost" size="icon" className="h-10 w-10 rounded-xl shrink-0" onClick={() => setViewDate(addDays(viewDate, 1))}><ChevronRight className="h-5 w-5" /></Button>
-                                            <div className="hidden sm:flex h-8 w-px bg-muted mx-2" />
-                                            <div className="flex items-center gap-2 shrink-0">
-                                                <Button variant="outline" size="sm" className="h-10 gap-2 font-bold px-3 sm:px-4 text-[10px] sm:text-xs rounded-xl border-2" onClick={() => setIsAvailabilityOpen(true)}><Settings2 className="h-4 w-4 text-primary" /> Slots</Button>
-                                                <Button size="sm" className="h-10 gap-2 font-bold px-3 sm:px-4 text-[10px] sm:text-xs rounded-xl shadow-lg text-white" onClick={() => setIsLeaveOpen(true)}><Moon className="h-4 w-4" /> Leave</Button>
-                                            </div>
-                                        </div>
+                                    <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border-2 shadow-sm">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewDate(subDays(viewDate, 1))}><ChevronLeft className="h-4 w-4" /></Button>
+                                        <span className="px-3 text-xs font-bold uppercase tracking-widest">{format(viewDate, "MMM dd")}</span>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewDate(addDays(viewDate, 1))}><ChevronRight className="h-4 w-4" /></Button>
                                     </div>
                                 </div>
                             </CardHeader>
-                            <CardContent className="p-6 sm:p-10">
-                                {currentDayLeaveStatus === 'approved' && (
-                                    <div className="bg-primary/5 p-8 rounded-3xl border-2 border-dashed text-center space-y-4 mb-8">
-                                        <div className="h-16 w-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto shadow-inner"><ShieldCheck className="h-10 w-10" /></div>
-                                        <div className="space-y-1">
-                                            <h4 className="text-xl font-bold tracking-tight">Practice Suspended</h4>
-                                            <p className="text-sm text-muted-foreground font-medium italic">Professional absence approved for this date.</p>
-                                        </div>
+                            <CardContent className="p-6 sm:p-10 min-h-[400px]">
+                                {timelineApts.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {timelineApts.map((apt) => {
+                                            const timing = {
+                                                isLive: Date.now() >= new Date(apt.appointmentDateTime).getTime() && Date.now() < new Date(apt.appointmentDateTime).getTime() + (30 * 60 * 1000),
+                                                isCompleted: apt.status === 'completed'
+                                            };
+                                            return (
+                                                <div key={apt.id} className={cn(
+                                                    "flex items-center justify-between p-6 rounded-[1.5rem] border-2 transition-all",
+                                                    timing.isLive ? "border-primary bg-primary/5 shadow-lg shadow-primary/5 scale-[1.01]" : 
+                                                    timing.isCompleted ? "border-green-100 bg-green-50/50" : "border-slate-100 hover:border-slate-200 bg-white"
+                                                )}>
+                                                    <div className="flex items-center gap-5">
+                                                        <div className="text-center w-16 shrink-0 border-r-2 border-slate-100">
+                                                            <p className="text-sm font-bold text-slate-900">{format(new Date(apt.appointmentDateTime), "hh:mm")}</p>
+                                                            <p className="text-[10px] font-bold text-muted-foreground uppercase">{format(new Date(apt.appointmentDateTime), "a")}</p>
+                                                        </div>
+                                                        <div className="flex items-center gap-4">
+                                                            <div className={cn("h-10 w-10 rounded-full flex items-center justify-center shadow-inner", timing.isCompleted ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>
+                                                                <User className="h-5 w-5" />
+                                                            </div>
+                                                            <div>
+                                                                <p className="font-bold text-slate-900">{patientsMap.get(apt.patientId)?.firstName} {patientsMap.get(apt.patientId)?.lastName || '...'}</p>
+                                                                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">{apt.appointmentType}</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-3">
+                                                        {timing.isCompleted ? <Badge className="bg-green-100 text-green-800 font-bold text-[10px] px-3 h-7">Performed</Badge> :
+                                                         timing.isLive ? <Button size="sm" onClick={() => handleSelectApt(apt)} className="bg-red-600 hover:bg-red-700 text-white font-bold h-9 px-6 rounded-xl animate-pulse">Join Session</Button> :
+                                                         <Button variant="outline" size="sm" onClick={() => handleSelectApt(apt)} className="h-9 px-4 rounded-xl font-bold border-2 text-xs">Manage</Button>}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-32 opacity-20 grayscale">
+                                        <CalendarIcon className="h-20 w-20 mb-4" />
+                                        <p className="font-bold text-xs uppercase tracking-[0.3em]">No Consultations Booked</p>
                                     </div>
                                 )}
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-10 pb-12">
-                                    <div className="space-y-6">
-                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-4"><div className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-sm shrink-0" /> Morning</h3>
-                                        <div className="space-y-2">{masterSchedule.morning.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} patient={patientsMap.get(slot.appointment?.patientId || '')} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
-                                    </div>
-                                    <div className="space-y-6">
-                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-4"><div className="h-2.5 w-2.5 rounded-full bg-blue-400 shadow-sm shrink-0" /> Afternoon</h3>
-                                        <div className="space-y-2">{masterSchedule.afternoon.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} patient={patientsMap.get(slot.appointment?.patientId || '')} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
-                                    </div>
-                                    <div className="space-y-6">
-                                        <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-4"><Moon className="h-4 w-4 text-indigo-400 shrink-0" /> Evening</h3>
-                                        <div className="space-y-2">{masterSchedule.evening.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} patient={patientsMap.get(slot.appointment?.patientId || '')} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
-                                    </div>
-                                </div>
                             </CardContent>
                         </Card>
                     </div>
                 </div>
 
                 <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-                    <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-[2.5rem] p-0 overflow-hidden max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
-                        <div className="bg-slate-900 p-8 text-white text-center shrink-0">
-                            <DialogTitle className="flex items-center justify-center gap-3 text-2xl font-headline text-white">
-                                <History className="h-6 w-6 text-primary" /> My History
-                            </DialogTitle>
-                            <DialogDescription className="text-slate-400 mt-1">Summary of your professional clinical activity.</DialogDescription>
-                        </div>
-                        <div className="flex-1 overflow-y-auto bg-white p-8 space-y-6 overscroll-contain pb-24 custom-scrollbar">
-                            <div className="p-6 rounded-3xl bg-primary/5 border-2 border-primary/10 space-y-1 text-center">
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Aggregate Earnings</p>
-                                <p className="text-3xl sm:text-4xl font-bold text-primary">PKR {stats.totalRevenue.toLocaleString()}</p>
-                            </div>
-                            <div className="p-6 rounded-3xl bg-muted/30 border-2 border-muted/50 space-y-1 text-center">
-                                <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Performed Consultations</p>
-                                <p className="text-3xl sm:text-4xl font-bold">{stats.totalConsults}</p>
-                            </div>
-                            <div className="p-6 rounded-3xl bg-blue-50 border-2 border-blue-100 space-y-1 text-center">
-                                <p className="text-[10px] font-bold text-blue-400 uppercase tracking-[0.2em]">Unique Patients Pool</p>
-                                <p className="text-3xl sm:text-4xl font-bold text-blue-600">{stats.uniquePatients}</p>
+                    <DialogContent className="sm:max-w-md rounded-[2.5rem] p-8 border-none shadow-2xl animate-in zoom-in-95">
+                        <DialogHeader className="text-center mb-8"><DialogTitle className="text-2xl font-headline flex items-center justify-center gap-3"><History className="h-6 w-6 text-primary" /> My Performance</DialogTitle></DialogHeader>
+                        <div className="space-y-4">
+                            <div className="p-6 bg-slate-900 text-white rounded-3xl text-center"><p className="text-[10px] uppercase font-bold opacity-60">Aggregate Earnings</p><p className="text-3xl font-bold mt-1">PKR {stats.totalRevenue.toLocaleString()}</p></div>
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="p-6 bg-primary/10 rounded-3xl text-center"><p className="text-[10px] uppercase font-bold text-primary">Consultations</p><p className="text-2xl font-bold text-slate-900">{stats.totalConsults}</p></div>
+                                <div className="p-6 bg-slate-100 rounded-3xl text-center"><p className="text-[10px] uppercase font-bold text-slate-500">Scheduled</p><p className="text-2xl font-bold text-slate-900">{appointments?.filter(a => a?.status === 'scheduled').length || 0}</p></div>
                             </div>
                         </div>
-                        <DialogFooter className="p-8 pt-0 bg-white shrink-0 mt-auto"><Button variant="secondary" className="w-full h-14 font-bold rounded-2xl" onClick={() => setIsHistoryOpen(false)}>Close Summary</Button></DialogFooter>
                     </DialogContent>
                 </Dialog>
 
                 {selectedAppointment && <ConsultationDialog isOpen={isConsultOpen} onOpenChange={setIsConsultOpen} appointment={selectedAppointment} patient={patientsMap.get(selectedAppointment.patientId)} isMounted={mounted} onPostpone={handleTriggerPostpone} />}
-                {userData && <AvailabilityDialog isOpen={isAvailabilityOpen} onOpenChange={setIsAvailabilityOpen} doctor={userData as Doctor} />}
-                {user && <LeaveRequestDialog isOpen={isLeaveOpen} onOpenChange={setIsLeaveOpen} defaultDate={viewDate} doctorId={user.uid} />}
                 {selectedAppointment && <InternalPostponeDialog isOpen={isPostponeOpen} onOpenChange={setIsPostponeOpen} appointment={selectedAppointment} />}
             </div>
         </main>
     );
-}
-
-function getNext7Days() {
-    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    const next7Days = [];
-    for (let i = 0; i < 7; i++) {
-        const date = new Date();
-        date.setDate(date.getDate() + i);
-        next7Days.push({
-            date: date,
-            dayName: days[date.getDay()],
-            dayNumber: date.getDate(),
-            fullDayName: days[date.getDay()] 
-        });
-    }
-    return next7Days;
 }

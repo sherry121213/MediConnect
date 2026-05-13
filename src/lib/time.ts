@@ -14,14 +14,34 @@ export const getNext7Days = () => {
     return next7Days;
 }
 
+/**
+ * Generates granular 15-minute start times for a continuous clinical schedule.
+ * Removes the old morning/afternoon/evening grouping.
+ */
+export const generateAvailableTimes = () => {
+    const times = [];
+    let currentHour = 9; // Start at 09:00 AM
+    let currentMinute = 0;
+
+    while (currentHour < 22) { // End at 10:00 PM
+        const period = currentHour >= 12 ? "PM" : "AM";
+        const displayHour = currentHour > 12 ? currentHour - 12 : (currentHour === 0 ? 12 : currentHour);
+        const displayMinute = currentMinute === 0 ? "00" : currentMinute;
+        
+        times.push(`${displayHour.toString().padStart(2, '0')}:${displayMinute} ${period}`);
+        
+        currentMinute += 15;
+        if (currentMinute >= 60) {
+            currentMinute = 0;
+            currentHour += 1;
+        }
+    }
+    return times;
+}
+
+// Legacy export for compatibility during transition
 export const timeSlots = {
-    morning: [
-        "10:00 AM", "10:30 AM", "11:00 AM", "11:30 AM", "12:00 PM", "12:30 PM", "01:00 PM"
-    ],
-    afternoon: [
-        "01:30 PM", "02:00 PM", "02:30 PM", "03:00 PM", "03:30 PM", "04:00 PM", "04:30 PM", "05:00 PM", "05:30 PM"
-    ],
-    evening: [
-        "06:00 PM", "06:30 PM", "07:00 PM", "07:30 PM", "08:00 PM", "08:30 PM", "09:00 PM", "09:30 PM", "10:00 PM"
-    ]
+    morning: generateAvailableTimes().slice(0, 16),
+    afternoon: generateAvailableTimes().slice(16, 32),
+    evening: generateAvailableTimes().slice(32)
 }
