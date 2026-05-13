@@ -28,7 +28,6 @@ const ConsultationMessageItem = ({ appointment, isMounted }: { appointment: any,
     ? format(appointmentDate, "MMM dd, yyyy") 
     : 'Date TBD';
 
-  // Strict enforcement: Start exactly at T, 10m buffer for "Starting Soon"
   const nowTime = isMounted ? new Date().getTime() : 0;
   const bufferTime = appointmentDate && isDateValid ? appointmentDate.getTime() - (10 * 60 * 1000) : 0;
   const startTime = appointmentDate && isDateValid ? appointmentDate.getTime() : 0;
@@ -41,7 +40,7 @@ const ConsultationMessageItem = ({ appointment, isMounted }: { appointment: any,
   return (
     <Card className={cn(
         "hover:shadow-lg transition-all border-l-4 group overflow-hidden bg-white",
-        isLive ? "border-l-primary" : isSoon ? "border-l-amber-400" : "border-l-slate-200"
+        isLive ? "border-l-primary" : isSoon ? "border-l-amber-400" : (isExpired || appointment.status === 'expired') ? "border-l-destructive" : "border-l-slate-200"
     )}>
       <CardContent className="p-0">
         <div className="flex flex-col sm:flex-row items-stretch">
@@ -54,8 +53,9 @@ const ConsultationMessageItem = ({ appointment, isMounted }: { appointment: any,
                     <h3 className="font-bold text-lg truncate">
                         {doctor ? `Dr. ${doctor.firstName} ${doctor.lastName}` : 'Healthcare Provider'}
                     </h3>
-                    {isLive && <Badge className="bg-red-600 text-white animate-pulse h-4 text-[7px] px-1.5 uppercase font-bold">LIVE</Badge>}
-                    {isSoon && <Badge className="bg-amber-500 text-white h-4 text-[7px] px-1.5 uppercase font-bold">SOON</Badge>}
+                    {isLive && appointment.status === 'scheduled' && <Badge className="bg-red-600 text-white animate-pulse h-4 text-[7px] px-1.5 uppercase font-bold">LIVE</Badge>}
+                    {isSoon && appointment.status === 'scheduled' && <Badge className="bg-amber-500 text-white h-4 text-[7px] px-1.5 uppercase font-bold">SOON</Badge>}
+                    {(isExpired || appointment.status === 'expired') && <Badge className="bg-destructive text-white h-4 text-[7px] px-1.5 uppercase font-bold">MISSED</Badge>}
                 </div>
                 <p className="text-sm text-muted-foreground truncate max-w-[300px]">
                     Consultation mode: {appointment.appointmentType || 'General Consultation'}
@@ -64,33 +64,33 @@ const ConsultationMessageItem = ({ appointment, isMounted }: { appointment: any,
                     <span className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
                         <Calendar className="h-3 w-3" /> {formattedDate}
                     </span>
-                    {!isLive && isDateValid && !isExpired && (
+                    {!isLive && isDateValid && !isExpired && appointment.status === 'scheduled' && (
                          <span className={cn("text-[10px] uppercase font-bold flex items-center gap-1", isSoon ? "text-amber-600 animate-pulse" : "text-slate-400")}>
                             <Clock className="h-3 w-3" /> {isSoon ? 'Ready to Start' : `Starts at ${format(appointmentDate, "p")}`}
                         </span>
                     )}
-                    {isExpired && (
+                    {(isExpired || appointment.status === 'expired') && (
                         <span className="text-[10px] uppercase font-bold text-destructive flex items-center gap-1">
-                            <Clock className="h-3 w-3" /> Session Window Closed
+                            <Clock className="h-3 w-3" /> Clinical Window Missed
                         </span>
                     )}
                 </div>
             </div>
           </div>
           <div className="bg-muted/30 p-6 flex flex-col justify-center items-center sm:items-end gap-2 shrink-0 border-t sm:border-t-0 sm:border-l border-dashed">
-            {isLive ? (
+            {isLive && appointment.status === 'scheduled' ? (
                 <Button asChild size="sm" className="font-bold group-hover:scale-105 transition-transform w-full sm:w-auto bg-primary">
                     <Link href={`/consultation/${appointment.id}`}>
                         Join Now <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
                 </Button>
-            ) : isSoon ? (
+            ) : isSoon && appointment.status === 'scheduled' ? (
                 <Button size="sm" variant="outline" className="font-bold border-amber-300 text-amber-700 bg-amber-50 w-full sm:w-auto" disabled>
                     Starting Soon <Clock className="ml-2 h-4 w-4" />
                 </Button>
-            ) : isExpired ? (
+            ) : (isExpired || appointment.status === 'expired') ? (
                 <Button size="sm" variant="secondary" className="font-bold opacity-50 cursor-not-allowed w-full sm:w-auto" disabled>
-                    Session Expired <Clock className="ml-2 h-4 w-4" />
+                    Missed <Clock className="ml-2 h-4 w-4" />
                 </Button>
             ) : (
                 <Button size="sm" variant="secondary" className="font-bold cursor-not-allowed opacity-70 w-full sm:w-auto" disabled>
@@ -131,7 +131,6 @@ export default function PatientMessagesPage() {
     return appointments
       .filter(apt => {
           if (!apt) return false;
-          // REQUIREMENT: Only verified payments are visible in the message center
           if (apt.paymentStatus !== 'approved') return false;
 
           if (!searchTerm) return true;
@@ -157,7 +156,7 @@ export default function PatientMessagesPage() {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
             <div>
                 <h1 className="text-3xl font-bold font-headline tracking-tight">Clinical Message Center</h1>
-                <p className="text-muted-foreground flex items-center gap-2 text-sm mt-1">
+                <p className="text-muted-foreground flex items-gap-2 text-sm mt-1">
                     <MessageSquare className="h-4 w-4 text-primary" /> Verified consultation channels and real-time guidance.
                 </p>
             </div>

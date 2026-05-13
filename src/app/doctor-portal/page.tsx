@@ -26,7 +26,6 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar as DayPickerCalendar } from "@/components/ui/calendar";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 function PatientHistoryTab({ patientId }: { patientId: string }) {
     const firestore = useFirestore();
@@ -106,12 +105,12 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
+            <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[90dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
                     <DialogTitle className="text-xl sm:text-2xl font-headline">Clinical Rescheduling</DialogTitle>
                     <DialogDescription className="text-slate-400 mt-1 font-medium">Pick a new 30-minute clinical window.</DialogDescription>
                 </div>
-                <div className="flex-1 overflow-y-auto bg-white overscroll-contain">
+                <div className="flex-1 overflow-y-auto bg-white overscroll-contain custom-scrollbar">
                     <div className="p-6 sm:p-8 space-y-10 pb-32">
                         <div>
                             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4">Step 1: Select Date</p>
@@ -178,13 +177,13 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
     const appointmentDate = new Date(apt.appointmentDateTime);
     const now = isMounted ? Date.now() : 0;
     
-    // Strict timing: Starts exactly at T, buffer of 10m before T
     const bufferTime = appointmentDate.getTime() - (10 * 60 * 1000);
     const startTime = appointmentDate.getTime();
     const endTime = appointmentDate.getTime() + (30 * 60 * 1000); 
 
     const isLive = isMounted && now >= startTime && now < endTime && apt.status === 'scheduled';
     const isSoon = isMounted && now >= bufferTime && now < startTime && apt.status === 'scheduled';
+    const isMissed = isMounted && now >= endTime && apt.status !== 'completed';
 
     return (
         <div className={cn(
@@ -205,9 +204,12 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
             <div className="flex items-center gap-4">
                 {isLive && <Badge className="bg-red-600 text-white animate-pulse text-[9px] px-2 font-bold h-auto py-1">LIVE NOW</Badge>}
                 {isSoon && <Badge className="bg-amber-100 text-amber-700 text-[9px] px-2 font-bold h-auto py-1 border-amber-200 uppercase">Starting Soon</Badge>}
-                <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("shrink-0 text-[10px] px-2.5 py-1 h-auto font-bold", apt.status === 'completed' ? "bg-green-100 text-green-800" : "text-primary border-primary/20")}>
-                    {apt.status === 'scheduled' ? (isLive ? 'Start' : isSoon ? 'Ready' : 'Upcoming') : apt.status === 'completed' ? 'Performed' : apt.status}
-                </Badge>
+                {isMissed && <Badge variant="destructive" className="text-[9px] px-2.5 py-1 h-auto font-bold uppercase">Missed</Badge>}
+                {!isLive && !isSoon && !isMissed && (
+                    <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("shrink-0 text-[10px] px-2.5 py-1 h-auto font-bold", apt.status === 'completed' ? "bg-green-100 text-green-800" : "text-primary border-primary/20")}>
+                        {apt.status === 'scheduled' ? 'Upcoming' : apt.status === 'completed' ? 'Performed' : apt.status}
+                    </Badge>
+                )}
             </div>
         </div>
     );
@@ -259,7 +261,7 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
                 appointment.status === 'completed' ? "bg-green-50 border-green-200" :
                 timing.isLive ? "bg-primary/10 border-primary shadow-md scale-[1.02]" : 
                 timing.isSoon ? "bg-amber-50 border-amber-200" :
-                timing.isExpired ? "bg-destructive/5 border-destructive/20 opacity-70" :
+                timing.isExpired || appointment.status === 'expired' ? "bg-destructive/5 border-destructive/20 opacity-70" :
                 "bg-primary/5 border-primary/20 shadow-sm"
             ) : isPast ? "bg-slate-50 border-slate-100 opacity-50" : "bg-muted/20 border-transparent opacity-60",
             isDisabled && !appointment && "bg-destructive/5 border-destructive/10"
@@ -288,8 +290,8 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
                 <div className="flex items-center gap-2">
                     {appointment.status === 'completed' ? (
                         <Badge variant="secondary" className="bg-green-100 text-green-800 text-[9px] px-2.5 py-1 font-bold uppercase tracking-tight shrink-0 h-auto">Performed</Badge>
-                    ) : timing.isExpired ? (
-                        <Badge variant="destructive" className="text-[9px] px-2.5 py-1 font-bold uppercase tracking-tight shrink-0 h-auto">Expired</Badge>
+                    ) : timing.isExpired || appointment.status === 'expired' ? (
+                        <Badge variant="destructive" className="text-[9px] px-2.5 py-1 font-bold uppercase tracking-tight shrink-0 h-auto">Missed</Badge>
                     ) : (
                         <Button 
                             size="sm" 
@@ -346,7 +348,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
 
     const isLive = isMounted && now >= startTime && now < endTime && appointment.status === 'scheduled';
     const isSoon = isMounted && now >= bufferTime && now < startTime && appointment.status === 'scheduled';
-    const isExpired = isMounted && now >= endTime && appointment.status === 'scheduled';
+    const isExpired = isMounted && now >= endTime && appointment.status !== 'completed';
 
     const handleStartRoom = () => {
         onOpenChange(false);
@@ -355,7 +357,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-t-[2.5rem] sm:rounded-[2.5rem] max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
+            <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-t-[2.5rem] sm:rounded-[2.5rem] max-h-[90dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <Tabs defaultValue="overview" className="w-full flex-1 flex flex-col overflow-hidden">
                     <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
                         <DialogTitle className="text-2xl font-headline mb-6 text-white">Patient Management</DialogTitle>
@@ -406,8 +408,8 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
                                             <div className="p-8 bg-red-50 border-2 border-red-100 rounded-3xl text-center space-y-3">
                                                 <AlertCircle className="h-12 w-12 text-red-600 mx-auto" />
                                                 <div className="space-y-1">
-                                                    <p className="font-bold text-xl text-red-800">30m Session Expired</p>
-                                                    <p className="text-xs text-green-600 font-medium italic">Clinical window has concluded automatically.</p>
+                                                    <p className="font-bold text-xl text-red-800">Clinical Window Missed</p>
+                                                    <p className="text-xs text-muted-foreground font-medium italic">The 30-minute professional slot has concluded.</p>
                                                 </div>
                                             </div>
                                             <Button variant="outline" className="h-16 text-lg font-bold w-full rounded-2xl gap-3 border-2 hover:bg-primary/5 transition-all" onClick={() => onPostpone(appointment)}>
@@ -467,7 +469,7 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[95dvh] overflow-hidden sm:max-w-xl rounded-[2.5rem] p-0 flex flex-col border-none shadow-2xl animate-in zoom-in-95 duration-200">
+            <DialogContent className="max-h-[90dvh] overflow-hidden sm:max-w-xl rounded-[2.5rem] p-0 flex flex-col border-none shadow-2xl animate-in zoom-in-95 duration-200">
                 <div className="p-8 sm:p-10 border-b bg-slate-900 text-white shrink-0">
                     <DialogTitle className="text-2xl font-headline">Clinical Hour Configuration</DialogTitle>
                     <DialogDescription className="text-slate-400 mt-1">Audit and update your available 30-minute blocks.</DialogDescription>
@@ -534,7 +536,7 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="rounded-[2.5rem] sm:max-w-md border-none shadow-2xl p-0 overflow-hidden max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
+            <DialogContent className="rounded-[2.5rem] sm:max-w-md border-none shadow-2xl p-0 overflow-hidden max-h-[90dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-slate-900 p-8 text-white text-center shrink-0">
                     <DialogTitle className="text-2xl font-headline">Absence History Entry</DialogTitle>
                     <DialogDescription className="text-slate-400 mt-1">Audit trail for professional clinical pauses.</DialogDescription>
@@ -650,8 +652,8 @@ export default function DoctorPortalPage() {
 
                 toast({
                     variant: 'destructive',
-                    title: "Session Time-Out",
-                    description: `The 30m clinical window has passed for a session. Logged for history audit.`,
+                    title: "Session Expired",
+                    description: `The clinical window has concluded. Marked as Missed.`,
                 });
             }
         };
@@ -719,7 +721,7 @@ export default function DoctorPortalPage() {
             if (dismissedAlertIds.has(alertId)) return;
 
             if (a.status === 'expired') {
-                alerts.push({ id: alertId, msg: `History: 30m Session Expired (${format(new Date(a.appointmentDateTime), "p")})`, icon: AlertCircle, color: 'text-destructive', timestamp: new Date(a.updatedAt || a.createdAt).getTime() });
+                alerts.push({ id: alertId, msg: `Missed Session: ${format(new Date(a.appointmentDateTime), "p")}`, icon: AlertCircle, color: 'text-destructive', timestamp: new Date(a.updatedAt || a.createdAt).getTime() });
                 return;
             }
             
@@ -759,7 +761,7 @@ export default function DoctorPortalPage() {
         notifications.forEach(n => n && n.id && newDismissed.add(n.id));
         setDismissedAlertIds(newDismissed);
         localStorage.setItem('dismissed_alerts', JSON.stringify(Array.from(newDismissed)));
-        toast({ title: "Operational history archived." });
+        toast({ title: "History logs cleared." });
     };
 
     const handleTriggerPostpone = (apt: any) => {
@@ -916,7 +918,7 @@ export default function DoctorPortalPage() {
                 </div>
 
                 <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-                    <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-[2.5rem] p-0 overflow-hidden max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
+                    <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-[2.5rem] p-0 overflow-hidden max-h-[90dvh] flex flex-col animate-in zoom-in-95 duration-200">
                         <div className="bg-slate-900 p-8 text-white text-center shrink-0">
                             <DialogTitle className="flex items-center justify-center gap-3 text-2xl font-headline text-white">
                                 <History className="h-6 w-6 text-primary" /> My History

@@ -50,6 +50,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
 
         updateDocumentNonBlocking(doc(firestore, 'appointments', appointment.id), {
             appointmentDateTime: newDateTime.toISOString(),
+            status: 'scheduled',
             updatedAt: new Date().toISOString(),
             doctorInRoom: false 
         });
@@ -61,7 +62,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
+            <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[90dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-primary p-6 sm:p-8 text-white shrink-0">
                     <DialogTitle className="text-xl sm:text-2xl font-headline">Reschedule Consultation</DialogTitle>
                     <DialogDescription className="text-primary-foreground/80 mt-1 font-medium">Pick a new 30-minute clinical window.</DialogDescription>
@@ -114,7 +115,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                     <div className="flex gap-4">
                         <Button variant="ghost" className="flex-1 h-14 rounded-2xl font-bold" onClick={() => onOpenChange(false)}>Cancel</Button>
                         <Button className="flex-1 h-14 rounded-2xl font-bold shadow-2xl shadow-primary/20 bg-primary text-white" disabled={!selectedTime || isSaving} onClick={handleConfirm}>
-                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm Postpone"}
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm Reschedule"}
                         </Button>
                     </div>
                 </div>
@@ -140,7 +141,6 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
     }, [apt?.appointmentDateTime]);
     
     const now = isMounted ? Date.now() : 0;
-    // Buffer time is 10 mins before exact start time
     const bufferTime = appointmentDate ? appointmentDate.getTime() - (10 * 60 * 1000) : 0;
     const startTime = appointmentDate ? appointmentDate.getTime() : 0; 
     const endTime = appointmentDate ? appointmentDate.getTime() + (30 * 60 * 1000) : 0; 
@@ -180,8 +180,8 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                         </div>
                     </div>
                     <div className="mt-auto pt-2 flex items-center justify-between gap-2">
-                         <Badge className={cn("text-[10px] uppercase font-bold px-2 py-0.5 shrink-0 h-auto", apt.status === 'completed' ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600")}>
-                            {apt.status === 'completed' ? 'Performed' : apt.status}
+                         <Badge className={cn("text-[10px] uppercase font-bold px-2 py-0.5 shrink-0 h-auto", apt.status === 'completed' ? "bg-green-100 text-green-800" : (isExpired || apt.status === 'expired') ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-600")}>
+                            {apt.status === 'completed' ? 'Performed' : (isExpired || apt.status === 'expired') ? 'Missed' : apt.status}
                         </Badge>
                         <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-[9px] font-bold text-primary shrink-0">
                             <Link href={`/appointments/${apt.id}`}>View</Link>
@@ -197,7 +197,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
             "hover:shadow-lg transition-all border-l-4 bg-card/50 backdrop-blur-sm overflow-hidden",
             isLive && apt.paymentStatus === 'approved' ? "border-l-red-500 bg-red-50/10 shadow-md scale-[1.01]" : "border-l-primary/40",
             isSoon && apt.paymentStatus === 'approved' ? "border-l-amber-500 bg-amber-50/10" : "",
-            (isExpired || apt.status === 'expired') && "opacity-60 border-l-destructive/40"
+            (isExpired || apt.status === 'expired') && "opacity-80 border-l-destructive/40"
         )} asChild>
             <div className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-8">
                 <div className="flex items-center gap-4 sm:gap-6 flex-1 min-w-0">
@@ -225,7 +225,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                             </p>
                             {isLive && apt.status === 'scheduled' && apt.paymentStatus === 'approved' && <Badge className="bg-red-600 text-white animate-pulse h-4 text-[7px] px-1.5 uppercase font-bold">LIVE</Badge>}
                             {isSoon && apt.status === 'scheduled' && apt.paymentStatus === 'approved' && <Badge className="bg-amber-500 text-white h-4 text-[7px] px-1.5 uppercase font-bold">STARTING SOON</Badge>}
-                            {(isExpired || apt.status === 'expired') && <Badge variant="destructive" className="h-4 text-[7px] px-1.5 uppercase font-bold">EXPIRED</Badge>}
+                            {(isExpired || apt.status === 'expired') && <Badge variant="destructive" className="h-4 text-[7px] px-1.5 uppercase font-bold">MISSED</Badge>}
                         </div>
                         <p className="text-[10px] sm:text-xs text-primary font-bold uppercase tracking-wider opacity-80 truncate">{doctor?.specialty || 'Medical Specialist'}</p>
                         <div className="flex wrap items-center gap-1.5 sm:gap-2 pt-1">
@@ -257,7 +257,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                         <>
                             {(!isLive && !isSoon) && (
                                 <Button variant="outline" size="sm" className="font-bold border-2 h-9 flex-1 sm:w-auto text-[10px]" onClick={() => onPostpone(apt)}>
-                                    <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Postpone
+                                    <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Reschedule
                                 </Button>
                             )}
                             <Dialog>
@@ -296,7 +296,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                                 <Link href={`/appointments/${apt.id}`}><FileText className="h-4 w-4" /> Visit Summary</Link>
                             </Button>
                             <Badge variant={apt.status === 'completed' ? 'secondary' : 'destructive'} className="text-[10px] font-bold uppercase tracking-wider px-3 py-0.5 mx-auto shrink-0 h-auto">
-                                {apt.status === 'completed' ? 'Performed' : apt.status}
+                                {apt.status === 'completed' ? 'Performed' : (isExpired || apt.status === 'expired') ? 'Missed' : apt.status}
                             </Badge>
                         </div>
                     )}
