@@ -7,7 +7,7 @@ import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, Cli
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
-import { collection, query, where, doc } from "firebase/firestore";
+import { collection, query, where, doc, getDocs } from "firebase/firestore";
 import type { Appointment, Patient, Doctor } from "@/lib/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -105,7 +105,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[90dvh] flex flex-col animate-in zoom-in-95 duration-200">
+            <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
                     <DialogTitle className="text-xl sm:text-2xl font-headline">Clinical Rescheduling</DialogTitle>
                     <DialogDescription className="text-slate-400 mt-1 font-medium">Pick a new 30-minute clinical window.</DialogDescription>
@@ -573,6 +573,7 @@ export default function DoctorPortalPage() {
     const [viewDate, setViewDate] = useState(new Date());
     const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string>>(new Set());
     const [nowState, setNowState] = useState(Date.now());
+    const [patientsMap, setPatientsMap] = useState<Map<string, Patient>>(new Map());
 
     useEffect(() => {
         setMounted(true);
@@ -600,11 +601,28 @@ export default function DoctorPortalPage() {
     }, [firestore, user]);
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    const patientsQuery = useMemoFirebase(() => {
-        if (!firestore) return null;
-        return collection(firestore, 'patients');
-    }, [firestore]);
-    const { data: patients } = useCollection<Patient>(patientsQuery);
+    // OPTIMIZED PATIENT FETCHING: Targeted fetch for involved patients only
+    useEffect(() => {
+        if (!appointments || !firestore) return;
+        
+        const fetchPatients = async () => {
+            const pIds = Array.from(new Set(appointments.map(a => a.patientId).filter(Boolean)));
+            if (pIds.length === 0) return;
+
+            const newMap = new Map<string, Patient>();
+            // Fetch in chunks because Firestore 'in' query has 30 item limit
+            for (let i = 0; i < pIds.length; i += 30) {
+                const chunk = pIds.slice(i, i + 30);
+                const q = query(collection(firestore, 'patients'), where('id', 'in', chunk));
+                const snap = await getDocs(q);
+                snap.forEach(doc => {
+                    newMap.set(doc.id, doc.data() as Patient);
+                });
+            }
+            setPatientsMap(newMap);
+        };
+        fetchPatients();
+    }, [appointments, firestore]);
 
     const requestsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
@@ -647,20 +665,17 @@ export default function DoctorPortalPage() {
         checkMissedSessions();
     }, [appointments, mounted, firestore, user, toast, nowState]);
 
-    const { todayAppointments, stats, masterSchedule, notifications, currentDayLeaveStatus, patientMap } = useMemo(() => {
+    const { todayAppointments, stats, masterSchedule, notifications, currentDayLeaveStatus } = useMemo(() => {
         if (!mounted || !appointments) return { 
             todayAppointments: [], 
             stats: { today: 0, pending: 0, todayRevenue: 0, totalRevenue: 0, totalConsults: 0, uniquePatients: 0 }, 
             masterSchedule: { morning: [], afternoon: [], evening: [] },
             notifications: [],
-            currentDayLeaveStatus: null as string | null,
-            patientMap: new Map<string, Patient>()
+            currentDayLeaveStatus: null as string | null
         };
         
         const now = new Date();
         const yesterday = subDays(now, 1);
-        const map = new Map<string, Patient>();
-        patients?.forEach(p => map.set(p.id, p));
 
         const allToday = appointments.filter(apt => {
             if (!apt || !apt.appointmentDateTime) return false;
@@ -677,10 +692,7 @@ export default function DoctorPortalPage() {
         });
 
         const pending = appointments.filter(apt => apt && apt.status === 'scheduled').length;
-        
-        const todayPaidAndValid = allToday.filter(a => a && a.paymentStatus === 'approved');
-        const todayRev = todayPaidAndValid.reduce((sum, a) => sum + (a.amount || 1500), 0);
-        
+        const todayRev = allToday.filter(a => a && a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
         const lifetimeRev = appointments.filter(a => a && a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
         const totalCompleted = appointments.filter(a => a && a.status === 'completed').length;
         const uniquePatients = new Set(appointments.filter(a => a && a.status === 'completed' && a.patientId).map(a => a.patientId)).size;
@@ -729,17 +741,14 @@ export default function DoctorPortalPage() {
             }
         });
 
-        const sortedNotifications = alerts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0));
-
         return { 
             todayAppointments: activeQueue,
             stats: { today: allToday.length, pending: pending, todayRevenue: todayRev, totalRevenue: lifetimeRev, totalConsults: totalCompleted, uniquePatients },
             masterSchedule: { morning: filterSlots(timeSlots.morning), afternoon: filterSlots(timeSlots.afternoon), evening: filterSlots(timeSlots.evening) },
-            notifications: sortedNotifications,
-            currentDayLeaveStatus: leaveStatus,
-            patientMap: map
+            notifications: alerts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0)),
+            currentDayLeaveStatus: leaveStatus
         };
-    }, [appointments, patients, mounted, viewDate, userData, requests, dismissedAlertIds, nowState]);
+    }, [appointments, mounted, viewDate, userData, requests, dismissedAlertIds, nowState]);
 
     const handleSelectApt = (apt: Appointment) => {
         setSelectedAppointment(apt);
@@ -769,7 +778,7 @@ export default function DoctorPortalPage() {
                     <div className="space-y-2">
                         <h1 className="text-3xl sm:text-4xl font-bold font-headline tracking-tight text-foreground">Clinical Command Center</h1>
                         <p className="text-muted-foreground flex items-center gap-2 text-sm sm:text-base font-medium">
-                            <Activity className="h-5 w-5 text-primary" /> Active Platform Surveillance • 30m Protocol
+                            <Activity className="h-5 w-5 text-primary" /> Active Platform Surveillance • Continuous Timing
                         </p>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 w-full md:w-auto">
@@ -804,7 +813,7 @@ export default function DoctorPortalPage() {
                                     )}
                                 </div>
                             </CardHeader>
-                            <CardContent className="space-y-4 p-6 max-h-[400px] overflow-y-auto custom-scrollbar overscroll-contain">
+                            <CardContent className="space-y-4 p-6">
                                 {notifications.length > 0 ? notifications.map(n => n && (
                                     <div key={n.id} className={cn(
                                         "p-4 rounded-2xl border-2 flex gap-4 items-start animate-in fade-in slide-in-from-right-3 transition-all",
@@ -837,12 +846,12 @@ export default function DoctorPortalPage() {
                                 {isLoadingAppointments ? (
                                     <div className="p-16 text-center"><Loader2 className="h-10 w-10 animate-spin mx-auto text-primary" /></div>
                                 ) : todayAppointments.length > 0 ? (
-                                    <div className="divide-y max-h-[500px] overflow-y-auto custom-scrollbar overscroll-contain">
+                                    <div className="divide-y">
                                         {todayAppointments.map(apt => apt && (
                                             <AppointmentRow 
                                                 key={apt.id} 
                                                 apt={apt} 
-                                                patient={patientMap.get(apt.patientId)}
+                                                patient={patientsMap.get(apt.patientId)}
                                                 onSelect={handleSelectApt} 
                                                 isMounted={mounted} 
                                             />
@@ -866,7 +875,7 @@ export default function DoctorPortalPage() {
                                         <CardTitle className="text-2xl sm:text-3xl font-headline flex items-center gap-4 text-foreground">
                                             <Clock className="h-8 w-8 text-primary" /> Clinical Timetable
                                         </CardTitle>
-                                        <CardDescription className="text-xs sm:text-sm font-medium">Standardised 30-minute shifts active.</CardDescription>
+                                        <CardDescription className="text-xs sm:text-sm font-medium">Standardised 30-minute intervals throughout working hours.</CardDescription>
                                     </div>
                                     <div className="flex flex-wrap items-center gap-4">
                                         <div className="flex items-center gap-3 bg-white p-2 rounded-[1.25rem] border-2 shadow-sm w-full xl:w-auto justify-between sm:justify-start">
@@ -888,22 +897,22 @@ export default function DoctorPortalPage() {
                                         <div className="h-16 w-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto shadow-inner"><ShieldCheck className="h-10 w-10" /></div>
                                         <div className="space-y-1">
                                             <h4 className="text-xl font-bold tracking-tight">Practice Suspended</h4>
-                                            <p className="text-sm text-muted-foreground font-medium italic">Professional absence history audit approved for this date.</p>
+                                            <p className="text-sm text-muted-foreground font-medium italic">Professional absence approved for this date.</p>
                                         </div>
                                     </div>
                                 )}
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-10 pb-12">
                                     <div className="space-y-6">
                                         <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-4"><div className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-sm shrink-0" /> Morning</h3>
-                                        <div className="space-y-2">{masterSchedule.morning.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} patient={slot.appointment ? patientMap.get(slot.appointment.patientId) : undefined} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
+                                        <div className="space-y-2">{masterSchedule.morning.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} patient={patientsMap.get(slot.appointment?.patientId || '')} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
                                     </div>
                                     <div className="space-y-6">
                                         <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-4"><div className="h-2.5 w-2.5 rounded-full bg-blue-400 shadow-sm shrink-0" /> Afternoon</h3>
-                                        <div className="space-y-2">{masterSchedule.afternoon.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} patient={slot.appointment ? patientMap.get(slot.appointment.patientId) : undefined} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
+                                        <div className="space-y-2">{masterSchedule.afternoon.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} patient={patientsMap.get(slot.appointment?.patientId || '')} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
                                     </div>
                                     <div className="space-y-6">
                                         <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-4"><Moon className="h-4 w-4 text-indigo-400 shrink-0" /> Evening</h3>
-                                        <div className="space-y-2">{masterSchedule.evening.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} patient={slot.appointment ? patientMap.get(slot.appointment.patientId) : undefined} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
+                                        <div className="space-y-2">{masterSchedule.evening.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} patient={patientsMap.get(slot.appointment?.patientId || '')} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
                                     </div>
                                 </div>
                             </CardContent>
@@ -937,7 +946,7 @@ export default function DoctorPortalPage() {
                     </DialogContent>
                 </Dialog>
 
-                {selectedAppointment && <ConsultationDialog isOpen={isConsultOpen} onOpenChange={setIsConsultOpen} appointment={selectedAppointment} patient={patientMap.get(selectedAppointment.patientId)} isMounted={mounted} onPostpone={handleTriggerPostpone} />}
+                {selectedAppointment && <ConsultationDialog isOpen={isConsultOpen} onOpenChange={setIsConsultOpen} appointment={selectedAppointment} patient={patientsMap.get(selectedAppointment.patientId)} isMounted={mounted} onPostpone={handleTriggerPostpone} />}
                 {userData && <AvailabilityDialog isOpen={isAvailabilityOpen} onOpenChange={setIsAvailabilityOpen} doctor={userData as Doctor} />}
                 {user && <LeaveRequestDialog isOpen={isLeaveOpen} onOpenChange={setIsLeaveOpen} defaultDate={viewDate} doctorId={user.uid} />}
                 {selectedAppointment && <InternalPostponeDialog isOpen={isPostponeOpen} onOpenChange={setIsPostponeOpen} appointment={selectedAppointment} />}
