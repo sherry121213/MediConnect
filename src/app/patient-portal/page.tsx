@@ -61,13 +61,13 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[85vh] flex flex-col animate-in zoom-in-95 duration-200">
+            <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[90dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-primary p-6 sm:p-8 text-white shrink-0">
                     <DialogTitle className="text-xl sm:text-2xl font-headline">Reschedule Consultation</DialogTitle>
                     <DialogDescription className="text-primary-foreground/80 mt-1 font-medium">Pick a new 30-minute clinical window.</DialogDescription>
                 </div>
-                <ScrollArea className="flex-1 bg-white">
-                    <div className="p-6 sm:p-8 space-y-10 pb-20">
+                <div className="flex-1 overflow-y-auto bg-white overscroll-contain">
+                    <div className="p-6 sm:p-8 space-y-10 pb-32">
                         <div>
                             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4">Step 1: Select Date</p>
                             <div className="flex gap-3 overflow-x-auto pb-4 -mx-2 px-2 custom-scrollbar">
@@ -90,7 +90,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
 
                         <div className="border-t pt-10">
                             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 2: Available 30m Slots</p>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                                 {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => (
                                     <Button 
                                         key={time}
@@ -109,7 +109,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                             </div>
                         </div>
                     </div>
-                </ScrollArea>
+                </div>
                 <div className="p-6 sm:p-8 border-t bg-slate-50 shrink-0">
                     <div className="flex gap-4">
                         <Button variant="ghost" className="flex-1 h-14 rounded-2xl font-bold" onClick={() => onOpenChange(false)}>Cancel</Button>

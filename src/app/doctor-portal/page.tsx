@@ -106,7 +106,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl rounded-t-[2.5rem] sm:rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[95dvh] flex flex-col animate-in slide-in-from-bottom-5 duration-300">
+            <DialogContent className="sm:max-w-xl rounded-t-[2.5rem] sm:rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[90dvh] flex flex-col animate-in slide-in-from-bottom-5 duration-300">
                 <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
                     <DialogTitle className="text-xl sm:text-2xl font-headline">Clinical Rescheduling</DialogTitle>
                     <DialogDescription className="text-slate-400 mt-1 font-medium">Pick a new 30-minute clinical window.</DialogDescription>
@@ -346,7 +346,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-t-[2.5rem] sm:rounded-[2.5rem] max-h-[95dvh] flex flex-col">
+            <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-t-[2.5rem] sm:rounded-[2.5rem] max-h-[90dvh] flex flex-col">
                 <Tabs defaultValue="overview" className="w-full flex-1 flex flex-col overflow-hidden">
                     <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
                         <DialogTitle className="text-2xl font-headline mb-6 text-white">Patient Management</DialogTitle>
@@ -447,7 +447,7 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[95dvh] overflow-hidden sm:max-w-xl rounded-t-[2.5rem] sm:rounded-3xl p-0 flex flex-col border-none shadow-2xl">
+            <DialogContent className="max-h-[90dvh] overflow-hidden sm:max-w-xl rounded-t-[2.5rem] sm:rounded-3xl p-0 flex flex-col border-none shadow-2xl">
                 <div className="p-8 sm:p-10 border-b bg-slate-900 text-white shrink-0">
                     <DialogTitle className="text-2xl font-headline">Clinical Hour Configuration</DialogTitle>
                     <DialogDescription className="text-slate-400 mt-1">Audit and update your available 30-minute blocks.</DialogDescription>
@@ -514,7 +514,7 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="rounded-t-[2.5rem] sm:rounded-[2.5rem] sm:max-w-md border-none shadow-2xl p-0 overflow-hidden max-h-[95dvh] flex flex-col">
+            <DialogContent className="rounded-t-[2.5rem] sm:rounded-[2.5rem] sm:max-w-md border-none shadow-2xl p-0 overflow-hidden max-h-[90dvh] flex flex-col">
                 <div className="bg-slate-900 p-8 text-white text-center shrink-0">
                     <DialogTitle className="text-2xl font-headline">Absence History Entry</DialogTitle>
                     <DialogDescription className="text-slate-400 mt-1">Audit trail for professional clinical pauses.</DialogDescription>
@@ -548,7 +548,7 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
                                     </FormControl>
                                 </FormItem>
                             )} />
-                            <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-2xl shadow-primary/20 text-white bg-primary">Log for History Audit</Button>
+                            <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-2xl shadow-primary/20 text-white bg-primary">Log for Audit History</Button>
                         </form>
                     </Form>
                 </div>
@@ -906,7 +906,7 @@ export default function DoctorPortalPage() {
                         <div className="flex-1 overflow-y-auto bg-white p-8 space-y-6 overscroll-contain pb-24">
                             <div className="p-6 rounded-3xl bg-primary/5 border-2 border-primary/10 space-y-1 text-center">
                                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Aggregate Earnings</p>
-                                <p className="text-3xl sm:text-4xl font-bold text-primary">PKR {stats.todayRevenue.toLocaleString()}</p>
+                                <p className="text-3xl sm:text-4xl font-bold text-primary">PKR {stats.totalRevenue.toLocaleString()}</p>
                             </div>
                             <div className="p-6 rounded-3xl bg-muted/30 border-2 border-muted/50 space-y-1 text-center">
                                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Performed Consultations</p>
