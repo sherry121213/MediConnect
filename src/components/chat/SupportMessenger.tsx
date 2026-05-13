@@ -11,6 +11,7 @@ import { MessageCircle, X, Send, User, ShieldCheck, Loader2, Minimize2, Maximize
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { usePathname } from 'next/navigation';
 
 type MessengerCategory = 'patients' | 'doctors';
 
@@ -51,12 +52,16 @@ const SessionItem = ({ session, onClick, isActive, isDoctor }: { session: any, o
 export default function SupportMessenger() {
   const { user, userData } = useUserData();
   const firestore = useFirestore();
+  const pathname = usePathname();
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [newMessage, setNewMessage] = useState('');
   const [adminCategory, setAdminCategory] = useState<MessengerCategory>('patients');
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  // CRITICAL: Hide support chat during clinical sessions to prevent UI overlap
+  const isConsultationRoom = pathname?.includes('/consultation/');
 
   // Queries for Admin
   const patientSessionsQuery = useMemoFirebase(() => {
@@ -138,7 +143,7 @@ export default function SupportMessenger() {
     addDoc(collection(sessionRef, 'messages'), messageData);
   };
 
-  if (!user || !userData) return null;
+  if (!user || !userData || isConsultationRoom) return null;
 
   return (
     <div className="fixed bottom-4 right-4 z-[100] flex flex-col items-end pointer-events-none">

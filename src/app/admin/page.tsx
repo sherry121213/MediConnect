@@ -1,3 +1,4 @@
+
 "use client"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Globe, Calendar, Siren, ArrowRight, Activity, Loader2, TrendingUp, BarChart3, Target, CheckCircle2, AlertCircle, Trash2, User, Stethoscope, ShieldCheck, Zap, Layers, History, DollarSign } from "lucide-react";
@@ -229,46 +230,50 @@ export default function AdminDashboardPage() {
                     </div>
                 </div>
             </CardHeader>
-            <CardContent className="p-8 h-[300px] overflow-hidden">
+            <CardContent className="p-8 h-[300px] overflow-hidden relative">
                 {activeMissedAudits && activeMissedAudits.length > 0 ? (
-                    <Carousel
-                        opts={{ align: "start", loop: true }}
-                        plugins={[Autoplay({ delay: 5000, stopOnInteraction: true })]}
-                        className="w-full"
-                    >
-                        <CarouselContent>
-                            {activeMissedAudits.map((log: any) => {
-                                const doctor = doctors?.find(d => d.id === log.doctorId);
-                                return (
-                                    <CarouselItem key={log.id} className="md:basis-1/1">
-                                        <div className="p-6 border-2 border-destructive/10 bg-destructive/5 rounded-3xl space-y-4 animate-in fade-in zoom-in-95 duration-500 h-full">
-                                            <div className="flex justify-between items-start">
-                                                <div className="flex items-center gap-4">
-                                                    <div className="h-14 w-14 rounded-full bg-destructive/10 flex items-center justify-center text-destructive shrink-0 border-2 border-white">
-                                                        <User className="h-7 w-7" />
+                    <>
+                        <Carousel
+                            opts={{ align: "start", loop: true }}
+                            plugins={[Autoplay({ delay: 5000, stopOnInteraction: true })]}
+                            className="w-full"
+                        >
+                            <CarouselContent>
+                                {activeMissedAudits.map((log: any) => {
+                                    const doctor = doctors?.find(d => d.id === log.doctorId);
+                                    return (
+                                        <CarouselItem key={log.id} className="md:basis-1/1">
+                                            <div className="p-6 border-2 border-destructive/10 bg-destructive/5 rounded-3xl space-y-4 animate-in fade-in zoom-in-95 duration-500 h-full">
+                                                <div className="flex justify-between items-start">
+                                                    <div className="flex items-center gap-4">
+                                                        <div className="h-14 w-14 rounded-full bg-destructive/10 flex items-center justify-center text-destructive shrink-0 border-2 border-white">
+                                                            <User className="h-7 w-7" />
+                                                        </div>
+                                                        <div>
+                                                            <p className="font-bold text-lg text-slate-900">Dr. {doctor?.firstName} {doctor?.lastName}</p>
+                                                            <p className="text-[10px] text-destructive font-bold uppercase tracking-widest">{doctor?.specialty || 'Medical Specialist'}</p>
+                                                        </div>
                                                     </div>
-                                                    <div>
-                                                        <p className="font-bold text-lg text-slate-900">Dr. {doctor?.firstName} {doctor?.lastName}</p>
-                                                        <p className="text-[10px] text-destructive font-bold uppercase tracking-widest">{doctor?.specialty || 'Medical Specialist'}</p>
-                                                    </div>
+                                                    <Badge variant="destructive" className="h-6 text-[9px] font-bold uppercase px-3 rounded-full">Expired Window</Badge>
                                                 </div>
-                                                <Badge variant="destructive" className="h-6 text-[9px] font-bold uppercase px-3 rounded-full">Expired Window</Badge>
+                                                <div className="flex items-center justify-between pt-2">
+                                                    <p className="text-xs font-bold flex items-center gap-2 text-slate-600">
+                                                        <AlertCircle className="h-4 w-4 text-destructive" />
+                                                        {format(new Date(log.scheduledTime), "MMM dd, p")}
+                                                    </p>
+                                                    <Button variant="ghost" size="sm" asChild className="text-[10px] font-bold uppercase">
+                                                        <Link href="/admin/missed-slots">Audit Trail</Link>
+                                                    </Button>
+                                                </div>
                                             </div>
-                                            <div className="flex items-center justify-between pt-2">
-                                                <p className="text-xs font-bold flex items-center gap-2 text-slate-600">
-                                                    <AlertCircle className="h-4 w-4 text-destructive" />
-                                                    {format(new Date(log.scheduledTime), "MMM dd, p")}
-                                                </p>
-                                                <Button variant="ghost" size="sm" asChild className="text-[10px] font-bold uppercase">
-                                                    <Link href="/admin/missed-slots">Audit Trail</Link>
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    </CarouselItem>
-                                );
-                            })}
-                        </CarouselContent>
-                    </Carousel>
+                                        </CarouselItem>
+                                    );
+                                })}
+                            </CarouselContent>
+                            <CarouselPrevious className="hidden sm:flex -left-4 bg-white/90 backdrop-blur shadow-lg border-none" />
+                            <CarouselNext className="hidden sm:flex -right-4 bg-white/90 backdrop-blur shadow-lg border-none" />
+                        </Carousel>
+                    </>
                 ) : (
                     <div className="h-full flex flex-col items-center justify-center space-y-4 opacity-40">
                         <ShieldCheck className="h-16 w-16 text-primary" />

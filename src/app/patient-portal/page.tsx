@@ -1,3 +1,4 @@
+
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -262,7 +263,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                             )}
                             <Dialog>
                                 <DialogTrigger asChild>
-                                    <Button className={cn("font-bold h-9 flex-1 sm:w-auto transition-all", isLive ? "bg-red-600 hover:bg-red-700 animate-pulse" : isSoon ? "bg-amber-500 hover:bg-amber-600" : "opacity-70 cursor-not-allowed")} disabled={!isLive && !isSoon}>
+                                    <Button className={cn("font-bold h-9 flex-1 sm:w-auto transition-all", isLive ? "bg-red-600 hover:bg-red-700 animate-pulse" : isSoon ? "bg-amber-50 hover:bg-amber-600" : "opacity-70 cursor-not-allowed")} disabled={!isLive && !isSoon}>
                                         {isLive ? "Join Now" : isSoon ? "Ready" : "Upcoming"}
                                     </Button>
                                 </DialogTrigger>
@@ -452,6 +453,7 @@ export default function PatientPortalPage() {
                                 <div className="relative group">
                                     <Carousel
                                         opts={{ align: "start", loop: false }}
+                                        plugins={[Autoplay({ delay: 6000, stopOnInteraction: true })]}
                                         className="w-full"
                                     >
                                         <CarouselContent className="-ml-4">

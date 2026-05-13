@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/components/ui/card";
-import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import { ArrowRight, Briefcase, Heart, Brain, Clock, FileText, User, Lock, Video, Calendar, ShieldCheck, Siren, Activity } from "lucide-react";
 import DoctorCard from "@/components/doctor-card";
@@ -244,35 +244,39 @@ export default function Home() {
             <div className="text-center">
               <h2 className="text-3xl font-bold font-headline">Patient Testimonials</h2>
             </div>
-            <Carousel
-              opts={{ align: "start", loop: true, }}
-              plugins={[ Autoplay({ delay: 5000, stopOnInteraction: true, }), ]}
-              className="mt-12 max-w-4xl mx-auto"
-            >
-              <CarouselContent>
-                {testimonials.map((testimonial) => {
-                  const testimonialImage = placeholderImages.find(p => p.id === testimonial.imageId);
-                  return(
-                  <CarouselItem key={testimonial.id}>
-                    <div className="p-4 text-center">
-                      {testimonialImage && (
-                          <Image
-                              src={testimonialImage.imageUrl}
-                              alt={testimonial.name}
-                              width={80}
-                              height={80}
-                              className="rounded-full mx-auto mb-4 border-4 border-white shadow-md"
-                              data-ai-hint="person portrait"
-                          />
-                      )}
-                      <p className="text-lg text-muted-foreground italic">"{testimonial.text}"</p>
-                      <p className="font-bold mt-4">{testimonial.name}</p>
-                      <p className="text-sm text-muted-foreground">{testimonial.role}</p>
-                    </div>
-                  </CarouselItem>
-                )})}
-              </CarouselContent>
-            </Carousel>
+            <div className="relative max-w-4xl mx-auto">
+                <Carousel
+                  opts={{ align: "start", loop: true, }}
+                  plugins={[ Autoplay({ delay: 5000, stopOnInteraction: true, }), ]}
+                  className="mt-12"
+                >
+                  <CarouselContent>
+                    {testimonials.map((testimonial) => {
+                      const testimonialImage = placeholderImages.find(p => p.id === testimonial.imageId);
+                      return(
+                      <CarouselItem key={testimonial.id}>
+                        <div className="p-4 text-center">
+                          {testimonialImage && (
+                              <Image
+                                  src={testimonialImage.imageUrl}
+                                  alt={testimonial.name}
+                                  width={80}
+                                  height={80}
+                                  className="rounded-full mx-auto mb-4 border-4 border-white shadow-md"
+                                  data-ai-hint="person portrait"
+                              />
+                          )}
+                          <p className="text-lg text-muted-foreground italic">"{testimonial.text}"</p>
+                          <p className="font-bold mt-4">{testimonial.name}</p>
+                          <p className="text-sm text-muted-foreground">{testimonial.role}</p>
+                        </div>
+                      </CarouselItem>
+                    )})}
+                  </CarouselContent>
+                  <CarouselPrevious className="hidden md:flex" />
+                  <CarouselNext className="hidden md:flex" />
+                </Carousel>
+            </div>
           </div>
         </section>
 
@@ -283,31 +287,35 @@ export default function Home() {
                     <h2 className="text-3xl font-bold font-headline">Health & Safety Tips</h2>
                     <p className="text-muted-foreground mt-2 max-w-2xl mx-auto">Stay informed with our essential health and safety advice.</p>
                 </div>
-                 <Carousel
-                    opts={{ align: "start", loop: true, }}
-                    plugins={[ Autoplay({ delay: 4000, stopOnInteraction: true, }), ]}
-                    className="mt-12"
-                    >
-                    <CarouselContent>
-                        {healthSafetyTips.map((tip, index) => (
-                        <CarouselItem key={index} className="md:basis-1/2 lg:basis-1/3">
-                            <div className="p-4">
-                                <Card className="h-full p-6 text-center shadow-lg hover:shadow-xl transition-shadow flex flex-col items-center">
-                                     <div className="mx-auto bg-primary/20 text-primary rounded-full p-4 w-fit mb-4">
-                                        <tip.icon className="w-8 h-8" />
-                                    </div>
-                                    <CardHeader className="p-0">
-                                        <CardTitle>{tip.title}</CardTitle>
-                                    </CardHeader>
-                                    <CardContent className="p-0 mt-2 flex-grow">
-                                        <p className="text-muted-foreground">{tip.description}</p>
-                                    </CardContent>
-                                </Card>
-                            </div>
-                        </CarouselItem>
-                        ))}
-                    </CarouselContent>
-                </Carousel>
+                 <div className="relative">
+                    <Carousel
+                        opts={{ align: "start", loop: true, }}
+                        plugins={[ Autoplay({ delay: 4000, stopOnInteraction: true, }), ]}
+                        className="mt-12"
+                        >
+                        <CarouselContent>
+                            {healthSafetyTips.map((tip, index) => (
+                            <CarouselItem key={index} className="md:basis-1/2 lg:basis-1/3">
+                                <div className="p-4">
+                                    <Card className="h-full p-6 text-center shadow-lg hover:shadow-xl transition-shadow flex flex-col items-center">
+                                         <div className="mx-auto bg-primary/20 text-primary rounded-full p-4 w-fit mb-4">
+                                            <tip.icon className="w-8 h-8" />
+                                        </div>
+                                        <CardHeader className="p-0">
+                                            <CardTitle>{tip.title}</CardTitle>
+                                        </CardHeader>
+                                        <CardContent className="p-0 mt-2 flex-grow">
+                                            <p className="text-muted-foreground">{tip.description}</p>
+                                        </CardContent>
+                                    </Card>
+                                </div>
+                            </CarouselItem>
+                            ))}
+                        </CarouselContent>
+                        <CarouselPrevious className="hidden md:flex" />
+                        <CarouselNext className="hidden md:flex" />
+                    </Carousel>
+                 </div>
             </div>
         </section>
       </main>
