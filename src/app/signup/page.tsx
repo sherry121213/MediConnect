@@ -17,7 +17,7 @@ import { useAuth, useFirestore, useUserData } from "@/firebase";
 import { createUserWithEmailAndPassword, updateProfile, sendEmailVerification } from "firebase/auth";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2 } from "lucide-react";
+import { Loader2, Eye, EyeOff } from "lucide-react";
 import { doc } from 'firebase/firestore';
 import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useForm } from 'react-hook-form';
@@ -38,6 +38,7 @@ type SignupFormValues = z.infer<typeof signupSchema>;
 
 export default function SignupPage() {
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const auth = useAuth();
   const firestore = useFirestore();
   const router = useRouter();
@@ -237,7 +238,7 @@ export default function SignupPage() {
     <div className="flex flex-col min-h-screen">
       <AppHeader />
       <main className="flex-grow flex items-center justify-center py-12 px-4 bg-secondary/30">
-        <Card className="mx-auto max-w-sm">
+        <Card className="mx-auto max-w-sm w-full">
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-headline">Create an Account</CardTitle>
             <CardDescription>
@@ -295,7 +296,22 @@ export default function SignupPage() {
                     <FormItem>
                       <FormLabel>Password</FormLabel>
                       <FormControl>
-                        <Input type="password" {...field} disabled={loading} />
+                         <div className="relative">
+                            <Input 
+                                type={showPassword ? "text" : "password"} 
+                                {...field} 
+                                disabled={loading} 
+                            />
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
+                                onClick={() => setShowPassword(!showPassword)}
+                            >
+                                {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
+                            </Button>
+                        </div>
                       </FormControl>
                       <FormMessage />
                     </FormItem>

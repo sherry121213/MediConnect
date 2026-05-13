@@ -106,7 +106,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl rounded-t-[2.5rem] sm:rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[90dvh] flex flex-col animate-in slide-in-from-bottom-5 duration-300">
+            <DialogContent className="sm:max-w-xl rounded-t-[2.5rem] sm:rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[95dvh] flex flex-col animate-in slide-in-from-bottom-5 duration-300">
                 <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
                     <DialogTitle className="text-xl sm:text-2xl font-headline">Clinical Rescheduling</DialogTitle>
                     <DialogDescription className="text-slate-400 mt-1 font-medium">Pick a new 30-minute clinical window.</DialogDescription>
@@ -346,7 +346,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-t-[2.5rem] sm:rounded-[2.5rem] max-h-[90dvh] flex flex-col">
+            <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-t-[2.5rem] sm:rounded-[2.5rem] max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <Tabs defaultValue="overview" className="w-full flex-1 flex flex-col overflow-hidden">
                     <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
                         <DialogTitle className="text-2xl font-headline mb-6 text-white">Patient Management</DialogTitle>
@@ -356,7 +356,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
                             <TabsTrigger value="notes" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 font-bold uppercase text-[10px]">Clinical Notes</TabsTrigger>
                         </TabsList>
                     </div>
-                    <div className="flex-1 overflow-y-auto bg-white overscroll-contain">
+                    <div className="flex-1 overflow-y-auto bg-white overscroll-contain custom-scrollbar">
                         <div className="p-6 sm:p-10 pb-32">
                             <TabsContent value="overview" className="space-y-8 m-0">
                                 <div className="flex items-center gap-6 p-6 border-2 rounded-[2rem] bg-muted/20">
@@ -447,12 +447,12 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[90dvh] overflow-hidden sm:max-w-xl rounded-t-[2.5rem] sm:rounded-3xl p-0 flex flex-col border-none shadow-2xl">
+            <DialogContent className="max-h-[95dvh] overflow-hidden sm:max-w-xl rounded-t-[2.5rem] sm:rounded-3xl p-0 flex flex-col border-none shadow-2xl animate-in zoom-in-95 duration-200">
                 <div className="p-8 sm:p-10 border-b bg-slate-900 text-white shrink-0">
                     <DialogTitle className="text-2xl font-headline">Clinical Hour Configuration</DialogTitle>
                     <DialogDescription className="text-slate-400 mt-1">Audit and update your available 30-minute blocks.</DialogDescription>
                 </div>
-                <div className="flex-1 overflow-y-auto bg-white overscroll-contain">
+                <div className="flex-1 overflow-y-auto bg-white overscroll-contain custom-scrollbar">
                     <div className="space-y-8 p-8 sm:p-10 pb-32">
                         <div className="p-5 bg-primary/5 rounded-2xl border border-primary/10 flex gap-4">
                             <AlertCircle className="h-6 w-6 text-primary shrink-0" />
@@ -514,12 +514,12 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="rounded-t-[2.5rem] sm:rounded-[2.5rem] sm:max-w-md border-none shadow-2xl p-0 overflow-hidden max-h-[90dvh] flex flex-col">
+            <DialogContent className="rounded-t-[2.5rem] sm:rounded-[2.5rem] sm:max-w-md border-none shadow-2xl p-0 overflow-hidden max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-slate-900 p-8 text-white text-center shrink-0">
                     <DialogTitle className="text-2xl font-headline">Absence History Entry</DialogTitle>
                     <DialogDescription className="text-slate-400 mt-1">Audit trail for professional clinical pauses.</DialogDescription>
                 </div>
-                <div className="flex-1 overflow-y-auto bg-white overscroll-contain">
+                <div className="flex-1 overflow-y-auto bg-white overscroll-contain custom-scrollbar">
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8 p-8 pb-24 bg-white">
                             <FormField control={form.control} name="requestedDate" render={({ field }) => (
@@ -672,7 +672,7 @@ export default function DoctorPortalPage() {
         
         const lifetimeRev = appointments.filter(a => a && a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
         const totalCompleted = appointments.filter(a => a && a.status === 'completed').length;
-        const uniquePatients = new Set(appointments.filter(a => a && a.status === 'completed').map(a => a.patientId)).size;
+        const uniquePatients = new Set(appointments.filter(a => a && a.status === 'completed' && a.patientId).map(a => a.patientId)).size;
 
         const activeRequest = requests?.find(r => r && r.requestedDate && isSameDay(new Date(r.requestedDate), viewDate));
         const leaveStatus = activeRequest?.status || null;
@@ -748,11 +748,11 @@ export default function DoctorPortalPage() {
         setIsPostponeOpen(true);
     };
 
-    if (!mounted || isUserLoading) return <div className="flex min-h-screen items-center justify-center bg-secondary/30"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    if (!mounted || isUserLoading) return <div className="flex min-h-svh items-center justify-center bg-secondary/30"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
     return (
-        <main className="min-h-screen flex flex-col bg-secondary/30 py-6 sm:py-10 overflow-x-hidden overflow-y-auto overscroll-none">
-            <div className="container mx-auto px-4 space-y-8 sm:space-y-12 flex-1 pb-20">
+        <main className="min-h-svh flex flex-col bg-secondary/30 py-6 sm:py-10 overflow-x-hidden overflow-y-auto overscroll-none">
+            <div className="container mx-auto px-4 space-y-8 sm:space-y-12 flex-1 pb-24">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
                     <div className="space-y-2">
                         <h1 className="text-3xl sm:text-4xl font-bold font-headline tracking-tight text-foreground">Clinical Command Center</h1>
@@ -864,7 +864,7 @@ export default function DoctorPortalPage() {
                                     </div>
                                 </div>
                             </CardHeader>
-                            <CardContent className="p-6 sm:p-10 flex-1 overflow-y-auto overscroll-contain">
+                            <CardContent className="p-6 sm:p-10 flex-1 overflow-y-auto overscroll-contain custom-scrollbar">
                                 {currentDayLeaveStatus === 'approved' && (
                                     <div className="absolute inset-x-0 bottom-0 top-[220px] sm:top-[160px] z-20 bg-white/95 backdrop-blur-[6px] flex items-center justify-center rounded-b-[2.5rem]">
                                         <div className="bg-white p-10 sm:p-14 rounded-[3rem] shadow-2xl border-2 text-center max-w-[90%] sm:max-w-md space-y-8 animate-in zoom-in-95">
@@ -896,14 +896,14 @@ export default function DoctorPortalPage() {
                 </div>
 
                 <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-                    <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-t-[2.5rem] sm:rounded-3xl p-0 overflow-hidden max-h-[90dvh] flex flex-col">
+                    <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-t-[2.5rem] sm:rounded-3xl p-0 overflow-hidden max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
                         <div className="bg-slate-900 p-8 text-white text-center shrink-0">
                             <DialogTitle className="flex items-center justify-center gap-3 text-2xl font-headline text-white">
                                 <History className="h-6 w-6 text-primary" /> My History
                             </DialogTitle>
                             <DialogDescription className="text-slate-400 mt-1">Summary of your professional clinical activity.</DialogDescription>
                         </div>
-                        <div className="flex-1 overflow-y-auto bg-white p-8 space-y-6 overscroll-contain pb-24">
+                        <div className="flex-1 overflow-y-auto bg-white p-8 space-y-6 overscroll-contain pb-24 custom-scrollbar">
                             <div className="p-6 rounded-3xl bg-primary/5 border-2 border-primary/10 space-y-1 text-center">
                                 <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-[0.2em]">Aggregate Earnings</p>
                                 <p className="text-3xl sm:text-4xl font-bold text-primary">PKR {stats.totalRevenue.toLocaleString()}</p>

@@ -61,12 +61,12 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[90dvh] flex flex-col animate-in zoom-in-95 duration-200">
+            <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-primary p-6 sm:p-8 text-white shrink-0">
                     <DialogTitle className="text-xl sm:text-2xl font-headline">Reschedule Consultation</DialogTitle>
                     <DialogDescription className="text-primary-foreground/80 mt-1 font-medium">Pick a new 30-minute clinical window.</DialogDescription>
                 </div>
-                <div className="flex-1 overflow-y-auto bg-white overscroll-contain">
+                <div className="flex-1 overflow-y-auto bg-white overscroll-contain custom-scrollbar">
                     <div className="p-6 sm:p-8 space-y-10 pb-32">
                         <div>
                             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4">Step 1: Select Date</p>
@@ -110,7 +110,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                         </div>
                     </div>
                 </div>
-                <div className="p-6 sm:p-8 border-t bg-slate-50 shrink-0">
+                <div className="p-6 sm:p-8 border-t bg-slate-50 shrink-0 mt-auto">
                     <div className="flex gap-4">
                         <Button variant="ghost" className="flex-1 h-14 rounded-2xl font-bold" onClick={() => onOpenChange(false)}>Cancel</Button>
                         <Button className="flex-1 h-14 rounded-2xl font-bold shadow-2xl shadow-primary/20 bg-primary text-white" disabled={!selectedTime || isSaving} onClick={handleConfirm}>
@@ -260,7 +260,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                                         {isLive ? "Join Now" : "Upcoming"}
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent className="w-[95vw] sm:max-w-lg rounded-2xl border-none shadow-2xl bg-white">
+                                <DialogContent className="w-[95vw] sm:max-w-lg rounded-2xl border-none shadow-2xl bg-white animate-in zoom-in-95 duration-200">
                                     <DialogHeader>
                                         <DialogTitle className="text-xl font-headline">Clinical Connection</DialogTitle>
                                         <DialogDescription>Secure room window closes at {appointmentDate ? format(addMinutes(appointmentDate, 30), "p") : "the end of the session"}.</DialogDescription>
@@ -277,7 +277,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                             </Dialog>
                         </>
                     ) : (
-                        <div className="flex flex-col gap-2">
+                        <div className="flex flex-col gap-2 w-full">
                              <Button variant="ghost" asChild className="gap-2 text-primary font-bold hover:bg-primary/5 flex-1 sm:w-auto justify-center h-9 text-[10px]">
                                 <Link href={`/appointments/${apt.id}`}><FileText className="h-4 w-4" /> Visit Summary</Link>
                             </Button>
@@ -356,25 +356,25 @@ export default function PatientPortalPage() {
         setIsPostponeOpen(true);
     };
 
-    if (!mounted || isUserLoading) return <div className="flex-grow flex items-center justify-center bg-secondary/30"><Loader2 className="h-10 w-10 animate-spin text-primary/30" /></div>;
+    if (!mounted || isUserLoading) return <div className="min-h-svh flex items-center justify-center bg-secondary/30"><Loader2 className="h-8 w-8 animate-spin text-primary/30" /></div>;
 
     return (
-        <main className="flex-grow bg-secondary/30 py-6 sm:py-10">
-            <div className="container mx-auto px-4">
+        <main className="min-h-svh flex flex-col bg-secondary/30 py-6 sm:py-10 overflow-x-hidden">
+            <div className="container mx-auto px-4 flex-1 pb-24">
                 {ringingApt && (
                     <div className="mb-8 animate-in slide-in-from-top-4 duration-500">
                         <Card className="bg-red-600 text-white border-none shadow-2xl overflow-hidden rounded-3xl" asChild>
-                            <div className="p-6 flex items-center justify-between gap-4">
+                            <div className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                                 <div className="flex items-center gap-4">
                                     <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center animate-pulse">
                                         <PhoneIncoming className="h-6 w-6 text-white" />
                                     </div>
                                     <div>
                                         <p className="text-[10px] uppercase font-bold tracking-widest opacity-80">Incoming Consultation</p>
-                                        <p className="text-lg font-bold">Your doctor has entered the room.</p>
+                                        <p className="text-lg font-bold text-center sm:text-left">Your doctor has entered the room.</p>
                                     </div>
                                 </div>
-                                <Button asChild className="bg-white text-red-600 hover:bg-slate-100 font-bold px-8 h-12 rounded-2xl">
+                                <Button asChild className="bg-white text-red-600 hover:bg-slate-100 font-bold px-8 h-12 rounded-2xl w-full sm:w-auto">
                                     <Link href={`/consultation/${ringingApt.id}`}>Join Now</Link>
                                 </Button>
                             </div>
@@ -387,7 +387,7 @@ export default function PatientPortalPage() {
                         <Card className="overflow-hidden border-none shadow-2xl bg-white/80 backdrop-blur-md rounded-[2rem]">
                             <CardHeader className="bg-primary text-primary-foreground pb-8 pt-8 sm:pb-12 sm:pt-12 px-6 sm:px-10">
                                 <CardTitle className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] opacity-80">Patient Portal</CardTitle>
-                                <CardDescription className="text-3xl sm:text-4xl font-bold font-headline text-white mt-3">Hello, {userData?.firstName}</CardDescription>
+                                <CardDescription className="text-3xl sm:text-4xl font-bold font-headline text-white mt-3 truncate">Hello, {userData?.firstName}</CardDescription>
                             </CardHeader>
                             <CardContent className="pt-8 sm:pt-10 space-y-4 px-6 sm:px-10 pb-12">
                                 <Button className="w-full justify-start h-16 text-base font-bold shadow-xl shadow-primary/20 rounded-2xl" asChild><Link href="/find-a-doctor"><PlusCircle className="mr-3 h-6 w-6" /> Book Consultation</Link></Button>
