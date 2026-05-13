@@ -106,7 +106,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl rounded-t-[2.5rem] sm:rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[95dvh] flex flex-col animate-in slide-in-from-bottom-5 duration-300">
+            <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
                     <DialogTitle className="text-xl sm:text-2xl font-headline">Clinical Rescheduling</DialogTitle>
                     <DialogDescription className="text-slate-400 mt-1 font-medium">Pick a new 30-minute clinical window.</DialogDescription>
@@ -114,14 +114,14 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
                 <div className="flex-1 overflow-y-auto bg-white overscroll-contain">
                     <div className="p-6 sm:p-8 space-y-10 pb-32">
                         <div>
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4">Step 1: Pick Clinical Date</p>
-                            <div className="flex gap-3 overflow-x-auto pb-4 -mx-2 px-2 custom-scrollbar">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4">Step 1: Select Date</p>
+                            <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 custom-scrollbar">
                                 {availableDates.map(day => (
                                     <button 
                                         key={day.date.toISOString()}
                                         onClick={() => setSelectedDate(day.date)}
                                         className={cn(
-                                            "p-4 rounded-2xl border-2 transition-all shrink-0 w-28 text-center flex flex-col items-center justify-center gap-1",
+                                            "p-4 rounded-3xl border-2 transition-all shrink-0 w-28 text-center flex flex-col items-center justify-center gap-1",
                                             isSameDay(selectedDate, day.date) ? 'bg-primary/5 border-primary shadow-sm' : 'bg-background hover:bg-muted border-slate-100'
                                         )}
                                     >
@@ -177,9 +177,14 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
 
     const appointmentDate = new Date(apt.appointmentDateTime);
     const now = isMounted ? Date.now() : 0;
-    const startTime = appointmentDate.getTime() - (10 * 60 * 1000); 
+    
+    // Strict timing: Starts exactly at T, buffer of 10m before T
+    const bufferTime = appointmentDate.getTime() - (10 * 60 * 1000);
+    const startTime = appointmentDate.getTime();
     const endTime = appointmentDate.getTime() + (30 * 60 * 1000); 
+
     const isLive = isMounted && now >= startTime && now < endTime && apt.status === 'scheduled';
+    const isSoon = isMounted && now >= bufferTime && now < startTime && apt.status === 'scheduled';
 
     return (
         <div className={cn(
@@ -199,8 +204,9 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
             </div>
             <div className="flex items-center gap-4">
                 {isLive && <Badge className="bg-red-600 text-white animate-pulse text-[9px] px-2 font-bold h-auto py-1">LIVE NOW</Badge>}
+                {isSoon && <Badge className="bg-amber-100 text-amber-700 text-[9px] px-2 font-bold h-auto py-1 border-amber-200 uppercase">Starting Soon</Badge>}
                 <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("shrink-0 text-[10px] px-2.5 py-1 h-auto font-bold", apt.status === 'completed' ? "bg-green-100 text-green-800" : "text-primary border-primary/20")}>
-                    {apt.status === 'scheduled' ? (isLive ? 'Start' : 'Upcoming') : apt.status === 'completed' ? 'Performed' : apt.status}
+                    {apt.status === 'scheduled' ? (isLive ? 'Start' : isSoon ? 'Ready' : 'Upcoming') : apt.status === 'completed' ? 'Performed' : apt.status}
                 </Badge>
             </div>
         </div>
@@ -232,21 +238,18 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
         return slotDate < now;
     }, [time, viewDate, isMounted]);
 
-    const isLive = useMemo(() => {
-        if (!appointment || !isMounted || appointment.status !== 'scheduled') return false;
+    const timing = useMemo(() => {
+        if (!appointment || !isMounted || appointment.status !== 'scheduled') return { isLive: false, isSoon: false, isExpired: false };
         const aptDate = new Date(appointment.appointmentDateTime);
         const now = Date.now();
-        const startTime = aptDate.getTime() - (10 * 60 * 1000);
+        const bufferTime = aptDate.getTime() - (10 * 60 * 1000);
+        const startTime = aptDate.getTime();
         const endTime = aptDate.getTime() + (30 * 60 * 1000);
-        return now >= startTime && now < endTime;
-    }, [appointment, isMounted]);
-
-    const isExpired = useMemo(() => {
-        if (!appointment || !isMounted) return false;
-        const aptDate = new Date(appointment.appointmentDateTime);
-        const now = Date.now();
-        const endTime = aptDate.getTime() + (30 * 60 * 1000);
-        return now >= endTime && appointment.status === 'scheduled';
+        return {
+            isLive: now >= startTime && now < endTime,
+            isSoon: now >= bufferTime && now < startTime,
+            isExpired: now >= endTime
+        };
     }, [appointment, isMounted]);
 
     return (
@@ -254,8 +257,9 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
             "flex items-center justify-between p-3 rounded-lg border transition-all mb-2",
             appointment ? (
                 appointment.status === 'completed' ? "bg-green-50 border-green-200" :
-                isLive ? "bg-primary/10 border-primary shadow-md scale-[1.02]" : 
-                isExpired ? "bg-destructive/5 border-destructive/20 opacity-70" :
+                timing.isLive ? "bg-primary/10 border-primary shadow-md scale-[1.02]" : 
+                timing.isSoon ? "bg-amber-50 border-amber-200" :
+                timing.isExpired ? "bg-destructive/5 border-destructive/20 opacity-70" :
                 "bg-primary/5 border-primary/20 shadow-sm"
             ) : isPast ? "bg-slate-50 border-slate-100 opacity-50" : "bg-muted/20 border-transparent opacity-60",
             isDisabled && !appointment && "bg-destructive/5 border-destructive/10"
@@ -284,19 +288,21 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
                 <div className="flex items-center gap-2">
                     {appointment.status === 'completed' ? (
                         <Badge variant="secondary" className="bg-green-100 text-green-800 text-[9px] px-2.5 py-1 font-bold uppercase tracking-tight shrink-0 h-auto">Performed</Badge>
-                    ) : isExpired ? (
+                    ) : timing.isExpired ? (
                         <Badge variant="destructive" className="text-[9px] px-2.5 py-1 font-bold uppercase tracking-tight shrink-0 h-auto">Expired</Badge>
                     ) : (
                         <Button 
                             size="sm" 
-                            variant={isLive ? "default" : "ghost"} 
+                            variant={timing.isLive ? "default" : "ghost"} 
                             className={cn(
                                 "h-8 px-3 text-[10px] font-bold uppercase tracking-wider shrink-0 rounded-lg",
-                                isLive ? "bg-red-600 hover:bg-red-700 animate-pulse text-white" : "hover:bg-primary/10"
+                                timing.isLive ? "bg-red-600 hover:bg-red-700 animate-pulse text-white" : 
+                                timing.isSoon ? "bg-amber-100 text-amber-700 border border-amber-200" :
+                                "hover:bg-primary/10"
                             )} 
                             onClick={() => onSelect(appointment)}
                         >
-                            {isLive ? "Start" : "Manage"}
+                            {timing.isLive ? "Start" : timing.isSoon ? "Starting Soon" : "Manage"}
                         </Button>
                     )}
                 </div>
@@ -334,9 +340,12 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
 
     const appointmentDate = new Date(appointment.appointmentDateTime);
     const now = isMounted ? Date.now() : 0;
-    const startTime = appointmentDate.getTime() - (10 * 60 * 1000); 
+    const startTime = appointmentDate.getTime();
+    const bufferTime = appointmentDate.getTime() - (10 * 60 * 1000);
     const endTime = appointmentDate.getTime() + (30 * 60 * 1000); 
+
     const isLive = isMounted && now >= startTime && now < endTime && appointment.status === 'scheduled';
+    const isSoon = isMounted && now >= bufferTime && now < startTime && appointment.status === 'scheduled';
     const isExpired = isMounted && now >= endTime && appointment.status === 'scheduled';
 
     const handleStartRoom = () => {
@@ -381,6 +390,17 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
                                                 <RefreshCw className="h-4 w-4 text-primary" /> Postpone Session
                                             </Button>
                                         </>
+                                    ) : isSoon ? (
+                                        <>
+                                            <div className="p-6 bg-amber-50 border-2 border-amber-100 rounded-3xl text-center space-y-2 mb-2">
+                                                <Clock className="h-8 w-8 text-amber-600 mx-auto animate-pulse" />
+                                                <p className="font-bold text-amber-800">Session Starting Soon</p>
+                                                <p className="text-[10px] text-amber-600">Secure room opens at {format(appointmentDate, "p")}</p>
+                                            </div>
+                                            <Button variant="outline" className="h-14 text-sm font-bold w-full rounded-2xl gap-3 border-2" onClick={() => onPostpone(appointment)}>
+                                                <RefreshCw className="h-4 w-4 text-primary" /> Postpone Session
+                                            </Button>
+                                        </>
                                     ) : isExpired ? (
                                         <div className="space-y-6">
                                             <div className="p-8 bg-red-50 border-2 border-red-100 rounded-3xl text-center space-y-3">
@@ -396,7 +416,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
                                         </div>
                                     ) : (
                                         <>
-                                            <Button className="h-16 text-lg font-bold opacity-70 cursor-not-allowed w-full rounded-2xl bg-slate-100 text-slate-500" disabled>30m Window Locked <Clock className="ml-3 h-6 w-6" /></Button>
+                                            <Button className="h-16 text-lg font-bold opacity-70 cursor-not-allowed w-full rounded-2xl bg-slate-100 text-slate-500" disabled>Exact Time Lock <Clock className="ml-3 h-6 w-6" /></Button>
                                             <Button variant="outline" className="h-16 text-lg font-bold w-full rounded-2xl gap-3 border-2 hover:bg-primary/5 transition-all" onClick={() => onPostpone(appointment)}>
                                                 <RefreshCw className="h-5 w-5 text-primary" /> Postpone Session
                                             </Button>
@@ -447,7 +467,7 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[95dvh] overflow-hidden sm:max-w-xl rounded-t-[2.5rem] sm:rounded-3xl p-0 flex flex-col border-none shadow-2xl animate-in zoom-in-95 duration-200">
+            <DialogContent className="max-h-[95dvh] overflow-hidden sm:max-w-xl rounded-[2.5rem] p-0 flex flex-col border-none shadow-2xl animate-in zoom-in-95 duration-200">
                 <div className="p-8 sm:p-10 border-b bg-slate-900 text-white shrink-0">
                     <DialogTitle className="text-2xl font-headline">Clinical Hour Configuration</DialogTitle>
                     <DialogDescription className="text-slate-400 mt-1">Audit and update your available 30-minute blocks.</DialogDescription>
@@ -514,7 +534,7 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="rounded-t-[2.5rem] sm:rounded-[2.5rem] sm:max-w-md border-none shadow-2xl p-0 overflow-hidden max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
+            <DialogContent className="rounded-[2.5rem] sm:max-w-md border-none shadow-2xl p-0 overflow-hidden max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-slate-900 p-8 text-white text-center shrink-0">
                     <DialogTitle className="text-2xl font-headline">Absence History Entry</DialogTitle>
                     <DialogDescription className="text-slate-400 mt-1">Audit trail for professional clinical pauses.</DialogDescription>
@@ -548,7 +568,7 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
                                     </FormControl>
                                 </FormItem>
                             )} />
-                            <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-2xl shadow-primary/20 text-white bg-primary">Log for Audit History</Button>
+                            <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-xl shadow-primary/20 text-white bg-primary">Log for Audit History</Button>
                         </form>
                     </Form>
                 </div>
@@ -709,7 +729,7 @@ export default function DoctorPortalPage() {
             }
 
             const aptDate = new Date(a.appointmentDateTime);
-            const startTime = aptDate.getTime() - (10 * 60 * 1000); 
+            const startTime = aptDate.getTime();
             const endTime = aptDate.getTime() + (30 * 60 * 1000); 
             const currentTime = Date.now();
             
@@ -896,7 +916,7 @@ export default function DoctorPortalPage() {
                 </div>
 
                 <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-                    <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-t-[2.5rem] sm:rounded-3xl p-0 overflow-hidden max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
+                    <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-[2.5rem] p-0 overflow-hidden max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
                         <div className="bg-slate-900 p-8 text-white text-center shrink-0">
                             <DialogTitle className="flex items-center justify-center gap-3 text-2xl font-headline text-white">
                                 <History className="h-6 w-6 text-primary" /> My History

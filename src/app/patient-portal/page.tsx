@@ -70,13 +70,13 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                     <div className="p-6 sm:p-8 space-y-10 pb-32">
                         <div>
                             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4">Step 1: Select Date</p>
-                            <div className="flex gap-3 overflow-x-auto pb-4 -mx-2 px-2 custom-scrollbar">
+                            <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 custom-scrollbar">
                                 {availableDates.map(day => (
                                     <button 
                                         key={day.date.toISOString()}
                                         onClick={() => setSelectedDate(day.date)}
                                         className={cn(
-                                            "p-4 rounded-2xl border-2 transition-all shrink-0 w-28 text-center flex flex-col items-center justify-center gap-1",
+                                            "p-4 rounded-3xl border-2 transition-all shrink-0 w-28 text-center flex flex-col items-center justify-center gap-1",
                                             isSameDay(selectedDate, day.date) ? 'bg-primary/5 border-primary shadow-sm' : 'bg-background hover:bg-muted border-slate-100'
                                         )}
                                     >
@@ -140,10 +140,13 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
     }, [apt?.appointmentDateTime]);
     
     const now = isMounted ? Date.now() : 0;
-    const startTime = appointmentDate ? appointmentDate.getTime() - (10 * 60 * 1000) : 0; 
+    // Buffer time is 10 mins before exact start time
+    const bufferTime = appointmentDate ? appointmentDate.getTime() - (10 * 60 * 1000) : 0;
+    const startTime = appointmentDate ? appointmentDate.getTime() : 0; 
     const endTime = appointmentDate ? appointmentDate.getTime() + (30 * 60 * 1000) : 0; 
     
     const isLive = isMounted && now >= startTime && now < endTime;
+    const isSoon = isMounted && now >= bufferTime && now < startTime;
     const isExpired = isMounted && now >= endTime;
 
     if (!apt || !appointmentDate) return null;
@@ -151,6 +154,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
     const photoSrc = doctor?.photoURL || doctorImage?.imageUrl;
 
     const handleJoin = () => {
+        if (!isLive) return;
         window.location.assign(`/consultation/${apt.id}`);
     };
 
@@ -192,6 +196,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
         <Card className={cn(
             "hover:shadow-lg transition-all border-l-4 bg-card/50 backdrop-blur-sm overflow-hidden",
             isLive && apt.paymentStatus === 'approved' ? "border-l-red-500 bg-red-50/10 shadow-md scale-[1.01]" : "border-l-primary/40",
+            isSoon && apt.paymentStatus === 'approved' ? "border-l-amber-500 bg-amber-50/10" : "",
             (isExpired || apt.status === 'expired') && "opacity-60 border-l-destructive/40"
         )} asChild>
             <div className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-8">
@@ -219,6 +224,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                                 {isLoadingDoctor ? 'Loading...' : `Dr. ${doctor?.firstName} ${doctor?.lastName}`}
                             </p>
                             {isLive && apt.status === 'scheduled' && apt.paymentStatus === 'approved' && <Badge className="bg-red-600 text-white animate-pulse h-4 text-[7px] px-1.5 uppercase font-bold">LIVE</Badge>}
+                            {isSoon && apt.status === 'scheduled' && apt.paymentStatus === 'approved' && <Badge className="bg-amber-500 text-white h-4 text-[7px] px-1.5 uppercase font-bold">STARTING SOON</Badge>}
                             {(isExpired || apt.status === 'expired') && <Badge variant="destructive" className="h-4 text-[7px] px-1.5 uppercase font-bold">EXPIRED</Badge>}
                         </div>
                         <p className="text-[10px] sm:text-xs text-primary font-bold uppercase tracking-wider opacity-80 truncate">{doctor?.specialty || 'Medical Specialist'}</p>
@@ -249,30 +255,38 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                         </div>
                     ) : isUpcoming && !isExpired && apt.status === 'scheduled' ? (
                         <>
-                            {!isLive && (
+                            {(!isLive && !isSoon) && (
                                 <Button variant="outline" size="sm" className="font-bold border-2 h-9 flex-1 sm:w-auto text-[10px]" onClick={() => onPostpone(apt)}>
                                     <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Postpone
                                 </Button>
                             )}
                             <Dialog>
                                 <DialogTrigger asChild>
-                                    <Button className={cn("font-bold h-9 flex-1 sm:w-auto", isLive ? "bg-red-600 hover:bg-red-700 animate-pulse" : "opacity-70 cursor-not-allowed")} disabled={!isLive}>
-                                        {isLive ? "Join Now" : "Upcoming"}
+                                    <Button className={cn("font-bold h-9 flex-1 sm:w-auto transition-all", isLive ? "bg-red-600 hover:bg-red-700 animate-pulse" : isSoon ? "bg-amber-500 hover:bg-amber-600" : "opacity-70 cursor-not-allowed")} disabled={!isLive && !isSoon}>
+                                        {isLive ? "Join Now" : isSoon ? "Ready" : "Upcoming"}
                                     </Button>
                                 </DialogTrigger>
-                                <DialogContent className="w-[95vw] sm:max-w-lg rounded-2xl border-none shadow-2xl bg-white animate-in zoom-in-95 duration-200">
+                                <DialogContent className="w-[95vw] sm:max-w-lg rounded-3xl border-none shadow-2xl bg-white animate-in zoom-in-95 duration-200">
                                     <DialogHeader>
                                         <DialogTitle className="text-xl font-headline">Clinical Connection</DialogTitle>
-                                        <DialogDescription>Secure room window closes at {appointmentDate ? format(addMinutes(appointmentDate, 30), "p") : "the end of the session"}.</DialogDescription>
+                                        <DialogDescription>
+                                            {isSoon ? `Secure room window opens at exactly ${format(appointmentDate, "p")}.` : `Secure room window closes at ${format(addMinutes(appointmentDate, 30), "p")}.`}
+                                        </DialogDescription>
                                     </DialogHeader>
                                     <div className="grid grid-cols-1 gap-4 py-4 sm:py-6">
-                                        <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group bg-muted/5" onClick={handleJoin}>
-                                            <Video className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/> <div className="text-left min-w-0"><p className="font-bold text-foreground truncate">Video Consultation</p><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">HD Video Feed</p></div>
+                                        <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group bg-muted/5" onClick={handleJoin} disabled={!isLive}>
+                                            <Video className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/> <div className="text-left min-w-0"><p className="font-bold text-foreground truncate">Video Consultation</p><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">{isLive ? 'HD Video Feed Active' : 'Unlocks at Start Time'}</p></div>
                                         </Button>
-                                        <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group bg-muted/5" onClick={handleJoin}>
-                                            <MessageSquare className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/> <div className="text-left min-w-0"><p className="font-bold text-foreground truncate">Secure Patient Chat</p><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">Real-time Messaging</p></div>
+                                        <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group bg-muted/5" onClick={handleJoin} disabled={!isLive}>
+                                            <MessageSquare className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/> <div className="text-left min-w-0"><p className="font-bold text-foreground truncate">Secure Patient Chat</p><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">{isLive ? 'Real-time Messaging Active' : 'Unlocks at Start Time'}</p></div>
                                         </Button>
                                     </div>
+                                    {!isLive && isSoon && (
+                                        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-3">
+                                            <AlertCircle className="h-5 w-5 text-amber-600 shrink-0" />
+                                            <p className="text-xs text-amber-800 font-medium">Please wait. Clinical guidelines require the session to start exactly on time.</p>
+                                        </div>
+                                    )}
                                 </DialogContent>
                             </Dialog>
                         </>

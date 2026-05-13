@@ -28,16 +28,21 @@ const ConsultationMessageItem = ({ appointment, isMounted }: { appointment: any,
     ? format(appointmentDate, "MMM dd, yyyy") 
     : 'Date TBD';
 
-  // Enforcement: 50 Minute Session Limit (T to T+50)
+  // Strict enforcement: Start exactly at T, 10m buffer for "Starting Soon"
   const nowTime = isMounted ? new Date().getTime() : 0;
+  const bufferTime = appointmentDate && isDateValid ? appointmentDate.getTime() - (10 * 60 * 1000) : 0;
   const startTime = appointmentDate && isDateValid ? appointmentDate.getTime() : 0;
-  const endTime = startTime + (50 * 60 * 1000);
+  const endTime = startTime + (30 * 60 * 1000);
 
-  const isTimeReached = isMounted && nowTime >= startTime && nowTime < endTime;
+  const isLive = isMounted && nowTime >= startTime && nowTime < endTime;
+  const isSoon = isMounted && nowTime >= bufferTime && nowTime < startTime;
   const isExpired = isMounted && nowTime >= endTime;
 
   return (
-    <Card className="hover:shadow-lg transition-all border-l-4 border-l-primary/40 group overflow-hidden bg-white">
+    <Card className={cn(
+        "hover:shadow-lg transition-all border-l-4 group overflow-hidden bg-white",
+        isLive ? "border-l-primary" : isSoon ? "border-l-amber-400" : "border-l-slate-200"
+    )}>
       <CardContent className="p-0">
         <div className="flex flex-col sm:flex-row items-stretch">
           <div className="p-6 flex-1 flex items-center gap-4">
@@ -49,7 +54,8 @@ const ConsultationMessageItem = ({ appointment, isMounted }: { appointment: any,
                     <h3 className="font-bold text-lg truncate">
                         {doctor ? `Dr. ${doctor.firstName} ${doctor.lastName}` : 'Healthcare Provider'}
                     </h3>
-                    <Badge variant="outline" className="text-[9px] uppercase tracking-tighter h-4 font-bold border-primary/20 text-primary">Verified Room</Badge>
+                    {isLive && <Badge className="bg-red-600 text-white animate-pulse h-4 text-[7px] px-1.5 uppercase font-bold">LIVE</Badge>}
+                    {isSoon && <Badge className="bg-amber-500 text-white h-4 text-[7px] px-1.5 uppercase font-bold">SOON</Badge>}
                 </div>
                 <p className="text-sm text-muted-foreground truncate max-w-[300px]">
                     Consultation mode: {appointment.appointmentType || 'General Consultation'}
@@ -58,9 +64,9 @@ const ConsultationMessageItem = ({ appointment, isMounted }: { appointment: any,
                     <span className="text-[10px] uppercase font-bold text-muted-foreground flex items-center gap-1">
                         <Calendar className="h-3 w-3" /> {formattedDate}
                     </span>
-                    {!isTimeReached && isDateValid && !isExpired && (
-                         <span className="text-[10px] uppercase font-bold text-amber-600 flex items-center gap-1">
-                            <Clock className="h-3 w-3" /> Chat opens at {format(appointmentDate, "p")}
+                    {!isLive && isDateValid && !isExpired && (
+                         <span className={cn("text-[10px] uppercase font-bold flex items-center gap-1", isSoon ? "text-amber-600 animate-pulse" : "text-slate-400")}>
+                            <Clock className="h-3 w-3" /> {isSoon ? 'Ready to Start' : `Starts at ${format(appointmentDate, "p")}`}
                         </span>
                     )}
                     {isExpired && (
@@ -72,11 +78,15 @@ const ConsultationMessageItem = ({ appointment, isMounted }: { appointment: any,
             </div>
           </div>
           <div className="bg-muted/30 p-6 flex flex-col justify-center items-center sm:items-end gap-2 shrink-0 border-t sm:border-t-0 sm:border-l border-dashed">
-            {isTimeReached ? (
-                <Button asChild size="sm" className="font-bold group-hover:scale-105 transition-transform w-full sm:w-auto">
+            {isLive ? (
+                <Button asChild size="sm" className="font-bold group-hover:scale-105 transition-transform w-full sm:w-auto bg-primary">
                     <Link href={`/consultation/${appointment.id}`}>
-                        Open Chat & Room <ArrowRight className="ml-2 h-4 w-4" />
+                        Join Now <ArrowRight className="ml-2 h-4 w-4" />
                     </Link>
+                </Button>
+            ) : isSoon ? (
+                <Button size="sm" variant="outline" className="font-bold border-amber-300 text-amber-700 bg-amber-50 w-full sm:w-auto" disabled>
+                    Starting Soon <Clock className="ml-2 h-4 w-4" />
                 </Button>
             ) : isExpired ? (
                 <Button size="sm" variant="secondary" className="font-bold opacity-50 cursor-not-allowed w-full sm:w-auto" disabled>
@@ -84,10 +94,10 @@ const ConsultationMessageItem = ({ appointment, isMounted }: { appointment: any,
                 </Button>
             ) : (
                 <Button size="sm" variant="secondary" className="font-bold cursor-not-allowed opacity-70 w-full sm:w-auto" disabled>
-                    Awaiting Start <Clock className="ml-2 h-4 w-4" />
+                    Awaiting Time <Clock className="ml-2 h-4 w-4" />
                 </Button>
             )}
-            <p className="text-[9px] text-muted-foreground italic">Clinical session link</p>
+            <p className="text-[9px] text-muted-foreground italic">Clinical timing strict</p>
           </div>
         </div>
       </CardContent>
