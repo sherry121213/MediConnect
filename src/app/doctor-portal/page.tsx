@@ -166,14 +166,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
     );
 }
 
-const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSelect: (a: Appointment) => void, isMounted: boolean }) => {
-    const firestore = useFirestore();
-    const patientDocRef = useMemoFirebase(() => {
-        if (!firestore || !apt?.patientId) return null;
-        return doc(firestore, 'patients', apt.patientId);
-    }, [firestore, apt?.patientId]);
-    const { data: patient } = useDoc<Patient>(patientDocRef);
-
+const AppointmentRow = ({ apt, patient, onSelect, isMounted }: { apt: Appointment, patient?: Patient, onSelect: (a: Appointment) => void, isMounted: boolean }) => {
     const appointmentDate = new Date(apt.appointmentDateTime);
     const now = isMounted ? Date.now() : 0;
     
@@ -215,14 +208,7 @@ const AppointmentRow = ({ apt, onSelect, isMounted }: { apt: Appointment, onSele
     );
 };
 
-const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, viewDate }: { time: string, appointment?: Appointment, onSelect: (a: Appointment) => void, isDisabled?: boolean, isMounted: boolean, viewDate: Date }) => {
-    const firestore = useFirestore();
-    const patientDocRef = useMemoFirebase(() => {
-        if (!firestore || !appointment?.patientId) return null;
-        return doc(firestore, 'patients', appointment.patientId);
-    }, [firestore, appointment?.patientId]);
-    const { data: patient } = useDoc<Patient>(patientDocRef);
-
+const ScheduleSlot = ({ time, appointment, patient, onSelect, isDisabled, isMounted, viewDate }: { time: string, appointment?: Appointment, patient?: Patient, onSelect: (a: Appointment) => void, isDisabled?: boolean, isMounted: boolean, viewDate: Date }) => {
     const isPast = useMemo(() => {
         if (!isMounted) return false;
         const now = new Date();
@@ -313,15 +299,9 @@ const ScheduleSlot = ({ time, appointment, onSelect, isDisabled, isMounted, view
     );
 };
 
-function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPostpone }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment | null, isMounted: boolean, onPostpone: (a: any) => void }) {
+function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMounted, onPostpone }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment | null, patient?: Patient, isMounted: boolean, onPostpone: (a: any) => void }) {
     const firestore = useFirestore();
     const { toast } = useToast();
-    
-    const patientDocRef = useMemoFirebase(() => {
-        if (!firestore || !appointment?.patientId) return null;
-        return doc(firestore, 'patients', appointment.patientId);
-    }, [firestore, appointment?.patientId]);
-    const { data: patient } = useDoc<Patient>(patientDocRef);
 
     const form = useForm({
         resolver: zodResolver(z.object({ diagnosis: z.string().min(3), prescription: z.string().min(10) })),
@@ -620,6 +600,12 @@ export default function DoctorPortalPage() {
     }, [firestore, user]);
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
+    const patientsQuery = useMemoFirebase(() => {
+        if (!firestore) return null;
+        return collection(firestore, 'patients');
+    }, [firestore]);
+    const { data: patients } = useCollection<Patient>(patientsQuery);
+
     const requestsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
         return query(collection(firestore, 'doctorUnavailabilityRequests'), where('doctorId', '==', user.uid));
@@ -661,17 +647,20 @@ export default function DoctorPortalPage() {
         checkMissedSessions();
     }, [appointments, mounted, firestore, user, toast, nowState]);
 
-    const { todayAppointments, stats, masterSchedule, notifications, currentDayLeaveStatus } = useMemo(() => {
+    const { todayAppointments, stats, masterSchedule, notifications, currentDayLeaveStatus, patientMap } = useMemo(() => {
         if (!mounted || !appointments) return { 
             todayAppointments: [], 
             stats: { today: 0, pending: 0, todayRevenue: 0, totalRevenue: 0, totalConsults: 0, uniquePatients: 0 }, 
             masterSchedule: { morning: [], afternoon: [], evening: [] },
             notifications: [],
-            currentDayLeaveStatus: null as string | null
+            currentDayLeaveStatus: null as string | null,
+            patientMap: new Map<string, Patient>()
         };
         
         const now = new Date();
         const yesterday = subDays(now, 1);
+        const map = new Map<string, Patient>();
+        patients?.forEach(p => map.set(p.id, p));
 
         const allToday = appointments.filter(apt => {
             if (!apt || !apt.appointmentDateTime) return false;
@@ -747,9 +736,10 @@ export default function DoctorPortalPage() {
             stats: { today: allToday.length, pending: pending, todayRevenue: todayRev, totalRevenue: lifetimeRev, totalConsults: totalCompleted, uniquePatients },
             masterSchedule: { morning: filterSlots(timeSlots.morning), afternoon: filterSlots(timeSlots.afternoon), evening: filterSlots(timeSlots.evening) },
             notifications: sortedNotifications,
-            currentDayLeaveStatus: leaveStatus
+            currentDayLeaveStatus: leaveStatus,
+            patientMap: map
         };
-    }, [appointments, mounted, viewDate, userData, requests, dismissedAlertIds, nowState]);
+    }, [appointments, patients, mounted, viewDate, userData, requests, dismissedAlertIds, nowState]);
 
     const handleSelectApt = (apt: Appointment) => {
         setSelectedAppointment(apt);
@@ -849,7 +839,13 @@ export default function DoctorPortalPage() {
                                 ) : todayAppointments.length > 0 ? (
                                     <div className="divide-y max-h-[500px] overflow-y-auto custom-scrollbar overscroll-contain">
                                         {todayAppointments.map(apt => apt && (
-                                            <AppointmentRow key={apt.id} apt={apt} onSelect={handleSelectApt} isMounted={mounted} />
+                                            <AppointmentRow 
+                                                key={apt.id} 
+                                                apt={apt} 
+                                                patient={patientMap.get(apt.patientId)}
+                                                onSelect={handleSelectApt} 
+                                                isMounted={mounted} 
+                                            />
                                         ))}
                                     </div>
                                 ) : (
@@ -899,15 +895,15 @@ export default function DoctorPortalPage() {
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-10 pb-12">
                                     <div className="space-y-6">
                                         <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-4"><div className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-sm shrink-0" /> Morning</h3>
-                                        <div className="space-y-2">{masterSchedule.morning.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
+                                        <div className="space-y-2">{masterSchedule.morning.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} patient={slot.appointment ? patientMap.get(slot.appointment.patientId) : undefined} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
                                     </div>
                                     <div className="space-y-6">
                                         <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-4"><div className="h-2.5 w-2.5 rounded-full bg-blue-400 shadow-sm shrink-0" /> Afternoon</h3>
-                                        <div className="space-y-2">{masterSchedule.afternoon.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
+                                        <div className="space-y-2">{masterSchedule.afternoon.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} patient={slot.appointment ? patientMap.get(slot.appointment.patientId) : undefined} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
                                     </div>
                                     <div className="space-y-6">
                                         <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-4"><Moon className="h-4 w-4 text-indigo-400 shrink-0" /> Evening</h3>
-                                        <div className="space-y-2">{masterSchedule.evening.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
+                                        <div className="space-y-2">{masterSchedule.evening.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} patient={slot.appointment ? patientMap.get(slot.appointment.patientId) : undefined} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
                                     </div>
                                 </div>
                             </CardContent>
@@ -941,7 +937,7 @@ export default function DoctorPortalPage() {
                     </DialogContent>
                 </Dialog>
 
-                {selectedAppointment && <ConsultationDialog isOpen={isConsultOpen} onOpenChange={setIsConsultOpen} appointment={selectedAppointment} isMounted={mounted} onPostpone={handleTriggerPostpone} />}
+                {selectedAppointment && <ConsultationDialog isOpen={isConsultOpen} onOpenChange={setIsConsultOpen} appointment={selectedAppointment} patient={patientMap.get(selectedAppointment.patientId)} isMounted={mounted} onPostpone={handleTriggerPostpone} />}
                 {userData && <AvailabilityDialog isOpen={isAvailabilityOpen} onOpenChange={setIsAvailabilityOpen} doctor={userData as Doctor} />}
                 {user && <LeaveRequestDialog isOpen={isLeaveOpen} onOpenChange={setIsLeaveOpen} defaultDate={viewDate} doctorId={user.uid} />}
                 {selectedAppointment && <InternalPostponeDialog isOpen={isPostponeOpen} onOpenChange={setIsPostponeOpen} appointment={selectedAppointment} />}
