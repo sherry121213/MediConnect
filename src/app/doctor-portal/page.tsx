@@ -357,7 +357,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-t-[2.5rem] sm:rounded-[2.5rem] max-h-[90dvh] flex flex-col animate-in zoom-in-95 duration-200">
+            <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-t-[2.5rem] sm:rounded-[2.5rem] max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <Tabs defaultValue="overview" className="w-full flex-1 flex flex-col overflow-hidden">
                     <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
                         <DialogTitle className="text-2xl font-headline mb-6 text-white">Patient Management</DialogTitle>
@@ -420,7 +420,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, isMounted, onPo
                                         <>
                                             <Button className="h-16 text-lg font-bold opacity-70 cursor-not-allowed w-full rounded-2xl bg-slate-100 text-slate-500" disabled>Exact Time Lock <Clock className="ml-3 h-6 w-6" /></Button>
                                             <Button variant="outline" className="h-16 text-lg font-bold w-full rounded-2xl gap-3 border-2 hover:bg-primary/5 transition-all" onClick={() => onPostpone(appointment)}>
-                                                <RefreshCw className="h-5 w-5 text-primary" /> Postpone Session
+                                                <RefreshCw className="h-4 w-4 text-primary" /> Postpone Session
                                             </Button>
                                         </>
                                     )}
@@ -469,7 +469,7 @@ function AvailabilityDialog({ isOpen, onOpenChange, doctor }: { isOpen: boolean,
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="max-h-[90dvh] overflow-hidden sm:max-w-xl rounded-[2.5rem] p-0 flex flex-col border-none shadow-2xl animate-in zoom-in-95 duration-200">
+            <DialogContent className="max-h-[95dvh] overflow-hidden sm:max-w-xl rounded-[2.5rem] p-0 flex flex-col border-none shadow-2xl animate-in zoom-in-95 duration-200">
                 <div className="p-8 sm:p-10 border-b bg-slate-900 text-white shrink-0">
                     <DialogTitle className="text-2xl font-headline">Clinical Hour Configuration</DialogTitle>
                     <DialogDescription className="text-slate-400 mt-1">Audit and update your available 30-minute blocks.</DialogDescription>
@@ -536,7 +536,7 @@ function LeaveRequestDialog({ isOpen, onOpenChange, defaultDate, doctorId }: { i
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="rounded-[2.5rem] sm:max-w-md border-none shadow-2xl p-0 overflow-hidden max-h-[90dvh] flex flex-col animate-in zoom-in-95 duration-200">
+            <DialogContent className="rounded-[2.5rem] sm:max-w-md border-none shadow-2xl p-0 overflow-hidden max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-slate-900 p-8 text-white text-center shrink-0">
                     <DialogTitle className="text-2xl font-headline">Absence History Entry</DialogTitle>
                     <DialogDescription className="text-slate-400 mt-1">Audit trail for professional clinical pauses.</DialogDescription>
@@ -770,11 +770,11 @@ export default function DoctorPortalPage() {
         setIsPostponeOpen(true);
     };
 
-    if (!mounted || isUserLoading) return <div className="flex min-h-svh items-center justify-center bg-secondary/30"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    if (!mounted || isUserLoading) return <div className="flex min-h-screen items-center justify-center bg-secondary/30"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
     return (
-        <main className="min-h-svh flex flex-col bg-secondary/30 py-6 sm:py-10 overflow-x-hidden overflow-y-auto overscroll-none">
-            <div className="container mx-auto px-4 space-y-8 sm:space-y-12 flex-1 pb-24">
+        <main className="min-h-screen bg-secondary/30 py-6 sm:py-10 overflow-x-hidden">
+            <div className="container mx-auto px-4 space-y-8 sm:space-y-12 pb-24">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
                     <div className="space-y-2">
                         <h1 className="text-3xl sm:text-4xl font-bold font-headline tracking-tight text-foreground">Clinical Command Center</h1>
@@ -862,7 +862,7 @@ export default function DoctorPortalPage() {
                         </Card>
                     </div>
 
-                    <div className="lg:col-span-8 space-y-8 h-full">
+                    <div className="lg:col-span-8 space-y-8">
                         <Card className="border-none shadow-2xl relative bg-white overflow-hidden rounded-[2.5rem] flex flex-col">
                             <CardHeader className="border-b bg-muted/5 z-10 p-6 sm:p-10 shrink-0">
                                 <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-8">
@@ -886,19 +886,17 @@ export default function DoctorPortalPage() {
                                     </div>
                                 </div>
                             </CardHeader>
-                            <CardContent className="p-6 sm:p-10 flex-1 overflow-y-auto overscroll-contain custom-scrollbar">
+                            <CardContent className="p-6 sm:p-10">
                                 {currentDayLeaveStatus === 'approved' && (
-                                    <div className="absolute inset-x-0 bottom-0 top-[220px] sm:top-[160px] z-20 bg-white/95 backdrop-blur-[6px] flex items-center justify-center rounded-b-[2.5rem]">
-                                        <div className="bg-white p-10 sm:p-14 rounded-[3rem] shadow-2xl border-2 text-center max-w-[90%] sm:max-w-md space-y-8 animate-in zoom-in-95">
-                                            <div className="h-24 w-24 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto shadow-inner border-4 border-white"><ShieldCheck className="h-14 w-14" /></div>
-                                            <div className="space-y-3">
-                                                <h4 className="text-2xl sm:text-3xl font-bold tracking-tight">Practice Suspended</h4>
-                                                <p className="text-sm text-muted-foreground leading-relaxed font-medium italic">Professional absence history audit approved for this date.</p>
-                                            </div>
+                                    <div className="bg-primary/5 p-8 rounded-3xl border-2 border-dashed text-center space-y-4 mb-8">
+                                        <div className="h-16 w-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto shadow-inner"><ShieldCheck className="h-10 w-10" /></div>
+                                        <div className="space-y-1">
+                                            <h4 className="text-xl font-bold tracking-tight">Practice Suspended</h4>
+                                            <p className="text-sm text-muted-foreground font-medium italic">Professional absence history audit approved for this date.</p>
                                         </div>
                                     </div>
                                 )}
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-10 pb-24">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 sm:gap-10 pb-12">
                                     <div className="space-y-6">
                                         <h3 className="text-[10px] font-bold uppercase tracking-[0.3em] text-primary flex items-center gap-4"><div className="h-2.5 w-2.5 rounded-full bg-amber-400 shadow-sm shrink-0" /> Morning</h3>
                                         <div className="space-y-2">{masterSchedule.morning.map((slot, idx) => (<ScheduleSlot key={idx} time={slot.time} appointment={slot.appointment} onSelect={handleSelectApt} isDisabled={slot.isDisabled} isMounted={mounted} viewDate={viewDate}/>))}</div>
@@ -918,7 +916,7 @@ export default function DoctorPortalPage() {
                 </div>
 
                 <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-                    <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-[2.5rem] p-0 overflow-hidden max-h-[90dvh] flex flex-col animate-in zoom-in-95 duration-200">
+                    <DialogContent className="sm:max-w-[400px] border-none shadow-2xl rounded-[2.5rem] p-0 overflow-hidden max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
                         <div className="bg-slate-900 p-8 text-white text-center shrink-0">
                             <DialogTitle className="flex items-center justify-center gap-3 text-2xl font-headline text-white">
                                 <History className="h-6 w-6 text-primary" /> My History
