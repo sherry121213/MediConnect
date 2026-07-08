@@ -50,7 +50,7 @@ export default function ConsultationRoomPage() {
   const [isPeerConnected, setIsPeerConnected] = useState(false);
   const [signalingStatus, setSignalingStatus] = useState('Initializing Secure Channel...');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [timeRemaining, setTimeRemaining] = useState<string>('30:00');
+  const [timeRemaining, setTimeRemaining] = useState<string>('15:00'); // Updated to 15 mins
   const [isExpired, setIsExpired] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
 
@@ -77,12 +77,12 @@ export default function ConsultationRoomPage() {
     },
   });
 
-  // 1. Session Expiry & Timer Logic
+  // 1. Session Expiry & Timer Logic (15 Minute Threshold)
   useEffect(() => {
     if (!appointment?.appointmentDateTime || appointment?.status === 'completed') return;
 
     const startTime = new Date(appointment.appointmentDateTime);
-    const endTime = addMinutes(startTime, 30);
+    const endTime = addMinutes(startTime, 15); // Dynamic 15 min duration
 
     const timer = setInterval(() => {
       const now = new Date();
@@ -127,7 +127,7 @@ export default function ConsultationRoomPage() {
     toast({
       variant: "destructive",
       title: "Session Expired",
-      description: "The 30-minute clinical window has concluded.",
+      description: "The 15-minute clinical window has concluded.",
     });
 
     setTimeout(() => {
@@ -457,8 +457,8 @@ export default function ConsultationRoomPage() {
                     </span>
                 </div>
             )}
-            <Badge variant="outline" className={cn("gap-1.5 px-3 py-1 text-[10px] font-bold hidden sm:flex", isCompleted ? "bg-green-500/10 text-green-400 border-green-500/20" : "bg-red-500/10 text-red-400 border-red-500/20")}>
-              <div className={cn("h-1.5 w-1.5 rounded-full", isCompleted ? "bg-green-500" : "bg-red-500 animate-pulse")} /> 
+            <Badge variant="outline" className={cn("gap-1.5 px-3 py-1 text-[10px] font-bold hidden sm:flex", isCompleted ? "bg-green-50/10 text-green-400 border-green-500/20" : "bg-red-50/10 text-red-400 border-red-500/20")}>
+              <div className={cn("h-1.5 w-1.5 rounded-full", isCompleted ? "bg-green-50" : "bg-red-50 animate-pulse")} /> 
               {isCompleted ? "COMPLETED" : "LIVE SESSION"}
             </Badge>
           </div>
@@ -475,7 +475,7 @@ export default function ConsultationRoomPage() {
                  </div>
                  <div className="space-y-2">
                     <h2 className="text-2xl font-bold">Clinical Window Closed</h2>
-                    <p className="text-slate-400 max-w-md">This session has exceeded the 30-minute professional limit and is now archived.</p>
+                    <p className="text-slate-400 max-w-md">This session has exceeded the 15-minute professional limit and is now archived.</p>
                  </div>
                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>

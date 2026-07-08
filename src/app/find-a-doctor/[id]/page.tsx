@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck, Video, PhoneCall, Moon, ShieldAlert, CreditCard, Wallet, Landmark, CheckCircle2, XCircle, Quote, User, Activity, BriefcaseMedical, Calendar as CalendarIcon } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck, Video, PhoneCall, Moon, ShieldAlert, CreditCard, Wallet, Landmark, CheckCircle2, XCircle, Quote, User, Activity, BriefcaseMedical, Calendar as CalendarIcon, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -35,6 +35,7 @@ import { Input } from '@/components/ui/input';
 import { format, isSameDay, addMinutes, isBefore, isValid, parse } from 'date-fns';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const ReviewItem = ({ review }: { review: Review }) => {
     const firestore = useFirestore();
@@ -136,9 +137,8 @@ export default function DoctorDetailPage() {
 
         const proposedStart = new Date(selectedDate);
         proposedStart.setHours(hours, minutes, 0, 0);
-        const proposedEnd = addMinutes(proposedStart, 30);
+        const proposedEnd = addMinutes(proposedStart, 15); // Changed to 15 mins
         
-        // DYNAMIC HIDING: Block past times if today
         if (isSameDay(selectedDate, nowTicker)) {
             if (proposedStart < nowTicker) return false;
         }
@@ -146,14 +146,13 @@ export default function DoctorDetailPage() {
         return !existingAppointments.some(apt => {
             if (!apt || apt.status === 'cancelled' || !apt.appointmentDateTime) return false;
             const aptStart = new Date(apt.appointmentDateTime);
-            const aptEnd = addMinutes(aptStart, 30);
+            const aptEnd = addMinutes(aptStart, 15); // Changed to 15 mins
             return proposedStart < aptEnd && proposedEnd > aptStart;
         });
     };
 
     const upcomingAvailableTimes = useMemo(() => {
         const allTimes = generateAvailableTimes();
-        // Filters based on current time automatically
         return allTimes.filter(t => isSlotAvailable(t));
     }, [selectedDate, nowTicker, existingAppointments, mounted]);
 
@@ -171,7 +170,7 @@ export default function DoctorDetailPage() {
             return;
         }
         if (!selectedTime || !firestore || !doctor) {
-            toast({ variant: 'destructive', title: 'Booking Error', description: 'Please select a time slot.' });
+            toast({ variant: 'destructive', title: 'Booking Error', description: 'Please select a time.' });
             return;
         }
         if (!paymentReceipt) {
@@ -252,12 +251,12 @@ export default function DoctorDetailPage() {
 
                                 <div className="grid grid-cols-3 gap-2 border-y py-6 mx-8 border-slate-50">
                                     <div className="text-center space-y-1 border-r border-slate-50">
-                                        <p className="text-sm font-bold text-slate-900">15 - 30 Min</p>
-                                        <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest">Wait Time</p>
+                                        <p className="text-sm font-bold text-slate-900">15 Min</p>
+                                        <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest">Duration</p>
                                     </div>
                                     <div className="text-center space-y-1 border-r border-slate-50">
-                                        <p className="text-sm font-bold text-slate-900">{doctor?.experience || 12} Years</p>
-                                        <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest">Experience</p>
+                                        <p className="text-sm font-bold text-slate-900">{doctor?.experience || 12} Yrs</p>
+                                        <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest">Exp.</p>
                                     </div>
                                     <div className="text-center space-y-1">
                                         <p className="text-sm font-bold text-slate-900 flex items-center justify-center gap-1">
@@ -309,18 +308,18 @@ export default function DoctorDetailPage() {
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-1">
                                             <CardTitle className="text-2xl font-headline flex items-center gap-3">
-                                                <CalendarDays className="h-7 w-7 text-primary"/> Clinical Availability
+                                                <CalendarDays className="h-7 w-7 text-primary"/> Consultation Scheduling
                                             </CardTitle>
-                                            <p className="text-sm text-muted-foreground">Displaying upcoming available slots based on current time.</p>
+                                            <p className="text-sm text-muted-foreground">Dynamic selection of upcoming 15-minute clinical windows.</p>
                                         </div>
                                     </div>
                                 </CardHeader>
                                 <CardContent className="p-8 sm:p-12 space-y-12">
                                     <div>
                                         <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6 flex items-center gap-3">
-                                            <div className="h-1 w-6 bg-primary rounded-full" /> Step 1: Select Date
+                                            <div className="h-1 w-6 bg-primary rounded-full" /> Step 1: Choose Clinical Date
                                         </h4>
-                                        <div className="flex gap-4 overflow-x-auto pb-6 -mx-4 px-4 no-scrollbar">
+                                        <div className="flex gap-4 overflow-x-auto pb-6 -mx-4 px-4 custom-scrollbar">
                                             {dateOptions.map(day => (
                                                 <button 
                                                     key={day.date.toISOString()}
@@ -344,30 +343,34 @@ export default function DoctorDetailPage() {
 
                                     <div>
                                         <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6 flex items-center gap-3">
-                                            <div className="h-1 w-6 bg-primary rounded-full" /> Step 2: Upcoming Clinical Slots
+                                            <div className="h-1 w-6 bg-primary rounded-full" /> Step 2: Dynamic Start Time
                                         </h4>
-                                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3 max-h-[300px] overflow-y-auto p-4 border-4 border-dashed rounded-[2rem] bg-slate-50/50 custom-scrollbar">
-                                            {upcomingAvailableTimes.length > 0 ? (
-                                                upcomingAvailableTimes.map((timeStr) => (
-                                                    <Button
-                                                        key={timeStr}
-                                                        variant={selectedTime === timeStr ? 'default' : 'outline'}
-                                                        className={cn(
-                                                            "h-14 rounded-2xl text-[11px] font-bold transition-all shadow-sm",
-                                                            selectedTime === timeStr ? "bg-primary text-white border-primary scale-105" : "bg-white border-slate-200 hover:border-primary/50"
+                                        <div className="flex flex-col md:flex-row gap-6 items-center p-8 border-4 border-dashed rounded-[2rem] bg-slate-50/50">
+                                            <div className="flex-1 w-full space-y-4">
+                                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Select Available Start Time</Label>
+                                                <Select value={selectedTime || ''} onValueChange={setSelectedTime}>
+                                                    <SelectTrigger className="h-14 rounded-2xl border-2 bg-white text-lg font-bold">
+                                                        <SelectValue placeholder="Pick a time..." />
+                                                    </SelectTrigger>
+                                                    <SelectContent className="rounded-2xl border-none shadow-2xl max-h-[300px]">
+                                                        {upcomingAvailableTimes.length > 0 ? (
+                                                            upcomingAvailableTimes.map(time => (
+                                                                <SelectItem key={time} value={time} className="h-12 font-bold focus:bg-primary/5 focus:text-primary">
+                                                                    {time}
+                                                                </SelectItem>
+                                                            ))
+                                                        ) : (
+                                                            <div className="p-4 text-center text-xs text-muted-foreground italic">No available times for this date.</div>
                                                         )}
-                                                        onClick={() => setSelectedTime(timeStr)}
-                                                    >
-                                                        {timeStr}
-                                                    </Button>
-                                                ))
-                                            ) : (
-                                                <div className="col-span-full py-12 text-center text-muted-foreground space-y-2">
-                                                    <Moon className="h-10 w-10 mx-auto opacity-20" />
-                                                    <p className="text-xs font-bold uppercase tracking-widest">No Remaining Slots Today</p>
-                                                    <p className="text-[10px] opacity-60">Please select another date for clinical availability.</p>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div className="shrink-0 text-center md:text-left md:border-l pl-0 md:pl-6 space-y-2">
+                                                <p className="text-[9px] font-bold uppercase text-primary tracking-widest">Consultation Length</p>
+                                                <div className="flex items-center justify-center md:justify-start gap-2 text-2xl font-bold">
+                                                    <Clock className="h-5 w-5 text-primary" /> 15 Minutes
                                                 </div>
-                                            )}
+                                            </div>
                                         </div>
                                     </div>
 
@@ -385,7 +388,7 @@ export default function DoctorDetailPage() {
                                                 <div className="p-8 sm:p-10 space-y-8">
                                                     <AlertDialogHeader>
                                                         <AlertDialogTitle className="text-2xl font-headline">Secure Payment</AlertDialogTitle>
-                                                        <AlertDialogDescription>Complete the consultation fee transfer to confirm your 30m session.</AlertDialogDescription>
+                                                        <AlertDialogDescription>Complete the consultation fee transfer to confirm your 15m session.</AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     
                                                     <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10 text-center">

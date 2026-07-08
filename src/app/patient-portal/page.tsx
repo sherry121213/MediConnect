@@ -15,12 +15,13 @@ import { format, isAfter, subHours, isSameDay, startOfDay, isBefore, isValid, ad
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { getNext7Days, timeSlots } from "@/lib/time";
+import { getNext7Days, generateAvailableTimes } from "@/lib/time";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean, onOpenChange: (o: boolean) => void, appointment: any }) {
     const firestore = useFirestore();
@@ -36,14 +37,43 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
     }, [firestore, appointment?.doctorId]);
     const { data: doctor } = useDoc<Doctor>(doctorDocRef);
 
+    const appointmentsQuery = useMemoFirebase(() => {
+        if (!firestore || !appointment?.doctorId) return null;
+        return query(collection(firestore, 'appointments'), where('doctorId', '==', appointment.doctorId));
+    }, [firestore, appointment?.doctorId]);
+    const { data: existingAppointments } = useCollection<Appointment>(appointmentsQuery);
+
+    const upcomingAvailableTimes = useMemo(() => {
+        const allTimes = generateAvailableTimes();
+        return allTimes.filter(timeStr => {
+            const [time, period] = timeStr.split(' ');
+            let [hours, minutes] = time.split(':').map(Number);
+            if (period === 'PM' && hours !== 12) hours += 12;
+            if (period === 'AM' && hours === 12) hours = 0;
+
+            const proposedStart = new Date(selectedDate);
+            proposedStart.setHours(hours, minutes, 0, 0);
+            const proposedEnd = addMinutes(proposedStart, 15);
+            
+            if (isSameDay(selectedDate, new Date()) && proposedStart < new Date()) return false;
+
+            return !existingAppointments?.some(apt => {
+                if (!apt || apt.status === 'cancelled' || !apt.appointmentDateTime || apt.id === appointment.id) return false;
+                const aptStart = new Date(apt.appointmentDateTime);
+                const aptEnd = addMinutes(aptStart, 15);
+                return proposedStart < aptEnd && proposedEnd > aptStart;
+            });
+        });
+    }, [selectedDate, existingAppointments, appointment.id]);
+
     const handleConfirm = async () => {
         if (!firestore || !appointment || !selectedTime) return;
         setIsSaving(true);
 
-        const newDateTime = new Date(selectedDate);
         const [timePart, ampm] = selectedTime.split(' ');
         const [hours, minutes] = timePart.split(':').map(Number);
         
+        const newDateTime = new Date(selectedDate);
         let numericHours = hours;
         if (ampm === 'PM' && numericHours !== 12) numericHours += 12;
         if (ampm === 'AM' && numericHours === 12) numericHours = 0;
@@ -57,24 +87,9 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
             doctorInRoom: false 
         });
 
-        toast({ title: "Session Rescheduled", description: `Your 30m visit with Dr. ${doctor?.lastName} is now set for ${format(newDateTime, "PPP p")}.` });
+        toast({ title: "Session Rescheduled", description: `Your 15m visit with Dr. ${doctor?.lastName} is now set for ${format(newDateTime, "PPP p")}.` });
         setIsSaving(false);
         onOpenChange(false);
-    };
-
-    const isSlotPast = (timeStr: string) => {
-        if (!isSameDay(selectedDate, new Date())) return false;
-        
-        const [timePart, ampm] = timeStr.split(' ');
-        const [hours, minutes] = timePart.split(':').map(Number);
-        
-        const checkTime = new Date(selectedDate);
-        let numericHours = hours;
-        if (ampm === 'PM' && numericHours !== 12) numericHours += 12;
-        if (ampm === 'AM' && numericHours === 12) numericHours = 0;
-        
-        checkTime.setHours(numericHours, minutes, 0, 0);
-        return isBefore(checkTime, new Date());
     };
 
     return (
@@ -82,12 +97,12 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
             <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[90dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-primary p-6 sm:p-8 text-white shrink-0">
                     <DialogTitle className="text-xl sm:text-2xl font-headline">Reschedule Consultation</DialogTitle>
-                    <DialogDescription className="text-primary-foreground/80 mt-1 font-medium">Pick a new 30-minute clinical window.</DialogDescription>
+                    <DialogDescription className="text-primary-foreground/80 mt-1 font-medium">Pick a new 15-minute clinical window.</DialogDescription>
                 </div>
                 <div className="flex-1 overflow-y-auto bg-white overscroll-contain custom-scrollbar">
                     <div className="p-6 sm:p-8 space-y-10 pb-32">
                         <div>
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4">Step 1: Select Date</p>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4">Step 1: Choose Date</p>
                             <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 custom-scrollbar">
                                 {availableDates.map(day => (
                                     <button 
@@ -110,30 +125,25 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                         </div>
 
                         <div className="border-t pt-10">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 2: Available 30m Slots</p>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening]
-                                    .filter(time => !isSlotPast(time))
-                                    .map(time => (
-                                        <Button 
-                                            key={time}
-                                            variant={selectedTime === time ? 'default' : 'outline'}
-                                            size="sm"
-                                            onClick={() => setSelectedTime(time)}
-                                            className={cn(
-                                                "rounded-xl text-[10px] font-bold h-12 border-2",
-                                                selectedTime === time ? "bg-primary border-primary text-white" : "border-slate-100"
-                                            )}
-                                            disabled={doctor?.availability?.disabledSlots?.includes(time)}
-                                        >
-                                            {time}
-                                        </Button>
-                                    ))}
-                                {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].filter(time => !isSlotPast(time)).length === 0 && (
-                                    <div className="col-span-full py-8 text-center text-muted-foreground italic">
-                                        No upcoming slots left for this date.
-                                    </div>
-                                )}
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 2: Start Time</p>
+                            <div className="p-6 border-4 border-dashed rounded-[2rem] bg-slate-50/50 space-y-4">
+                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Select New Available Time</Label>
+                                <Select value={selectedTime || ''} onValueChange={setSelectedTime}>
+                                    <SelectTrigger className="h-14 rounded-2xl border-2 bg-white text-lg font-bold">
+                                        <SelectValue placeholder="Pick a time..." />
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-2xl border-none shadow-2xl max-h-[300px]">
+                                        {upcomingAvailableTimes.length > 0 ? (
+                                            upcomingAvailableTimes.map(time => (
+                                                <SelectItem key={time} value={time} className="h-12 font-bold focus:bg-primary/5 focus:text-primary">
+                                                    {time}
+                                                </SelectItem>
+                                            ))
+                                        ) : (
+                                            <div className="p-4 text-center text-xs text-muted-foreground italic">No available times for this date.</div>
+                                        )}
+                                    </SelectContent>
+                                </Select>
                             </div>
                         </div>
                     </div>
@@ -170,7 +180,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
     const now = isMounted ? Date.now() : 0;
     const bufferTime = appointmentDate ? appointmentDate.getTime() - (10 * 60 * 1000) : 0;
     const startTime = appointmentDate ? appointmentDate.getTime() : 0; 
-    const endTime = appointmentDate ? appointmentDate.getTime() + (30 * 60 * 1000) : 0; 
+    const endTime = appointmentDate ? appointmentDate.getTime() + (15 * 60 * 1000) : 0; // Updated to 15 mins
     
     const isLive = isMounted && now >= startTime && now < endTime;
     const isSoon = isMounted && now >= bufferTime && now < startTime;
@@ -203,7 +213,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                             <CalendarIcon className="h-3 w-3" /> {format(appointmentDate, "MMM dd")}
                         </div>
                         <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
-                            <Clock className="h-3 w-3" /> {format(appointmentDate, "p")}
+                            <Clock className="h-3 w-3" /> {format(appointmentDate, "p")} (15m)
                         </div>
                     </div>
                     <div className="mt-auto pt-2 flex items-center justify-between gap-2">
@@ -260,7 +270,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                                 <CalendarIcon className="w-2.5 h-2.5" /> {format(appointmentDate, "MMM dd")}
                             </Badge>
                             <Badge variant="outline" className="flex items-center gap-1 px-1.5 text-[8px] sm:text-[10px] font-bold">
-                                <Clock className="w-2.5 h-2.5" /> {format(appointmentDate, "p")} (30m)
+                                <Clock className="w-2.5 h-2.5" /> {format(appointmentDate, "p")} (15m)
                             </Badge>
                         </div>
                     </div>
@@ -297,7 +307,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                                     <DialogHeader>
                                         <DialogTitle className="text-xl font-headline">Clinical Connection</DialogTitle>
                                         <DialogDescription>
-                                            {isSoon ? `Secure room window opens at exactly ${format(appointmentDate, "p")}.` : `Secure room window closes at ${format(addMinutes(appointmentDate, 30), "p")}.`}
+                                            {isSoon ? `Secure room window opens at exactly ${format(appointmentDate, "p")}.` : `Secure room window closes at ${format(addMinutes(appointmentDate, 15), "p")}.`}
                                         </DialogDescription>
                                     </DialogHeader>
                                     <div className="grid grid-cols-1 gap-4 py-4 sm:py-6">
@@ -363,14 +373,14 @@ export default function PatientPortalPage() {
             apt.doctorInRoom === true && 
             apt.status === 'scheduled' && 
             apt.paymentStatus === 'approved' &&
-            Math.abs(now.getTime() - new Date(apt.appointmentDateTime).getTime()) < (30 * 60 * 1000)
+            Math.abs(now.getTime() - new Date(apt.appointmentDateTime).getTime()) < (15 * 60 * 1000)
         );
 
         const upcoming = validAppointments
             .filter(apt => {
                 const d = new Date(apt.appointmentDateTime);
                 if (!isValid(d)) return false;
-                const endTime = d.getTime() + (30 * 60 * 1000); 
+                const endTime = d.getTime() + (15 * 60 * 1000); 
                 const isMissed = now.getTime() > endTime;
                 return !isMissed && 
                        (apt.status === 'scheduled' || apt.status === 'expired') &&
@@ -382,7 +392,7 @@ export default function PatientPortalPage() {
             .filter(apt => {
                 const d = new Date(apt.appointmentDateTime);
                 if (!isValid(d)) return false;
-                const endTime = d.getTime() + (30 * 60 * 1000); 
+                const endTime = d.getTime() + (15 * 60 * 1000); 
                 const isMissed = now.getTime() > endTime;
                 return isMissed || apt.status === 'completed' || apt.status === 'expired';
             })
@@ -462,7 +472,7 @@ export default function PatientPortalPage() {
                                 </h2>
                             </div>
                             {isLoadingAppointments ? <div className="py-16 flex justify-center"><Loader2 className="h-10 w-10 animate-spin text-primary/30" /></div> : 
-                             upcomingAppointments.length === 0 ? <Card className="border-dashed border-4 bg-transparent rounded-[2.5rem]"><CardContent className="py-20 sm:py-24 text-center px-4"><Calendar className="h-16 w-16 text-muted-foreground/10 mx-auto mb-6" /><p className="text-muted-foreground font-medium">No upcoming 30m consultations.</p></CardContent></Card> :
+                             upcomingAppointments.length === 0 ? <Card className="border-dashed border-4 bg-transparent rounded-[2.5rem]"><CardContent className="py-20 sm:py-24 text-center px-4"><Calendar className="h-16 w-16 text-muted-foreground/10 mx-auto mb-6" /><p className="text-muted-foreground font-medium">No upcoming 15m consultations.</p></CardContent></Card> :
                              <div className="space-y-5">{upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={true} onPostpone={handlePostpone} isMounted={mounted} />)}</div>}
                         </section>
 
