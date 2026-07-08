@@ -70,7 +70,6 @@ export default function SignupPage() {
     }
   }, [user, userData, isUserLoading, router]);
 
-
   async function onSubmit(values: SignupFormValues) {
     const { firstName, lastName, email, password, role } = values;
     if (!auth || !firestore) return;
@@ -87,7 +86,6 @@ export default function SignupPage() {
         const displayName = email === 'admin@mediconnect.com' ? 'Admin User' : 'Falak Ali';
         const adminFirstName = email === 'admin@mediconnect.com' ? 'Admin' : 'Falak';
         const adminLastName = email === 'admin@mediconnect.com' ? 'User' : 'Ali';
-
 
         await updateProfile(newUser, {
           displayName: displayName
@@ -107,7 +105,6 @@ export default function SignupPage() {
         const adminDocRef = doc(firestore, 'patients', newUser.uid);
         setDocumentNonBlocking(adminDocRef, adminDocData, { merge: true });
 
-        // CRITICAL: Register in roles_admin for Firestore Security Rules
         const roleDocRef = doc(firestore, 'roles_admin', newUser.uid);
         setDocumentNonBlocking(roleDocRef, { active: true }, { merge: true });
 
@@ -119,33 +116,22 @@ export default function SignupPage() {
         return;
       } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
-            toast({
-              title: "Admin Account Exists",
-              description: "Please log in.",
-            });
+            toast({ title: "Admin Account Exists", description: "Please log in." });
             router.push('/login');
         } else {
-             toast({
-              variant: "destructive",
-              title: "Admin Creation Failed",
-              description: error.message,
-            });
+             toast({ variant: "destructive", title: "Admin Creation Failed", description: error.message });
         }
         setLoading(false);
         return;
       }
     }
 
-
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const newUser = userCredential.user;
 
       await sendEmailVerification(newUser);
-
-      await updateProfile(newUser, {
-          displayName: `${firstName} ${lastName}`
-      });
+      await updateProfile(newUser, { displayName: `${firstName} ${lastName}` });
 
       const baseUserData = {
           id: newUser.uid,
@@ -154,7 +140,7 @@ export default function SignupPage() {
           email,
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
-      }
+      };
       
       if (role === 'doctor') {
         const preverifiedKey = Object.keys(preverifiedDoctors).find(k => k.toLowerCase() === lowercasedEmail);
@@ -177,52 +163,24 @@ export default function SignupPage() {
               documents: preverifiedData.degreeUrl ? [preverifiedData.degreeUrl] : [],
           })
         };
-        const doctorDocRef = doc(firestore, 'doctors', newUser.uid);
-        setDocumentNonBlocking(doctorDocRef, doctorData, { merge: true });
-
-        const patientDocRef = doc(firestore, 'patients', newUser.uid);
-        setDocumentNonBlocking(patientDocRef, {
-            ...baseUserData, 
-            role: 'doctor', 
-            profileComplete: isPreverified,
-            verified: isPreverified
-        }, { merge: true });
-        
+        setDocumentNonBlocking(doc(firestore, 'doctors', newUser.uid), doctorData, { merge: true });
+        setDocumentNonBlocking(doc(firestore, 'patients', newUser.uid), { ...baseUserData, role: 'doctor', profileComplete: isPreverified, verified: isPreverified }, { merge: true });
       } else { 
-        const patientData = {...baseUserData, role: 'patient', profileComplete: false };
-        const patientDocRef = doc(firestore, 'patients', newUser.uid);
-        setDocumentNonBlocking(patientDocRef, patientData, { merge: true });
+        setDocumentNonBlocking(doc(firestore, 'patients', newUser.uid), { ...baseUserData, role: 'patient', profileComplete: false }, { merge: true });
       }
       
-      toast({
-        title: "Account Created!",
-        description: "A verification link has been sent to your email.",
-      });
-
-      if (role === 'doctor') {
-        router.push('/doctor-portal');
-      } else {
-        router.push('/patient-portal');
-      }
-
+      toast({ title: "Account Created!", description: "A verification link has been sent to your email." });
+      router.push(role === 'doctor' ? '/doctor-portal' : '/patient-portal');
     } catch (error: any) {
         if (error.code === 'auth/email-already-in-use') {
-            toast({
-              variant: "destructive",
-              title: "Email Already Registered",
-              description: "This email is already in use.",
-            });
+            toast({ variant: "destructive", title: "Email Already Registered", description: "This email is already in use." });
         } else {
-            toast({
-              variant: "destructive",
-              title: "Sign Up Failed",
-              description: error.message || "Could not create account.",
-            });
+            toast({ variant: "destructive", title: "Sign Up Failed", description: error.message || "Could not create account." });
         }
     } finally {
         setLoading(false);
     }
-  };
+  }
 
   if (isUserLoading || user) {
      return (
@@ -232,7 +190,6 @@ export default function SignupPage() {
       </div>
     );
   }
-
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -254,7 +211,7 @@ export default function SignupPage() {
                     name="firstName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">First Name</Label>
+                        <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">First Name</FormLabel>
                         <FormControl>
                           <Input placeholder="Max" {...field} disabled={loading} className="h-12 rounded-xl" />
                         </FormControl>
@@ -267,7 +224,7 @@ export default function SignupPage() {
                     name="lastName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Last Name</Label>
+                        <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Last Name</FormLabel>
                         <FormControl>
                           <Input placeholder="Robinson" {...field} disabled={loading} className="h-12 rounded-xl" />
                         </FormControl>
@@ -323,7 +280,7 @@ export default function SignupPage() {
                   name="role"
                   render={({ field }) => (
                     <FormItem className="space-y-3">
-                      <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Account Category</Label>
+                      <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Account Category</FormLabel>
                       <FormControl>
                         <RadioGroup
                           onValueChange={field.onChange}
