@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -26,13 +27,13 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useState, useMemo, useEffect } from 'react';
-import { getNext7Days, generateAvailableTimes } from '@/lib/time';
+import { getNext7Days } from '@/lib/time';
 import { cn } from '@/lib/utils';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { format, isSameDay, addMinutes, isBefore, isValid, parse } from 'date-fns';
+import { format, isSameDay, addMinutes, isBefore, isValid, parse, setHours, setMinutes } from 'date-fns';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -86,7 +87,9 @@ export default function DoctorDetailPage() {
     const doctorId = params.id as string;
 
     const [selectedDate, setSelectedDate] = useState(getNext7Days()[0].date);
-    const [selectedTimeStr, setSelectedTimeStr] = useState<string | null>(null);
+    const [selectedHour, setSelectedHour] = useState<string>("09");
+    const [selectedMinute, setSelectedMinute] = useState<string>("00");
+    const [selectedPeriod, setSelectedPeriod] = useState<string>("AM");
     const [appointmentType, setAppointmentType] = useState<'Video Call' | 'Audio Call'>('Video Call');
     const [paymentMethod, setPaymentMethod] = useState<string>('Easypaisa');
     const [isBooking, setIsBooking] = useState(false);
@@ -123,32 +126,20 @@ export default function DoctorDetailPage() {
     }, [firestore, doctorId]);
     const { data: existingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    const upcomingAvailableTimes = useMemo(() => {
-        if (!mounted) return [];
-        const allTimes = generateAvailableTimes();
-        
-        return allTimes.filter(timeStr => {
-            const timeDate = parse(timeStr, 'hh:mm a', new Date());
-            const proposedStart = new Date(selectedDate);
-            proposedStart.setHours(timeDate.getHours(), timeDate.getMinutes(), 0, 0);
-            
-            // Filter past times for today
-            if (isSameDay(selectedDate, nowTicker) && isBefore(proposedStart, nowTicker)) {
-                return false;
-            }
-            return true;
-        });
-    }, [selectedDate, nowTicker, mounted]);
+    const selectedTimeStr = useMemo(() => `${selectedHour}:${selectedMinute} ${selectedPeriod}`, [selectedHour, selectedMinute, selectedPeriod]);
 
     const timeValidation = useMemo(() => {
         if (!mounted || !existingAppointments || !selectedDate || !selectedTimeStr) return { isAvailable: true, message: '' };
 
-        const timeDate = parse(selectedTimeStr, 'hh:mm a', new Date());
-        const proposedStart = new Date(selectedDate);
-        proposedStart.setHours(timeDate.getHours(), timeDate.getMinutes(), 0, 0);
+        const proposedStart = parse(selectedTimeStr, 'hh:mm a', selectedDate);
         const proposedEnd = addMinutes(proposedStart, 15);
 
-        // Check for overlaps
+        // Past time check
+        if (isSameDay(selectedDate, nowTicker) && isBefore(proposedStart, nowTicker)) {
+            return { isAvailable: false, message: 'This time has already passed for today.' };
+        }
+
+        // Overlap check
         const overlap = existingAppointments.find(apt => {
             if (!apt || apt.status === 'cancelled' || !apt.appointmentDateTime) return false;
             const aptStart = new Date(apt.appointmentDateTime);
@@ -157,11 +148,11 @@ export default function DoctorDetailPage() {
         });
 
         if (overlap) {
-            return { isAvailable: false, message: 'This window overlaps with another appointment.' };
+            return { isAvailable: false, message: 'This clinical window is already booked by another patient.' };
         }
 
         return { isAvailable: true, message: '' };
-    }, [selectedTimeStr, selectedDate, existingAppointments, mounted]);
+    }, [selectedTimeStr, selectedDate, existingAppointments, mounted, nowTicker]);
 
     const averageRating = useMemo(() => {
         if (!reviews || reviews.length === 0) return 0;
@@ -176,7 +167,7 @@ export default function DoctorDetailPage() {
             router.push('/login');
             return;
         }
-        if (!selectedTimeStr || !timeValidation.isAvailable || !firestore || !doctor) {
+        if (!timeValidation.isAvailable || !firestore || !doctor) {
             toast({ variant: 'destructive', title: 'Invalid Selection', description: timeValidation.message || 'Please select a valid time.' });
             return;
         }
@@ -186,9 +177,7 @@ export default function DoctorDetailPage() {
         }
 
         setIsBooking(true);
-        const timeDate = parse(selectedTimeStr, 'hh:mm a', new Date());
-        const appointmentDateTime = new Date(selectedDate);
-        appointmentDateTime.setHours(timeDate.getHours(), timeDate.getMinutes(), 0, 0);
+        const appointmentDateTime = parse(selectedTimeStr, 'hh:mm a', selectedDate);
 
         const newAppointment = {
             patientId: user.uid,
@@ -294,9 +283,9 @@ export default function DoctorDetailPage() {
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-1">
                                             <CardTitle className="text-2xl font-headline flex items-center gap-3">
-                                                <CalendarDays className="h-7 w-7 text-primary"/> Clinical Scheduling
+                                                <CalendarDays className="h-7 w-7 text-primary"/> Manual Clinical Scheduling
                                             </CardTitle>
-                                            <p className="text-sm text-muted-foreground">Select your simple 15-minute consultation time.</p>
+                                            <p className="text-sm text-muted-foreground">Adjust your consultation start time to any exact minute.</p>
                                         </div>
                                     </div>
                                 </CardHeader>
@@ -309,7 +298,7 @@ export default function DoctorDetailPage() {
                                             {dateOptions.map(day => (
                                                 <button 
                                                     key={day.date.toISOString()}
-                                                    onClick={() => { setSelectedDate(day.date); setSelectedTimeStr(null); }}
+                                                    onClick={() => { setSelectedDate(day.date); }}
                                                     className={cn(
                                                         "p-5 rounded-3xl border-2 text-center transition-all shrink-0 w-28 flex flex-col items-center gap-1",
                                                         selectedDate.toDateString() === day.date.toDateString() 
@@ -326,27 +315,50 @@ export default function DoctorDetailPage() {
 
                                     <div>
                                         <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6 flex items-center gap-3">
-                                            <div className="h-1 w-6 bg-primary rounded-full" /> Step 2: Pick Available Time
+                                            <div className="h-1 w-6 bg-primary rounded-full" /> Step 2: Set Precise Time (e.g. 6:08)
                                         </h4>
                                         <div className="flex flex-col gap-6 p-8 border-4 border-dashed rounded-[2rem] bg-slate-50/50">
-                                            <div className="space-y-2">
-                                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Select Time Window</Label>
-                                                <Select value={selectedTimeStr || ''} onValueChange={setSelectedTimeStr}>
-                                                    <SelectTrigger className="h-14 rounded-2xl border-2 bg-white font-bold text-lg">
-                                                        <SelectValue placeholder="Pick a time..." />
-                                                    </SelectTrigger>
-                                                    <SelectContent className="rounded-xl border-none shadow-2xl max-h-[300px]">
-                                                        <ScrollArea className="h-[300px]">
-                                                            {upcomingAvailableTimes.length > 0 ? upcomingAvailableTimes.map(t => (
-                                                                <SelectItem key={t} value={t} className="h-12 font-bold focus:bg-primary/5 focus:text-primary">
-                                                                    {t}
-                                                                </SelectItem>
-                                                            )) : (
-                                                                <div className="p-4 text-center text-xs text-muted-foreground">No remaining times for today.</div>
-                                                            )}
-                                                        </ScrollArea>
-                                                    </SelectContent>
-                                                </Select>
+                                            <div className="grid grid-cols-3 gap-4">
+                                                <div className="space-y-2">
+                                                    <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Hour</Label>
+                                                    <Select value={selectedHour} onValueChange={setSelectedHour}>
+                                                        <SelectTrigger className="h-14 rounded-2xl border-2 bg-white font-bold text-lg">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="rounded-xl border-none shadow-2xl max-h-[250px]">
+                                                            {Array.from({ length: 12 }).map((_, i) => {
+                                                                const h = (i + 1).toString().padStart(2, '0');
+                                                                return <SelectItem key={h} value={h} className="font-bold">{h}</SelectItem>
+                                                            })}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Minute</Label>
+                                                    <Select value={selectedMinute} onValueChange={setSelectedMinute}>
+                                                        <SelectTrigger className="h-14 rounded-2xl border-2 bg-white font-bold text-lg">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="rounded-xl border-none shadow-2xl max-h-[250px]">
+                                                            {Array.from({ length: 60 }).map((_, i) => {
+                                                                const m = i.toString().padStart(2, '0');
+                                                                return <SelectItem key={m} value={m} className="font-bold">{m}</SelectItem>
+                                                            })}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Period</Label>
+                                                    <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                                                        <SelectTrigger className="h-14 rounded-2xl border-2 bg-white font-bold text-lg">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="rounded-xl border-none shadow-2xl">
+                                                            <SelectItem value="AM" className="font-bold">AM</SelectItem>
+                                                            <SelectItem value="PM" className="font-bold">PM</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
                                             </div>
                                             
                                             {selectedTimeStr && !timeValidation.isAvailable ? (
@@ -358,11 +370,11 @@ export default function DoctorDetailPage() {
                                                 <div className="p-4 bg-green-50 border border-green-200 rounded-2xl flex items-center justify-between">
                                                     <div className="flex items-center gap-3">
                                                         <CheckCircle2 className="h-5 w-5 text-green-600" />
-                                                        <p className="text-xs text-green-800 font-bold uppercase">Time Slot Available</p>
+                                                        <p className="text-xs text-green-800 font-bold uppercase">Clinical Slot Valid</p>
                                                     </div>
                                                     <div className="text-right">
-                                                        <p className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Session Window</p>
-                                                        <p className="text-sm font-bold text-green-800">{selectedTimeStr} - {format(addMinutes(parse(selectedTimeStr, 'hh:mm a', new Date()), 15), "hh:mm a")}</p>
+                                                        <p className="text-[9px] font-bold text-green-600 uppercase tracking-widest">15m Professional Window</p>
+                                                        <p className="text-sm font-bold text-green-800">{selectedTimeStr} - {format(addMinutes(parse(selectedTimeStr, 'hh:mm a', selectedDate), 15), "hh:mm a")}</p>
                                                     </div>
                                                 </div>
                                             ) : null}
@@ -374,16 +386,16 @@ export default function DoctorDetailPage() {
                                             <AlertDialogTrigger asChild>
                                                 <Button 
                                                     className="w-full h-20 text-xl font-bold rounded-3xl shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90" 
-                                                    disabled={!selectedTimeStr || !timeValidation.isAvailable || isBooking}
+                                                    disabled={!timeValidation.isAvailable || isBooking}
                                                 >
-                                                    Finalize Booking {selectedTimeStr ? `@ ${selectedTimeStr}` : ''}
+                                                    Book Consultation at {selectedTimeStr}
                                                 </Button>
                                             </AlertDialogTrigger>
                                             <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-lg max-h-[95vh] overflow-y-auto custom-scrollbar p-0">
                                                 <div className="p-8 sm:p-10 space-y-8">
                                                     <AlertDialogHeader>
                                                         <AlertDialogTitle className="text-2xl font-headline">Secure Payment</AlertDialogTitle>
-                                                        <AlertDialogDescription>Complete the consultation fee transfer to confirm your 15m session.</AlertDialogDescription>
+                                                        <AlertDialogDescription>Complete the consultation fee transfer to confirm your precision 15m session.</AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     
                                                     <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10 text-center">
