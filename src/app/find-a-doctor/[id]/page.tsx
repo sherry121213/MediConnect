@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck, Video, PhoneCall, Moon, ShieldAlert, CreditCard, Wallet, Landmark, CheckCircle2, XCircle, Quote, User, Activity, BriefcaseMedical, Calendar as CalendarIcon, ChevronRight } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck, Video, PhoneCall, Moon, ShieldAlert, CreditCard, Wallet, Landmark, CheckCircle2, XCircle, Quote, User, Activity, BriefcaseMedical, Calendar as CalendarIcon, ChevronRight, AlertCircle, Eye, EyeOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -26,14 +26,13 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useState, useMemo, useEffect } from 'react';
-import { getNext7Days, generateAvailableTimes } from '@/lib/time';
+import { getNext7Days } from '@/lib/time';
 import { cn } from '@/lib/utils';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { format, isSameDay, addMinutes, isBefore, isValid, parse } from 'date-fns';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { format, isSameDay, addMinutes, isBefore, isValid } from 'date-fns';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
@@ -86,7 +85,12 @@ export default function DoctorDetailPage() {
     const doctorId = params.id as string;
 
     const [selectedDate, setSelectedDate] = useState(getNext7Days()[0].date);
-    const [selectedTime, setSelectedTime] = useState<string | null>(null); 
+    
+    // Dynamic Time State
+    const [selHour, setSelHour] = useState<string>('01');
+    const [selMinute, setSelMinute] = useState<string>('00');
+    const [selPeriod, setSelPeriod] = useState<string>('PM');
+    
     const [appointmentType, setAppointmentType] = useState<'Video Call' | 'Audio Call'>('Video Call');
     const [paymentMethod, setPaymentMethod] = useState<string>('Easypaisa');
     const [isBooking, setIsBooking] = useState(false);
@@ -105,7 +109,7 @@ export default function DoctorDetailPage() {
         return doc(firestore, 'doctors', doctorId);
     }, [firestore, doctorId]);
 
-    const { data: doctor, isLoading, error } = useDoc<Doctor>(doctorDocRef);
+    const { data: doctor, isLoading } = useDoc<Doctor>(doctorDocRef);
 
     const reviewsQuery = useMemoFirebase(() => {
         if (!firestore || !doctorId) return null;
@@ -115,46 +119,48 @@ export default function DoctorDetailPage() {
             limit(10)
         );
     }, [firestore, doctorId]);
-    const { data: reviews, isLoading: isLoadingReviews } = useCollection<Review>(reviewsQuery);
+    const { data: reviews } = useCollection<Review>(reviewsQuery);
 
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !doctorId) return null;
-        return query(
-            collection(firestore, 'appointments'),
-            where('doctorId', '==', doctorId)
-        );
+        return query(collection(firestore, 'appointments'), where('doctorId', '==', doctorId));
     }, [firestore, doctorId]);
-
     const { data: existingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    const isSlotAvailable = (timeStr: string) => {
-        if (!existingAppointments || !selectedDate || !mounted || !timeStr) return true;
-        
-        const [time, period] = timeStr.split(' ');
-        let [hours, minutes] = time.split(':').map(Number);
-        if (period === 'PM' && hours !== 12) hours += 12;
-        if (period === 'AM' && hours === 12) hours = 0;
+    // Derived Selected Time String for convenience
+    const selectedTimeStr = `${selHour}:${selMinute} ${selPeriod}`;
+
+    const timeValidation = useMemo(() => {
+        if (!mounted || !existingAppointments || !selectedDate) return { isAvailable: true, message: '' };
+
+        let hours = parseInt(selHour);
+        const minutes = parseInt(selMinute);
+        if (selPeriod === 'PM' && hours !== 12) hours += 12;
+        if (selPeriod === 'AM' && hours === 12) hours = 0;
 
         const proposedStart = new Date(selectedDate);
         proposedStart.setHours(hours, minutes, 0, 0);
-        const proposedEnd = addMinutes(proposedStart, 15); // Changed to 15 mins
-        
-        if (isSameDay(selectedDate, nowTicker)) {
-            if (proposedStart < nowTicker) return false;
+        const proposedEnd = addMinutes(proposedStart, 15);
+
+        // Check if in the past
+        if (isSameDay(selectedDate, nowTicker) && proposedStart < nowTicker) {
+            return { isAvailable: false, message: 'This time has already passed.' };
         }
 
-        return !existingAppointments.some(apt => {
+        // Check for overlaps with 15-minute duration
+        const overlap = existingAppointments.find(apt => {
             if (!apt || apt.status === 'cancelled' || !apt.appointmentDateTime) return false;
             const aptStart = new Date(apt.appointmentDateTime);
-            const aptEnd = addMinutes(aptStart, 15); // Changed to 15 mins
+            const aptEnd = addMinutes(aptStart, 15);
             return proposedStart < aptEnd && proposedEnd > aptStart;
         });
-    };
 
-    const upcomingAvailableTimes = useMemo(() => {
-        const allTimes = generateAvailableTimes();
-        return allTimes.filter(t => isSlotAvailable(t));
-    }, [selectedDate, nowTicker, existingAppointments, mounted]);
+        if (overlap) {
+            return { isAvailable: false, message: 'This window overlaps with another appointment.' };
+        }
+
+        return { isAvailable: true, message: '' };
+    }, [selHour, selMinute, selPeriod, selectedDate, existingAppointments, mounted, nowTicker]);
 
     const averageRating = useMemo(() => {
         if (!reviews || reviews.length === 0) return 0;
@@ -169,8 +175,8 @@ export default function DoctorDetailPage() {
             router.push('/login');
             return;
         }
-        if (!selectedTime || !firestore || !doctor) {
-            toast({ variant: 'destructive', title: 'Booking Error', description: 'Please select a time.' });
+        if (!timeValidation.isAvailable || !firestore || !doctor) {
+            toast({ variant: 'destructive', title: 'Invalid Selection', description: timeValidation.message || 'Please select a valid time.' });
             return;
         }
         if (!paymentReceipt) {
@@ -179,10 +185,10 @@ export default function DoctorDetailPage() {
         }
 
         setIsBooking(true);
-        const [time, period] = selectedTime.split(' ');
-        let [hours, minutes] = time.split(':').map(Number);
-        if (period === 'PM' && hours !== 12) hours += 12;
-        if (period === 'AM' && hours === 12) hours = 0;
+        let hours = parseInt(selHour);
+        const minutes = parseInt(selMinute);
+        if (selPeriod === 'PM' && hours !== 12) hours += 12;
+        if (selPeriod === 'AM' && hours === 12) hours = 0;
 
         const appointmentDateTime = new Date(selectedDate);
         appointmentDateTime.setHours(hours, minutes, 0, 0);
@@ -283,23 +289,6 @@ export default function DoctorDetailPage() {
                                      </div>
                                 </CardContent>
                             </Card>
-
-                            <div className="space-y-6">
-                                <h3 className="font-bold text-lg font-headline flex items-center gap-2 px-2">
-                                    <Star className="h-5 w-5 text-amber-500 fill-amber-400" /> Patient Feedback
-                                </h3>
-                                <div className="space-y-4">
-                                    {isLoadingReviews ? (
-                                        <div className="flex justify-center py-10"><Loader2 className="h-8 w-8 animate-spin text-primary/20" /></div>
-                                    ) : reviews && reviews.length > 0 ? (
-                                        reviews.map(review => <ReviewItem key={review.id} review={review} />)
-                                    ) : (
-                                        <div className="p-10 bg-white/50 border-2 border-dashed rounded-[2rem] text-center text-muted-foreground italic">
-                                            <p className="text-xs">No feedback logs found yet.</p>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
                         </div>
 
                         <div className="lg:col-span-8">
@@ -308,9 +297,9 @@ export default function DoctorDetailPage() {
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-1">
                                             <CardTitle className="text-2xl font-headline flex items-center gap-3">
-                                                <CalendarDays className="h-7 w-7 text-primary"/> Consultation Scheduling
+                                                <CalendarDays className="h-7 w-7 text-primary"/> Clinical Scheduling
                                             </CardTitle>
-                                            <p className="text-sm text-muted-foreground">Dynamic selection of upcoming 15-minute clinical windows.</p>
+                                            <p className="text-sm text-muted-foreground">Select your precise 15-minute clinical window.</p>
                                         </div>
                                     </div>
                                 </CardHeader>
@@ -323,10 +312,7 @@ export default function DoctorDetailPage() {
                                             {dateOptions.map(day => (
                                                 <button 
                                                     key={day.date.toISOString()}
-                                                    onClick={() => {
-                                                        setSelectedDate(day.date);
-                                                        setSelectedTime(null);
-                                                    }}
+                                                    onClick={() => setSelectedDate(day.date)}
                                                     className={cn(
                                                         "p-5 rounded-3xl border-2 text-center transition-all shrink-0 w-28 flex flex-col items-center gap-1",
                                                         selectedDate.toDateString() === day.date.toDateString() 
@@ -343,34 +329,68 @@ export default function DoctorDetailPage() {
 
                                     <div>
                                         <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6 flex items-center gap-3">
-                                            <div className="h-1 w-6 bg-primary rounded-full" /> Step 2: Dynamic Start Time
+                                            <div className="h-1 w-6 bg-primary rounded-full" /> Step 2: Set Precise Start Time
                                         </h4>
-                                        <div className="flex flex-col md:flex-row gap-6 items-center p-8 border-4 border-dashed rounded-[2rem] bg-slate-50/50">
-                                            <div className="flex-1 w-full space-y-4">
-                                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Select Available Start Time</Label>
-                                                <Select value={selectedTime || ''} onValueChange={setSelectedTime}>
-                                                    <SelectTrigger className="h-14 rounded-2xl border-2 bg-white text-lg font-bold">
-                                                        <SelectValue placeholder="Pick a time..." />
-                                                    </SelectTrigger>
-                                                    <SelectContent className="rounded-2xl border-none shadow-2xl max-h-[300px]">
-                                                        {upcomingAvailableTimes.length > 0 ? (
-                                                            upcomingAvailableTimes.map(time => (
-                                                                <SelectItem key={time} value={time} className="h-12 font-bold focus:bg-primary/5 focus:text-primary">
-                                                                    {time}
-                                                                </SelectItem>
-                                                            ))
-                                                        ) : (
-                                                            <div className="p-4 text-center text-xs text-muted-foreground italic">No available times for this date.</div>
-                                                        )}
-                                                    </SelectContent>
-                                                </Select>
-                                            </div>
-                                            <div className="shrink-0 text-center md:text-left md:border-l pl-0 md:pl-6 space-y-2">
-                                                <p className="text-[9px] font-bold uppercase text-primary tracking-widest">Consultation Length</p>
-                                                <div className="flex items-center justify-center md:justify-start gap-2 text-2xl font-bold">
-                                                    <Clock className="h-5 w-5 text-primary" /> 15 Minutes
+                                        <div className="flex flex-col gap-6 p-8 border-4 border-dashed rounded-[2rem] bg-slate-50/50">
+                                            <div className="grid grid-cols-3 gap-4">
+                                                <div className="space-y-2">
+                                                    <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Hour</Label>
+                                                    <Select value={selHour} onValueChange={setSelHour}>
+                                                        <SelectTrigger className="h-14 rounded-2xl border-2 bg-white font-bold text-lg">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="rounded-xl border-none shadow-2xl">
+                                                            {['01','02','03','04','05','06','07','08','09','10','11','12'].map(h => (
+                                                                <SelectItem key={h} value={h} className="font-bold">{h}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Minute</Label>
+                                                    <Select value={selMinute} onValueChange={setSelMinute}>
+                                                        <SelectTrigger className="h-14 rounded-2xl border-2 bg-white font-bold text-lg">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="rounded-xl border-none shadow-2xl">
+                                                            {Array.from({length: 60}).map((_, i) => {
+                                                                const m = i.toString().padStart(2, '0');
+                                                                return <SelectItem key={m} value={m} className="font-bold">{m}</SelectItem>
+                                                            })}
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">AM/PM</Label>
+                                                    <Select value={selPeriod} onValueChange={setSelPeriod}>
+                                                        <SelectTrigger className="h-14 rounded-2xl border-2 bg-white font-bold text-lg">
+                                                            <SelectValue />
+                                                        </SelectTrigger>
+                                                        <SelectContent className="rounded-xl border-none shadow-2xl">
+                                                            <SelectItem value="AM" className="font-bold">AM</SelectItem>
+                                                            <SelectItem value="PM" className="font-bold">PM</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
                                                 </div>
                                             </div>
+                                            
+                                            {!timeValidation.isAvailable ? (
+                                                <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-top-1">
+                                                    <XCircle className="h-5 w-5 text-red-600 shrink-0" />
+                                                    <p className="text-xs text-red-800 font-bold">{timeValidation.message}</p>
+                                                </div>
+                                            ) : (
+                                                <div className="p-4 bg-green-50 border border-green-200 rounded-2xl flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                                        <p className="text-xs text-green-800 font-bold uppercase">Time Slot Available</p>
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <p className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Session Window</p>
+                                                        <p className="text-sm font-bold text-green-800">{selectedTimeStr} - {format(addMinutes(parseTimeString(selectedTimeStr), 15), "hh:mm a")}</p>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
 
@@ -379,9 +399,9 @@ export default function DoctorDetailPage() {
                                             <AlertDialogTrigger asChild>
                                                 <Button 
                                                     className="w-full h-20 text-xl font-bold rounded-3xl shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90" 
-                                                    disabled={!selectedTime || isBooking}
+                                                    disabled={!timeValidation.isAvailable || isBooking}
                                                 >
-                                                    Finalize Booking {selectedTime && `@ ${selectedTime}`}
+                                                    Finalize Booking @ {selectedTimeStr}
                                                 </Button>
                                             </AlertDialogTrigger>
                                             <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-lg max-h-[95vh] overflow-y-auto custom-scrollbar p-0">
@@ -439,4 +459,14 @@ export default function DoctorDetailPage() {
             <AppFooter />
         </div>
     );
+}
+
+function parseTimeString(timeStr: string): Date {
+    const [time, period] = timeStr.split(' ');
+    let [hours, minutes] = time.split(':').map(Number);
+    if (period === 'PM' && hours !== 12) hours += 12;
+    if (period === 'AM' && hours === 12) hours = 0;
+    const d = new Date();
+    d.setHours(hours, minutes, 0, 0);
+    return d;
 }

@@ -1,4 +1,3 @@
-
 'use client';
 import Link from "next/link";
 import AppHeader from "@/components/layout/header";
@@ -124,55 +123,55 @@ export default function LoginPage() {
     <div className="flex flex-col min-h-screen">
       <AppHeader />
       <main className="flex-grow flex items-center justify-center py-12 px-4 bg-secondary/30">
-        <Card className="w-full max-w-sm">
-          <CardHeader className="text-center">
+        <Card className="w-full max-w-sm rounded-[2rem] border-none shadow-2xl overflow-hidden">
+          <CardHeader className="text-center bg-slate-900 text-white p-8">
             <CardTitle className="text-2xl font-headline">Welcome Back</CardTitle>
-            <CardDescription>Enter your credentials to access your account.</CardDescription>
+            <CardDescription className="text-slate-400">Enter your credentials to access your secure portal.</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-8">
             <form onSubmit={handleLogin}>
-              <div className="grid gap-4">
+              <div className="grid gap-6">
                 <div className="grid gap-2">
-                  <Label htmlFor="email">Email</Label>
+                  <Label htmlFor="email" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Email Address</Label>
                   <Input
                     id="email"
                     type="email"
-                    placeholder="m@example.com"
+                    placeholder="name@example.com"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     disabled={loading}
+                    className="h-12 rounded-xl border-2"
                   />
                 </div>
                 <div className="grid gap-2">
                   <div className="flex items-center">
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="password" className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Password</Label>
                      <AlertDialog open={isResetDialogOpen} onOpenChange={(open) => {
                          setIsResetDialogOpen(open);
-                         if (!open) setResetEmail(''); // Clear on close
+                         if (!open) setResetEmail(''); 
                      }}>
                       <AlertDialogTrigger asChild>
                         <Button 
                           variant="link" 
                           type="button" 
-                          className="ml-auto inline-block text-sm p-0 h-auto"
+                          className="ml-auto inline-block text-[10px] uppercase font-bold p-0 h-auto text-primary"
                           onClick={() => {
-                            setResetEmail(email); // Pre-fill with login email
+                            setResetEmail(email); 
                             setIsResetDialogOpen(true);
                           }}
                         >
-                            Forgot your password?
+                            Forgot?
                         </Button>
                       </AlertDialogTrigger>
-                      <AlertDialogContent>
+                      <AlertDialogContent className="rounded-3xl border-none shadow-2xl">
                         <AlertDialogHeader>
                           <AlertDialogTitle>Reset Password</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Enter your email address below and we'll send you a link to reset your password.
+                            Enter your email address below and we'll send you a recovery link.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <div className="grid gap-2 py-4">
-                          <Label htmlFor="reset-email" className="sr-only">Email Address</Label>
                           <Input
                             id="reset-email"
                             type="email"
@@ -181,6 +180,7 @@ export default function LoginPage() {
                             value={resetEmail}
                             onChange={(e) => setResetEmail(e.target.value)}
                             disabled={loading}
+                            className="h-12 rounded-xl"
                           />
                         </div>
                         <AlertDialogFooter>
@@ -201,7 +201,7 @@ export default function LoginPage() {
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
                         disabled={loading}
-                        className="pr-10"
+                        className="pr-12 h-12 rounded-xl border-2"
                     />
                     <Button
                         type="button"
@@ -214,15 +214,15 @@ export default function LoginPage() {
                     </Button>
                   </div>
                 </div>
-                <Button type="submit" className="w-full" disabled={loading}>
+                <Button type="submit" className="w-full h-12 rounded-xl font-bold shadow-lg" disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Login
+                  Login to Portal
                 </Button>
               </div>
             </form>
-            <div className="mt-4 text-center text-sm">
+            <div className="mt-6 text-center text-sm">
               Don&apos;t have an account?{" "}
-              <Link href="/signup" className="underline">
+              <Link href="/signup" className="underline font-bold text-primary">
                 Sign up
               </Link>
             </div>

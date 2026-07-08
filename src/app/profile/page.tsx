@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState } from 'react';
@@ -12,7 +11,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/com
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Loader2, Eye, EyeOff } from 'lucide-react';
+import { Loader2, Eye, EyeOff, ShieldCheck } from 'lucide-react';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import { Separator } from '@/components/ui/separator';
@@ -95,77 +94,59 @@ export default function ProfilePage() {
   if (isUserLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
 
-  if (!user) {
-    return (
-        <div className="flex flex-col min-h-screen">
-            <AppHeader />
-             <main className="flex-grow flex items-center justify-center bg-secondary/30 p-4">
-                 <Card>
-                    <CardHeader>
-                        <CardTitle>Access Denied</CardTitle>
-                        <CardDescription>You must be logged in to view this page.</CardDescription>
-                    </CardHeader>
-                 </Card>
-            </main>
-            <AppFooter/>
-        </div>
-    )
-  }
+  if (!user) return null;
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-slate-50">
       <AppHeader />
-      <main className="flex-grow bg-secondary/30 py-12">
-        <div className="container mx-auto px-4 max-w-2xl">
-          <h1 className="text-3xl font-bold font-headline mb-8">My Profile</h1>
+      <main className="flex-grow py-12">
+        <div className="container mx-auto px-4 max-w-3xl space-y-8">
+          <div className="flex items-center gap-3">
+             <ShieldCheck className="h-8 w-8 text-primary" />
+             <h1 className="text-3xl font-bold font-headline tracking-tight">Security Center</h1>
+          </div>
           
-          <Card>
-            <CardHeader>
-              <CardTitle>Personal Information</CardTitle>
-              <CardDescription>This information is managed from your specific portal profile page.</CardDescription>
+          <Card className="rounded-[2.5rem] border-none shadow-xl overflow-hidden bg-white">
+            <CardHeader className="bg-primary/5 p-8 border-b">
+              <CardTitle className="text-xl">Identity Verification</CardTitle>
+              <CardDescription>Primary profile data linked to your account.</CardDescription>
             </CardHeader>
-            <CardContent>
-                <div className="space-y-4">
-                    <div>
-                        <Label>First Name</Label>
-                        <p className="font-medium text-muted-foreground">{userData?.firstName || 'Not set'}</p>
+            <CardContent className="p-8 space-y-6">
+                <div className="grid sm:grid-cols-2 gap-8">
+                    <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Full Identity</Label>
+                        <p className="font-bold text-lg text-slate-900 px-4 py-3 bg-slate-50 rounded-xl border border-dashed">{userData?.firstName} {userData?.lastName}</p>
                     </div>
-                    <div>
-                        <Label>Last Name</Label>
-                        <p className="font-medium text-muted-foreground">{userData?.lastName || 'Not set'}</p>
-                    </div>
-                    <div>
-                        <Label>Email</Label>
-                        <p className="font-medium">{user.email}</p>
+                    <div className="space-y-1">
+                        <Label className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Authenticated Email</Label>
+                        <p className="font-bold text-lg text-slate-900 px-4 py-3 bg-slate-50 rounded-xl border border-dashed truncate">{user.email}</p>
                     </div>
                 </div>
             </CardContent>
           </Card>
 
-          <Separator className="my-8" />
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Account Settings</CardTitle>
-              <CardDescription>Manage your account password.</CardDescription>
+          <Card className="rounded-[2.5rem] border-none shadow-xl overflow-hidden bg-white">
+            <CardHeader className="bg-slate-900 text-white p-8">
+              <CardTitle className="text-xl">Authentication Key</CardTitle>
+              <CardDescription className="text-slate-400">Update your clinical access credentials.</CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-8">
               <Form {...form}>
-                <form onSubmit={form.handleSubmit(onChangePassword)} className="space-y-6">
+                <form onSubmit={form.handleSubmit(onChangePassword)} className="space-y-8">
                   <FormField
                     control={form.control}
                     name="currentPassword"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Current Password</FormLabel>
+                        <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Current Password</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Input type={showCurrentPassword ? "text" : "password"} {...field} className="pr-10" />
+                            <Input type={showCurrentPassword ? "text" : "password"} {...field} className="pr-12 h-12 rounded-xl border-2" />
                             <Button
                                 type="button"
                                 variant="ghost"
@@ -186,10 +167,10 @@ export default function ProfilePage() {
                     name="newPassword"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>New Password</FormLabel>
+                        <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">New Secure Password</FormLabel>
                         <FormControl>
                           <div className="relative">
-                            <Input type={showNewPassword ? "text" : "password"} {...field} className="pr-10" />
+                            <Input type={showNewPassword ? "text" : "password"} {...field} className="pr-12 h-12 rounded-xl border-2" />
                             <Button
                                 type="button"
                                 variant="ghost"
@@ -205,20 +186,20 @@ export default function ProfilePage() {
                       </FormItem>
                     )}
                   />
-                  <Button type="submit" disabled={isSubmitting}>
+                  <Button type="submit" className="h-12 rounded-xl font-bold px-8 shadow-lg" disabled={isSubmitting}>
                     {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                    Change Password
+                    Update Password Key
                   </Button>
                 </form>
               </Form>
-              <Separator className="my-6" />
-               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                    <h4 className="font-medium">Forgot your password?</h4>
-                    <p className="text-sm text-muted-foreground">Send a password reset link to your email.</p>
+              <Separator className="my-8" />
+               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 p-6 bg-slate-50 rounded-2xl border border-dashed">
+                <div className="space-y-1">
+                    <h4 className="font-bold text-slate-900">Need a Password Reset?</h4>
+                    <p className="text-xs text-muted-foreground">We will send a high-fidelity recovery link to your registered email.</p>
                 </div>
-                <Button variant="outline" onClick={onForgotPassword} className="w-full sm:w-auto">
-                    Send Reset Link
+                <Button variant="outline" onClick={onForgotPassword} className="w-full sm:w-auto h-11 rounded-xl border-2 font-bold bg-white">
+                    Send Link
                 </Button>
               </div>
             </CardContent>

@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, PhoneCall, RefreshCw, CalendarIcon, ShieldCheck, PhoneIncoming, X, HelpCircle, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, PhoneCall, RefreshCw, CalendarIcon, ShieldCheck, PhoneIncoming, X, HelpCircle, AlertCircle, CheckCircle2, XCircle } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -15,19 +15,25 @@ import { format, isAfter, subHours, isSameDay, startOfDay, isBefore, isValid, ad
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
-import { getNext7Days, generateAvailableTimes } from "@/lib/time";
+import { getNext7Days } from "@/lib/time";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean, onOpenChange: (o: boolean) => void, appointment: any }) {
     const firestore = useFirestore();
     const { toast } = useToast();
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-    const [selectedTime, setSelectedTime] = useState<string | null>(null);
+    
+    // Dynamic Time Selection
+    const [selHour, setSelHour] = useState<string>('01');
+    const [selMinute, setSelMinute] = useState<string>('00');
+    const [selPeriod, setSelPeriod] = useState<string>('PM');
+    
     const [isSaving, setIsSaving] = useState(false);
     const availableDates = getNext7Days();
 
@@ -43,42 +49,47 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
     }, [firestore, appointment?.doctorId]);
     const { data: existingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    const upcomingAvailableTimes = useMemo(() => {
-        const allTimes = generateAvailableTimes();
-        return allTimes.filter(timeStr => {
-            const [time, period] = timeStr.split(' ');
-            let [hours, minutes] = time.split(':').map(Number);
-            if (period === 'PM' && hours !== 12) hours += 12;
-            if (period === 'AM' && hours === 12) hours = 0;
+    const selectedTimeStr = `${selHour}:${selMinute} ${selPeriod}`;
 
-            const proposedStart = new Date(selectedDate);
-            proposedStart.setHours(hours, minutes, 0, 0);
-            const proposedEnd = addMinutes(proposedStart, 15);
-            
-            if (isSameDay(selectedDate, new Date()) && proposedStart < new Date()) return false;
+    const timeValidation = useMemo(() => {
+        if (!existingAppointments || !selectedDate) return { isAvailable: true, message: '' };
 
-            return !existingAppointments?.some(apt => {
-                if (!apt || apt.status === 'cancelled' || !apt.appointmentDateTime || apt.id === appointment.id) return false;
-                const aptStart = new Date(apt.appointmentDateTime);
-                const aptEnd = addMinutes(aptStart, 15);
-                return proposedStart < aptEnd && proposedEnd > aptStart;
-            });
+        let hours = parseInt(selHour);
+        const minutes = parseInt(selMinute);
+        if (selPeriod === 'PM' && hours !== 12) hours += 12;
+        if (selPeriod === 'AM' && hours === 12) hours = 0;
+
+        const proposedStart = new Date(selectedDate);
+        proposedStart.setHours(hours, minutes, 0, 0);
+        const proposedEnd = addMinutes(proposedStart, 15);
+
+        if (isSameDay(selectedDate, new Date()) && proposedStart < new Date()) {
+            return { isAvailable: false, message: 'This time has passed.' };
+        }
+
+        const overlap = existingAppointments.find(apt => {
+            if (!apt || apt.status === 'cancelled' || !apt.appointmentDateTime || apt.id === appointment.id) return false;
+            const aptStart = new Date(apt.appointmentDateTime);
+            const aptEnd = addMinutes(aptStart, 15);
+            return proposedStart < aptEnd && proposedEnd > aptStart;
         });
-    }, [selectedDate, existingAppointments, appointment.id]);
+
+        if (overlap) return { isAvailable: false, message: 'This window is already booked.' };
+
+        return { isAvailable: true, message: '' };
+    }, [selHour, selMinute, selPeriod, selectedDate, existingAppointments, appointment.id]);
 
     const handleConfirm = async () => {
-        if (!firestore || !appointment || !selectedTime) return;
+        if (!firestore || !appointment || !timeValidation.isAvailable) return;
         setIsSaving(true);
 
-        const [timePart, ampm] = selectedTime.split(' ');
-        const [hours, minutes] = timePart.split(':').map(Number);
+        let hours = parseInt(selHour);
+        const minutes = parseInt(selMinute);
+        if (selPeriod === 'PM' && hours !== 12) hours += 12;
+        if (selPeriod === 'AM' && hours === 12) hours = 0;
         
         const newDateTime = new Date(selectedDate);
-        let numericHours = hours;
-        if (ampm === 'PM' && numericHours !== 12) numericHours += 12;
-        if (ampm === 'AM' && numericHours === 12) numericHours = 0;
-        
-        newDateTime.setHours(numericHours, minutes, 0, 0);
+        newDateTime.setHours(hours, minutes, 0, 0);
 
         updateDocumentNonBlocking(doc(firestore, 'appointments', appointment.id), {
             appointmentDateTime: newDateTime.toISOString(),
@@ -97,7 +108,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
             <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[90dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-primary p-6 sm:p-8 text-white shrink-0">
                     <DialogTitle className="text-xl sm:text-2xl font-headline">Reschedule Consultation</DialogTitle>
-                    <DialogDescription className="text-primary-foreground/80 mt-1 font-medium">Pick a new 15-minute clinical window.</DialogDescription>
+                    <DialogDescription className="text-primary-foreground/80 mt-1 font-medium">Pick any 15-minute start time.</DialogDescription>
                 </div>
                 <div className="flex-1 overflow-y-auto bg-white overscroll-contain custom-scrollbar">
                     <div className="p-6 sm:p-8 space-y-10 pb-32">
@@ -107,10 +118,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                                 {availableDates.map(day => (
                                     <button 
                                         key={day.date.toISOString()}
-                                        onClick={() => {
-                                            setSelectedDate(day.date);
-                                            setSelectedTime(null);
-                                        }}
+                                        onClick={() => setSelectedDate(day.date)}
                                         className={cn(
                                             "p-4 rounded-3xl border-2 transition-all shrink-0 w-28 text-center flex flex-col items-center justify-center gap-1",
                                             isSameDay(selectedDate, day.date) ? 'bg-primary/5 border-primary shadow-sm' : 'bg-background hover:bg-muted border-slate-100'
@@ -125,25 +133,45 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                         </div>
 
                         <div className="border-t pt-10">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 2: Start Time</p>
-                            <div className="p-6 border-4 border-dashed rounded-[2rem] bg-slate-50/50 space-y-4">
-                                <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Select New Available Time</Label>
-                                <Select value={selectedTime || ''} onValueChange={setSelectedTime}>
-                                    <SelectTrigger className="h-14 rounded-2xl border-2 bg-white text-lg font-bold">
-                                        <SelectValue placeholder="Pick a time..." />
-                                    </SelectTrigger>
-                                    <SelectContent className="rounded-2xl border-none shadow-2xl max-h-[300px]">
-                                        {upcomingAvailableTimes.length > 0 ? (
-                                            upcomingAvailableTimes.map(time => (
-                                                <SelectItem key={time} value={time} className="h-12 font-bold focus:bg-primary/5 focus:text-primary">
-                                                    {time}
-                                                </SelectItem>
-                                            ))
-                                        ) : (
-                                            <div className="p-4 text-center text-xs text-muted-foreground italic">No available times for this date.</div>
-                                        )}
-                                    </SelectContent>
-                                </Select>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 2: Dynamic Start Time</p>
+                            <div className="p-6 border-4 border-dashed rounded-[2rem] bg-slate-50/50 space-y-6">
+                                <div className="grid grid-cols-3 gap-3">
+                                    <Select value={selHour} onValueChange={setSelHour}>
+                                        <SelectTrigger className="h-12 rounded-xl bg-white border-2 font-bold"><SelectValue /></SelectTrigger>
+                                        <SelectContent className="rounded-xl">
+                                            {['01','02','03','04','05','06','07','08','09','10','11','12'].map(h => (
+                                                <SelectItem key={h} value={h}>{h}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Select value={selMinute} onValueChange={setSelMinute}>
+                                        <SelectTrigger className="h-12 rounded-xl bg-white border-2 font-bold"><SelectValue /></SelectTrigger>
+                                        <SelectContent className="rounded-xl">
+                                            {Array.from({length: 60}).map((_, i) => (
+                                                <SelectItem key={i} value={i.toString().padStart(2, '0')}>{i.toString().padStart(2, '0')}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <Select value={selPeriod} onValueChange={setSelPeriod}>
+                                        <SelectTrigger className="h-12 rounded-xl bg-white border-2 font-bold"><SelectValue /></SelectTrigger>
+                                        <SelectContent className="rounded-xl">
+                                            <SelectItem value="AM">AM</SelectItem>
+                                            <SelectItem value="PM">PM</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                
+                                {!timeValidation.isAvailable ? (
+                                    <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
+                                        <XCircle className="h-4 w-4 text-red-600" />
+                                        <p className="text-[10px] text-red-800 font-bold uppercase">{timeValidation.message}</p>
+                                    </div>
+                                ) : (
+                                    <div className="p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-2">
+                                        <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                        <p className="text-[10px] text-green-800 font-bold uppercase">Time Window Available</p>
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -151,8 +179,8 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                 <div className="p-6 sm:p-8 border-t bg-slate-50 shrink-0 mt-auto">
                     <div className="flex gap-4">
                         <Button variant="ghost" className="flex-1 h-14 rounded-2xl font-bold" onClick={() => onOpenChange(false)}>Cancel</Button>
-                        <Button className="flex-1 h-14 rounded-2xl font-bold shadow-2xl shadow-primary/20 bg-primary text-white" disabled={!selectedTime || isSaving} onClick={handleConfirm}>
-                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm Reschedule"}
+                        <Button className="flex-1 h-14 rounded-2xl font-bold shadow-2xl shadow-primary/20 bg-primary text-white" disabled={!timeValidation.isAvailable || isSaving} onClick={handleConfirm}>
+                            {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Finalize Move"}
                         </Button>
                     </div>
                 </div>
@@ -180,7 +208,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
     const now = isMounted ? Date.now() : 0;
     const bufferTime = appointmentDate ? appointmentDate.getTime() - (10 * 60 * 1000) : 0;
     const startTime = appointmentDate ? appointmentDate.getTime() : 0; 
-    const endTime = appointmentDate ? appointmentDate.getTime() + (15 * 60 * 1000) : 0; // Updated to 15 mins
+    const endTime = appointmentDate ? appointmentDate.getTime() + (15 * 60 * 1000) : 0; 
     
     const isLive = isMounted && now >= startTime && now < endTime;
     const isSoon = isMounted && now >= bufferTime && now < startTime;

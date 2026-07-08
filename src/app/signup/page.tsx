@@ -1,4 +1,3 @@
-
 'use client';
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -239,25 +238,25 @@ export default function SignupPage() {
     <div className="flex flex-col min-h-screen">
       <AppHeader />
       <main className="flex-grow flex items-center justify-center py-12 px-4 bg-secondary/30">
-        <Card className="mx-auto max-w-sm w-full">
-          <CardHeader className="text-center">
+        <Card className="mx-auto max-w-sm w-full rounded-[2rem] border-none shadow-2xl overflow-hidden">
+          <CardHeader className="text-center bg-slate-900 text-white p-8">
             <CardTitle className="text-2xl font-headline">Create an Account</CardTitle>
-            <CardDescription>
-              Enter your information to create a new account.
+            <CardDescription className="text-slate-400">
+              Join Pakistan's professional clinical network.
             </CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="p-8">
             <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
                     name="firstName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>First Name</FormLabel>
+                        <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">First Name</Label>
                         <FormControl>
-                          <Input placeholder="Max" {...field} disabled={loading} />
+                          <Input placeholder="Max" {...field} disabled={loading} className="h-12 rounded-xl" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -268,9 +267,9 @@ export default function SignupPage() {
                     name="lastName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Last Name</FormLabel>
+                        <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Last Name</Label>
                         <FormControl>
-                          <Input placeholder="Robinson" {...field} disabled={loading} />
+                          <Input placeholder="Robinson" {...field} disabled={loading} className="h-12 rounded-xl" />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -282,9 +281,9 @@ export default function SignupPage() {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Email</FormLabel>
                       <FormControl>
-                        <Input type="email" placeholder="m@example.com" {...field} disabled={loading} />
+                        <Input type="email" placeholder="m@example.com" {...field} disabled={loading} className="h-12 rounded-xl" />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
@@ -295,14 +294,14 @@ export default function SignupPage() {
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Password</FormLabel>
+                      <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Password</FormLabel>
                       <FormControl>
                          <div className="relative">
                             <Input 
                                 type={showPassword ? "text" : "password"} 
                                 {...field} 
                                 disabled={loading} 
-                                className="pr-10"
+                                className="pr-12 h-12 rounded-xl"
                             />
                             <Button
                                 type="button"
@@ -323,8 +322,8 @@ export default function SignupPage() {
                   control={form.control}
                   name="role"
                   render={({ field }) => (
-                    <FormItem className="space-y-2">
-                      <FormLabel>I am a...</Label>
+                    <FormItem className="space-y-3">
+                      <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Account Category</Label>
                       <FormControl>
                         <RadioGroup
                           onValueChange={field.onChange}
@@ -332,17 +331,17 @@ export default function SignupPage() {
                           className="flex gap-4"
                           disabled={loading}
                         >
-                          <FormItem className="flex items-center space-x-2">
+                          <FormItem className="flex items-center space-x-2 bg-slate-50 px-4 py-2 rounded-xl border flex-1">
                             <FormControl>
                               <RadioGroupItem value="patient" id="role-patient" />
                             </FormControl>
-                            <FormLabel htmlFor="role-patient" className="font-normal">Patient</FormLabel>
+                            <FormLabel htmlFor="role-patient" className="font-bold text-xs cursor-pointer">Patient</FormLabel>
                           </FormItem>
-                          <FormItem className="flex items-center space-x-2">
+                          <FormItem className="flex items-center space-x-2 bg-slate-50 px-4 py-2 rounded-xl border flex-1">
                             <FormControl>
                               <RadioGroupItem value="doctor" id="role-doctor" />
                             </FormControl>
-                            <FormLabel htmlFor="role-doctor" className="font-normal">Doctor</FormLabel>
+                            <FormLabel htmlFor="role-doctor" className="font-bold text-xs cursor-pointer">Doctor</FormLabel>
                           </FormItem>
                         </RadioGroup>
                       </FormControl>
@@ -350,15 +349,15 @@ export default function SignupPage() {
                     </FormItem>
                   )}
                 />
-                <Button type="submit" className="w-full" disabled={loading}>
+                <Button type="submit" className="w-full h-12 rounded-xl font-bold shadow-lg" disabled={loading}>
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Create an account
+                  Finalize Registration
                 </Button>
               </form>
             </Form>
-            <div className="mt-4 text-center text-sm">
+            <div className="mt-6 text-center text-sm">
               Already have an account?{" "}
-              <Link href="/login" className="underline">
+              <Link href="/login" className="underline font-bold text-primary">
                 Log in
               </Link>
             </div>
