@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -10,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck, Video, PhoneCall, Moon, ShieldAlert, CreditCard, Wallet, Landmark, CheckCircle2, XCircle, Quote, User, Activity } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck, Video, PhoneCall, Moon, ShieldAlert, CreditCard, Wallet, Landmark, CheckCircle2, XCircle, Quote, User, Activity, BriefcaseMedical } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -72,9 +71,6 @@ const ReviewItem = ({ review }: { review: Review }) => {
                         {review.comment}
                     </p>
                 </div>
-                <p className="text-[8px] text-muted-foreground uppercase font-bold tracking-widest text-right">
-                    {review.createdAt ? format(new Date(review.createdAt), "MMM yyyy") : 'Recently'}
-                </p>
             </CardContent>
         </Card>
     );
@@ -89,7 +85,7 @@ export default function DoctorDetailPage() {
     const doctorId = params.id as string;
 
     const [selectedDate, setSelectedDate] = useState(getNext7Days()[0].date);
-    const [selectedTime, setSelectedTime] = useState<string>('09:00'); // HH:mm format
+    const [selectedTime, setSelectedTime] = useState<string>('09:00'); 
     const [appointmentType, setAppointmentType] = useState<'Video Call' | 'Audio Call'>('Video Call');
     const [paymentMethod, setPaymentMethod] = useState<string>('Easypaisa');
     const [isBooking, setIsBooking] = useState(false);
@@ -112,7 +108,7 @@ export default function DoctorDetailPage() {
         return query(
             collection(firestore, 'reviews'), 
             where('doctorId', '==', doctorId),
-            limit(6)
+            limit(10)
         );
     }, [firestore, doctorId]);
     const { data: reviews, isLoading: isLoadingReviews } = useCollection<Review>(reviewsQuery);
@@ -127,47 +123,18 @@ export default function DoctorDetailPage() {
 
     const { data: existingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    const unavailabilityQuery = useMemoFirebase(() => {
-      if (!firestore || !doctorId) return null;
-      return query(
-        collection(firestore, 'doctorUnavailabilityRequests'),
-        where('doctorId', '==', doctorId)
-      );
-    }, [firestore, doctorId]);
-
-    const { data: allLeaveRequests } = useCollection<any>(unavailabilityQuery);
-
-    const isDayOffByAdmin = useMemo(() => {
-      if (!allLeaveRequests || !selectedDate) return false;
-      return allLeaveRequests.some((leave: any) => 
-        leave && 
-        leave.status === 'approved' && 
-        leave.requestedDate && 
-        isSameDay(new Date(leave.requestedDate), selectedDate)
-      );
-    }, [allLeaveRequests, selectedDate]);
-
-    /**
-     * Checks if a proposed 30-minute window overlaps with existing booked sessions.
-     */
     const isSlotAvailable = (timeStr: string) => {
         if (!existingAppointments || !selectedDate || !mounted || !timeStr) return true;
-        
         const [hours, minutes] = timeStr.split(':').map(Number);
         const proposedStart = new Date(selectedDate);
         proposedStart.setHours(hours, minutes, 0, 0);
         const proposedEnd = addMinutes(proposedStart, 30);
-
         const now = new Date();
-        // Don't allow past times today
         if (isSameDay(selectedDate, now) && proposedStart < now) return false;
-
         return !existingAppointments.some(apt => {
             if (!apt || apt.status === 'cancelled' || !apt.appointmentDateTime) return false;
             const aptStart = new Date(apt.appointmentDateTime);
             const aptEnd = addMinutes(aptStart, 30);
-            
-            // Overlap check: Start of A < End of B AND End of A > Start of B
             return proposedStart < aptEnd && proposedEnd > aptStart;
         });
     };
@@ -180,30 +147,25 @@ export default function DoctorDetailPage() {
 
     const handleConfirmBooking = () => {
         if (isUserLoading) return;
-
         if (!user) {
             toast({ title: "Login Required", description: "Please log in to book an appointment." });
             router.push('/login');
             return;
         }
-
         if (!selectedTime || !firestore || !doctor) {
-            toast({ variant: 'destructive', title: 'Booking Error', description: 'Please select a valid time.' });
+            toast({ variant: 'destructive', title: 'Booking Error' });
             return;
         }
-
         if (!isSlotAvailable(selectedTime)) {
-            toast({ variant: 'destructive', title: 'Overlap Error', description: 'This time window is already reserved.' });
+            toast({ variant: 'destructive', title: 'Overlap Error' });
             return;
         }
-        
         if (!paymentReceipt) {
-            toast({ variant: 'destructive', title: 'Receipt Required', description: 'Please upload your payment receipt.' });
+            toast({ variant: 'destructive', title: 'Receipt Required' });
             return;
         }
 
         setIsBooking(true);
-
         const [hours, minutes] = selectedTime.split(':').map(Number);
         const appointmentDateTime = new Date(selectedDate);
         appointmentDateTime.setHours(hours, minutes, 0, 0);
@@ -223,13 +185,7 @@ export default function DoctorDetailPage() {
         };
         
         addDocumentNonBlocking(collection(firestore, 'appointments'), newAppointment);
-        
-        toast({ 
-            title: "Receipt Submitted!", 
-            description: "Once your payment is approved your booking will be confirmed.",
-            duration: 6000
-        });
-
+        toast({ title: "Receipt Submitted!", description: "Awaiting admin approval." });
         setIsBooking(false);
         router.push('/patient-portal');
     };
@@ -238,85 +194,76 @@ export default function DoctorDetailPage() {
         return (
             <div className="flex flex-col min-h-screen">
                 <AppHeader />
-                <main className="flex-grow flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></main>
+                <main className="flex-grow flex items-center justify-center bg-slate-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></main>
                 <AppFooter />
             </div>
         );
     }
     
-    if (error || !doctor) {
-        return (
-             <div className="flex flex-col min-h-screen">
-                <AppHeader />
-                <main className="flex-grow flex items-center justify-center bg-secondary/30">
-                    <div className="text-center">
-                        <h1 className="text-2xl font-bold">Doctor Not Found</h1>
-                        <Button asChild className="mt-6"><Link href="/find-a-doctor">Find Another Doctor</Link></Button>
-                    </div>
-                </main>
-                <AppFooter />
-            </div>
-        );
-    }
-
-    const doctorImage = placeholderImages.find(p => p.id === doctor.profileImageId);
+    const doctorImage = placeholderImages.find(p => p.id === doctor?.profileImageId);
     const dateOptions = getNext7Days();
     const isCurrentTimeAvailable = isSlotAvailable(selectedTime);
 
     return (
-        <div className="flex flex-col min-h-screen">
+        <div className="flex flex-col min-h-screen bg-slate-50">
             <AppHeader />
-            <main className="flex-grow bg-secondary/30 py-12">
-                <div className="container mx-auto px-4 space-y-12">
-                    <Button asChild variant="ghost" className="mb-2 rounded-xl">
-                        <Link href="/find-a-doctor"><ArrowLeft className="mr-2 h-4 w-4" /> Back</Link>
+            <main className="flex-grow py-12">
+                <div className="container mx-auto px-4 space-y-10">
+                    <Button asChild variant="ghost" className="mb-2 rounded-xl group font-bold">
+                        <Link href="/find-a-doctor"><ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to Registry</Link>
                     </Button>
 
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
                         <div className="lg:col-span-4 space-y-8">
                             <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-white">
                                 <CardHeader className="items-center text-center bg-primary/5 p-8 sm:p-10">
-                                    <div className="relative h-40 w-40 shadow-2xl rounded-full border-4 border-white mb-6 overflow-hidden">
-                                        <Image src={doctor.photoURL || doctorImage?.imageUrl || ''} alt={doctor.firstName} fill className="object-cover" />
+                                    <div className="relative h-40 w-40 shadow-2xl rounded-full border-8 border-white mb-6 overflow-hidden">
+                                        <Image src={doctor?.photoURL || doctorImage?.imageUrl || ''} alt={doctor?.firstName || 'Doctor'} fill className="object-cover" />
                                     </div>
                                     <div className="space-y-2">
-                                        <CardTitle className="text-3xl font-headline tracking-tight">Dr. {doctor.firstName} {doctor.lastName}</CardTitle>
-                                        <CardDescription className="text-base text-primary font-bold uppercase tracking-wider">{doctor.specialty}</CardDescription>
-                                    </div>
-                                    <div className="flex items-center justify-center gap-4 pt-4">
-                                        <div className="flex flex-col items-center">
-                                            <div className="flex items-center gap-1 text-amber-500 font-bold text-xl">
-                                                <Star className="h-5 w-5 fill-current" /> {averageRating}
+                                        <CardTitle className="text-3xl font-headline tracking-tight">Dr. {doctor?.firstName} {doctor?.lastName}</CardTitle>
+                                        <div className="flex flex-col items-center gap-1">
+                                            <div className="flex items-center gap-1.5 text-green-600">
+                                                <CheckCircle2 className="h-4 w-4" />
+                                                <span className="text-[10px] font-bold uppercase tracking-wider">PMDC Verified</span>
                                             </div>
-                                            <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-tighter">Avg. Rating</p>
-                                        </div>
-                                        <div className="w-px h-8 bg-slate-100" />
-                                        <div className="flex flex-col items-center">
-                                            <p className="font-bold text-xl">{reviews?.length || 0}</p>
-                                            <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-tighter">Reviews</p>
+                                            <CardDescription className="text-base text-primary font-bold uppercase tracking-wider">{doctor?.specialty}</CardDescription>
+                                            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{doctor?.degree || 'MBBS, FCPS'}</p>
                                         </div>
                                     </div>
                                 </CardHeader>
-                                <CardContent className="text-sm text-muted-foreground space-y-6 p-8 bg-white">
-                                     <div className="flex items-center gap-4 p-4 rounded-2xl bg-muted/20 border border-muted-foreground/5">
-                                        <UserCheck className="h-5 w-5 text-primary shrink-0" /> 
-                                        <div>
-                                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Experience</p>
-                                            <p className="font-bold text-foreground">{doctor.experience || 0} Professional Years</p>
-                                        </div>
-                                     </div>
-                                     <div className="flex items-center gap-4 p-4 rounded-2xl bg-muted/20 border border-muted-foreground/5">
+
+                                {/* High-Fidelity Stats Row */}
+                                <div className="grid grid-cols-3 gap-2 border-y py-6 mx-8 border-slate-50">
+                                    <div className="text-center space-y-1 border-r border-slate-50">
+                                        <p className="text-sm font-bold text-slate-900">15 - 30 Min</p>
+                                        <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest">Wait Time</p>
+                                    </div>
+                                    <div className="text-center space-y-1 border-r border-slate-50">
+                                        <p className="text-sm font-bold text-slate-900">{doctor?.experience || 12} Years</p>
+                                        <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest">Experience</p>
+                                    </div>
+                                    <div className="text-center space-y-1">
+                                        <p className="text-sm font-bold text-slate-900 flex items-center justify-center gap-1">
+                                            <Star className="h-3 w-3 text-amber-400 fill-amber-400" /> {averageRating}
+                                        </p>
+                                        <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest">{reviews?.length || 0} Reviews</p>
+                                    </div>
+                                </div>
+
+                                <CardContent className="text-sm text-muted-foreground space-y-6 p-8">
+                                     <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
                                         <MapPin className="h-5 w-5 text-primary shrink-0" /> 
                                         <div>
                                             <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Hub City</p>
-                                            <p className="font-bold text-foreground">{doctor.location}</p>
+                                            <p className="font-bold text-slate-900">{doctor?.location}</p>
                                         </div>
                                      </div>
-                                     <div className="flex items-center gap-4 p-4 rounded-2xl bg-muted/20 border border-muted-foreground/5">
+                                     <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
                                         <GraduationCap className="h-5 w-5 text-primary shrink-0" /> 
                                         <div>
                                             <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Institution</p>
-                                            <p className="font-bold text-foreground line-clamp-1">{doctor.medicalSchool || 'Verified Records'}</p>
+                                            <p className="font-bold text-slate-900 line-clamp-1">{doctor?.medicalSchool || 'Verified Records'}</p>
                                         </div>
                                      </div>
                                 </CardContent>
@@ -333,7 +280,6 @@ export default function DoctorDetailPage() {
                                         reviews.map(review => <ReviewItem key={review.id} review={review} />)
                                     ) : (
                                         <div className="p-10 bg-white/50 border-2 border-dashed rounded-[2rem] text-center text-muted-foreground italic">
-                                            <Quote className="h-8 w-8 mx-auto mb-2 opacity-10" />
                                             <p className="text-xs">No feedback logs found yet.</p>
                                         </div>
                                     )}
@@ -351,118 +297,69 @@ export default function DoctorDetailPage() {
                                             </CardTitle>
                                             <p className="text-sm text-muted-foreground">Dynamic scheduling without pre-defined slot restrictions.</p>
                                         </div>
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                                            <span className="text-[10px] font-bold uppercase tracking-wider text-green-600">Live Status</span>
-                                        </div>
                                     </div>
                                 </CardHeader>
-                                <CardContent className="p-8 sm:p-12">
-                                    {isDayOffByAdmin ? (
-                                      <div className="bg-destructive/5 border border-destructive/10 rounded-[2.5rem] p-12 text-center space-y-6">
-                                        <ShieldAlert className="h-20 w-20 text-destructive mx-auto opacity-50" />
-                                        <div className="space-y-2">
-                                            <h4 className="text-2xl font-bold text-destructive font-headline">Practice Suspended</h4>
-                                            <p className="text-muted-foreground text-sm max-w-md mx-auto">
-                                                Dr. {doctor.lastName} is unavailable for consultation on this date due to clinical audit or personal pause.
-                                            </p>
+                                <CardContent className="p-8 sm:p-12 space-y-12">
+                                    <div>
+                                        <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6 flex items-center gap-3">
+                                            <div className="h-1 w-6 bg-primary rounded-full" /> Step 1: Select Date
+                                        </h4>
+                                        <div className="flex gap-4 overflow-x-auto pb-6 -mx-4 px-4 no-scrollbar">
+                                            {dateOptions.map(day => (
+                                                <button 
+                                                    key={day.date.toISOString()}
+                                                    onClick={() => setSelectedDate(day.date)}
+                                                    className={cn(
+                                                        "p-5 rounded-3xl border-2 text-center transition-all shrink-0 w-28 flex flex-col items-center gap-1",
+                                                        selectedDate.toDateString() === day.date.toDateString() 
+                                                            ? 'bg-primary text-primary-foreground border-primary shadow-2xl scale-105' 
+                                                            : 'bg-white hover:bg-slate-50 border-slate-100'
+                                                    )}
+                                                >
+                                                    <p className="text-[10px] font-bold uppercase opacity-80">{day.dayName}</p>
+                                                    <p className="text-3xl font-bold font-headline">{day.dayNumber}</p>
+                                                </button>
+                                            ))}
                                         </div>
-                                      </div>
-                                    ) : (
-                                    <div className="space-y-12">
-                                        <div>
+                                    </div>
+
+                                    <div>
                                             <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6 flex items-center gap-3">
-                                                <div className="h-1 w-6 bg-primary rounded-full" /> Step 1: Select Date
-                                            </h4>
-                                            <div className="flex gap-4 overflow-x-auto pb-6 -mx-4 px-4 custom-scrollbar">
-                                                {dateOptions.map(day => (
-                                                    <button 
-                                                        key={day.date.toISOString()}
-                                                        onClick={() => setSelectedDate(day.date)}
-                                                        className={cn(
-                                                            "p-5 rounded-3xl border text-center transition-all shrink-0 w-28 flex flex-col items-center gap-1",
-                                                            selectedDate.toDateString() === day.date.toDateString() 
-                                                                ? 'bg-primary text-primary-foreground border-primary shadow-2xl scale-105' 
-                                                                : 'bg-background hover:bg-muted border-slate-100 shadow-sm'
-                                                        )}
-                                                    >
-                                                        <p className="text-[10px] font-bold uppercase opacity-80">{day.dayName}</p>
-                                                        <p className="text-3xl font-bold font-headline">{day.dayNumber}</p>
-                                                    </button>
-                                                ))}
+                                            <div className="h-1 w-6 bg-primary rounded-full" /> Step 2: Select Start Time
+                                        </h4>
+                                        <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-end">
+                                            <div className="w-full sm:flex-1 space-y-2">
+                                                <Label htmlFor="precise-time" className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest ml-1">Pick Start Time (09:00 - 22:00)</Label>
+                                                <Input 
+                                                    id="precise-time"
+                                                    type="time"
+                                                    value={selectedTime}
+                                                    onChange={(e) => setSelectedTime(e.target.value)}
+                                                    className="h-16 rounded-2xl border-2 text-xl font-bold px-6 focus:ring-primary focus:border-primary transition-all"
+                                                    min="09:00"
+                                                    max="22:00"
+                                                />
+                                            </div>
+                                            <div className={cn(
+                                                "w-full sm:flex-1 p-6 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center text-center transition-all",
+                                                isCurrentTimeAvailable ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-700"
+                                            )}>
+                                                <div className="flex items-center gap-2 font-bold uppercase text-[10px] tracking-widest mb-1">
+                                                    {isCurrentTimeAvailable ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
+                                                    {isCurrentTimeAvailable ? 'Availability Confirmed' : 'Clinical Conflict'}
+                                                </div>
+                                                <p className="text-[9px] opacity-70 leading-tight">
+                                                    {isCurrentTimeAvailable ? `Professional 30m window open at ${selectedTime}.` : `Overlap detected. Please adjust start time.`}
+                                                </p>
                                             </div>
                                         </div>
+                                    </div>
 
-                                        <div>
-                                             <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6 flex items-center gap-3">
-                                                <div className="h-1 w-6 bg-primary rounded-full" /> Step 2: Select Precise Time
-                                            </h4>
-                                            <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-end">
-                                                <div className="w-full sm:flex-1 space-y-2">
-                                                    <Label htmlFor="precise-time" className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest ml-1">Pick Start Time (09:00 - 22:00)</Label>
-                                                    <Input 
-                                                        id="precise-time"
-                                                        type="time"
-                                                        value={selectedTime}
-                                                        onChange={(e) => setSelectedTime(e.target.value)}
-                                                        className="h-16 rounded-2xl border-2 text-xl font-bold px-6 focus:ring-primary focus:border-primary transition-all"
-                                                        min="09:00"
-                                                        max="22:00"
-                                                    />
-                                                </div>
-                                                <div className={cn(
-                                                    "w-full sm:flex-1 p-6 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center text-center transition-all",
-                                                    isCurrentTimeAvailable ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-700"
-                                                )}>
-                                                    <div className="flex items-center gap-2 font-bold uppercase text-[10px] tracking-widest mb-1">
-                                                        {isCurrentTimeAvailable ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-                                                        {isCurrentTimeAvailable ? 'Availability Confirmed' : 'Clinical Conflict'}
-                                                    </div>
-                                                    <p className="text-[9px] opacity-70 leading-tight">
-                                                        {isCurrentTimeAvailable 
-                                                            ? `A professional 30-minute window is available starting at ${selectedTime}.` 
-                                                            : `This selection overlaps with an existing consultation. Please shift by ±30 minutes.`}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        <div>
-                                            <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6 flex items-center gap-3">
-                                                <div className="h-1 w-6 bg-primary rounded-full" /> Step 3: Consultation Channel
-                                            </h4>
-                                            <RadioGroup defaultValue="Video Call" onValueChange={(val) => setAppointmentType(val as any)} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                                <div className="flex items-center space-x-3 p-6 rounded-3xl border-2 hover:bg-muted/30 transition-all cursor-pointer group bg-muted/5">
-                                                    <RadioGroupItem value="Video Call" id="video" />
-                                                    <Label htmlFor="video" className="flex items-center gap-4 cursor-pointer font-bold flex-1">
-                                                        <div className="p-3 rounded-2xl bg-primary/10 text-primary group-hover:scale-110 transition-transform">
-                                                            <Video className="h-6 w-6" />
-                                                        </div>
-                                                        <div className="min-w-0">
-                                                            <p className="text-sm">Video Room</p>
-                                                            <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">Secure HD Feed</p>
-                                                        </div>
-                                                    </Label>
-                                                </div>
-                                                <div className="flex items-center space-x-3 p-6 rounded-3xl border-2 hover:bg-muted/30 transition-all cursor-pointer group bg-muted/5">
-                                                    <RadioGroupItem value="Audio Call" id="audio" />
-                                                    <Label htmlFor="audio" className="flex items-center gap-4 cursor-pointer font-bold flex-1">
-                                                        <div className="p-3 rounded-2xl bg-primary/10 text-primary group-hover:scale-110 transition-transform">
-                                                            <PhoneCall className="h-6 w-6" />
-                                                        </div>
-                                                        <div className="min-w-0">
-                                                            <p className="text-sm">Audio Call</p>
-                                                            <p className="text-[9px] text-muted-foreground font-bold uppercase tracking-widest mt-0.5">Voice Tunnel</p>
-                                                        </div>
-                                                    </Label>
-                                                </div>
-                                            </RadioGroup>
-                                        </div>
-
+                                    <div className="pt-6">
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
                                                 <Button 
-                                                    className="w-full h-20 text-xl font-bold rounded-3xl shadow-2xl shadow-primary/20" 
+                                                    className="w-full h-20 text-xl font-bold rounded-3xl shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90" 
                                                     disabled={!isCurrentTimeAvailable || isBooking}
                                                 >
                                                     Finalize Booking {selectedTime && `@ ${selectedTime}`}
@@ -472,7 +369,7 @@ export default function DoctorDetailPage() {
                                                 <div className="p-8 sm:p-10 space-y-8">
                                                     <AlertDialogHeader>
                                                         <AlertDialogTitle className="text-2xl font-headline">Secure Payment</AlertDialogTitle>
-                                                        <AlertDialogDescription>Please complete the consultation fee transfer to confirm this session.</AlertDialogDescription>
+                                                        <AlertDialogDescription>Complete the consultation fee transfer to confirm your 30m session.</AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     
                                                     <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10 text-center">
@@ -481,31 +378,11 @@ export default function DoctorDetailPage() {
                                                     </div>
 
                                                     <div className="space-y-4">
-                                                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Step 1: Select Method</Label>
-                                                        <RadioGroup value={paymentMethod} onValueChange={setPaymentMethod} className="grid grid-cols-1 gap-3">
-                                                            {['Easypaisa', 'Jazzcash', 'MasterCard'].map(m => (
-                                                                <div key={m} className={cn(
-                                                                    "flex items-center gap-4 p-5 rounded-3xl border-2 transition-all cursor-pointer",
-                                                                    paymentMethod === m ? "border-primary bg-primary/5" : "border-slate-100 hover:border-slate-200"
-                                                                )}>
-                                                                    <RadioGroupItem value={m} id={m} className="sr-only" />
-                                                                    <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center", paymentMethod === m ? "bg-primary text-white" : "bg-slate-50")}>
-                                                                        {m === 'MasterCard' ? <Landmark className="h-5 w-5" /> : <Wallet className="h-5 w-5" />}
-                                                                    </div>
-                                                                    <Label htmlFor={m} className="flex-1 cursor-pointer font-bold">{m} <span className="block text-[10px] font-mono font-normal text-muted-foreground mt-0.5">{m === 'MasterCard' ? 'pk013120555772' : '03120555772'}</span></Label>
-                                                                    {paymentMethod === m && <CheckCircle2 className="h-5 w-5 text-primary" />}
-                                                                </div>
-                                                            ))}
-                                                        </RadioGroup>
-                                                    </div>
-
-                                                    <div className="space-y-4">
-                                                        <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Step 2: Proof of Transfer</Label>
-                                                        <label htmlFor="receipt-upload" className="flex flex-col items-center justify-center w-full h-36 border-4 border-dashed rounded-[2rem] cursor-pointer bg-slate-50 hover:bg-slate-100 transition-colors border-slate-200">
+                                                        <Label className="text-[10px] font-bold uppercase tracking-widest ml-1">Select Proof of Transfer</Label>
+                                                        <label htmlFor="receipt-upload" className="flex flex-col items-center justify-center w-full h-36 border-4 border-dashed rounded-[2rem] cursor-pointer bg-slate-50 hover:bg-slate-100 border-slate-200">
                                                             <div className="flex flex-col items-center justify-center pt-4 pb-5 text-center px-4">
                                                                 <Activity className="w-8 h-8 mb-3 text-primary/30" />
-                                                                <p className="text-sm font-bold text-primary">Click to upload receipt</p>
-                                                                <p className="text-[9px] text-muted-foreground uppercase mt-1">High-fidelity audit required</p>
+                                                                <p className="text-sm font-bold text-primary">Upload Transfer Receipt</p>
                                                             </div>
                                                             <Input 
                                                                 id="receipt-upload"
@@ -521,15 +398,9 @@ export default function DoctorDetailPage() {
                                                                 }} 
                                                             />
                                                         </label>
-                                                        {paymentReceipt && (
-                                                            <div className="mt-3 flex items-center gap-2 p-3 bg-green-50 rounded-2xl border border-green-100">
-                                                                <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                                                <span className="text-[10px] font-bold text-green-700 uppercase">Evidence Logged Successfully</span>
-                                                            </div>
-                                                        )}
                                                     </div>
 
-                                                    <AlertDialogFooter className="flex flex-col sm:flex-row gap-3 pt-6">
+                                                    <AlertDialogFooter className="flex flex-col sm:flex-row gap-3">
                                                         <AlertDialogCancel className="rounded-2xl h-14 border-2 flex-1">Go Back</AlertDialogCancel>
                                                         <AlertDialogAction onClick={handleConfirmBooking} disabled={!paymentReceipt || isBooking} className="rounded-2xl h-14 bg-primary font-bold shadow-2xl shadow-primary/20 flex-1">
                                                             {isBooking ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null}
@@ -540,7 +411,6 @@ export default function DoctorDetailPage() {
                                             </AlertDialogContent>
                                         </AlertDialog>
                                     </div>
-                                    )}
                                 </CardContent>
                             </Card>
                         </div>

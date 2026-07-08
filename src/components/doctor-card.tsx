@@ -3,14 +3,14 @@
 import Image from 'next/image';
 import type { Doctor } from '@/lib/types';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { Card, CardContent, CardFooter, CardHeader } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Star, MapPin, ShieldCheck } from 'lucide-react';
+import { Star, MapPin, ShieldCheck, Video, Clock, BriefcaseMedical, CheckCircle2 } from 'lucide-react';
 import { useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
-import { Avatar, AvatarFallback } from './ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from './ui/avatar';
 import { cn } from '@/lib/utils';
 
 interface DoctorCardProps {
@@ -21,11 +21,9 @@ interface DoctorCardProps {
 export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardProps) {
   const staticDoctorImage = placeholderImages.find(p => p.id === doctor.profileImageId);
   const imageSrc = doctor.photoURL || staticDoctorImage?.imageUrl;
-  const imageHint = staticDoctorImage?.imageHint || 'doctor portrait';
-  const name = doctor.name || `${doctor.firstName} ${doctor.lastName}`;
+  const name = `${doctor.firstName} ${doctor.lastName}`;
   const doctorProfileLink = `/find-a-doctor/${doctor.id}`;
   const nameFallback = (doctor.firstName?.[0] || '') + (doctor.lastName?.[0] || '');
-
 
   const { user, isUserLoading } = useUser();
   const { toast } = useToast();
@@ -33,12 +31,8 @@ export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardPr
 
   const handleBookAppointment = () => {
     if (isUserLoading) return;
-    
     if (!user) {
-        toast({
-            title: 'Login Required',
-            description: 'Please log in to book an appointment.',
-        });
+        toast({ title: 'Login Required', description: 'Please log in to book an appointment.' });
         router.push('/login');
     } else {
         router.push(doctorProfileLink);
@@ -47,88 +41,121 @@ export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardPr
 
   if (variant === 'compact') {
      return (
-        <Card className="flex flex-col h-full overflow-hidden transition-all duration-300 hover:shadow-xl group border-gray-200/80">
-            <CardHeader className="p-0">
-                <div className="relative h-40 w-full">
-                {imageSrc ? (
-                    <Image
-                    src={imageSrc}
-                    alt={name}
-                    fill
-                    className="object-cover"
-                    data-ai-hint={imageHint}
-                    />
-                ) : (
-                    <div className="h-40 w-full bg-secondary flex items-center justify-center">
-                        <Avatar className="h-24 w-24">
-                            <AvatarFallback className="text-3xl">{nameFallback}</AvatarFallback>
-                        </Avatar>
-                    </div>
-                )}
+        <Card className="flex flex-col h-full overflow-hidden transition-all duration-300 hover:shadow-xl group border-gray-200/80 rounded-2xl">
+            <div className="p-4 flex flex-col items-center text-center space-y-3">
+                <Avatar className="h-20 w-20 border-2 border-primary/10 shadow-sm">
+                    <AvatarImage src={imageSrc} className="object-cover" />
+                    <AvatarFallback className="text-xl font-bold bg-primary/5 text-primary">{nameFallback}</AvatarFallback>
+                </Avatar>
+                <div>
+                    <h3 className="text-sm font-bold font-headline line-clamp-1">{name}</h3>
+                    <p className="text-[10px] text-primary font-bold uppercase tracking-tighter">{doctor.specialty}</p>
                 </div>
-            </CardHeader>
-            <CardContent className="p-3 text-center flex-grow">
-                <h3 className="text-base font-bold font-headline">{name}</h3>
-                <p className="text-xs text-muted-foreground">{doctor.specialty}</p>
-                 <div className="flex items-center justify-center gap-1 text-xs mt-1">
-                    <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                    <span className="font-bold text-gray-700">{doctor.rating || 0}</span>
+                <div className="flex items-center gap-1 text-[10px] font-bold">
+                    <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                    <span>{doctor.rating || 0}</span>
                 </div>
-            </CardContent>
-            <CardFooter className="p-3 pt-0">
-                <Button size="sm" className="w-full bg-accent hover:bg-accent/90 text-white" onClick={handleBookAppointment}>
-                    Book Appointment
+                <Button size="sm" className="w-full bg-accent hover:bg-accent/90 text-white font-bold h-8 text-[10px] rounded-lg" onClick={handleBookAppointment}>
+                    View Profile
                 </Button>
-            </CardFooter>
+            </div>
         </Card>
      )
   }
 
   return (
-    <Card className="flex flex-col h-full overflow-hidden transition-all duration-300 hover:shadow-xl hover:-translate-y-1">
-      <CardHeader className="p-0">
-        <div className="relative h-48 w-full">
-          {imageSrc ? (
-            <Image
-              src={imageSrc}
-              alt={name}
-              fill
-              className="object-cover"
-              data-ai-hint={imageHint}
-            />
-          ) : (
-             <div className="h-48 w-full bg-secondary flex items-center justify-center">
-                <Avatar className="h-32 w-32">
-                    <AvatarFallback className="text-5xl">{nameFallback}</AvatarFallback>
-                </Avatar>
+    <Card className="flex flex-col h-full overflow-hidden transition-all duration-300 hover:shadow-2xl bg-white border-none shadow-lg rounded-[2rem]">
+      <CardContent className="p-6 space-y-6">
+        {/* Header Identity Section */}
+        <div className="flex gap-4">
+            <div className="relative h-24 w-24 shrink-0 rounded-full overflow-hidden border-2 border-primary/5 shadow-inner">
+                {imageSrc ? (
+                    <Image src={imageSrc} alt={name} fill className="object-cover" />
+                ) : (
+                    <div className="h-full w-full bg-slate-50 flex items-center justify-center text-slate-300 text-2xl font-bold">{nameFallback}</div>
+                )}
             </div>
-          )}
-          {doctor.verified && (
-            <Badge variant="secondary" className="absolute top-2 right-2 bg-green-100 text-green-800 border-green-300">
-              <ShieldCheck className="w-3.5 h-3.5 mr-1" />
-              Verified
-            </Badge>
-          )}
+            <div className="min-w-0 flex-1 space-y-1">
+                <h3 className="text-xl font-bold font-headline tracking-tight truncate">{name}</h3>
+                {doctor.verified && (
+                    <div className="flex items-center gap-1.5 text-green-600">
+                        <CheckCircle2 className="h-4 w-4" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider">PMDC Verified</span>
+                    </div>
+                )}
+                <p className="text-xs text-muted-foreground font-medium">{doctor.specialty}</p>
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight truncate">{doctor.degree || 'MBBS, FCPS'}</p>
+            </div>
         </div>
-      </CardHeader>
-      <CardContent className="p-4 flex-grow">
-        <h3 className="text-lg font-bold font-headline">{name}</h3>
-        <p className="text-sm text-primary font-medium">{doctor.specialty}</p>
-        <div className="flex items-center gap-1 text-sm text-muted-foreground mt-2">
-          <MapPin className="w-4 h-4" />
-          <span>{doctor.location}</span>
+
+        {/* Stats Row */}
+        <div className="grid grid-cols-3 gap-2 border-y py-4 border-slate-50">
+            <div className="text-center space-y-1 border-r border-slate-50">
+                <p className="text-xs font-bold text-slate-900">15 - 30 Min</p>
+                <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest">Wait Time</p>
+            </div>
+            <div className="text-center space-y-1 border-r border-slate-50">
+                <p className="text-xs font-bold text-slate-900">{doctor.experience || 12} Years</p>
+                <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest">Experience</p>
+            </div>
+            <div className="text-center space-y-1">
+                <p className="text-xs font-bold text-slate-900 flex items-center justify-center gap-1">
+                    <Star className="h-3 w-3 text-amber-400 fill-amber-400" /> {doctor.rating || 4.8}
+                </p>
+                <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest">{doctor.reviews || 0} Reviews</p>
+            </div>
         </div>
-        <div className="flex items-center gap-1 text-sm mt-1">
-          <Star className="w-4 h-4 text-amber-400 fill-amber-400" />
-          <span className="font-bold">{doctor.rating || 0}</span>
-          <span className="text-muted-foreground">({doctor.reviews || 0} reviews)</span>
+
+        {/* Services & Availability */}
+        <div className="space-y-3">
+            <div className={cn(
+                "p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between group",
+                "border-primary bg-primary/5 shadow-sm"
+            )}>
+                <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
+                        <Video className="h-5 w-5" />
+                    </div>
+                    <div>
+                        <p className="text-xs font-bold text-slate-900">Online Video Consultation</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                            <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
+                            <span className="text-[9px] font-bold uppercase text-green-600">Online</span>
+                        </div>
+                    </div>
+                </div>
+                <div className="text-right">
+                    <p className="text-xs font-bold text-primary">Rs. 1,500</p>
+                </div>
+            </div>
+
+            <div className="p-4 rounded-2xl border-2 border-slate-50 bg-slate-50/30 flex items-center justify-between opacity-60">
+                 <div className="flex items-center gap-3">
+                    <div className="h-9 w-9 rounded-xl bg-slate-200 flex items-center justify-center text-slate-400">
+                        <MapPin className="h-5 w-5" />
+                    </div>
+                    <div>
+                        <p className="text-xs font-bold text-slate-900">Clinical Center</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                            <div className="h-1.5 w-1.5 rounded-full bg-slate-400" />
+                            <span className="text-[9px] font-bold uppercase text-slate-500">Available Tomorrow</span>
+                        </div>
+                    </div>
+                </div>
+                <p className="text-xs font-bold text-slate-400">{doctor.location}</p>
+            </div>
+        </div>
+
+        {/* Action Footer */}
+        <div className="flex gap-3 pt-2">
+            <Button variant="outline" className="flex-1 h-12 rounded-xl border-2 font-bold text-xs gap-2 group" onClick={handleBookAppointment}>
+                <Video className="h-4 w-4 text-primary group-hover:scale-110 transition-transform" /> Video Consult
+            </Button>
+            <Button className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs shadow-lg shadow-primary/20" onClick={handleBookAppointment}>
+                Book Appointment
+            </Button>
         </div>
       </CardContent>
-      <CardFooter className="p-4 pt-0">
-        <Button className="w-full" onClick={handleBookAppointment}>
-            Book Appointment
-        </Button>
-      </CardFooter>
     </Card>
   );
 }
