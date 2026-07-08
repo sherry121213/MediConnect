@@ -18,7 +18,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
-import { format, isSameDay, addDays, subDays, isBefore, isAfter, isValid, startOfDay, addMinutes } from "date-fns";
+import { format, isSameDay, addDays, subDays, isBefore, isAfter, isValid, startOfDay, addMinutes, parse } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { getNext7Days, generateAvailableTimes } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -26,6 +26,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 function PatientHistoryTab({ patientId }: { patientId: string }) {
     const firestore = useFirestore();
@@ -75,7 +76,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
     const firestore = useFirestore();
     const { toast } = useToast();
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-    const [selectedTime, setSelectedTime] = useState<string | null>(null);
+    const [selectedTimeStr, setSelectedTimeStr] = useState<string | null>(null);
     const [isSaving, setIsSaving] = useState(false);
     const availableDates = getNext7Days();
 
@@ -87,38 +88,45 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
 
     const upcomingAvailableTimes = useMemo(() => {
         const allTimes = generateAvailableTimes();
+        const now = new Date();
         return allTimes.filter(timeStr => {
-            const [time, period] = timeStr.split(' ');
-            let [hours, minutes] = time.split(':').map(Number);
-            if (period === 'PM' && hours !== 12) hours += 12;
-            if (period === 'AM' && hours === 12) hours = 0;
-
+            const timeDate = parse(timeStr, 'hh:mm a', new Date());
             const proposedStart = new Date(selectedDate);
-            proposedStart.setHours(hours, minutes, 0, 0);
-            const proposedEnd = addMinutes(proposedStart, 15);
+            proposedStart.setHours(timeDate.getHours(), timeDate.getMinutes(), 0, 0);
             
-            if (isSameDay(selectedDate, new Date()) && proposedStart < new Date()) return false;
+            if (isSameDay(selectedDate, now) && isBefore(proposedStart, now)) return false;
 
-            return !existingAppointments?.some(apt => {
-                if (!apt || apt.status === 'cancelled' || !apt.appointmentDateTime || apt.id === appointment.id) return false;
-                const aptStart = new Date(apt.appointmentDateTime);
-                const aptEnd = addMinutes(aptStart, 15);
-                return proposedStart < aptEnd && proposedEnd > aptStart;
-            });
+            return true;
         });
-    }, [selectedDate, existingAppointments, appointment.id]);
+    }, [selectedDate]);
+
+    const timeValidation = useMemo(() => {
+        if (!existingAppointments || !selectedDate || !selectedTimeStr) return { isAvailable: true, message: '' };
+
+        const timeDate = parse(selectedTimeStr, 'hh:mm a', new Date());
+        const proposedStart = new Date(selectedDate);
+        proposedStart.setHours(timeDate.getHours(), timeDate.getMinutes(), 0, 0);
+        const proposedEnd = addMinutes(proposedStart, 15);
+
+        const overlap = existingAppointments.find(apt => {
+            if (!apt || apt.status === 'cancelled' || !apt.appointmentDateTime || apt.id === appointment.id) return false;
+            const aptStart = new Date(apt.appointmentDateTime);
+            const aptEnd = addMinutes(aptStart, 15);
+            return proposedStart < aptEnd && proposedEnd > aptStart;
+        });
+
+        if (overlap) return { isAvailable: false, message: 'This window is already booked.' };
+
+        return { isAvailable: true, message: '' };
+    }, [selectedTimeStr, selectedDate, existingAppointments, appointment.id]);
 
     const handleConfirm = async () => {
-        if (!firestore || !appointment || !selectedTime) return;
+        if (!firestore || !appointment || !selectedTimeStr || !timeValidation.isAvailable) return;
         setIsSaving(true);
         
-        const [timePart, ampm] = selectedTime.split(' ');
-        const [hours, minutes] = timePart.split(':').map(Number);
+        const timeDate = parse(selectedTimeStr, 'hh:mm a', new Date());
         const newDateTime = new Date(selectedDate);
-        let numericHours = hours;
-        if (ampm === 'PM' && numericHours !== 12) numericHours += 12;
-        if (ampm === 'AM' && numericHours === 12) numericHours = 0;
-        newDateTime.setHours(numericHours, minutes, 0, 0);
+        newDateTime.setHours(timeDate.getHours(), timeDate.getMinutes(), 0, 0);
 
         updateDocumentNonBlocking(doc(firestore, 'appointments', appointment.id), {
             appointmentDateTime: newDateTime.toISOString(),
@@ -133,7 +141,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
+            <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[90dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
                     <DialogTitle className="text-xl sm:text-2xl font-headline">Clinical Rescheduling</DialogTitle>
                     <DialogDescription className="text-slate-400 mt-1 font-medium">Temporarily shift this session for dynamic review.</DialogDescription>
@@ -146,7 +154,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
                                 {availableDates.map(day => (
                                     <button 
                                         key={day.date.toISOString()}
-                                        onClick={() => { setSelectedDate(day.date); setSelectedTime(null); }}
+                                        onClick={() => { setSelectedDate(day.date); setSelectedTimeStr(null); }}
                                         className={cn(
                                             "p-4 rounded-3xl border-2 transition-all shrink-0 w-28 text-center flex flex-col items-center justify-center gap-1",
                                             isSameDay(selectedDate, day.date) ? 'bg-primary/5 border-primary shadow-sm' : 'bg-background hover:bg-muted border-slate-100'
@@ -159,26 +167,34 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
                             </div>
                         </div>
                         <div className="border-t pt-10">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Select New Start Time (15m window)</p>
-                            <Select value={selectedTime || ''} onValueChange={setSelectedTime}>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Select Simple Time Format</p>
+                            <Select value={selectedTimeStr || ''} onValueChange={setSelectedTimeStr}>
                                 <SelectTrigger className="h-14 rounded-2xl border-2 bg-slate-50 font-bold">
                                     <SelectValue placeholder="Pick available time..." />
                                 </SelectTrigger>
                                 <SelectContent className="rounded-2xl border-none shadow-2xl max-h-[250px]">
-                                    {upcomingAvailableTimes.map(time => (
-                                        <SelectItem key={time} value={time} className="h-12 font-bold focus:bg-primary/5 focus:text-primary">
-                                            {time}
-                                        </SelectItem>
-                                    ))}
+                                    <ScrollArea className="h-[250px]">
+                                        {upcomingAvailableTimes.map(time => (
+                                            <SelectItem key={time} value={time} className="h-12 font-bold focus:bg-primary/5 focus:text-primary">
+                                                {time}
+                                            </SelectItem>
+                                        ))}
+                                    </ScrollArea>
                                 </SelectContent>
                             </Select>
+                            {selectedTimeStr && !timeValidation.isAvailable && (
+                                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
+                                    <XCircle className="h-4 w-4 text-red-600" />
+                                    <p className="text-[10px] text-red-800 font-bold uppercase">{timeValidation.message}</p>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
                 <div className="p-6 sm:p-8 border-t bg-slate-50 shrink-0 mt-auto">
                     <div className="flex gap-4">
                         <Button variant="ghost" className="flex-1 h-14 rounded-2xl font-bold" onClick={() => onOpenChange(false)}>Cancel</Button>
-                        <Button className="flex-1 h-14 rounded-2xl font-bold shadow-2xl shadow-primary/20 bg-slate-900 hover:bg-slate-800 text-white" disabled={!selectedTime || isSaving} onClick={handleConfirm}>
+                        <Button className="flex-1 h-14 rounded-2xl font-bold shadow-2xl shadow-primary/20 bg-slate-900 hover:bg-slate-800 text-white" disabled={!selectedTimeStr || !timeValidation.isAvailable || isSaving} onClick={handleConfirm}>
                             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm Move"}
                         </Button>
                     </div>
@@ -194,7 +210,7 @@ const AppointmentRow = ({ apt, patient, onSelect, isMounted }: { apt: Appointmen
     
     const bufferTime = appointmentDate.getTime() - (10 * 60 * 1000);
     const startTime = appointmentDate.getTime();
-    const endTime = appointmentDate.getTime() + (15 * 60 * 1000); // Updated to 15 mins
+    const endTime = appointmentDate.getTime() + (15 * 60 * 1000); 
 
     const isLive = isMounted && now >= startTime && now < endTime && apt.status === 'scheduled';
     const isSoon = isMounted && now >= bufferTime && now < startTime && apt.status === 'scheduled';
@@ -255,7 +271,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
     const now = isMounted ? Date.now() : 0;
     const startTime = appointmentDate.getTime();
     const bufferTime = appointmentDate.getTime() - (10 * 60 * 1000);
-    const endTime = appointmentDate.getTime() + (15 * 60 * 1000); // Updated to 15 mins
+    const endTime = appointmentDate.getTime() + (15 * 60 * 1000); 
 
     const isLive = isMounted && now >= startTime && now < endTime && appointment.status === 'scheduled';
     const isSoon = isMounted && now >= bufferTime && now < startTime && appointment.status === 'scheduled';
@@ -407,7 +423,7 @@ export default function DoctorPortalPage() {
             const now = Date.now();
             const missed = appointments.filter(apt => {
                 if (!apt || apt.status !== 'scheduled' || !apt.appointmentDateTime) return false;
-                return now > new Date(apt.appointmentDateTime).getTime() + (15 * 60 * 1000); // 15 min threshold
+                return now > new Date(apt.appointmentDateTime).getTime() + (15 * 60 * 1000); 
             });
             for (const apt of missed) {
                 if (!apt?.id) continue;
