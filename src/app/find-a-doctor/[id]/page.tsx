@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck, Video, PhoneCall, Moon, ShieldAlert, CreditCard, Wallet, Landmark, CheckCircle2, XCircle, Quote, User, Activity, BriefcaseMedical } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck, Video, PhoneCall, Moon, ShieldAlert, CreditCard, Wallet, Landmark, CheckCircle2, XCircle, Quote, User, Activity, BriefcaseMedical, Calendar as CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -26,7 +26,7 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { useState, useMemo, useEffect } from 'react';
-import { getNext7Days } from '@/lib/time';
+import { getNext7Days, generateAvailableTimes } from '@/lib/time';
 import { cn } from '@/lib/utils';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
@@ -85,15 +85,18 @@ export default function DoctorDetailPage() {
     const doctorId = params.id as string;
 
     const [selectedDate, setSelectedDate] = useState(getNext7Days()[0].date);
-    const [selectedTime, setSelectedTime] = useState<string>('09:00'); 
+    const [selectedTime, setSelectedTime] = useState<string | null>(null); 
     const [appointmentType, setAppointmentType] = useState<'Video Call' | 'Audio Call'>('Video Call');
     const [paymentMethod, setPaymentMethod] = useState<string>('Easypaisa');
     const [isBooking, setIsBooking] = useState(false);
     const [paymentReceipt, setPaymentReceipt] = useState<string | null>(null);
     const [mounted, setMounted] = useState(false);
+    const [nowTicker, setNowTicker] = useState(new Date());
 
     useEffect(() => {
         setMounted(true);
+        const interval = setInterval(() => setNowTicker(new Date()), 60000);
+        return () => clearInterval(interval);
     }, []);
 
     const doctorDocRef = useMemoFirebase(() => {
@@ -125,12 +128,21 @@ export default function DoctorDetailPage() {
 
     const isSlotAvailable = (timeStr: string) => {
         if (!existingAppointments || !selectedDate || !mounted || !timeStr) return true;
-        const [hours, minutes] = timeStr.split(':').map(Number);
+        
+        const [time, period] = timeStr.split(' ');
+        let [hours, minutes] = time.split(':').map(Number);
+        if (period === 'PM' && hours !== 12) hours += 12;
+        if (period === 'AM' && hours === 12) hours = 0;
+
         const proposedStart = new Date(selectedDate);
         proposedStart.setHours(hours, minutes, 0, 0);
         const proposedEnd = addMinutes(proposedStart, 30);
-        const now = new Date();
-        if (isSameDay(selectedDate, now) && proposedStart < now) return false;
+        
+        // Block past times if today
+        if (isSameDay(selectedDate, nowTicker)) {
+            if (proposedStart < addMinutes(nowTicker, 10)) return false;
+        }
+
         return !existingAppointments.some(apt => {
             if (!apt || apt.status === 'cancelled' || !apt.appointmentDateTime) return false;
             const aptStart = new Date(apt.appointmentDateTime);
@@ -138,6 +150,11 @@ export default function DoctorDetailPage() {
             return proposedStart < aptEnd && proposedEnd > aptStart;
         });
     };
+
+    const upcomingAvailableTimes = useMemo(() => {
+        const allTimes = generateAvailableTimes();
+        return allTimes.filter(t => isSlotAvailable(t));
+    }, [selectedDate, nowTicker, existingAppointments, mounted]);
 
     const averageRating = useMemo(() => {
         if (!reviews || reviews.length === 0) return 0;
@@ -153,11 +170,7 @@ export default function DoctorDetailPage() {
             return;
         }
         if (!selectedTime || !firestore || !doctor) {
-            toast({ variant: 'destructive', title: 'Booking Error' });
-            return;
-        }
-        if (!isSlotAvailable(selectedTime)) {
-            toast({ variant: 'destructive', title: 'Overlap Error' });
+            toast({ variant: 'destructive', title: 'Booking Error', description: 'Please select a time slot.' });
             return;
         }
         if (!paymentReceipt) {
@@ -166,7 +179,11 @@ export default function DoctorDetailPage() {
         }
 
         setIsBooking(true);
-        const [hours, minutes] = selectedTime.split(':').map(Number);
+        const [time, period] = selectedTime.split(' ');
+        let [hours, minutes] = time.split(':').map(Number);
+        if (period === 'PM' && hours !== 12) hours += 12;
+        if (period === 'AM' && hours === 12) hours = 0;
+
         const appointmentDateTime = new Date(selectedDate);
         appointmentDateTime.setHours(hours, minutes, 0, 0);
 
@@ -202,7 +219,6 @@ export default function DoctorDetailPage() {
     
     const doctorImage = placeholderImages.find(p => p.id === doctor?.profileImageId);
     const dateOptions = getNext7Days();
-    const isCurrentTimeAvailable = isSlotAvailable(selectedTime);
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50">
@@ -233,7 +249,6 @@ export default function DoctorDetailPage() {
                                     </div>
                                 </CardHeader>
 
-                                {/* High-Fidelity Stats Row */}
                                 <div className="grid grid-cols-3 gap-2 border-y py-6 mx-8 border-slate-50">
                                     <div className="text-center space-y-1 border-r border-slate-50">
                                         <p className="text-sm font-bold text-slate-900">15 - 30 Min</p>
@@ -295,7 +310,7 @@ export default function DoctorDetailPage() {
                                             <CardTitle className="text-2xl font-headline flex items-center gap-3">
                                                 <CalendarDays className="h-7 w-7 text-primary"/> Clinical Availability
                                             </CardTitle>
-                                            <p className="text-sm text-muted-foreground">Dynamic scheduling without pre-defined slot restrictions.</p>
+                                            <p className="text-sm text-muted-foreground">Displaying upcoming available slots based on current time.</p>
                                         </div>
                                     </div>
                                 </CardHeader>
@@ -308,7 +323,10 @@ export default function DoctorDetailPage() {
                                             {dateOptions.map(day => (
                                                 <button 
                                                     key={day.date.toISOString()}
-                                                    onClick={() => setSelectedDate(day.date)}
+                                                    onClick={() => {
+                                                        setSelectedDate(day.date);
+                                                        setSelectedTime(null);
+                                                    }}
                                                     className={cn(
                                                         "p-5 rounded-3xl border-2 text-center transition-all shrink-0 w-28 flex flex-col items-center gap-1",
                                                         selectedDate.toDateString() === day.date.toDateString() 
@@ -324,34 +342,31 @@ export default function DoctorDetailPage() {
                                     </div>
 
                                     <div>
-                                            <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6 flex items-center gap-3">
-                                            <div className="h-1 w-6 bg-primary rounded-full" /> Step 2: Select Start Time
+                                        <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6 flex items-center gap-3">
+                                            <div className="h-1 w-6 bg-primary rounded-full" /> Step 2: Upcoming Clinical Slots
                                         </h4>
-                                        <div className="flex flex-col sm:flex-row gap-6 items-start sm:items-end">
-                                            <div className="w-full sm:flex-1 space-y-2">
-                                                <Label htmlFor="precise-time" className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest ml-1">Pick Start Time (09:00 - 22:00)</Label>
-                                                <Input 
-                                                    id="precise-time"
-                                                    type="time"
-                                                    value={selectedTime}
-                                                    onChange={(e) => setSelectedTime(e.target.value)}
-                                                    className="h-16 rounded-2xl border-2 text-xl font-bold px-6 focus:ring-primary focus:border-primary transition-all"
-                                                    min="09:00"
-                                                    max="22:00"
-                                                />
-                                            </div>
-                                            <div className={cn(
-                                                "w-full sm:flex-1 p-6 rounded-2xl border-2 border-dashed flex flex-col items-center justify-center text-center transition-all",
-                                                isCurrentTimeAvailable ? "bg-green-50 border-green-200 text-green-700" : "bg-red-50 border-red-200 text-red-700"
-                                            )}>
-                                                <div className="flex items-center gap-2 font-bold uppercase text-[10px] tracking-widest mb-1">
-                                                    {isCurrentTimeAvailable ? <CheckCircle2 className="h-4 w-4" /> : <XCircle className="h-4 w-4" />}
-                                                    {isCurrentTimeAvailable ? 'Availability Confirmed' : 'Clinical Conflict'}
+                                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-3 max-h-[300px] overflow-y-auto p-4 border-4 border-dashed rounded-[2rem] bg-slate-50/50 custom-scrollbar">
+                                            {upcomingAvailableTimes.length > 0 ? (
+                                                upcomingAvailableTimes.map((timeStr) => (
+                                                    <Button
+                                                        key={timeStr}
+                                                        variant={selectedTime === timeStr ? 'default' : 'outline'}
+                                                        className={cn(
+                                                            "h-14 rounded-2xl text-[11px] font-bold transition-all shadow-sm",
+                                                            selectedTime === timeStr ? "bg-primary text-white border-primary scale-105" : "bg-white border-slate-200 hover:border-primary/50"
+                                                        )}
+                                                        onClick={() => setSelectedTime(timeStr)}
+                                                    >
+                                                        {timeStr}
+                                                    </Button>
+                                                ))
+                                            ) : (
+                                                <div className="col-span-full py-12 text-center text-muted-foreground space-y-2">
+                                                    <Moon className="h-10 w-10 mx-auto opacity-20" />
+                                                    <p className="text-xs font-bold uppercase tracking-widest">No Remaining Slots Today</p>
+                                                    <p className="text-[10px] opacity-60">Please select another date for clinical availability.</p>
                                                 </div>
-                                                <p className="text-[9px] opacity-70 leading-tight">
-                                                    {isCurrentTimeAvailable ? `Professional 30m window open at ${selectedTime}.` : `Overlap detected. Please adjust start time.`}
-                                                </p>
-                                            </div>
+                                            )}
                                         </div>
                                     </div>
 
@@ -360,7 +375,7 @@ export default function DoctorDetailPage() {
                                             <AlertDialogTrigger asChild>
                                                 <Button 
                                                     className="w-full h-20 text-xl font-bold rounded-3xl shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90" 
-                                                    disabled={!isCurrentTimeAvailable || isBooking}
+                                                    disabled={!selectedTime || isBooking}
                                                 >
                                                     Finalize Booking {selectedTime && `@ ${selectedTime}`}
                                                 </Button>

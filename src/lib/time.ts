@@ -15,8 +15,8 @@ export const getNext7Days = () => {
 }
 
 /**
- * Generates granular 15-minute start times for a continuous clinical schedule.
- * Removes the old morning/afternoon/evening grouping.
+ * Generates granular 10-minute start times for a continuous clinical schedule.
+ * This ensures slots like 01:40 PM are available as requested for testing.
  */
 export const generateAvailableTimes = () => {
     const times = [];
@@ -26,11 +26,11 @@ export const generateAvailableTimes = () => {
     while (currentHour < 22) { // End at 10:00 PM
         const period = currentHour >= 12 ? "PM" : "AM";
         const displayHour = currentHour > 12 ? currentHour - 12 : (currentHour === 0 ? 12 : currentHour);
-        const displayMinute = currentMinute === 0 ? "00" : currentMinute;
+        const displayMinute = currentMinute.toString().padStart(2, '0');
         
         times.push(`${displayHour.toString().padStart(2, '0')}:${displayMinute} ${period}`);
         
-        currentMinute += 15;
+        currentMinute += 10;
         if (currentMinute >= 60) {
             currentMinute = 0;
             currentHour += 1;
