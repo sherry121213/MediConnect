@@ -138,9 +138,9 @@ export default function DoctorDetailPage() {
         proposedStart.setHours(hours, minutes, 0, 0);
         const proposedEnd = addMinutes(proposedStart, 30);
         
-        // Block past times if today
+        // DYNAMIC HIDING: Block past times if today
         if (isSameDay(selectedDate, nowTicker)) {
-            if (proposedStart < addMinutes(nowTicker, 10)) return false;
+            if (proposedStart < nowTicker) return false;
         }
 
         return !existingAppointments.some(apt => {
@@ -153,6 +153,7 @@ export default function DoctorDetailPage() {
 
     const upcomingAvailableTimes = useMemo(() => {
         const allTimes = generateAvailableTimes();
+        // Filters based on current time automatically
         return allTimes.filter(t => isSlotAvailable(t));
     }, [selectedDate, nowTicker, existingAppointments, mounted]);
 
@@ -286,7 +287,7 @@ export default function DoctorDetailPage() {
 
                             <div className="space-y-6">
                                 <h3 className="font-bold text-lg font-headline flex items-center gap-2 px-2">
-                                    <Star className="h-5 w-5 text-amber-500 fill-amber-500" /> Patient Feedback
+                                    <Star className="h-5 w-5 text-amber-500 fill-amber-400" /> Patient Feedback
                                 </h3>
                                 <div className="space-y-4">
                                     {isLoadingReviews ? (

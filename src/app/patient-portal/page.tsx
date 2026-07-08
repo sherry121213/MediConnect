@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -42,12 +41,14 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
         setIsSaving(true);
 
         const newDateTime = new Date(selectedDate);
-        const [hours, minutesPart] = selectedTime.split(':');
-        const [minutes, ampm] = minutesPart.split(' ');
-        let numericHours = parseInt(hours);
+        const [timePart, ampm] = selectedTime.split(' ');
+        const [hours, minutes] = timePart.split(':').map(Number);
+        
+        let numericHours = hours;
         if (ampm === 'PM' && numericHours !== 12) numericHours += 12;
         if (ampm === 'AM' && numericHours === 12) numericHours = 0;
-        newDateTime.setHours(numericHours, parseInt(minutes), 0, 0);
+        
+        newDateTime.setHours(numericHours, minutes, 0, 0);
 
         updateDocumentNonBlocking(doc(firestore, 'appointments', appointment.id), {
             appointmentDateTime: newDateTime.toISOString(),
@@ -59,6 +60,21 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
         toast({ title: "Session Rescheduled", description: `Your 30m visit with Dr. ${doctor?.lastName} is now set for ${format(newDateTime, "PPP p")}.` });
         setIsSaving(false);
         onOpenChange(false);
+    };
+
+    const isSlotPast = (timeStr: string) => {
+        if (!isSameDay(selectedDate, new Date())) return false;
+        
+        const [timePart, ampm] = timeStr.split(' ');
+        const [hours, minutes] = timePart.split(':').map(Number);
+        
+        const checkTime = new Date(selectedDate);
+        let numericHours = hours;
+        if (ampm === 'PM' && numericHours !== 12) numericHours += 12;
+        if (ampm === 'AM' && numericHours === 12) numericHours = 0;
+        
+        checkTime.setHours(numericHours, minutes, 0, 0);
+        return isBefore(checkTime, new Date());
     };
 
     return (
@@ -76,7 +92,10 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                                 {availableDates.map(day => (
                                     <button 
                                         key={day.date.toISOString()}
-                                        onClick={() => setSelectedDate(day.date)}
+                                        onClick={() => {
+                                            setSelectedDate(day.date);
+                                            setSelectedTime(null);
+                                        }}
                                         className={cn(
                                             "p-4 rounded-3xl border-2 transition-all shrink-0 w-28 text-center flex flex-col items-center justify-center gap-1",
                                             isSameDay(selectedDate, day.date) ? 'bg-primary/5 border-primary shadow-sm' : 'bg-background hover:bg-muted border-slate-100'
@@ -93,21 +112,28 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                         <div className="border-t pt-10">
                             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 2: Available 30m Slots</p>
                             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                                {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].map(time => (
-                                    <Button 
-                                        key={time}
-                                        variant={selectedTime === time ? 'default' : 'outline'}
-                                        size="sm"
-                                        onClick={() => setSelectedTime(time)}
-                                        className={cn(
-                                            "rounded-xl text-[10px] font-bold h-12 border-2",
-                                            selectedTime === time ? "bg-primary border-primary text-white" : "border-slate-100"
-                                        )}
-                                        disabled={doctor?.availability?.disabledSlots?.includes(time)}
-                                    >
-                                        {time}
-                                    </Button>
-                                ))}
+                                {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening]
+                                    .filter(time => !isSlotPast(time))
+                                    .map(time => (
+                                        <Button 
+                                            key={time}
+                                            variant={selectedTime === time ? 'default' : 'outline'}
+                                            size="sm"
+                                            onClick={() => setSelectedTime(time)}
+                                            className={cn(
+                                                "rounded-xl text-[10px] font-bold h-12 border-2",
+                                                selectedTime === time ? "bg-primary border-primary text-white" : "border-slate-100"
+                                            )}
+                                            disabled={doctor?.availability?.disabledSlots?.includes(time)}
+                                        >
+                                            {time}
+                                        </Button>
+                                    ))}
+                                {[...timeSlots.morning, ...timeSlots.afternoon, ...timeSlots.evening].filter(time => !isSlotPast(time)).length === 0 && (
+                                    <div className="col-span-full py-8 text-center text-muted-foreground italic">
+                                        No upcoming slots left for this date.
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
