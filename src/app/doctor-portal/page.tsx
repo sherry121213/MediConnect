@@ -1,11 +1,10 @@
 
-
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Siren, Trash2, RefreshCw, FileText, CheckCircle2, XCircle } from "lucide-react";
+import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Siren, Trash2, RefreshCw, FileText, CheckCircle2, XCircle, PhoneCall } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
@@ -149,7 +148,8 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
         if (!existingAppointments || !selectedDate || !selectedTimeStr) return { isAvailable: true, message: '' };
 
         const proposedStart = parse(selectedTimeStr, 'hh:mm a', selectedDate);
-        const proposedEnd = addMinutes(proposedStart, 15);
+        // Block is 20 mins to ensure gap
+        const proposedEnd = addMinutes(proposedStart, 20);
         const now = new Date();
 
         if (isSameDay(selectedDate, now) && isBefore(proposedStart, now)) {
@@ -159,11 +159,11 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
         const overlap = existingAppointments.find(apt => {
             if (!apt || apt.status === 'cancelled' || !apt.appointmentDateTime || apt.id === appointment.id) return false;
             const aptStart = new Date(apt.appointmentDateTime);
-            const aptEnd = addMinutes(aptStart, 15);
+            const aptEnd = addMinutes(aptStart, 20);
             return proposedStart < aptEnd && proposedEnd > aptStart;
         });
 
-        if (overlap) return { isAvailable: false, message: 'This window is already booked.' };
+        if (overlap) return { isAvailable: false, message: 'This 15+5 window is already booked.' };
 
         return { isAvailable: true, message: '' };
     }, [selectedTimeStr, selectedDate, existingAppointments, appointment.id]);
@@ -178,7 +178,8 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
             appointmentDateTime: newDateTime.toISOString(),
             status: 'scheduled', 
             updatedAt: new Date().toISOString(),
-            doctorInRoom: false
+            doctorInRoom: false,
+            readyToStart: false
         });
         toast({ title: "Session Rescheduled", description: `Appointment moved to ${format(newDateTime, "PPP p")}.` });
         setIsSaving(false);
@@ -213,7 +214,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
                             </div>
                         </div>
                         <div className="border-t pt-10">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Manual Time Adjustment</p>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Manual Time Adjustment (15+5)</p>
                             <div className="grid grid-cols-3 gap-3 p-4 border-2 rounded-2xl bg-slate-50">
                                 <div className="space-y-1">
                                     <Label className="text-[9px] uppercase font-bold text-muted-foreground">Hour</Label>
@@ -277,16 +278,17 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
     );
 }
 
-const AppointmentRow = ({ apt, patient, onSelect, isMounted }: { apt: Appointment, patient?: Patient, onSelect: (a: Appointment) => void, isMounted: boolean }) => {
+const AppointmentRow = ({ apt, patient, onSelect, onNotify, isMounted }: { apt: Appointment, patient?: Patient, onSelect: (a: Appointment) => void, onNotify: (a: Appointment) => void, isMounted: boolean }) => {
     const appointmentDate = new Date(apt.appointmentDateTime);
     const now = isMounted ? Date.now() : 0;
     
-    const bufferTime = appointmentDate.getTime() - (10 * 60 * 1000);
     const startTime = appointmentDate.getTime();
-    const endTime = appointmentDate.getTime() + (15 * 60 * 1000); 
+    // Buffer for early notification (e.g. 5 minutes before start)
+    const earlyBufferTime = startTime - (5 * 60 * 1000);
+    const endTime = startTime + (15 * 60 * 1000); 
 
     const isLive = isMounted && now >= startTime && now < endTime && apt.status === 'scheduled';
-    const isSoon = isMounted && now >= bufferTime && now < startTime && apt.status === 'scheduled';
+    const isNotifyRange = isMounted && now >= earlyBufferTime && now < startTime && apt.status === 'scheduled';
     const isMissed = isMounted && now >= endTime && apt.status !== 'completed';
 
     return (
@@ -301,15 +303,25 @@ const AppointmentRow = ({ apt, patient, onSelect, isMounted }: { apt: Appointmen
                 <div className="min-w-0">
                     <p className="font-bold text-sm truncate">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
                     <p className="text-[10px] text-muted-foreground flex items-center gap-1 uppercase font-bold tracking-tighter truncate">
-                        <Clock className="h-2.5 w-2.5 shrink-0" /> {format(appointmentDate, "p")} • 15m
+                        <Clock className="h-2.5 w-2.5 shrink-0" /> {format(appointmentDate, "p")} • 15+5m
                     </p>
                 </div>
             </div>
             <div className="flex items-center gap-4">
                 {isLive && <Badge className="bg-red-600 text-white animate-pulse text-[9px] px-2 font-bold h-auto py-1">LIVE NOW</Badge>}
-                {isSoon && <Badge className="bg-amber-100 text-amber-700 text-[9px] px-2 font-bold h-auto py-1 border-amber-200 uppercase">Soon</Badge>}
+                {isNotifyRange && (
+                    <Button 
+                        size="sm" 
+                        variant="outline" 
+                        className="h-8 text-[9px] font-bold border-primary text-primary hover:bg-primary hover:text-white"
+                        onClick={(e) => { e.stopPropagation(); onNotify(apt); }}
+                        disabled={apt.readyToStart}
+                    >
+                        <PhoneCall className="h-3 w-3 mr-1" /> {apt.readyToStart ? 'Patient Rung' : 'Ring Patient'}
+                    </Button>
+                )}
                 {isMissed && <Badge variant="destructive" className="text-[9px] px-2.5 py-1 h-auto font-bold uppercase">Missed</Badge>}
-                {!isLive && !isSoon && !isMissed && (
+                {!isLive && !isNotifyRange && !isMissed && (
                     <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("shrink-0 text-[10px] px-2.5 py-1 h-auto font-bold", apt.status === 'completed' ? "bg-green-100 text-green-800" : "text-primary border-primary/20")}>
                         {apt.status === 'scheduled' ? 'Scheduled' : apt.status === 'completed' ? 'Performed' : apt.status}
                     </Badge>
@@ -335,7 +347,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
     const onSubmit = (values: any) => {
         if (!firestore || isCompleted) return;
         const appointmentRef = doc(firestore, 'appointments', appointment.id);
-        updateDocumentNonBlocking(appointmentRef, { ...values, status: 'completed', updatedAt: new Date().toISOString(), doctorInRoom: false });
+        updateDocumentNonBlocking(appointmentRef, { ...values, status: 'completed', updatedAt: new Date().toISOString(), doctorInRoom: false, readyToStart: false });
         toast({ title: "Clinical Record Logged" });
         onOpenChange(false);
     };
@@ -343,14 +355,17 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
     const appointmentDate = new Date(appointment.appointmentDateTime);
     const now = isMounted ? Date.now() : 0;
     const startTime = appointmentDate.getTime();
-    const bufferTime = appointmentDate.getTime() - (10 * 60 * 1000);
-    const endTime = appointmentDate.getTime() + (15 * 60 * 1000); 
+    const earlyNotifyTime = startTime - (5 * 60 * 1000); // 5 min gap flexible start
+    const endTime = startTime + (15 * 60 * 1000); 
 
     const isLive = isMounted && now >= startTime && now < endTime && appointment.status === 'scheduled';
-    const isSoon = isMounted && now >= bufferTime && now < startTime && appointment.status === 'scheduled';
+    const isFlexibleEarly = isMounted && now >= earlyNotifyTime && now < startTime && appointment.status === 'scheduled';
     const isExpired = isMounted && now >= endTime && appointment.status !== 'completed';
 
     const handleStartRoom = () => {
+        if (isFlexibleEarly && !appointment.readyToStart && firestore) {
+            updateDocumentNonBlocking(doc(firestore, 'appointments', appointment.id), { readyToStart: true, doctorInRoom: true });
+        }
         onOpenChange(false);
         window.location.assign(`/consultation/${appointment.id}`);
     };
@@ -380,10 +395,10 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
                                             <ShieldCheck className="h-12 w-12 text-green-600 mx-auto" />
                                             <p className="font-bold text-xl text-green-800">Session Finalized</p>
                                         </div>
-                                    ) : isLive ? (
+                                    ) : (isLive || isFlexibleEarly) ? (
                                         <>
-                                            <Button onClick={handleStartRoom} className="h-16 text-lg font-bold shadow-2xl shadow-red-500/20 bg-red-600 hover:bg-red-700 animate-pulse rounded-2xl text-white">
-                                                <Video className="mr-3 h-6 w-6" /> Open Video Room
+                                            <Button onClick={handleStartRoom} className={cn("h-16 text-lg font-bold shadow-2xl rounded-2xl text-white", isLive ? "bg-red-600 hover:bg-red-700 animate-pulse" : "bg-primary hover:bg-primary/90")}>
+                                                <Video className="mr-3 h-6 w-6" /> {isLive ? "Open Video Room" : "Start Early (Flexible Gap)"}
                                             </Button>
                                             <Button variant="outline" className="h-14 text-sm font-bold w-full rounded-2xl gap-3 border-2" onClick={() => onPostpone(appointment)}>
                                                 <RefreshCw className="h-4 w-4 text-primary" /> Shift Session
@@ -404,7 +419,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
                                             <div className="p-6 bg-slate-50 border-2 rounded-3xl text-center">
                                                 <Clock className="h-8 w-8 text-slate-400 mx-auto mb-2" />
                                                 <p className="text-sm font-bold text-slate-600">Awaiting Start Time</p>
-                                                <p className="text-[10px] text-muted-foreground mt-1">Starts at {format(appointmentDate, "p")} (15m window)</p>
+                                                <p className="text-[10px] text-muted-foreground mt-1">Starts at {format(appointmentDate, "p")} (15+5m window)</p>
                                             </div>
                                             <Button variant="outline" className="h-16 text-lg font-bold w-full rounded-2xl gap-3 border-2 hover:bg-primary/5" onClick={() => onPostpone(appointment)}>
                                                 <RefreshCw className="h-4 w-4 text-primary" /> Shift Session
@@ -549,6 +564,12 @@ export default function DoctorPortalPage() {
 
     const handleSelectApt = (apt: Appointment) => { setSelectedAppointment(apt); setIsConsultOpen(true); };
     const handleTriggerPostpone = (apt: any) => { setSelectedAppointment(apt); setIsConsultOpen(false); setIsPostponeOpen(true); };
+    
+    const handleNotifyPatient = (apt: Appointment) => {
+        if (!firestore) return;
+        updateDocumentNonBlocking(doc(firestore, 'appointments', apt.id), { readyToStart: true, doctorInRoom: true });
+        toast({ title: "Patient Signaled", description: "Requesting patient to join early for the 15+5 slot." });
+    };
 
     if (!mounted || isUserLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
@@ -558,7 +579,7 @@ export default function DoctorPortalPage() {
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
                     <div className="space-y-1">
                         <h1 className="text-3xl font-bold font-headline text-slate-900">Practice Command</h1>
-                        <p className="text-muted-foreground text-sm font-medium flex items-center gap-2"><Activity className="h-4 w-4 text-primary" /> Real-time Clinical Performance Intelligence</p>
+                        <p className="text-muted-foreground text-sm font-medium flex items-center gap-2"><Activity className="h-4 w-4 text-primary" /> 15+5 Clinical Performance Intelligence</p>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 w-full md:w-auto">
                         <Card className="p-4 bg-primary text-white border-none shadow-xl shadow-primary/10 rounded-2xl">
@@ -567,7 +588,7 @@ export default function DoctorPortalPage() {
                         </Card>
                         <Card className="p-4 bg-white border-none shadow-sm rounded-2xl">
                             <p className="text-[10px] font-bold uppercase text-muted-foreground">Today's Load</p>
-                            <p className="text-xl font-bold text-primary">{stats.today} Patient Slots</p>
+                            <p className="text-xl font-bold text-primary">{stats.today} Slots</p>
                         </Card>
                         <Button onClick={() => setIsHistoryOpen(true)} variant="outline" className="col-span-2 sm:col-span-1 h-full font-bold gap-2 border-2 bg-white rounded-2xl text-xs"><History className="h-4 w-4 text-primary" /> Activity</Button>
                     </div>
@@ -595,7 +616,7 @@ export default function DoctorPortalPage() {
                             </CardHeader>
                             <CardContent className="p-0">
                                 {isLoadingAppointments ? <div className="p-12 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary/30" /></div> : 
-                                 activeQueue.length > 0 ? <div className="divide-y">{activeQueue.map(apt => apt && <AppointmentRow key={apt.id} apt={apt} patient={patientsMap.get(apt.patientId)} onSelect={handleSelectApt} isMounted={mounted} />)}</div> :
+                                 activeQueue.length > 0 ? <div className="divide-y">{activeQueue.map(apt => apt && <AppointmentRow key={apt.id} apt={apt} patient={patientsMap.get(apt.patientId)} onSelect={handleSelectApt} onNotify={handleNotifyPatient} isMounted={mounted} />)}</div> :
                                  <div className="p-12 text-center text-muted-foreground italic text-xs">No pending clinical entries.</div>}
                             </CardContent>
                         </Card>
@@ -607,7 +628,7 @@ export default function DoctorPortalPage() {
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                                     <div className="space-y-1">
                                         <CardTitle className="text-xl font-headline flex items-center gap-3"><Clock className="h-6 w-6 text-primary" /> Practice Timeline</CardTitle>
-                                        <CardDescription className="text-xs">Dynamic chronologic feed of all scheduled consultations (15m duration).</CardDescription>
+                                        <CardDescription className="text-xs">Dynamic chronological feed of all 15-minute consultations (with 5m gap).</CardDescription>
                                     </div>
                                     <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border-2 shadow-sm">
                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewDate(subDays(viewDate, 1))}><ChevronLeft className="h-4 w-4" /></Button>
@@ -641,7 +662,7 @@ export default function DoctorPortalPage() {
                                                             </div>
                                                             <div>
                                                                 <p className="font-bold text-slate-900">{patientsMap.get(apt.patientId)?.firstName} {patientsMap.get(apt.patientId)?.lastName || '...'}</p>
-                                                                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">{apt.appointmentType} • 15m</p>
+                                                                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">{apt.appointmentType} • 15m (+5m gap)</p>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -684,4 +705,3 @@ export default function DoctorPortalPage() {
         </main>
     );
 }
-

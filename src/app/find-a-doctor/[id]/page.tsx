@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck, Video, PhoneCall, Moon, ShieldAlert, CreditCard, Wallet, Landmark, CheckCircle2, XCircle, Quote, User, Activity, BriefcaseMedical, Calendar as CalendarIcon, ChevronRight, AlertCircle, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck, Video, PhoneCall, Moon, ShieldAlert, CreditCard, Wallet, Landmark, CheckCircle2, XCircle, Quote, User, Activity, BriefcaseMedical, Calendar as CalendarIcon, ChevronRight, AlertCircle, Eye, EyeOff, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -87,9 +87,9 @@ export default function DoctorDetailPage() {
     const doctorId = params.id as string;
 
     const [selectedDate, setSelectedDate] = useState(getNext7Days()[0].date);
-    const [selectedHour, setSelectedHour] = useState<string>("09");
-    const [selectedMinute, setSelectedMinute] = useState<string>("00");
-    const [selectedPeriod, setSelectedPeriod] = useState<string>("AM");
+    const [selectedHour, setSelectedHour] = useState<string>("");
+    const [selectedMinute, setSelectedMinute] = useState<string>("");
+    const [selectedPeriod, setSelectedPeriod] = useState<string>("");
     const [appointmentType, setAppointmentType] = useState<'Video Call' | 'Audio Call'>('Video Call');
     const [paymentMethod, setPaymentMethod] = useState<string>('Easypaisa');
     const [isBooking, setIsBooking] = useState(false);
@@ -109,7 +109,6 @@ export default function DoctorDetailPage() {
     const currentPeriod = currentHour24 >= 12 ? "PM" : "AM";
     const currentHour12 = currentHour24 > 12 ? currentHour24 - 12 : (currentHour24 === 0 ? 12 : currentHour24);
 
-    // Dynamic Filter Logic for Time Selectors
     const availablePeriods = useMemo(() => {
         if (!isToday) return ["AM", "PM"];
         if (currentPeriod === "PM") return ["PM"];
@@ -142,14 +141,17 @@ export default function DoctorDetailPage() {
         return allMins;
     }, [isToday, selectedHour, selectedPeriod, currentPeriod, currentHour12, currentMin]);
 
-    // Safety: Reset selection if it becomes unavailable
     useEffect(() => {
-        if (isToday) {
+        if (isToday && mounted) {
             if (!availablePeriods.includes(selectedPeriod)) setSelectedPeriod(availablePeriods[0]);
-            if (!availableHours.includes(selectedHour)) setSelectedHour(availableHours[0] || "09");
-            if (!availableMinutes.includes(selectedMinute)) setSelectedMinute(availableMinutes[0] || "00");
+            if (!availableHours.includes(selectedHour)) setSelectedHour(availableHours[0] || "");
+            if (!availableMinutes.includes(selectedMinute)) setSelectedMinute(availableMinutes[0] || "");
+        } else if (!isToday && mounted) {
+            if (!selectedPeriod) setSelectedPeriod("AM");
+            if (!selectedHour) setSelectedHour("09");
+            if (!selectedMinute) setSelectedMinute("00");
         }
-    }, [isToday, availablePeriods, availableHours, availableMinutes, selectedPeriod, selectedHour, selectedMinute]);
+    }, [isToday, availablePeriods, availableHours, availableMinutes, selectedPeriod, selectedHour, selectedMinute, mounted]);
 
     const doctorDocRef = useMemoFirebase(() => {
         if (!firestore || !doctorId) return null;
@@ -174,29 +176,32 @@ export default function DoctorDetailPage() {
     }, [firestore, doctorId]);
     const { data: existingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    const selectedTimeStr = useMemo(() => `${selectedHour}:${selectedMinute} ${selectedPeriod}`, [selectedHour, selectedMinute, selectedPeriod]);
+    const selectedTimeStr = useMemo(() => {
+        if (!selectedHour || !selectedMinute || !selectedPeriod) return "";
+        return `${selectedHour}:${selectedMinute} ${selectedPeriod}`;
+    }, [selectedHour, selectedMinute, selectedPeriod]);
 
     const timeValidation = useMemo(() => {
         if (!mounted || !existingAppointments || !selectedDate || !selectedTimeStr) return { isAvailable: true, message: '' };
 
         const proposedStart = parse(selectedTimeStr, 'hh:mm a', selectedDate);
-        const proposedEnd = addMinutes(proposedStart, 15);
+        // Protocol: 15 min consultation + 5 min flexible gap = 20 min block
+        const proposedEnd = addMinutes(proposedStart, 20);
 
-        // Past time check
         if (isSameDay(selectedDate, nowTicker) && isBefore(proposedStart, nowTicker)) {
             return { isAvailable: false, message: 'This time has already passed for today.' };
         }
 
-        // Overlap check
         const overlap = existingAppointments.find(apt => {
             if (!apt || apt.status === 'cancelled' || !apt.appointmentDateTime) return false;
             const aptStart = new Date(apt.appointmentDateTime);
-            const aptEnd = addMinutes(aptStart, 15);
+            // Block is 20 mins to ensure gap
+            const aptEnd = addMinutes(aptStart, 20);
             return proposedStart < aptEnd && proposedEnd > aptStart;
         });
 
         if (overlap) {
-            return { isAvailable: false, message: 'This clinical window is already booked by another patient.' };
+            return { isAvailable: false, message: 'This 15+5 clinical window is already booked.' };
         }
 
         return { isAvailable: true, message: '' };
@@ -242,7 +247,7 @@ export default function DoctorDetailPage() {
         };
         
         addDocumentNonBlocking(collection(firestore, 'appointments'), newAppointment);
-        toast({ title: "Receipt Submitted!", description: "Awaiting admin approval." });
+        toast({ title: "Receipt Submitted!", description: "Awaiting admin approval for your 15+5 session." });
         setIsBooking(false);
         router.push('/patient-portal');
     };
@@ -291,8 +296,8 @@ export default function DoctorDetailPage() {
 
                                 <div className="grid grid-cols-3 gap-2 border-y py-6 mx-8 border-slate-50">
                                     <div className="text-center space-y-1 border-r border-slate-50">
-                                        <p className="text-sm font-bold text-slate-900">15 Min</p>
-                                        <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest">Duration</p>
+                                        <p className="text-sm font-bold text-slate-900">15+5 Min</p>
+                                        <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest">Protocol</p>
                                     </div>
                                     <div className="text-center space-y-1 border-r border-slate-50">
                                         <p className="text-sm font-bold text-slate-900">{doctor?.experience || 12} Yrs</p>
@@ -331,9 +336,9 @@ export default function DoctorDetailPage() {
                                     <div className="flex items-center justify-between">
                                         <div className="space-y-1">
                                             <CardTitle className="text-2xl font-headline flex items-center gap-3">
-                                                <CalendarDays className="h-7 w-7 text-primary"/> Manual Clinical Scheduling
+                                                <CalendarDays className="h-7 w-7 text-primary"/> Precision Scheduling
                                             </CardTitle>
-                                            <p className="text-sm text-muted-foreground">Adjust your consultation start time to any exact minute.</p>
+                                            <p className="text-sm text-muted-foreground">Select your exact start time for a 15-minute consultation.</p>
                                         </div>
                                     </div>
                                 </CardHeader>
@@ -363,7 +368,7 @@ export default function DoctorDetailPage() {
 
                                     <div>
                                         <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6 flex items-center gap-3">
-                                            <div className="h-1 w-6 bg-primary rounded-full" /> Step 2: Set Precise Time (e.g. 6:08)
+                                            <div className="h-1 w-6 bg-primary rounded-full" /> Step 2: Set Exact Start Time
                                         </h4>
                                         <div className="flex flex-col gap-6 p-8 border-4 border-dashed rounded-[2rem] bg-slate-50/50">
                                             <div className="grid grid-cols-3 gap-4">
@@ -371,7 +376,7 @@ export default function DoctorDetailPage() {
                                                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Hour</Label>
                                                     <Select value={selectedHour} onValueChange={setSelectedHour}>
                                                         <SelectTrigger className="h-14 rounded-2xl border-2 bg-white font-bold text-lg">
-                                                            <SelectValue />
+                                                            <SelectValue placeholder="--" />
                                                         </SelectTrigger>
                                                         <SelectContent className="rounded-xl border-none shadow-2xl max-h-[250px]">
                                                             {availableHours.map(h => (
@@ -384,7 +389,7 @@ export default function DoctorDetailPage() {
                                                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Minute</Label>
                                                     <Select value={selectedMinute} onValueChange={setSelectedMinute}>
                                                         <SelectTrigger className="h-14 rounded-2xl border-2 bg-white font-bold text-lg">
-                                                            <SelectValue />
+                                                            <SelectValue placeholder="--" />
                                                         </SelectTrigger>
                                                         <SelectContent className="rounded-xl border-none shadow-2xl max-h-[250px]">
                                                             {availableMinutes.map(m => (
@@ -397,7 +402,7 @@ export default function DoctorDetailPage() {
                                                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Period</Label>
                                                     <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
                                                         <SelectTrigger className="h-14 rounded-2xl border-2 bg-white font-bold text-lg">
-                                                            <SelectValue />
+                                                            <SelectValue placeholder="--" />
                                                         </SelectTrigger>
                                                         <SelectContent className="rounded-xl border-none shadow-2xl">
                                                             {availablePeriods.map(p => (
@@ -414,14 +419,22 @@ export default function DoctorDetailPage() {
                                                     <p className="text-xs text-red-800 font-bold">{timeValidation.message}</p>
                                                 </div>
                                             ) : selectedTimeStr ? (
-                                                <div className="p-4 bg-green-50 border border-green-200 rounded-2xl flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <CheckCircle2 className="h-5 w-5 text-green-600" />
-                                                        <p className="text-xs text-green-800 font-bold uppercase">Clinical Slot Valid</p>
+                                                <div className="space-y-4">
+                                                    <div className="p-4 bg-green-50 border border-green-200 rounded-2xl flex items-center justify-between">
+                                                        <div className="flex items-center gap-3">
+                                                            <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                                            <p className="text-xs text-green-800 font-bold uppercase">Clinical Slot Valid</p>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <p className="text-[9px] font-bold text-green-600 uppercase tracking-widest">15m Window</p>
+                                                            <p className="text-sm font-bold text-green-800">{selectedTimeStr}</p>
+                                                        </div>
                                                     </div>
-                                                    <div className="text-right">
-                                                        <p className="text-[9px] font-bold text-green-600 uppercase tracking-widest">15m Professional Window</p>
-                                                        <p className="text-sm font-bold text-green-800">{selectedTimeStr} - {format(addMinutes(parse(selectedTimeStr, 'hh:mm a', selectedDate), 15), "hh:mm a")}</p>
+                                                    <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl flex gap-3">
+                                                        <Info className="h-5 w-5 text-primary shrink-0" />
+                                                        <p className="text-[10px] text-muted-foreground leading-relaxed italic">
+                                                            <strong>Note:</strong> A 5-minute professional gap follows your 15-minute slot. If the doctor is ready during this gap, they may signal you to start your upcoming session early.
+                                                        </p>
                                                     </div>
                                                 </div>
                                             ) : null}
@@ -433,16 +446,16 @@ export default function DoctorDetailPage() {
                                             <AlertDialogTrigger asChild>
                                                 <Button 
                                                     className="w-full h-20 text-xl font-bold rounded-3xl shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90" 
-                                                    disabled={!timeValidation.isAvailable || isBooking}
+                                                    disabled={!timeValidation.isAvailable || !selectedTimeStr || isBooking}
                                                 >
-                                                    Book Consultation at {selectedTimeStr}
+                                                    Book Consultation at {selectedTimeStr || '--:--'}
                                                 </Button>
                                             </AlertDialogTrigger>
                                             <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-lg max-h-[95vh] overflow-y-auto custom-scrollbar p-0">
                                                 <div className="p-8 sm:p-10 space-y-8">
                                                     <AlertDialogHeader>
                                                         <AlertDialogTitle className="text-2xl font-headline">Secure Payment</AlertDialogTitle>
-                                                        <AlertDialogDescription>Complete the consultation fee transfer to confirm your precision 15m session.</AlertDialogDescription>
+                                                        <AlertDialogDescription>Confirm your precision 15+5 minute professional window.</AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     
                                                     <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10 text-center">
@@ -494,4 +507,3 @@ export default function DoctorDetailPage() {
         </div>
     );
 }
-

@@ -63,6 +63,7 @@ export interface Appointment {
   paymentStatus?: 'pending' | 'approved' | 'rejected';
   paymentMethod?: string;
   doctorInRoom?: boolean;
+  readyToStart?: boolean; // Signal from doctor to patient
 }
 
 export interface Review {

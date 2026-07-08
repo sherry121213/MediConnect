@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -6,7 +7,7 @@ import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } fro
 import { collection, doc, setDoc, onSnapshot, addDoc, updateDoc, deleteDoc, getDocs, query } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, User, Clock, Video as VideoIcon, AlertTriangle, ClipboardCheck, CheckCircle2 } from 'lucide-react';
+import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, User, Clock, Video as VideoIcon, AlertTriangle, ClipboardCheck, CheckCircle2, Siren } from 'lucide-react';
 import { format, isValid, addMinutes, isAfter, differenceInSeconds } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/form';
 
 const servers = {
   iceServers: [
@@ -50,7 +51,7 @@ export default function ConsultationRoomPage() {
   const [isPeerConnected, setIsPeerConnected] = useState(false);
   const [signalingStatus, setSignalingStatus] = useState('Initializing Secure Channel...');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [timeRemaining, setTimeRemaining] = useState<string>('15:00'); // Updated to 15 mins
+  const [timeRemaining, setTimeRemaining] = useState<string>('15:00'); 
   const [isExpired, setIsExpired] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
 
@@ -77,12 +78,12 @@ export default function ConsultationRoomPage() {
     },
   });
 
-  // 1. Session Expiry & Timer Logic (15 Minute Threshold)
+  // 1. Session Expiry & Timer Logic (15 Minute Protocol)
   useEffect(() => {
     if (!appointment?.appointmentDateTime || appointment?.status === 'completed') return;
 
     const startTime = new Date(appointment.appointmentDateTime);
-    const endTime = addMinutes(startTime, 15); // Dynamic 15 min duration
+    const endTime = addMinutes(startTime, 15); 
 
     const timer = setInterval(() => {
       const now = new Date();
@@ -103,8 +104,8 @@ export default function ConsultationRoomPage() {
         if (secondsLeft === 60) {
           toast({
             variant: "destructive",
-            title: "Session Ending Soon",
-            description: "60 seconds remaining in clinical window.",
+            title: "15m Slot Ending",
+            description: "60 seconds remaining. 5m professional gap follows.",
           });
         }
       }
@@ -120,14 +121,15 @@ export default function ConsultationRoomPage() {
     if (userData?.role === 'doctor' && firestore && appointment) {
         updateDocumentNonBlocking(doc(firestore, 'appointments', appointmentId), { 
             status: 'expired',
-            doctorInRoom: false 
+            doctorInRoom: false,
+            readyToStart: false 
         });
     }
 
     toast({
       variant: "destructive",
-      title: "Session Expired",
-      description: "The 15-minute clinical window has concluded.",
+      title: "15m Window Concluded",
+      description: "Entering 5-minute professional administrative gap.",
     });
 
     setTimeout(() => {
@@ -326,7 +328,7 @@ export default function ConsultationRoomPage() {
       isEffectActive = false;
       unsubs.forEach(unsub => unsub());
       if (userData?.role === 'doctor') {
-        updateDoc(doc(firestore, 'appointments', appointmentId), { doctorInRoom: false }).catch(() => {});
+        updateDoc(doc(firestore, 'appointments', appointmentId), { doctorInRoom: false, readyToStart: false }).catch(() => {});
       }
       if (pc.current) {
         pc.current.close();
@@ -377,7 +379,8 @@ export default function ConsultationRoomPage() {
         ...values, 
         status: 'completed', 
         updatedAt: new Date().toISOString(),
-        doctorInRoom: false 
+        doctorInRoom: false,
+        readyToStart: false 
     });
 
     toast({ title: "Consultation Completed", description: "Clinical records finalized and session archived." });
@@ -399,7 +402,7 @@ export default function ConsultationRoomPage() {
     
     setIsEnding(true);
     if (userData?.role === 'doctor' && firestore && appointment) {
-        updateDocumentNonBlocking(doc(firestore, 'appointments', appointmentId), { doctorInRoom: false });
+        updateDocumentNonBlocking(doc(firestore, 'appointments', appointmentId), { doctorInRoom: false, readyToStart: false });
     }
     router.push(userData?.role === 'doctor' ? '/doctor-portal' : '/patient-portal');
   };
@@ -444,18 +447,22 @@ export default function ConsultationRoomPage() {
               <ShieldCheck className="text-primary h-5 w-5" />
             </div>
             <div>
-              <h1 className="font-bold text-sm uppercase">Secure Consultation</h1>
-              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{isCompleted ? 'Consultation Archived' : signalingStatus}</p>
+              <h1 className="font-bold text-sm uppercase">Secure 15+5 Room</h1>
+              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{isCompleted ? 'Archived' : signalingStatus}</p>
             </div>
           </div>
           <div className="flex items-center gap-3 pointer-events-auto">
-            {!isCompleted && (
+            {(!isCompleted && isAfter(new Date(), new Date(appointment?.appointmentDateTime))) ? (
                  <div className="bg-slate-900/60 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 flex items-center gap-2">
                     <Clock className="h-4 w-4 text-primary" />
                     <span className={cn("font-mono text-sm font-bold", parseInt(timeRemaining.split(':')[0]) < 5 ? "text-red-500 animate-pulse" : "text-white")}>
                         {timeRemaining}
                     </span>
                 </div>
+            ) : !isCompleted && (
+                <Badge variant="outline" className="bg-primary/20 text-primary border-primary/40 font-bold px-4 py-2 rounded-full uppercase text-[10px]">
+                   <Siren className="h-3 w-3 mr-2 animate-pulse" /> Early Flexible Start
+                </Badge>
             )}
             <Badge variant="outline" className={cn("gap-1.5 px-3 py-1 text-[10px] font-bold hidden sm:flex", isCompleted ? "bg-green-50/10 text-green-400 border-green-500/20" : "bg-red-50/10 text-red-400 border-red-500/20")}>
               <div className={cn("h-1.5 w-1.5 rounded-full", isCompleted ? "bg-green-50" : "bg-red-50 animate-pulse")} /> 
@@ -474,8 +481,8 @@ export default function ConsultationRoomPage() {
                     <AlertTriangle className="h-12 w-12" />
                  </div>
                  <div className="space-y-2">
-                    <h2 className="text-2xl font-bold">Clinical Window Closed</h2>
-                    <p className="text-slate-400 max-w-md">This session has exceeded the 15-minute professional limit and is now archived.</p>
+                    <h2 className="text-2xl font-bold">15m Clinical Slot Concluded</h2>
+                    <p className="text-slate-400 max-w-md">Entering 5-minute professional gap. Please finalize records.</p>
                  </div>
                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
@@ -486,7 +493,7 @@ export default function ConsultationRoomPage() {
                 </div>
                 <div className="space-y-2">
                    <h2 className="text-2xl font-bold text-green-400">Consultation Finalized</h2>
-                   <p className="text-slate-400 max-w-md">The clinical record has been secured. You are being redirected to your dashboard.</p>
+                   <p className="text-slate-400 max-w-md">The record has been secured. Gap period active.</p>
                 </div>
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
            </div>
@@ -513,7 +520,7 @@ export default function ConsultationRoomPage() {
                         </div>
                         <div className="text-center px-6">
                             <p className="font-bold text-xl mb-2">Establishing Secure Link</p>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Encrypted End-to-End Tunnel</p>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">15+5 Clinical Tunnel</p>
                         </div>
                     </div>
                 )}
@@ -569,7 +576,7 @@ export default function ConsultationRoomPage() {
                     </TabsTrigger>
                     {isDoctor && (
                         <TabsTrigger value="notes" className="flex-1 text-[10px] uppercase font-bold tracking-widest gap-2">
-                            <ClipboardCheck className="h-3.5 w-3.5" /> Clinical Entry
+                            <ClipboardCheck className="h-3.5 w-3.5" /> Record Entry
                         </TabsTrigger>
                     )}
                 </TabsList>
@@ -596,7 +603,7 @@ export default function ConsultationRoomPage() {
 
                 <form onSubmit={handleSendMessage} className="p-4 bg-slate-950/80 border-t border-white/5 flex gap-2">
                     <Input 
-                        placeholder={isExpired || isCompleted ? "Chat closed..." : "Secure message..."}
+                        placeholder={isExpired || isCompleted ? "Gap period active..." : "Secure message..."}
                         disabled={isExpired || isCompleted}
                         className="bg-slate-900/50 border-white/10 text-white h-11 text-xs rounded-2xl focus:ring-primary" 
                         value={newMessage} 
@@ -613,10 +620,10 @@ export default function ConsultationRoomPage() {
                     <div className="space-y-6">
                         <div className="bg-primary/5 p-4 rounded-2xl border border-primary/20 space-y-2">
                             <h3 className="text-sm font-bold text-primary flex items-center gap-2">
-                                <AlertTriangle className="h-4 w-4" /> Completion Policy
+                                <AlertTriangle className="h-4 w-4" /> Finalization Gap
                             </h3>
                             <p className="text-[10px] text-slate-400 leading-relaxed italic">
-                                Once finalized, this session is marked as "Completed" and the patient will receive their summary. This overrides any expiry timers.
+                                Once finalized, the patient receives their summary. Use the 5-minute gap for clinical thoroughness.
                             </p>
                         </div>
 
@@ -649,7 +656,7 @@ export default function ConsultationRoomPage() {
                                             <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Treatment & Advice</FormLabel>
                                             <FormControl>
                                                 <Textarea 
-                                                    placeholder="List medications, dosage, and follow-up advice..." 
+                                                    placeholder="List medications and follow-up advice..." 
                                                     rows={8}
                                                     className="bg-slate-900/50 border-white/10 text-white rounded-xl resize-none"
                                                     {...field}
@@ -667,7 +674,7 @@ export default function ConsultationRoomPage() {
                                     disabled={isCompleted || isFinalizing}
                                 >
                                     {isFinalizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardCheck className="h-5 w-5" />}
-                                    Finalize & Complete Session
+                                    Complete Session
                                 </Button>
                             </form>
                         </Form>
