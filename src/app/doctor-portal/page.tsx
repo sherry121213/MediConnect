@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
@@ -82,7 +83,59 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
     const [selectedMinute, setSelectedMinute] = useState<string>("00");
     const [selectedPeriod, setSelectedPeriod] = useState<string>("AM");
     const [isSaving, setIsSaving] = useState(false);
+    const [nowTicker, setNowTicker] = useState(new Date());
     const availableDates = getNext7Days();
+
+    useEffect(() => {
+        const interval = setInterval(() => setNowTicker(new Date()), 60000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const isToday = isSameDay(selectedDate, nowTicker);
+    const currentHour24 = nowTicker.getHours();
+    const currentMin = nowTicker.getMinutes();
+    const currentPeriod = currentHour24 >= 12 ? "PM" : "AM";
+    const currentHour12 = currentHour24 > 12 ? currentHour24 - 12 : (currentHour24 === 0 ? 12 : currentHour24);
+
+    const availablePeriods = useMemo(() => {
+        if (!isToday) return ["AM", "PM"];
+        if (currentPeriod === "PM") return ["PM"];
+        return ["AM", "PM"];
+    }, [isToday, currentPeriod]);
+
+    const availableHours = useMemo(() => {
+        const allHours = Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, '0'));
+        if (!isToday) return allHours;
+
+        return allHours.filter(h => {
+            const hNum = parseInt(h);
+            if (selectedPeriod === currentPeriod) {
+                const compareH = hNum === 12 ? 0 : hNum;
+                const currentCompareH = currentHour12 === 12 ? 0 : currentHour12;
+                return compareH >= currentCompareH;
+            }
+            return true;
+        });
+    }, [isToday, selectedPeriod, currentPeriod, currentHour12]);
+
+    const availableMinutes = useMemo(() => {
+        const allMins = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
+        if (!isToday) return allMins;
+
+        const hNum = parseInt(selectedHour);
+        if (selectedPeriod === currentPeriod && hNum === currentHour12) {
+            return allMins.filter(m => parseInt(m) > currentMin);
+        }
+        return allMins;
+    }, [isToday, selectedHour, selectedPeriod, currentPeriod, currentHour12, currentMin]);
+
+    useEffect(() => {
+        if (isToday) {
+            if (!availablePeriods.includes(selectedPeriod)) setSelectedPeriod(availablePeriods[0]);
+            if (!availableHours.includes(selectedHour)) setSelectedHour(availableHours[0] || "09");
+            if (!availableMinutes.includes(selectedMinute)) setSelectedMinute(availableMinutes[0] || "00");
+        }
+    }, [isToday, availablePeriods, availableHours, availableMinutes, selectedPeriod, selectedHour, selectedMinute]);
 
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !appointment?.doctorId) return null;
@@ -99,12 +152,10 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
         const proposedEnd = addMinutes(proposedStart, 15);
         const now = new Date();
 
-        // Past time check
         if (isSameDay(selectedDate, now) && isBefore(proposedStart, now)) {
             return { isAvailable: false, message: 'This time has already passed for today.' };
         }
 
-        // Overlap check
         const overlap = existingAppointments.find(apt => {
             if (!apt || apt.status === 'cancelled' || !apt.appointmentDateTime || apt.id === appointment.id) return false;
             const aptStart = new Date(apt.appointmentDateTime);
@@ -162,7 +213,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
                             </div>
                         </div>
                         <div className="border-t pt-10">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Manual Time Adjustment (e.g. 6:08)</p>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Manual Time Adjustment</p>
                             <div className="grid grid-cols-3 gap-3 p-4 border-2 rounded-2xl bg-slate-50">
                                 <div className="space-y-1">
                                     <Label className="text-[9px] uppercase font-bold text-muted-foreground">Hour</Label>
@@ -171,10 +222,9 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent className="max-h-[200px] rounded-xl border-none shadow-xl">
-                                            {Array.from({length: 12}).map((_, i) => {
-                                                const h = (i + 1).toString().padStart(2, '0');
-                                                return <SelectItem key={h} value={h}>{h}</SelectItem>
-                                            })}
+                                            {availableHours.map(h => (
+                                                <SelectItem key={h} value={h}>{h}</SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -185,10 +235,9 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent className="max-h-[200px] rounded-xl border-none shadow-xl">
-                                            {Array.from({length: 60}).map((_, i) => {
-                                                const m = i.toString().padStart(2, '0');
-                                                return <SelectItem key={m} value={m}>{m}</SelectItem>
-                                            })}
+                                            {availableMinutes.map(m => (
+                                                <SelectItem key={m} value={m}>{m}</SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -199,8 +248,9 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
                                             <SelectValue />
                                         </SelectTrigger>
                                         <SelectContent className="rounded-xl border-none shadow-xl">
-                                            <SelectItem value="AM">AM</SelectItem>
-                                            <SelectItem value="PM">PM</SelectItem>
+                                            {availablePeriods.map(p => (
+                                                <SelectItem key={p} value={p}>{p}</SelectItem>
+                                            ))}
                                         </SelectContent>
                                     </Select>
                                 </div>
@@ -634,3 +684,4 @@ export default function DoctorPortalPage() {
         </main>
     );
 }
+
