@@ -10,7 +10,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck, Video, PhoneCall, Moon, ShieldAlert, CreditCard, Wallet, Landmark, CheckCircle2, XCircle, Quote, User, Activity, BriefcaseMedical, Calendar as CalendarIcon, ChevronRight, AlertCircle, Eye, EyeOff, Info } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck, Video, PhoneCall, Moon, ShieldAlert, CreditCard, Wallet, Landmark, CheckCircle2, XCircle, Quote, User, Activity, BriefcaseMedical, Calendar as CalendarIcon, ChevronRight, AlertCircle, Eye, EyeOff, Info, Copy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -220,7 +220,7 @@ export default function DoctorDetailPage() {
             router.push('/login');
             return;
         }
-        if (!timeValidation.isAvailable || !firestore || !doctor) {
+        if (!timeValidation.isAvailable || !selectedTimeStr || !firestore || !doctor) {
             toast({ variant: 'destructive', title: 'Invalid Selection', description: timeValidation.message || 'Please select a valid time.' });
             return;
         }
@@ -264,6 +264,12 @@ export default function DoctorDetailPage() {
     
     const doctorImage = placeholderImages.find(p => p.id === doctor?.profileImageId);
     const dateOptions = getNext7Days();
+
+    const paymentChannels = [
+        { id: 'Easypaisa', label: 'Easypaisa', account: '03120555772', icon: Wallet, color: 'bg-green-500' },
+        { id: 'Jazz Cash', label: 'JazzCash', account: '03120555772', icon: Wallet, color: 'bg-amber-500' },
+        { id: 'UBL Bank', label: 'UBL Bank', account: 'PK0103120555772', icon: Landmark, color: 'bg-blue-700' },
+    ];
 
     return (
         <div className="flex flex-col min-h-screen bg-slate-50">
@@ -451,11 +457,11 @@ export default function DoctorDetailPage() {
                                                     Book Consultation at {selectedTimeStr || '--:--'}
                                                 </Button>
                                             </AlertDialogTrigger>
-                                            <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-lg max-h-[95vh] overflow-y-auto custom-scrollbar p-0">
+                                            <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-xl max-h-[95vh] overflow-y-auto custom-scrollbar p-0">
                                                 <div className="p-8 sm:p-10 space-y-8">
                                                     <AlertDialogHeader>
                                                         <AlertDialogTitle className="text-2xl font-headline">Secure Payment</AlertDialogTitle>
-                                                        <AlertDialogDescription>Confirm your precision 15+5 minute professional window.</AlertDialogDescription>
+                                                        <AlertDialogDescription>Confirm your precision 15+5 minute professional window via our trusted channels.</AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     
                                                     <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10 text-center">
@@ -463,12 +469,64 @@ export default function DoctorDetailPage() {
                                                         <p className="text-5xl font-bold text-foreground font-headline">PKR 1,500</p>
                                                     </div>
 
+                                                    <div className="space-y-6">
+                                                        <Label className="text-[10px] font-bold uppercase tracking-widest ml-1">Step 1: Choose Payment Channel</Label>
+                                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                            {paymentChannels.map((channel) => (
+                                                                <button
+                                                                    key={channel.id}
+                                                                    onClick={() => setPaymentMethod(channel.id)}
+                                                                    className={cn(
+                                                                        "p-4 rounded-2xl border-2 transition-all text-left flex flex-col gap-3 group",
+                                                                        paymentMethod === channel.id ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 bg-white hover:border-slate-200"
+                                                                    )}
+                                                                >
+                                                                    <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center text-white", channel.color)}>
+                                                                        <channel.icon className="h-4 w-4" />
+                                                                    </div>
+                                                                    <div>
+                                                                        <p className="text-[10px] font-bold uppercase text-slate-900">{channel.label}</p>
+                                                                        <p className="text-[8px] font-bold text-muted-foreground uppercase mt-0.5">Secure Channel</p>
+                                                                    </div>
+                                                                </button>
+                                                            ))}
+                                                        </div>
+
+                                                        {/* Dynamic Account Instruction Card */}
+                                                        <div className="p-6 bg-slate-900 text-white rounded-3xl space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                                                            <div className="flex justify-between items-start">
+                                                                <div>
+                                                                    <p className="text-[9px] uppercase font-bold text-slate-400 tracking-widest mb-1">Transfer to account:</p>
+                                                                    <h4 className="text-xl font-bold font-headline">{paymentMethod}</h4>
+                                                                </div>
+                                                                <Badge className="bg-primary/20 text-primary border-none">ACTIVE</Badge>
+                                                            </div>
+                                                            <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10 group cursor-pointer hover:bg-white/10 transition-colors" onClick={() => {
+                                                                const account = paymentChannels.find(c => c.id === paymentMethod)?.account || '';
+                                                                navigator.clipboard.writeText(account);
+                                                                toast({ title: "Account Copied" });
+                                                            }}>
+                                                                <span className="text-2xl font-mono font-bold tracking-tight">
+                                                                    {paymentChannels.find(c => c.id === paymentMethod)?.account}
+                                                                </span>
+                                                                <Copy className="h-5 w-5 text-slate-500 group-hover:text-primary transition-colors" />
+                                                            </div>
+                                                            <p className="text-[10px] text-slate-400 leading-relaxed italic">
+                                                                Please complete the transfer of <strong>PKR 1,500</strong> before uploading the receipt image below.
+                                                            </p>
+                                                        </div>
+                                                    </div>
+
                                                     <div className="space-y-4">
-                                                        <Label className="text-[10px] font-bold uppercase tracking-widest ml-1">Select Proof of Transfer</Label>
-                                                        <label htmlFor="receipt-upload" className="flex flex-col items-center justify-center w-full h-36 border-4 border-dashed rounded-[2rem] cursor-pointer bg-slate-50 hover:bg-slate-100 border-slate-200">
+                                                        <Label className="text-[10px] font-bold uppercase tracking-widest ml-1">Step 2: Upload Proof of Transfer</Label>
+                                                        <label htmlFor="receipt-upload" className={cn(
+                                                            "flex flex-col items-center justify-center w-full h-40 border-4 border-dashed rounded-[2.5rem] cursor-pointer transition-all",
+                                                            paymentReceipt ? "bg-green-50 border-green-200" : "bg-slate-50 hover:bg-slate-100 border-slate-200"
+                                                        )}>
                                                             <div className="flex flex-col items-center justify-center pt-4 pb-5 text-center px-4">
-                                                                <Activity className="w-8 h-8 mb-3 text-primary/30" />
-                                                                <p className="text-sm font-bold text-primary">Upload Transfer Receipt</p>
+                                                                {paymentReceipt ? <CheckCircle2 className="w-10 h-10 mb-3 text-green-500" /> : <Activity className="w-10 h-10 mb-3 text-primary/30" />}
+                                                                <p className="text-sm font-bold text-primary">{paymentReceipt ? "Receipt Attached" : "Click to Upload Receipt"}</p>
+                                                                <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-tighter mt-1">{paymentReceipt ? "Verification in Queue" : "JPEG or PNG Image Only"}</p>
                                                             </div>
                                                             <Input 
                                                                 id="receipt-upload"
@@ -490,7 +548,7 @@ export default function DoctorDetailPage() {
                                                         <AlertDialogCancel className="rounded-2xl h-14 border-2 flex-1">Go Back</AlertDialogCancel>
                                                         <AlertDialogAction onClick={handleConfirmBooking} disabled={!paymentReceipt || isBooking} className="rounded-2xl h-14 bg-primary font-bold shadow-2xl shadow-primary/20 flex-1">
                                                             {isBooking ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null}
-                                                            Complete Booking
+                                                            Finalize Booking
                                                         </AlertDialogAction>
                                                     </AlertDialogFooter>
                                                 </div>
