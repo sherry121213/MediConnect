@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -105,7 +104,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
         if (!existingAppointments || !selectedDate || !selectedTimeStr) return { isAvailable: true, message: '' };
 
         const proposedStart = parse(selectedTimeStr, 'hh:mm a', selectedDate);
-        // Protocol: 15+5 block (20 mins)
+        // Precision Session: 15+5 block (20 mins)
         const proposedEnd = addMinutes(proposedStart, 20);
         const now = new Date();
 
@@ -120,7 +119,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
             return proposedStart < aptEnd && proposedEnd > aptStart;
         });
 
-        if (overlap) return { isAvailable: false, message: 'This 15+5 window is already booked.' };
+        if (overlap) return { isAvailable: false, message: 'This clinical window is already booked.' };
 
         return { isAvailable: true, message: '' };
     }, [selectedTimeStr, selectedDate, existingAppointments, appointment.id]);
@@ -139,7 +138,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
             readyToStart: false
         });
 
-        toast({ title: "Session Rescheduled", description: `Your visit with Dr. ${doctor?.lastName} is now set for ${format(newDateTime, "PPP p")}.` });
+        toast({ title: "Clinical Session Rescheduled", description: `Your visit with Dr. ${doctor?.lastName} is now set for ${format(newDateTime, "PPP p")}.` });
         setIsSaving(false);
         onOpenChange(false);
     };
@@ -148,7 +147,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
             <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[90dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-primary p-6 sm:p-8 text-white shrink-0">
-                    <DialogTitle className="text-xl sm:text-2xl font-headline">Reschedule Consultation</DialogTitle>
+                    <DialogTitle className="text-xl sm:text-2xl font-headline">Reschedule Clinical Session</DialogTitle>
                     <DialogDescription className="text-primary-foreground/80 mt-1 font-medium">Adjust your precision start time.</DialogDescription>
                 </div>
                 <div className="flex-1 overflow-y-auto bg-white overscroll-contain custom-scrollbar">
@@ -174,7 +173,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                         </div>
 
                         <div className="border-t pt-10">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 2: Precise Adjustment (15+5)</p>
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 2: Precise Adjustment (Precision Window)</p>
                             <div className="p-6 border-4 border-dashed rounded-[2rem] bg-slate-50/50 space-y-6">
                                 <div className="grid grid-cols-3 gap-3">
                                     <div className="space-y-2">
@@ -226,7 +225,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                                 ) : selectedTimeStr ? (
                                     <div className="p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-2">
                                         <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                        <p className="text-[10px] text-green-800 font-bold uppercase">Time Slot Valid: {selectedTimeStr}</p>
+                                        <p className="text-[10px] text-green-800 font-bold uppercase">Clinical Window Valid: {selectedTimeStr}</p>
                                     </div>
                                 ) : null}
                             </div>
@@ -263,7 +262,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
     }, [apt?.appointmentDateTime]);
     
     const now = isMounted ? Date.now() : 0;
-    const bufferTime = appointmentDate ? appointmentDate.getTime() - (5 * 60 * 1000) : 0; // Pre-session gap
+    const bufferTime = appointmentDate ? appointmentDate.getTime() - (5 * 60 * 1000) : 0; // Buffer for ringing
     const startTime = appointmentDate ? appointmentDate.getTime() : 0; 
     const endTime = appointmentDate ? appointmentDate.getTime() + (15 * 60 * 1000) : 0; 
     
@@ -298,7 +297,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                             <CalendarIcon className="h-3 w-3" /> {format(appointmentDate, "MMM dd")}
                         </div>
                         <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
-                            <Clock className="h-3 w-3" /> {format(appointmentDate, "p")} (15m)
+                            <Clock className="h-3 w-3" /> {format(appointmentDate, "p")} (Precision)
                         </div>
                     </div>
                     <div className="mt-auto pt-2 flex items-center justify-between gap-2">
@@ -306,7 +305,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                             {apt.status === 'completed' ? 'Performed' : (isExpired || apt.status === 'expired') ? 'Missed' : apt.status}
                         </Badge>
                         <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-[9px] font-bold text-primary shrink-0">
-                            <Link href={`/appointments/${apt.id}`}>View</Link>
+                            <Link href={`/appointments/${apt.id}`}>View Summary</Link>
                         </Button>
                     </div>
                 </div>
@@ -353,7 +352,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                                 <CalendarIcon className="w-2.5 h-2.5" /> {format(appointmentDate, "MMM dd")}
                             </Badge>
                             <Badge variant="outline" className="flex items-center gap-1 px-1.5 text-[8px] sm:text-[10px] font-bold">
-                                <Clock className="w-2.5 h-2.5" /> {format(appointmentDate, "p")} (15+5m)
+                                <Clock className="w-2.5 h-2.5" /> {format(appointmentDate, "p")} (Precision Window)
                             </Badge>
                         </div>
                     </div>
@@ -383,25 +382,25 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                             <Dialog>
                                 <DialogTrigger asChild>
                                     <Button className={cn("font-bold h-9 flex-1 sm:w-auto transition-all", (isLive || (isFlexibleBuffer && apt.readyToStart)) ? "bg-red-600 hover:bg-red-700 animate-pulse" : "opacity-70 cursor-not-allowed")} disabled={!isLive && !(isFlexibleBuffer && apt.readyToStart)}>
-                                        {(isLive || (isFlexibleBuffer && apt.readyToStart)) ? "Join Now" : "Upcoming"}
+                                        {(isLive || (isFlexibleBuffer && apt.readyToStart)) ? "Join Clinical Room" : "Upcoming"}
                                     </Button>
                                 </DialogTrigger>
                                 <DialogContent className="w-[95vw] sm:max-w-lg rounded-3xl border-none shadow-2xl bg-white animate-in zoom-in-95 duration-200">
                                     <DialogHeader>
                                         <DialogTitle className="text-xl font-headline">Clinical Connection</DialogTitle>
                                         <DialogDescription>
-                                            {isLive ? `Secure room window closes at ${format(addMinutes(appointmentDate, 15), "p")}.` : `Secure room window opens at ${format(appointmentDate, "p")}.`}
+                                            {isLive ? `Secure session closes at ${format(addMinutes(appointmentDate, 15), "p")}.` : `Secure session opens at ${format(appointmentDate, "p")}.`}
                                         </DialogDescription>
                                     </DialogHeader>
                                     <div className="grid grid-cols-1 gap-4 py-4 sm:py-6">
                                         <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group bg-muted/5" onClick={handleJoin} disabled={!isLive && !(isFlexibleBuffer && apt.readyToStart)}>
-                                            <Video className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/> <div className="text-left min-w-0"><p className="font-bold text-foreground truncate">Video Consultation</p><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">{(isLive || apt.readyToStart) ? 'HD Video Feed Active' : 'Unlocks at Start Time'}</p></div>
+                                            <Video className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/> <div className="text-left min-w-0"><p className="font-bold text-foreground truncate">Professional Consultation</p><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">{(isLive || apt.readyToStart) ? 'HD Video Feed Active' : 'Unlocks at Start Time'}</p></div>
                                         </Button>
                                     </div>
                                     {!isLive && isFlexibleBuffer && apt.readyToStart && (
                                         <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 animate-pulse">
                                             <Siren className="h-5 w-5 text-red-600 shrink-0" />
-                                            <p className="text-xs text-red-800 font-bold">URGENT: Your doctor is ready to start early. Please join the room.</p>
+                                            <p className="text-xs text-red-800 font-bold">URGENT: Your doctor is ready to start early. Please join the session.</p>
                                         </div>
                                     )}
                                 </DialogContent>
@@ -410,7 +409,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                     ) : (
                         <div className="flex flex-col gap-2 w-full">
                              <Button variant="ghost" asChild className="gap-2 text-primary font-bold hover:bg-primary/5 flex-1 sm:w-auto justify-center h-9 text-[10px]">
-                                <Link href={`/appointments/${apt.id}`}><FileText className="h-4 w-4" /> Visit Summary</Link>
+                                <Link href={`/appointments/${apt.id}`}><FileText className="h-4 w-4" /> View Record</Link>
                             </Button>
                             <Badge variant={apt.status === 'completed' ? 'secondary' : 'destructive'} className="text-[10px] font-bold uppercase tracking-wider px-3 py-0.5 mx-auto shrink-0 h-auto">
                                 {apt.status === 'completed' ? 'Performed' : (isExpired || apt.status === 'expired') ? 'Missed' : apt.status}
@@ -449,12 +448,11 @@ export default function PatientPortalPage() {
         const now = new Date();
         const validAppointments = appointments.filter(apt => apt !== null && apt.id && apt.appointmentDateTime);
 
-        // Ringing logic enhanced for flexible start
+        // Ringing logic for early flexible start
         const currentRinging = validAppointments.find(apt => 
             (apt.doctorInRoom === true || apt.readyToStart === true) && 
             apt.status === 'scheduled' && 
             apt.paymentStatus === 'approved' &&
-            // Can ring within the 5-minute pre-session flexible gap
             (now.getTime() >= new Date(apt.appointmentDateTime).getTime() - (5 * 60 * 1000)) &&
             (now.getTime() < new Date(apt.appointmentDateTime).getTime() + (15 * 60 * 1000))
         );
@@ -504,16 +502,16 @@ export default function PatientPortalPage() {
                                         <PhoneIncoming className="h-6 w-6 text-white" />
                                     </div>
                                     <div>
-                                        <p className="text-[10px] uppercase font-bold tracking-widest opacity-80">Incoming Consultation</p>
+                                        <p className="text-[10px] uppercase font-bold tracking-widest opacity-80">Clinical Signal Received</p>
                                         <p className="text-lg font-bold text-center sm:text-left">
                                             {ringingApt.readyToStart && !isAfter(new Date(), new Date(ringingApt.appointmentDateTime)) 
                                                 ? "Your doctor is ready to start early." 
-                                                : "Your doctor has entered the room."}
+                                                : "Your clinical session is now live."}
                                         </p>
                                     </div>
                                 </div>
                                 <Button asChild className="bg-white text-red-600 hover:bg-slate-100 font-bold px-8 h-12 rounded-2xl w-full sm:w-auto">
-                                    <Link href={`/consultation/${ringingApt.id}`}>Join Now</Link>
+                                    <Link href={`/consultation/${ringingApt.id}`}>Join Session Now</Link>
                                 </Button>
                             </div>
                         </Card>
@@ -524,12 +522,12 @@ export default function PatientPortalPage() {
                     <div className="lg:col-span-4 space-y-6">
                         <Card className="overflow-hidden border-none shadow-2xl bg-white/80 backdrop-blur-md rounded-[2rem]">
                             <CardHeader className="bg-primary text-primary-foreground pb-8 pt-8 sm:pb-12 sm:pt-12 px-6 sm:px-10">
-                                <CardTitle className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] opacity-80">Patient Portal</CardTitle>
+                                <CardTitle className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] opacity-80">Precision Patient Portal</CardTitle>
                                 <CardDescription className="text-3xl sm:text-4xl font-bold font-headline text-white mt-3 truncate">Hello, {userData?.firstName}</CardDescription>
                             </CardHeader>
                             <CardContent className="pt-8 sm:pt-10 space-y-4 px-6 sm:px-10 pb-12">
-                                <Button className="w-full justify-start h-16 text-base font-bold shadow-xl shadow-primary/20 rounded-2xl" asChild><Link href="/find-a-doctor"><PlusCircle className="mr-3 h-6 w-6" /> Book Consultation</Link></Button>
-                                <Button variant="outline" className="w-full justify-start h-16 text-base font-bold border-2 rounded-2xl hover:bg-primary/5 transition-all" asChild><Link href="/patient-portal/messages"><MessageSquare className="mr-3 h-6 w-6 text-primary" /> Message Center</Link></Button>
+                                <Button className="w-full justify-start h-16 text-base font-bold shadow-xl shadow-primary/20 rounded-2xl" asChild><Link href="/find-a-doctor"><PlusCircle className="mr-3 h-6 w-6" /> Book Clinical Session</Link></Button>
+                                <Button variant="outline" className="w-full justify-start h-16 text-base font-bold border-2 rounded-2xl hover:bg-primary/5 transition-all" asChild><Link href="/patient-portal/messages"><MessageSquare className="mr-3 h-6 w-6 text-primary" /> Care Message Center</Link></Button>
                                 <Button variant="outline" className="w-full justify-start h-16 text-base font-bold border-2 rounded-2xl hover:bg-primary/5 transition-all" asChild><Link href="/patient-portal/history"><History className="mr-3 h-6 w-6 text-primary" /> My History</Link></Button>
                             </CardContent>
                         </Card>
@@ -540,11 +538,11 @@ export default function PatientPortalPage() {
                                     <HelpCircle className="h-7 w-7 text-primary" />
                                 </div>
                                 <div className="space-y-2">
-                                    <h4 className="font-bold text-lg">Need Help?</h4>
-                                    <p className="text-xs text-slate-400 leading-relaxed">Facing issues with payments or bookings? Chat with our Admin team instantly using the bubble below.</p>
+                                    <h4 className="font-bold text-lg">Administrative Help</h4>
+                                    <p className="text-xs text-slate-400 leading-relaxed">Facing issues with payments or bookings? Chat with our team instantly.</p>
                                 </div>
                                 <div className="p-3 bg-white/5 rounded-xl border border-white/10 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                                    Encrypted Support Link Active
+                                    Secure Support Link Active
                                 </div>
                             </CardContent>
                         </Card>
@@ -555,11 +553,11 @@ export default function PatientPortalPage() {
                             <div className="flex items-center justify-between mb-6 sm:mb-8">
                                 <h2 className="text-2xl sm:text-3xl font-bold font-headline flex items-center gap-5">
                                     <div className="h-8 sm:h-10 w-2 bg-primary rounded-full shrink-0"></div>
-                                    Scheduled consultations
+                                    Scheduled Sessions
                                 </h2>
                             </div>
                             {isLoadingAppointments ? <div className="py-16 flex justify-center"><Loader2 className="h-10 w-10 animate-spin text-primary/30" /></div> : 
-                             upcomingAppointments.length === 0 ? <Card className="border-dashed border-4 bg-transparent rounded-[2.5rem]"><CardContent className="py-20 sm:py-24 text-center px-4"><Calendar className="h-16 w-16 text-muted-foreground/10 mx-auto mb-6" /><p className="text-muted-foreground font-medium">No upcoming 15+5m consultations.</p></CardContent></Card> :
+                             upcomingAppointments.length === 0 ? <Card className="border-dashed border-4 bg-transparent rounded-[2.5rem]"><CardContent className="py-20 sm:py-24 text-center px-4"><Calendar className="h-16 w-16 text-muted-foreground/10 mx-auto mb-6" /><p className="text-muted-foreground font-medium">No upcoming clinical sessions found.</p></CardContent></Card> :
                              <div className="space-y-5">{upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={true} onPostpone={handlePostpone} isMounted={mounted} />)}</div>}
                         </section>
 
@@ -567,7 +565,7 @@ export default function PatientPortalPage() {
                             <div className="flex items-center justify-between mb-6 sm:mb-8">
                                 <h2 className="text-2xl sm:text-3xl font-bold font-headline flex items-center gap-5">
                                     <div className="h-8 sm:h-10 w-2 bg-muted rounded-full shrink-0"></div>
-                                    History
+                                    Clinical History
                                 </h2>
                                 {recentPastAppointments.length > 0 && <Button variant="ghost" size="sm" asChild className="text-primary font-bold text-sm hover:bg-primary/5 px-4 h-10 rounded-xl"><Link href="/patient-portal/history">View Full Archive <ChevronRight className="ml-2 h-4 w-4" /></Link></Button>}
                             </div>
@@ -592,7 +590,7 @@ export default function PatientPortalPage() {
                                 </div>
                             ) : (
                                 <div className="text-center py-20 bg-muted/10 rounded-[2.5rem] border-2 border-dashed">
-                                    <p className="text-muted-foreground text-sm italic font-medium">No past clinical records found.</p>
+                                    <p className="text-muted-foreground text-sm italic font-medium">No past clinical sessions logged.</p>
                                 </div>
                             )}
                         </section>

@@ -77,7 +77,7 @@ export default function ConsultationRoomPage() {
     },
   });
 
-  // 1. Session Expiry & Timer Logic (15 Minute Protocol)
+  // 1. Session Expiry & Timer Logic (Precision Clinical Session)
   useEffect(() => {
     if (!appointment?.appointmentDateTime || appointment?.status === 'completed') return;
 
@@ -103,8 +103,8 @@ export default function ConsultationRoomPage() {
         if (secondsLeft === 60) {
           toast({
             variant: "destructive",
-            title: "15m Slot Ending",
-            description: "60 seconds remaining. 5m professional gap follows.",
+            title: "Clinical Session Ending",
+            description: "60 seconds remaining. Administrative buffer follows.",
           });
         }
       }
@@ -127,8 +127,8 @@ export default function ConsultationRoomPage() {
 
     toast({
       variant: "destructive",
-      title: "15m Window Concluded",
-      description: "Entering 5-minute professional administrative gap.",
+      title: "Clinical Window Concluded",
+      description: "Entering professional administrative buffer.",
     });
 
     setTimeout(() => {
@@ -382,7 +382,7 @@ export default function ConsultationRoomPage() {
         readyToStart: false 
     });
 
-    toast({ title: "Consultation Completed", description: "Clinical records finalized and session archived." });
+    toast({ title: "Precision Session Completed", description: "Clinical records finalized and session archived." });
     
     setTimeout(() => {
         setIsFinalizing(false);
@@ -446,7 +446,7 @@ export default function ConsultationRoomPage() {
               <ShieldCheck className="text-primary h-5 w-5" />
             </div>
             <div>
-              <h1 className="font-bold text-sm uppercase">Secure 15+5 Room</h1>
+              <h1 className="font-bold text-sm uppercase">Clinical Session Room</h1>
               <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{isCompleted ? 'Archived' : signalingStatus}</p>
             </div>
           </div>
@@ -480,8 +480,8 @@ export default function ConsultationRoomPage() {
                     <AlertTriangle className="h-12 w-12" />
                  </div>
                  <div className="space-y-2">
-                    <h2 className="text-2xl font-bold">15m Clinical Slot Concluded</h2>
-                    <p className="text-slate-400 max-w-md">Entering 5-minute professional gap. Please finalize records.</p>
+                    <h2 className="text-2xl font-bold">Clinical Window Concluded</h2>
+                    <p className="text-slate-400 max-w-md">Entering administrative buffer. Please finalize records.</p>
                  </div>
                  <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
@@ -491,8 +491,8 @@ export default function ConsultationRoomPage() {
                    <CheckCircle2 className="h-12 w-12" />
                 </div>
                 <div className="space-y-2">
-                   <h2 className="text-2xl font-bold text-green-400">Consultation Finalized</h2>
-                   <p className="text-slate-400 max-w-md">The record has been secured. Gap period active.</p>
+                   <h2 className="text-2xl font-bold text-green-400">Precision Session Finalized</h2>
+                   <p className="text-slate-400 max-w-md">The record has been secured. Buffer active.</p>
                 </div>
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
            </div>
@@ -519,7 +519,7 @@ export default function ConsultationRoomPage() {
                         </div>
                         <div className="text-center px-6">
                             <p className="font-bold text-xl mb-2">Establishing Secure Link</p>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">15+5 Clinical Tunnel</p>
+                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Clinical Care Tunnel</p>
                         </div>
                     </div>
                 )}
@@ -602,7 +602,7 @@ export default function ConsultationRoomPage() {
 
                 <form onSubmit={handleSendMessage} className="p-4 bg-slate-950/80 border-t border-white/5 flex gap-2">
                     <Input 
-                        placeholder={isExpired || isCompleted ? "Gap period active..." : "Secure message..."}
+                        placeholder={isExpired || isCompleted ? "Buffer active..." : "Secure message..."}
                         disabled={isExpired || isCompleted}
                         className="bg-slate-900/50 border-white/10 text-white h-11 text-xs rounded-2xl focus:ring-primary" 
                         value={newMessage} 
@@ -619,10 +619,10 @@ export default function ConsultationRoomPage() {
                     <div className="space-y-6">
                         <div className="bg-primary/5 p-4 rounded-2xl border border-primary/20 space-y-2">
                             <h3 className="text-sm font-bold text-primary flex items-center gap-2">
-                                <AlertTriangle className="h-4 w-4" /> Finalization Gap
+                                <AlertTriangle className="h-4 w-4" /> Finalization Buffer
                             </h3>
                             <p className="text-[10px] text-slate-400 leading-relaxed italic">
-                                Once finalized, the patient receives their summary. Use the 5-minute gap for clinical thoroughness.
+                                Once finalized, the patient receives their clinical summary. Use the administrative buffer for accuracy.
                             </p>
                         </div>
 

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -185,7 +184,7 @@ export default function DoctorDetailPage() {
         if (!mounted || !existingAppointments || !selectedDate || !selectedTimeStr) return { isAvailable: true, message: '' };
 
         const proposedStart = parse(selectedTimeStr, 'hh:mm a', selectedDate);
-        // Protocol: 15 min consultation + 5 min flexible gap = 20 min block
+        // Precision Session: 15 min consultation + 5 min administrative buffer = 20 min block
         const proposedEnd = addMinutes(proposedStart, 20);
 
         if (isSameDay(selectedDate, nowTicker) && isBefore(proposedStart, nowTicker)) {
@@ -195,13 +194,12 @@ export default function DoctorDetailPage() {
         const overlap = existingAppointments.find(apt => {
             if (!apt || apt.status === 'cancelled' || !apt.appointmentDateTime) return false;
             const aptStart = new Date(apt.appointmentDateTime);
-            // Block is 20 mins to ensure gap
             const aptEnd = addMinutes(aptStart, 20);
             return proposedStart < aptEnd && proposedEnd > aptStart;
         });
 
         if (overlap) {
-            return { isAvailable: false, message: 'This 15+5 clinical window is already booked.' };
+            return { isAvailable: false, message: 'This precision clinical window is already booked.' };
         }
 
         return { isAvailable: true, message: '' };
@@ -216,7 +214,7 @@ export default function DoctorDetailPage() {
     const handleConfirmBooking = () => {
         if (isUserLoading) return;
         if (!user) {
-            toast({ title: "Login Required", description: "Please log in to book an appointment." });
+            toast({ title: "Login Required", description: "Please log in to book a session." });
             router.push('/login');
             return;
         }
@@ -247,7 +245,7 @@ export default function DoctorDetailPage() {
         };
         
         addDocumentNonBlocking(collection(firestore, 'appointments'), newAppointment);
-        toast({ title: "Receipt Submitted!", description: "Awaiting admin approval for your 15+5 session." });
+        toast({ title: "Receipt Submitted!", description: "Awaiting admin approval for your Precision Clinical Session." });
         setIsBooking(false);
         router.push('/patient-portal');
     };
@@ -302,7 +300,7 @@ export default function DoctorDetailPage() {
 
                                 <div className="grid grid-cols-3 gap-2 border-y py-6 mx-8 border-slate-50">
                                     <div className="text-center space-y-1 border-r border-slate-50">
-                                        <p className="text-sm font-bold text-slate-900">15+5 Min</p>
+                                        <p className="text-sm font-bold text-slate-900">Clinical</p>
                                         <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest">Protocol</p>
                                     </div>
                                     <div className="text-center space-y-1 border-r border-slate-50">
@@ -344,7 +342,7 @@ export default function DoctorDetailPage() {
                                             <CardTitle className="text-2xl font-headline flex items-center gap-3">
                                                 <CalendarDays className="h-7 w-7 text-primary"/> Precision Scheduling
                                             </CardTitle>
-                                            <p className="text-sm text-muted-foreground">Select your exact start time for a 15-minute consultation.</p>
+                                            <p className="text-sm text-muted-foreground">Select your exact start time for a Precision Clinical Session.</p>
                                         </div>
                                     </div>
                                 </CardHeader>
@@ -429,17 +427,17 @@ export default function DoctorDetailPage() {
                                                     <div className="p-4 bg-green-50 border border-green-200 rounded-2xl flex items-center justify-between">
                                                         <div className="flex items-center gap-3">
                                                             <CheckCircle2 className="h-5 w-5 text-green-600" />
-                                                            <p className="text-xs text-green-800 font-bold uppercase">Clinical Slot Valid</p>
+                                                            <p className="text-xs text-green-800 font-bold uppercase">Clinical Session Window Valid</p>
                                                         </div>
                                                         <div className="text-right">
-                                                            <p className="text-[9px] font-bold text-green-600 uppercase tracking-widest">15m Window</p>
+                                                            <p className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Precision Window</p>
                                                             <p className="text-sm font-bold text-green-800">{selectedTimeStr}</p>
                                                         </div>
                                                     </div>
                                                     <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl flex gap-3">
                                                         <Info className="h-5 w-5 text-primary shrink-0" />
                                                         <p className="text-[10px] text-muted-foreground leading-relaxed italic">
-                                                            <strong>Note:</strong> A 5-minute professional gap follows your 15-minute slot. If the doctor is ready during this gap, they may signal you to start your upcoming session early.
+                                                            <strong>Note:</strong> A professional administrative buffer follows your clinical session. If the doctor is ready early, they may signal you to join for a flexible start.
                                                         </p>
                                                     </div>
                                                 </div>
@@ -454,18 +452,18 @@ export default function DoctorDetailPage() {
                                                     className="w-full h-20 text-xl font-bold rounded-3xl shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90" 
                                                     disabled={!timeValidation.isAvailable || !selectedTimeStr || isBooking}
                                                 >
-                                                    Book Consultation at {selectedTimeStr || '--:--'}
+                                                    Book Session at {selectedTimeStr || '--:--'}
                                                 </Button>
                                             </AlertDialogTrigger>
                                             <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-xl max-h-[95vh] overflow-y-auto custom-scrollbar p-0">
                                                 <div className="p-8 sm:p-10 space-y-8">
                                                     <AlertDialogHeader>
                                                         <AlertDialogTitle className="text-2xl font-headline">Secure Payment</AlertDialogTitle>
-                                                        <AlertDialogDescription>Confirm your precision 15+5 minute professional window via our trusted channels.</AlertDialogDescription>
+                                                        <AlertDialogDescription>Confirm your Precision Clinical Care Window via our trusted channels.</AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     
                                                     <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10 text-center">
-                                                        <p className="text-[10px] uppercase font-bold text-primary tracking-widest mb-1">Standard Fee</p>
+                                                        <p className="text-[10px] uppercase font-bold text-primary tracking-widest mb-1">Standard Session Fee</p>
                                                         <p className="text-5xl font-bold text-foreground font-headline">PKR 1,500</p>
                                                     </div>
 
