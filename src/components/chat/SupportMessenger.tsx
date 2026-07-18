@@ -3,11 +3,11 @@
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useFirestore, useUserData, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, orderBy, addDoc, doc, setDoc, limit, onSnapshot, where } from 'firebase/firestore';
+import { collection, query, orderBy, addDoc, doc, setDoc, limit, where } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
-import { MessageCircle, X, Send, User, ShieldCheck, Loader2, Minimize2, Maximize2, Users, Stethoscope } from 'lucide-react';
+import { MessageCircle, X, Send, User, ShieldCheck, Minimize2, Maximize2, Users, Stethoscope } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
@@ -60,10 +60,10 @@ export default function SupportMessenger() {
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
-  // CRITICAL: Hide support chat during clinical sessions to prevent UI overlap
+  // CRITICAL: Hide support chat during clinical sessions
   const isConsultationRoom = pathname?.includes('/consultation/');
 
-  // Queries for Admin
+  // Queries for Admin - Explicitly guarded by role
   const patientSessionsQuery = useMemoFirebase(() => {
     if (!firestore || userData?.role !== 'admin') return null;
     return query(collection(firestore, 'supportChatSessions'), orderBy('lastMessageAt', 'desc'), limit(20));
@@ -200,7 +200,7 @@ export default function SupportMessenger() {
                         {((adminCategory === 'patients' && !patientSessions?.length) || (adminCategory === 'doctors' && !doctorSessions?.length)) && (
                             <div className="py-24 text-center italic text-muted-foreground text-[11px] px-8">
                                 <MessageCircle className="h-10 w-10 mx-auto mb-4 opacity-10" />
-                                No active threads in this category.
+                                No active threads.
                             </div>
                         )}
                       </div>
@@ -238,7 +238,6 @@ export default function SupportMessenger() {
                         <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-4">
                             <MessageCircle className="h-10 w-10 text-slate-200" />
                             <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-tight">Encryption Active</p>
-                            <p className="text-[10px] text-muted-foreground opacity-60">Start typing below to reach our Support Team.</p>
                         </div>
                         )}
                         <div ref={scrollRef} />
@@ -251,7 +250,7 @@ export default function SupportMessenger() {
                 <CardFooter className="p-3 border-t bg-white">
                   <form onSubmit={handleSendMessage} className="w-full flex gap-2">
                     <Input 
-                      placeholder="Type your message..." 
+                      placeholder="Type message..." 
                       className="flex-1 bg-slate-50 border-slate-200 h-10 text-xs rounded-xl focus:ring-primary"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}

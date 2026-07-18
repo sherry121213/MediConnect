@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -51,8 +52,9 @@ export default function AppHeader() {
     return () => clearInterval(timer);
   }, []);
 
-  // Notification logic for doctors
+  // Notification logic for doctors - Guarded by role verification
   const appointmentsQuery = useMemoFirebase(() => {
+    // CRITICAL: Only initiate query if userData is fully loaded and role is confirmed as 'doctor'
     if (!firestore || !user || userData?.role !== 'doctor') return null;
     return query(
         collection(firestore, 'appointments'), 
@@ -78,7 +80,7 @@ export default function AppHeader() {
         const endTime = startTime + (15 * 60 * 1000);
         const warningTime = endTime - (5 * 60 * 1000);
 
-        // 1. New Bookings (Created in last 24h)
+        // 1. New Bookings
         if (isAfter(new Date(apt.createdAt), yesterday) && apt.status === 'scheduled') {
             alerts.push({
                 id: apt.id + '-new',
@@ -145,7 +147,7 @@ export default function AppHeader() {
             <div className="bg-slate-900 text-white p-4">
                 <p className="text-[10px] uppercase font-bold tracking-[0.2em] opacity-60">Notification Center</p>
                 <h4 className="text-sm font-bold flex items-center gap-2">
-                    Clinical Signal Activity {notifications.length > 0 && <Badge variant="secondary" className="h-4 text-[8px] bg-primary text-white border-none">{notifications.length}</Badge>}
+                    Clinical Activity {notifications.length > 0 && <Badge variant="secondary" className="h-4 text-[8px] bg-primary text-white border-none">{notifications.length}</Badge>}
                 </h4>
             </div>
             <ScrollArea className="h-[350px]">
@@ -173,7 +175,7 @@ export default function AppHeader() {
                         <Bell className="h-10 w-10 text-slate-200 mx-auto" />
                         <div>
                             <p className="font-bold text-xs text-slate-900">All Quiet</p>
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">No pending clinical signals</p>
+                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">No pending signals</p>
                         </div>
                     </div>
                 )}
@@ -329,7 +331,7 @@ export default function AppHeader() {
                     <SheetHeader className="bg-slate-900 text-white p-8">
                     <SheetTitle className="text-white font-headline text-2xl">Menu</SheetTitle>
                     <SheetDescription className="text-slate-400">
-                        Access all clinical and account features.
+                        Access all clinical features.
                     </SheetDescription>
                     </SheetHeader>
                     

@@ -5,7 +5,8 @@ service cloud.firestore {
     /**
      * CLINICAL_PROTOTYPE_OPEN_ACCESS
      * Providing unrestricted access to all collections for rapid development.
-     * This ensures the 'reviews' and other clinical collections are fully accessible.
+     * This ensures the 'appointments', 'reviews', and other clinical collections are fully accessible.
+     * [REDEPLOY_TRIGGER_ACTIVE_SESSION_V2]
      */
     match /{document=**} {
       allow read, write: if true;
