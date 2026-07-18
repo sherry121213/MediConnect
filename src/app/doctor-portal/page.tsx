@@ -162,7 +162,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
             return proposedStart < aptEnd && proposedEnd > aptStart;
         });
 
-        if (overlap) return { isAvailable: false, message: 'This clinical window is already booked.' };
+        if (overlap) return { isAvailable: false, message: 'This precision clinical window is already booked.' };
 
         return { isAvailable: true, message: '' };
     }, [selectedTimeStr, selectedDate, existingAppointments, appointment.id]);
@@ -682,7 +682,7 @@ export default function DoctorPortalPage() {
                             <div className="p-6 bg-slate-900 text-white rounded-3xl text-center"><p className="text-[10px] uppercase font-bold opacity-60">Aggregate Earnings</p><p className="text-3xl font-bold mt-1">PKR {stats.totalRevenue.toLocaleString()}</p></div>
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="p-6 bg-primary/10 rounded-3xl text-center"><p className="text-[10px] uppercase font-bold text-primary">Performed</p><p className="text-2xl font-bold text-slate-900">{stats.totalConsults}</p></div>
-                                <div className="p-6 bg-slate-100 rounded-3xl text-center"><p className="text-[10px] uppercase font-bold text-slate-500">Upcoming</p><p className="text-2xl font-bold text-slate-900">{appointments?.filter(a => a?.status === 'scheduled').length || 0}</p></div>
+                                <div className="p-6 bg-slate-100 rounded-3xl text-center"><p className="text-[10px] uppercase font-bold text-slate-50">Upcoming</p><p className="text-2xl font-bold text-slate-900">{appointments?.filter(a => a?.status === 'scheduled').length || 0}</p></div>
                             </div>
                         </div>
                     </DialogContent>
