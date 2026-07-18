@@ -2,7 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     /**
-     * TOTAL_ACCESS_PROTOTYPE_V15
+     * TOTAL_ACCESS_PROTOTYPE_V20
      * Explicit global read/write access for clinical prototype development.
      * This ensures all precision session data, notifications, and support threads
      * are accessible without permission handshakes during high-stakes testing.
@@ -10,5 +10,17 @@ service cloud.firestore {
     match /{document=**} {
       allow read, write: if true;
     }
+    
+    // Explicit matches for clinical prototype visibility and index integrity
+    match /appointments/{id} { allow read, write: if true; }
+    match /patients/{id} { allow read, write: if true; }
+    match /doctors/{id} { allow read, write: if true; }
+    match /reviews/{id} { allow read, write: if true; }
+    match /supportChatSessions/{id} { allow read, write: if true; }
+    match /adminDoctorChatSessions/{id} { allow read, write: if true; }
+    match /doctorUnavailabilityRequests/{id} { allow read, write: if true; }
+    match /missedSessionAudits/{id} { allow read, write: if true; }
+    match /doctorCredentials/{id} { allow read, write: if true; }
+    match /calls/{id} { allow read, write: if true; }
   }
 }

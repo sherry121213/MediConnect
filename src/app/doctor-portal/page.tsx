@@ -17,9 +17,9 @@ import { Input } from "@/components/ui/input";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
+import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
-import { format, isSameDay, addDays, subDays, isBefore, isValid, addMinutes, parse } from "date-fns";
+import { format, isSameDay, addDays, subDays, isBefore, addMinutes, parse } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { getNext7Days } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -616,7 +616,7 @@ export default function DoctorPortalPage() {
                                                     <div className="flex items-center gap-5">
                                                         <div className="text-center w-16 shrink-0 border-r-2 border-slate-100">
                                                             <p className="text-sm font-bold text-slate-900">{format(new Date(apt.appointmentDateTime), "hh:mm")}</p>
-                                                            <p className="text-[10px] font-bold text-muted-foreground uppercase">{format(new Date(apt.appointmentDateTime), "a")}</p>
+                                                            <p className="text-[10px] font-bold uppercase">{format(new Date(apt.appointmentDateTime), "a")}</p>
                                                         </div>
                                                         <div className="flex items-center gap-4">
                                                             <div className={cn("h-10 w-10 rounded-full flex items-center justify-center shadow-inner", timing.isCompleted ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>

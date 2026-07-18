@@ -277,18 +277,14 @@ export default function SignupPage() {
                           className="flex gap-4"
                           disabled={loading}
                         >
-                          <FormItem className="flex items-center space-x-2 bg-slate-50 px-4 py-2 rounded-xl border flex-1">
-                            <FormControl>
-                              <RadioGroupItem value="patient" id="role-patient" />
-                            </FormControl>
-                            <FormLabel htmlFor="role-patient" className="font-bold text-xs cursor-pointer">Patient</FormLabel>
-                          </FormItem>
-                          <FormItem className="flex items-center space-x-2 bg-slate-50 px-4 py-2 rounded-xl border flex-1">
-                            <FormControl>
-                              <RadioGroupItem value="doctor" id="role-doctor" />
-                            </FormControl>
-                            <FormLabel htmlFor="role-doctor" className="font-bold text-xs cursor-pointer">Doctor</FormLabel>
-                          </FormItem>
+                          <div className="flex items-center space-x-2 bg-slate-50 px-4 py-2 rounded-xl border flex-1">
+                            <RadioGroupItem value="patient" id="role-patient" />
+                            <label htmlFor="role-patient" className="font-bold text-xs cursor-pointer">Patient</label>
+                          </div>
+                          <div className="flex items-center space-x-2 bg-slate-50 px-4 py-2 rounded-xl border flex-1">
+                            <RadioGroupItem value="doctor" id="role-doctor" />
+                            <label htmlFor="role-doctor" className="font-bold text-xs cursor-pointer">Doctor</label>
+                          </div>
                         </RadioGroup>
                       </FormControl>
                       <FormMessage />

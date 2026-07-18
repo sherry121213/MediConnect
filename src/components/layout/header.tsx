@@ -2,15 +2,12 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, LogOut, User as UserIcon, Shield, LayoutDashboard, MessageCircle, CalendarClock, Bell, Siren, Clock, User as UserCircle, CheckCircle2 } from 'lucide-react';
+import { Menu, LogOut, User as UserIcon, Shield, LayoutDashboard, MessageCircle, Bell, Siren, Clock, User as UserCircle } from 'lucide-react';
 import Logo from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
   SheetTrigger,
 } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
@@ -51,7 +48,7 @@ export default function AppHeader() {
     return () => clearInterval(timer);
   }, []);
 
-  // Notification logic for doctors
+  // Notification logic for doctors - Strictly gated by role
   const appointmentsQuery = useMemoFirebase(() => {
     if (!firestore || !user || !userData || userData.role !== 'doctor') return null;
     return query(
@@ -70,7 +67,7 @@ export default function AppHeader() {
     const yesterday = subHours(new Date(), 24);
 
     appointments.forEach(apt => {
-        if (!apt.appointmentDateTime) return;
+        if (!apt || !apt.appointmentDateTime) return;
         const aptDate = new Date(apt.appointmentDateTime);
         if (!isValid(aptDate)) return;
 
@@ -79,7 +76,7 @@ export default function AppHeader() {
         const warningTime = endTime - (5 * 60 * 1000); // 5 min warning
 
         // 1. New Bookings (Booked in last 24h)
-        if (isAfter(new Date(apt.createdAt), yesterday) && apt.status === 'scheduled') {
+        if (apt.createdAt && isAfter(new Date(apt.createdAt), yesterday) && apt.status === 'scheduled') {
             alerts.push({
                 id: apt.id + '-new',
                 title: 'New Precision Session',
