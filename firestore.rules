@@ -2,13 +2,17 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     /**
-     * PRECISION_CLINICAL_ACCESS_V5
-     * Explicitly granting read/write access to all collections for the prototype.
+     * PRECISION_CLINICAL_ACCESS_V6
+     * Explicitly granting full access to all collections for the prototype.
      * This ensures the 'appointments', 'reviews', 'doctorCredentials', and 'patients' 
      * collections are fully accessible to all authenticated users during development.
-     * [REDEPLOY_TRIGGER_ACTIVE_SESSION_V5_PERMISSIONS]
+     * [REDEPLOY_TRIGGER_V6_FULL_ACCESS]
      */
     
+    match /{document=**} {
+      allow read, write: if true;
+    }
+
     match /patients/{userId} {
       allow read, write: if true;
     }
@@ -26,59 +30,6 @@ service cloud.firestore {
     }
     
     match /doctorCredentials/{credentialId} {
-      allow read, write: if true;
-    }
-
-    match /doctorUnavailabilityRequests/{requestId} {
-      allow read, write: if true;
-    }
-
-    match /missedSessionAudits/{auditId} {
-      allow read, write: if true;
-    }
-
-    match /adminDoctorChatSessions/{sessionId} {
-      allow read, write: if true;
-      match /messages/{messageId} {
-        allow read, write: if true;
-      }
-    }
-
-    match /supportChatSessions/{sessionId} {
-      allow read, write: if true;
-      match /messages/{messageId} {
-        allow read, write: if true;
-      }
-    }
-
-    match /consultationSessions/{sessionId} {
-      allow read, write: if true;
-      match /messages/{messageId} {
-        allow read, write: if true;
-      }
-    }
-
-    match /calls/{callId} {
-      allow read, write: if true;
-      match /offerCandidates/{candidateId} {
-        allow read, write: if true;
-      }
-      match /answerCandidates/{candidateId} {
-        allow read, write: if true;
-      }
-    }
-
-    match /contacts/{contactId} {
-      allow read, write: if true;
-    }
-
-    match /roles_admin/{userId} {
-      allow read: if true;
-      allow write: if false; 
-    }
-
-    // Explicit recursive catch-all
-    match /{document=**} {
       allow read, write: if true;
     }
   }
