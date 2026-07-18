@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -58,12 +57,10 @@ export default function SupportMessenger() {
   const [newMessage, setNewMessage] = useState('');
   const [adminCategory, setAdminCategory] = useState<MessengerCategory>('patients');
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const scrollRef = useRef<HTMLDivElement>(null);
+  const chatScrollRef = useRef<HTMLDivElement>(null);
 
-  // CRITICAL: Hide support chat during clinical sessions
   const isConsultationRoom = pathname?.includes('/consultation/');
 
-  // Queries for Admin - Explicitly guarded by role
   const patientSessionsQuery = useMemoFirebase(() => {
     if (!firestore || !user || !userData || userData.role !== 'admin') return null;
     return query(collection(firestore, 'supportChatSessions'), orderBy('lastMessageAt', 'desc'), limit(20));
@@ -77,7 +74,6 @@ export default function SupportMessenger() {
   const { data: patientSessions } = useCollection<any>(patientSessionsQuery);
   const { data: doctorSessions } = useCollection<any>(doctorSessionsQuery);
 
-  // Logic for Current Session
   const currentSessionId = useMemo(() => {
     if (userData?.role === 'admin') return activeSessionId;
     return user?.uid || null;
@@ -240,7 +236,7 @@ export default function SupportMessenger() {
                             <p className="text-[11px] text-muted-foreground font-bold uppercase tracking-tight">Encryption Active</p>
                         </div>
                         )}
-                        <div ref={scrollRef} />
+                        <div ref={chatScrollRef} />
                     </div>
                   </div>
                 )}

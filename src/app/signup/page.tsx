@@ -200,7 +200,7 @@ export default function SignupPage() {
           <CardHeader className="text-center bg-slate-900 text-white p-8">
             <CardTitle className="text-2xl font-headline">Create an Account</CardTitle>
             <CardDescription className="text-slate-400">
-              Join Pakistan's professional clinical network.
+              Join Pakistan's professional Precision Clinical network.
             </CardDescription>
           </CardHeader>
           <CardContent className="p-8">
