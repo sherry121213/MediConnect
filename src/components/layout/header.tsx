@@ -2,14 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, LogOut, User as UserIcon, Shield, LayoutDashboard, MessageCircle, Bell, Siren, Clock, User as UserCircle } from 'lucide-react';
+import { Menu, LogOut, User as UserIcon, Shield, LayoutDashboard, Bell, Siren, Clock, User as UserCircle } from 'lucide-react';
 import Logo from '@/components/logo';
 import { Button } from '@/components/ui/button';
-import {
-  Sheet,
-  SheetContent,
-  SheetTrigger,
-} from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { useState, useMemo, useEffect } from 'react';
 import { useAuth, useUserData, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -48,7 +44,6 @@ export default function AppHeader() {
     return () => clearInterval(timer);
   }, []);
 
-  // Notification logic for doctors - Strictly gated by role
   const appointmentsQuery = useMemoFirebase(() => {
     if (!firestore || !user || !userData || userData.role !== 'doctor') return null;
     return query(
@@ -72,15 +67,14 @@ export default function AppHeader() {
         if (!isValid(aptDate)) return;
 
         const startTime = aptDate.getTime();
-        const endTime = startTime + (15 * 60 * 1000); // 15 min precision session
-        const warningTime = endTime - (5 * 60 * 1000); // 5 min warning
+        const endTime = startTime + (15 * 60 * 1000); 
+        const warningTime = endTime - (5 * 60 * 1000); 
 
-        // 1. New Bookings (Booked in last 24h)
         if (apt.createdAt && isAfter(new Date(apt.createdAt), yesterday) && apt.status === 'scheduled') {
             alerts.push({
                 id: apt.id + '-new',
                 title: 'New Precision Session',
-                msg: `Appointment registered for ${format(aptDate, "MMM dd, p")}`,
+                msg: `Appointment for ${format(aptDate, "MMM dd, p")}`,
                 icon: UserCircle,
                 color: 'text-primary',
                 timestamp: new Date(apt.createdAt).getTime(),
@@ -88,12 +82,11 @@ export default function AppHeader() {
             });
         }
 
-        // 2. Starting Soon / Live
         if (currentTime >= startTime && currentTime < endTime && apt.status === 'scheduled' && apt.paymentStatus === 'approved') {
             alerts.push({
                 id: apt.id + '-live',
                 title: 'Clinical Session Live',
-                msg: 'Secure video feed is active. Join now.',
+                msg: 'Secure video feed is active.',
                 icon: Siren,
                 color: 'text-red-600 animate-pulse',
                 timestamp: startTime,
@@ -102,12 +95,11 @@ export default function AppHeader() {
             });
         }
 
-        // 3. Concluding Warning (5 mins left)
         if (currentTime >= warningTime && currentTime < endTime && apt.status === 'scheduled' && apt.paymentStatus === 'approved') {
              alerts.push({
                 id: apt.id + '-warning',
                 title: 'Precision Countdown',
-                msg: 'Only 5 minutes remaining in session.',
+                msg: '5 minutes remaining in session.',
                 icon: Clock,
                 color: 'text-amber-500',
                 timestamp: warningTime,
@@ -129,7 +121,7 @@ export default function AppHeader() {
   };
 
   const UserMenu = () => {
-    const displayName = [userData?.firstName, userData?.lastName].filter(Boolean).join(' ') || userData?.displayName || user?.displayName || 'User';
+    const displayName = [userData?.firstName, userData?.lastName].filter(Boolean).join(' ') || 'User';
     const displayEmail = userData?.email || user?.email;
 
     return (
@@ -146,9 +138,7 @@ export default function AppHeader() {
           <DropdownMenuLabel className="font-normal p-3">
             <div className="flex flex-col space-y-1">
               <p className="text-sm font-bold leading-none">{displayName}</p>
-              <p className="text-[10px] leading-none text-muted-foreground uppercase tracking-tighter mt-1 font-bold">
-                {displayEmail}
-              </p>
+              <p className="text-[10px] leading-none text-muted-foreground uppercase tracking-tighter mt-1 font-bold">{displayEmail}</p>
             </div>
           </DropdownMenuLabel>
           <DropdownMenuSeparator className="mx-2" />
@@ -159,10 +149,6 @@ export default function AppHeader() {
                   <LayoutDashboard className="mr-2 h-4 w-4 text-primary" />
                   <span className="font-medium">Dashboard</span>
               </DropdownMenuItem>
-              <DropdownMenuItem className="rounded-xl p-3 cursor-pointer" onClick={() => router.push('/doctor-portal/profile')}>
-                <UserIcon className="mr-2 h-4 w-4 text-primary" />
-                <span className="font-medium">Clinical Registry</span>
-              </DropdownMenuItem>
             </div>
           )}
 
@@ -171,10 +157,6 @@ export default function AppHeader() {
                 <DropdownMenuItem className="rounded-xl p-3 cursor-pointer" onClick={() => router.push('/patient-portal')}>
                     <LayoutDashboard className="mr-2 h-4 w-4 text-primary" />
                     <span className="font-medium">Patient Portal</span>
-                </DropdownMenuItem>
-                <DropdownMenuItem className="rounded-xl p-3 cursor-pointer" onClick={() => router.push('/patient-portal/profile')}>
-                  <UserIcon className="mr-2 h-4 w-4 text-primary" />
-                  <span className="font-medium">My Identity</span>
                 </DropdownMenuItem>
             </div>
           )}
@@ -189,7 +171,7 @@ export default function AppHeader() {
           )}
 
           <DropdownMenuSeparator className="mx-2" />
-          <DropdownMenuItem className="rounded-xl p-3 cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/5" onClick={handleLogout}>
+          <DropdownMenuItem className="rounded-xl p-3 cursor-pointer text-destructive focus:text-destructive" onClick={handleLogout}>
             <LogOut className="mr-2 h-4 w-4" />
             <span className="font-bold">Log out</span>
           </DropdownMenuItem>
@@ -199,10 +181,9 @@ export default function AppHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 shadow-sm">
+    <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur shadow-sm">
       <div className="container flex h-20 items-center justify-between">
         <Logo />
-        
         <nav className="hidden md:flex gap-10">
           {navLinks.map((link) => (
             <Link
@@ -217,7 +198,6 @@ export default function AppHeader() {
             </Link>
           ))}
         </nav>
-
         <div className="flex items-center gap-3">
           {isUserLoading ? null : user ? (
             <>
@@ -235,55 +215,40 @@ export default function AppHeader() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="w-80 p-0 rounded-2xl border-none shadow-2xl overflow-hidden" align="end">
                             <div className="bg-slate-900 text-white p-4">
-                                <p className="text-[10px] uppercase font-bold tracking-[0.2em] opacity-60">Clinical Pulse</p>
-                                <h4 className="text-sm font-bold flex items-center gap-2">
-                                    Recent Notifications {notifications.length > 0 && <Badge variant="secondary" className="h-4 text-[8px] bg-primary text-white border-none">{notifications.length}</Badge>}
-                                </h4>
+                                <h4 className="text-sm font-bold">Clinical Signals</h4>
                             </div>
                             <ScrollArea className="max-h-[400px]">
                                 {notifications.length > 0 ? (
                                     <div className="divide-y divide-slate-50">
                                         {notifications.map((n) => (
-                                            <DropdownMenuItem 
-                                                key={n.id} 
-                                                className="p-4 flex gap-4 cursor-pointer focus:bg-slate-50 items-start"
-                                                onClick={() => n.link && router.push(n.link)}
-                                            >
-                                                <div className={cn("p-2 rounded-xl bg-slate-100 shrink-0", n.color)}>
+                                            <DropdownMenuItem key={n.id} className="p-4 flex gap-4 cursor-pointer" onClick={() => n.link && router.push(n.link)}>
+                                                <div className={cn("p-2 rounded-xl bg-slate-100", n.color)}>
                                                     <n.icon className="h-4 w-4" />
                                                 </div>
-                                                <div className="space-y-0.5 min-w-0">
-                                                    <p className={cn("font-bold text-[11px] uppercase tracking-tight", n.isUrgent ? "text-red-600" : "text-slate-900")}>{n.title}</p>
-                                                    <p className="text-xs text-muted-foreground leading-snug">{n.msg}</p>
-                                                    <p className="text-[9px] text-slate-400 font-medium">{format(new Date(n.timestamp), "p")}</p>
+                                                <div className="space-y-0.5">
+                                                    <p className={cn("font-bold text-[11px] uppercase", n.isUrgent ? "text-red-600" : "")}>{n.title}</p>
+                                                    <p className="text-xs text-muted-foreground">{n.msg}</p>
                                                 </div>
                                             </DropdownMenuItem>
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="py-20 text-center space-y-3 px-8">
+                                    <div className="py-20 text-center px-8">
                                         <Bell className="h-10 w-10 text-slate-100 mx-auto" />
-                                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">No active signals</p>
+                                        <p className="text-[10px] text-muted-foreground uppercase font-bold mt-2">No active signals</p>
                                     </div>
                                 )}
                             </ScrollArea>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 )}
-                <div className="w-px h-6 bg-slate-200 mx-2 hidden sm:block" />
                 <UserMenu />
             </>
           ) : (
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" asChild className="font-bold uppercase text-xs tracking-widest hidden sm:flex">
-                <Link href="/login">Login</Link>
-              </Button>
-              <Button asChild className="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-6 rounded-xl shadow-lg">
+            <Button asChild className="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-6 rounded-xl shadow-lg">
                 <Link href="/signup">Sign Up</Link>
-              </Button>
-            </div>
+            </Button>
           )}
-          
           <Sheet open={isMobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild>
               <Button variant="ghost" size="icon" className="md:hidden">
@@ -291,30 +256,14 @@ export default function AppHeader() {
               </Button>
             </SheetTrigger>
             <SheetContent side="right" className="w-[300px] p-0 border-none rounded-l-[2rem] overflow-hidden">
-              <div className="bg-slate-900 text-white p-8">
-                <Logo />
-                <p className="text-slate-400 text-xs mt-2 font-medium">Precision Clinical Platform</p>
-              </div>
+              <div className="bg-slate-900 text-white p-8"><Logo /></div>
               <div className="p-8 flex flex-col gap-6">
                  {navLinks.map((link) => (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className={cn(
-                        'text-lg font-bold uppercase tracking-widest transition-colors',
-                        pathname === link.href ? 'text-primary' : 'text-slate-500'
-                      )}
-                    >
+                    <Link key={link.href} href={link.href} onClick={() => setMobileMenuOpen(false)} className={cn('text-lg font-bold uppercase tracking-widest transition-colors', pathname === link.href ? 'text-primary' : 'text-slate-500')}>
                       {link.label}
                     </Link>
                   ))}
-                  <DropdownMenuSeparator />
-                  {user ? (
-                    <Button variant="destructive" className="h-14 rounded-2xl font-bold" onClick={handleLogout}>Log Out</Button>
-                  ) : (
-                    <Button className="h-14 rounded-2xl font-bold" asChild><Link href="/login">Portal Login</Link></Button>
-                  )}
+                  {user ? <Button variant="destructive" className="h-14 rounded-2xl font-bold" onClick={handleLogout}>Log Out</Button> : <Button className="h-14 rounded-2xl font-bold" asChild><Link href="/login">Login</Link></Button>}
               </div>
             </SheetContent>
           </Sheet>

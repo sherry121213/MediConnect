@@ -252,12 +252,6 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
                                     </Select>
                                 </div>
                             </div>
-                            {selectedTimeStr && !timeValidation.isAvailable && (
-                                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2">
-                                    <XCircle className="h-4 w-4 text-red-600" />
-                                    <p className="text-[10px] text-red-800 font-bold uppercase">{timeValidation.message}</p>
-                                </div>
-                            )}
                         </div>
                     </div>
                 </div>
@@ -305,17 +299,10 @@ const AppointmentRow = ({ apt, patient, onSelect, onNotify, isMounted }: { apt: 
             <div className="flex items-center gap-4">
                 {isLive && <Badge className="bg-red-600 text-white animate-pulse text-[9px] px-2 font-bold h-auto py-1">LIVE NOW</Badge>}
                 {isNotifyRange && (
-                    <Button 
-                        size="sm" 
-                        variant="outline" 
-                        className="h-8 text-[9px] font-bold border-primary text-primary hover:bg-primary hover:text-white"
-                        onClick={(e) => { e.stopPropagation(); onNotify(apt); }}
-                        disabled={apt.readyToStart}
-                    >
-                        <PhoneCall className="h-3 w-3 mr-1" /> {apt.readyToStart ? 'Patient Signaled' : 'Signal Ready'}
+                    <Button size="sm" variant="outline" className="h-8 text-[9px] font-bold" onClick={(e) => { e.stopPropagation(); onNotify(apt); }} disabled={apt.readyToStart}>
+                        <PhoneCall className="h-3 w-3 mr-1" /> {apt.readyToStart ? 'Signaled' : 'Signal'}
                     </Button>
                 )}
-                {isMissed && <Badge variant="destructive" className="text-[9px] px-2.5 py-1 h-auto font-bold uppercase">Missed</Badge>}
                 {!isLive && !isNotifyRange && !isMissed && (
                     <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("shrink-0 text-[10px] px-2.5 py-1 h-auto font-bold", apt.status === 'completed' ? "bg-green-100 text-green-800" : "text-primary border-primary/20")}>
                         {apt.status === 'scheduled' ? 'Scheduled' : apt.status === 'completed' ? 'Performed' : apt.status}
@@ -367,79 +354,47 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl w-[95vw] sm:w-full rounded-t-[2.5rem] sm:rounded-[2.5rem] max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
+            <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl rounded-[2.5rem] max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <Tabs defaultValue="overview" className="w-full flex-1 flex flex-col overflow-hidden">
                     <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
-                        <DialogTitle className="text-2xl font-headline mb-6 text-white">Patient Clinical Record</DialogTitle>
-                        <TabsList className="bg-white/10 border-none text-white w-full grid grid-cols-3 h-12 p-1 rounded-xl">
+                        <DialogTitle className="text-2xl font-headline mb-6 text-white">Clinical Record</DialogTitle>
+                        <TabsList className="bg-white/10 w-full grid grid-cols-3 h-12 p-1 rounded-xl">
                             <TabsTrigger value="overview" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 font-bold uppercase text-[10px]">Registry</TabsTrigger>
                             <TabsTrigger value="history" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 font-bold uppercase text-[10px]">History</TabsTrigger>
-                            <TabsTrigger value="notes" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 font-bold uppercase text-[10px]">Clinical Notes</TabsTrigger>
+                            <TabsTrigger value="notes" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 font-bold uppercase text-[10px]">Notes</TabsTrigger>
                         </TabsList>
                     </div>
-                    <div className="flex-1 overflow-y-auto bg-white overscroll-contain custom-scrollbar">
-                        <div className="p-6 sm:p-10 pb-32">
-                            <TabsContent value="overview" className="space-y-8 m-0">
-                                <div className="flex items-center gap-6 p-6 border-2 rounded-[2rem] bg-muted/20">
-                                    <Avatar className="h-16 w-16 shadow-lg border-2 border-white"><AvatarFallback className="bg-primary text-white font-bold text-lg">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback></Avatar>
-                                    {patient && <div className="min-w-0"><p className="font-bold text-xl truncate text-slate-900">{patient.firstName} {patient.lastName}</p><p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{patient.email}</p></div>}
-                                </div>
-                                <div className="flex flex-col gap-4 pt-4">
-                                    {isCompleted ? (
-                                        <div className="p-8 bg-green-50 border-2 border-green-100 rounded-3xl text-center space-y-3">
-                                            <ShieldCheck className="h-12 w-12 text-green-600 mx-auto" />
-                                            <p className="font-bold text-xl text-green-800">Precision Clinical Session Finalized</p>
-                                        </div>
-                                    ) : (isLive || isFlexibleEarly) ? (
-                                        <>
-                                            <Button onClick={handleStartRoom} className={cn("h-16 text-lg font-bold shadow-2xl rounded-2xl text-white", isLive ? "bg-red-600 hover:bg-red-700 animate-pulse" : "bg-primary hover:bg-primary/90")}>
-                                                <Video className="mr-3 h-6 w-6" /> {isLive ? "Join Precision Clinical Session" : "Start Early (Flexible Window)"}
-                                            </Button>
-                                            <Button variant="outline" className="h-14 text-sm font-bold w-full rounded-2xl gap-3 border-2" onClick={() => onPostpone(appointment)}>
-                                                <History className="h-4 w-4 text-primary" /> Shift Session
-                                            </Button>
-                                        </>
-                                    ) : isExpired ? (
-                                        <div className="space-y-6">
-                                            <div className="p-8 bg-red-50 border-2 border-red-100 rounded-3xl text-center space-y-3">
-                                                <Activity className="h-12 w-12 text-red-600 mx-auto" />
-                                                <p className="font-bold text-xl text-red-800">Clinical Session Window Concluded</p>
-                                            </div>
-                                            <Button variant="outline" className="h-16 text-lg font-bold w-full rounded-2xl gap-3 border-2 hover:bg-primary/5" onClick={() => onPostpone(appointment)}>
-                                                <History className="h-5 w-5 text-primary" /> Reschedule Session
-                                            </Button>
-                                        </div>
-                                    ) : (
-                                        <div className="space-y-4">
-                                            <div className="p-6 bg-slate-50 border-2 rounded-3xl text-center">
-                                                <Clock className="h-8 w-8 text-slate-400 mx-auto mb-2" />
-                                                <p className="text-sm font-bold text-slate-600">Awaiting Precision Clinical Window</p>
-                                                <p className="text-[10px] text-muted-foreground mt-1">Starts at {format(appointmentDate, "p")}</p>
-                                            </div>
-                                            <Button variant="outline" className="h-16 text-lg font-bold w-full rounded-2xl gap-3 border-2 hover:bg-primary/5" onClick={() => onPostpone(appointment)}>
-                                                <History className="h-4 w-4 text-primary" /> Shift Session
-                                            </Button>
-                                        </div>
-                                    )}
-                                </div>
-                            </TabsContent>
-                            <TabsContent value="history" className="m-0">
-                                <PatientHistoryTab patientId={appointment.patientId} />
-                            </TabsContent>
-                            <TabsContent value="notes" className="m-0">
-                                <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                                    <FormField control={form.control} name="diagnosis" render={({ field }) => (
-                                        <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-[0.2em] text-muted-foreground">Clinical Diagnosis</FormLabel><FormControl><Input placeholder="Clinical Summary..." className="h-14 border-2 rounded-2xl px-5" {...field} disabled={isCompleted} /></FormControl><FormMessage /></FormItem>
-                                    )} />
-                                    <FormField control={form.control} name="prescription" render={({ field }) => (
-                                        <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-[0.2em] text-muted-foreground">Treatment Plan</FormLabel><FormControl><Textarea placeholder="Detailed medical advice..." rows={8} className="resize-none border-2 rounded-2xl p-5" {...field} disabled={isCompleted} /></FormControl><FormMessage /></FormItem>
-                                    )} />
-                                    {!isCompleted && (
-                                        <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl shadow-2xl shadow-primary/20 bg-primary text-white">Finalize Record</Button>
-                                    )}
-                                </form></Form>
-                            </TabsContent>
-                        </div>
+                    <div className="flex-1 overflow-y-auto bg-white p-6 sm:p-10 pb-32">
+                        <TabsContent value="overview" className="space-y-8 m-0">
+                            <div className="flex items-center gap-6 p-6 border-2 rounded-[2rem] bg-muted/20">
+                                <Avatar className="h-16 w-16 shadow-lg border-2 border-white"><AvatarFallback className="bg-primary text-white font-bold text-lg">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback></Avatar>
+                                {patient && <div className="min-w-0"><p className="font-bold text-xl truncate text-slate-900">{patient.firstName} {patient.lastName}</p><p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">{patient.email}</p></div>}
+                            </div>
+                            {(isLive || isFlexibleEarly) && !isCompleted && (
+                                <Button onClick={handleStartRoom} className={cn("w-full h-16 text-lg font-bold shadow-2xl rounded-2xl", isLive ? "bg-red-600 animate-pulse" : "bg-primary")}>
+                                    <Video className="mr-3 h-6 w-6" /> {isLive ? "Join Precision Session" : "Start Early (Flexible)"}
+                                </Button>
+                            )}
+                            {!isCompleted && !isLive && !isFlexibleEarly && (
+                                <Button variant="outline" className="w-full h-14 text-sm font-bold rounded-2xl gap-3 border-2" onClick={() => onPostpone(appointment)}>
+                                    <History className="h-4 w-4 text-primary" /> Shift Session
+                                </Button>
+                            )}
+                        </TabsContent>
+                        <TabsContent value="history" className="m-0">
+                            <PatientHistoryTab patientId={appointment.patientId} />
+                        </TabsContent>
+                        <TabsContent value="notes" className="m-0">
+                            <Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+                                <FormField control={form.control} name="diagnosis" render={({ field }) => (
+                                    <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-[0.2em] text-muted-foreground">Clinical Diagnosis</FormLabel><FormControl><Input placeholder="Clinical Summary..." className="h-14 border-2 rounded-2xl" {...field} disabled={isCompleted} /></FormControl><FormMessage /></FormItem>
+                                )} />
+                                <FormField control={form.control} name="prescription" render={({ field }) => (
+                                    <FormItem><FormLabel className="uppercase text-[10px] font-bold tracking-[0.2em] text-muted-foreground">Advice</FormLabel><FormControl><Textarea placeholder="Treatment plan..." rows={8} className="resize-none border-2 rounded-2xl" {...field} disabled={isCompleted} /></FormControl><FormMessage /></FormItem>
+                                )} />
+                                {!isCompleted && <Button type="submit" className="w-full h-16 text-lg font-bold rounded-2xl bg-primary text-white">Finalize Record</Button>}
+                            </form></Form>
+                        </TabsContent>
                     </div>
                 </Tabs>
             </DialogContent>
@@ -448,7 +403,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
 }
 
 export default function DoctorPortalPage() {
-    const { user, userData, isUserLoading } = useUserData();
+    const { user, isUserLoading } = useUserData();
     const firestore = useFirestore();
     const { toast } = useToast();
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
@@ -467,11 +422,7 @@ export default function DoctorPortalPage() {
 
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
-        return query(
-            collection(firestore, 'appointments'), 
-            where('doctorId', '==', user.uid),
-            where('paymentStatus', '==', 'approved')
-        );
+        return query(collection(firestore, 'appointments'), where('doctorId', '==', user.uid), where('paymentStatus', '==', 'approved'));
     }, [firestore, user]);
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
@@ -480,11 +431,9 @@ export default function DoctorPortalPage() {
         const fetchPatients = async () => {
             const pIds = Array.from(new Set(appointments.map(a => a?.patientId).filter(Boolean)));
             if (pIds.length === 0) return;
-            
             const newMap = new Map<string, Patient>(patientsMap);
             const missingIds = pIds.filter(id => !newMap.has(id));
             if (missingIds.length === 0) return;
-
             for (let i = 0; i < missingIds.length; i += 30) {
                 const chunk = missingIds.slice(i, i + 30);
                 const q = query(collection(firestore, 'patients'), where('id', 'in', chunk));
@@ -497,24 +446,13 @@ export default function DoctorPortalPage() {
     }, [appointments, firestore]);
 
     const { activeQueue, timelineApts, stats } = useMemo(() => {
-        if (!mounted || !appointments) return { activeQueue: [], timelineApts: [], stats: { today: 0, todayRevenue: 0, totalRevenue: 0, totalConsults: 0 } };
-        
+        if (!mounted || !appointments) return { activeQueue: [], timelineApts: [], stats: { today: 0, todayRevenue: 0 } };
         const now = new Date();
         const allToday = appointments.filter(apt => apt && apt.appointmentDateTime && isSameDay(new Date(apt.appointmentDateTime), now) && apt.status !== 'cancelled');
-        const viewDayApts = appointments.filter(apt => apt && apt.appointmentDateTime && isSameDay(new Date(apt.appointmentDateTime), viewDate) && apt.status !== 'cancelled')
-                                      .sort((a,b) => a.appointmentDateTime.localeCompare(b.appointmentDateTime));
-
+        const viewDayApts = appointments.filter(apt => apt && apt.appointmentDateTime && isSameDay(new Date(apt.appointmentDateTime), viewDate) && apt.status !== 'cancelled').sort((a,b) => a.appointmentDateTime.localeCompare(b.appointmentDateTime));
         const activeQ = allToday.filter(apt => apt.status === 'scheduled' && Date.now() < new Date(apt.appointmentDateTime).getTime() + (15 * 60 * 1000));
-        
         const todayRev = allToday.filter(a => a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
-        const lifetimeRev = appointments.filter(a => a && a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
-        const totalCompleted = appointments.filter(a => a && a.status === 'completed').length;
-
-        return { 
-            activeQueue: activeQ,
-            timelineApts: viewDayApts,
-            stats: { today: allToday.length, todayRevenue: todayRev, totalRevenue: lifetimeRev, totalConsults: totalCompleted }
-        };
+        return { activeQueue: activeQ, timelineApts: viewDayApts, stats: { today: allToday.length, todayRevenue: todayRev } };
     }, [appointments, mounted, viewDate, nowState]);
 
     const handleSelectApt = (apt: Appointment) => { setSelectedAppointment(apt); setIsConsultOpen(true); };
@@ -523,63 +461,40 @@ export default function DoctorPortalPage() {
     const handleNotifyPatient = (apt: Appointment) => {
         if (!firestore) return;
         updateDocumentNonBlocking(doc(firestore, 'appointments', apt.id), { readyToStart: true, doctorInRoom: true });
-        toast({ title: "Clinical Signal Sent", description: "Requesting patient to join for a Precision Clinical Session early start." });
+        toast({ title: "Clinical Signal Sent" });
     };
 
-    if (!mounted || isUserLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+    if (!mounted || isUserLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
     return (
-        <main className="min-h-screen bg-slate-50/50 py-8 px-4 overflow-x-hidden">
+        <main className="min-h-screen bg-slate-50/50 py-8 px-4">
             <div className="max-w-7xl mx-auto space-y-8 pb-20">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
-                    <div className="space-y-1">
-                        <h1 className="text-3xl font-bold font-headline text-slate-900">Practice Control Center</h1>
-                        <p className="text-muted-foreground text-sm font-medium flex items-center gap-2"><Activity className="h-4 w-4 text-primary" /> Real-time Performance & Precision Clinical Schedule</p>
+                    <div>
+                        <h1 className="text-3xl font-bold font-headline text-slate-900">Practice Control</h1>
+                        <p className="text-muted-foreground text-sm flex items-center gap-2"><Activity className="h-4 w-4 text-primary" /> Real-time Precision Clinical Schedule</p>
                     </div>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 w-full md:w-auto">
-                        <Card className="p-4 bg-primary text-white border-none shadow-xl shadow-primary/10 rounded-2xl">
-                            <p className="text-[10px] font-bold uppercase opacity-80">Revenue Today</p>
-                            <p className="text-xl font-bold">PKR {stats.todayRevenue.toLocaleString()}</p>
-                        </Card>
-                        <Card className="p-4 bg-white border-none shadow-sm rounded-2xl">
-                            <p className="text-[10px] font-bold uppercase text-muted-foreground">Active Load</p>
-                            <p className="text-xl font-bold text-primary">{stats.today} Sessions</p>
-                        </Card>
-                        <Button variant="outline" className="col-span-2 sm:col-span-1 h-full font-bold gap-2 border-2 bg-white rounded-2xl text-xs"><History className="h-4 w-4 text-primary" /> History</Button>
+                    <div className="flex gap-4">
+                        <Card className="p-4 bg-primary text-white border-none rounded-2xl"><p className="text-[10px] font-bold uppercase opacity-80">Revenue Today</p><p className="text-xl font-bold">PKR {stats.todayRevenue.toLocaleString()}</p></Card>
+                        <Card className="p-4 bg-white border-none shadow-sm rounded-2xl"><p className="text-[10px] font-bold uppercase text-muted-foreground">Load Today</p><p className="text-xl font-bold text-primary">{stats.today} Sessions</p></Card>
                     </div>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                     <div className="lg:col-span-4 space-y-8">
                          <Card className="border-none shadow-2xl bg-slate-900 text-white rounded-[2rem] overflow-hidden">
-                            <CardHeader className="p-8 border-b border-white/5">
-                                <CardTitle className="text-lg font-headline flex items-center gap-3">
-                                    <Zap className="h-6 w-6 text-primary" /> Management
-                                </CardTitle>
-                                <CardDescription className="text-slate-400 text-xs mt-1">Direct practice operations.</CardDescription>
-                            </CardHeader>
+                            <CardHeader className="p-8"><CardTitle className="text-lg flex items-center gap-3"><Zap className="h-6 w-6 text-primary" /> Management</CardTitle></CardHeader>
                             <CardContent className="p-8 space-y-4">
-                                <Button variant="outline" className="w-full h-14 rounded-2xl bg-white/5 border-white/10 hover:bg-white/10 text-white font-bold justify-start gap-3" asChild>
-                                    <Link href="/doctor-portal/patients">
-                                        <LayoutList className="h-5 w-5 text-primary" /> Patient Registry
-                                    </Link>
-                                </Button>
-                                <Button variant="outline" className="w-full h-14 rounded-2xl bg-white/5 border-white/10 hover:bg-white/10 text-white font-bold justify-start gap-3" asChild>
-                                    <Link href="/doctor-portal/unavailability">
-                                        <CalendarIcon className="h-5 w-5 text-primary" /> Clinical Pause
-                                    </Link>
-                                </Button>
+                                <Button variant="outline" className="w-full h-14 rounded-2xl bg-white/5 border-white/10 text-white font-bold" asChild><Link href="/doctor-portal/patients"><LayoutList className="h-5 w-5 mr-3" /> Registry</Link></Button>
+                                <Button variant="outline" className="w-full h-14 rounded-2xl bg-white/5 border-white/10 text-white font-bold" asChild><Link href="/doctor-portal/unavailability"><CalendarIcon className="h-5 w-5 mr-3" /> Clinical Pause</Link></Button>
                             </CardContent>
                         </Card>
-                        
                         <Card className="border-none shadow-xl bg-white rounded-3xl overflow-hidden">
-                            <CardHeader className="bg-primary/5 border-b p-6">
-                                <CardTitle className="text-xs uppercase font-bold flex items-center gap-2"><ClipboardCheck className="h-4 w-4 text-primary" /> Clinical Queue</CardTitle>
-                            </CardHeader>
+                            <CardHeader className="bg-primary/5 p-6"><CardTitle className="text-xs uppercase font-bold flex items-center gap-2"><ClipboardCheck className="h-4 w-4 text-primary" /> Clinical Queue</CardTitle></CardHeader>
                             <CardContent className="p-0">
                                 {isLoadingAppointments ? <div className="p-12 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary/30" /></div> : 
                                  activeQueue.length > 0 ? <div className="divide-y">{activeQueue.map(apt => apt && <AppointmentRow key={apt.id} apt={apt} patient={patientsMap.get(apt.patientId)} onSelect={handleSelectApt} onNotify={handleNotifyPatient} isMounted={mounted} />)}</div> :
-                                 <div className="p-12 text-center text-muted-foreground italic text-xs">No pending sessions found.</div>}
+                                 <div className="p-12 text-center text-muted-foreground italic text-xs">No pending sessions.</div>}
                             </CardContent>
                         </Card>
                     </div>
@@ -587,11 +502,8 @@ export default function DoctorPortalPage() {
                     <div className="lg:col-span-8 space-y-8">
                         <Card className="border-none shadow-2xl bg-white rounded-[2.5rem] overflow-hidden">
                             <CardHeader className="border-b bg-slate-50 p-6 sm:p-8">
-                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                                    <div className="space-y-1">
-                                        <CardTitle className="text-xl font-headline flex items-center gap-3"><Clock className="h-6 w-6 text-primary" /> Practice Timeline</CardTitle>
-                                        <CardDescription className="text-xs">Precision clinical schedule for today.</CardDescription>
-                                    </div>
+                                <div className="flex justify-between items-center">
+                                    <CardTitle className="text-xl font-headline flex items-center gap-3"><Clock className="h-6 w-6 text-primary" /> Timeline</CardTitle>
                                     <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border-2 shadow-sm">
                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewDate(subDays(viewDate, 1))}><ChevronLeft className="h-4 w-4" /></Button>
                                         <span className="px-3 text-xs font-bold uppercase tracking-widest">{format(viewDate, "MMM dd")}</span>
@@ -608,25 +520,10 @@ export default function DoctorPortalPage() {
                                                 isCompleted: apt.status === 'completed'
                                             };
                                             return (
-                                                <div key={apt.id} className={cn(
-                                                    "flex items-center justify-between p-6 rounded-[1.5rem] border-2 transition-all",
-                                                    timing.isLive ? "border-primary bg-primary/5 shadow-lg shadow-primary/5 scale-[1.01]" : 
-                                                    timing.isCompleted ? "border-green-100 bg-green-50/50" : "border-slate-100 hover:border-slate-200 bg-white"
-                                                )}>
+                                                <div key={apt.id} className={cn("flex items-center justify-between p-6 rounded-[1.5rem] border-2 transition-all", timing.isLive ? "border-primary bg-primary/5 scale-[1.01]" : timing.isCompleted ? "border-green-100 bg-green-50/50" : "border-slate-100 bg-white")}>
                                                     <div className="flex items-center gap-5">
-                                                        <div className="text-center w-16 shrink-0 border-r-2 border-slate-100">
-                                                            <p className="text-sm font-bold text-slate-900">{format(new Date(apt.appointmentDateTime), "hh:mm")}</p>
-                                                            <p className="text-[10px] font-bold uppercase">{format(new Date(apt.appointmentDateTime), "a")}</p>
-                                                        </div>
-                                                        <div className="flex items-center gap-4">
-                                                            <div className={cn("h-10 w-10 rounded-full flex items-center justify-center shadow-inner", timing.isCompleted ? "bg-green-100 text-green-600" : "bg-slate-100 text-slate-400")}>
-                                                                <User className="h-5 w-5" />
-                                                            </div>
-                                                            <div>
-                                                                <p className="font-bold text-slate-900">{patientsMap.get(apt.patientId)?.firstName} {patientsMap.get(apt.patientId)?.lastName || '...'}</p>
-                                                                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">{apt.appointmentType} • Precision Window</p>
-                                                            </div>
-                                                        </div>
+                                                        <div className="text-center w-16 border-r-2 border-slate-100"><p className="text-sm font-bold">{format(new Date(apt.appointmentDateTime), "hh:mm")}</p><p className="text-[10px] font-bold uppercase">{format(new Date(apt.appointmentDateTime), "a")}</p></div>
+                                                        <div><p className="font-bold">{patientsMap.get(apt.patientId)?.firstName} {patientsMap.get(apt.patientId)?.lastName || '...'}</p><p className="text-[10px] text-muted-foreground uppercase font-bold">{apt.appointmentType} • Precision Window</p></div>
                                                     </div>
                                                     <div className="flex items-center gap-3">
                                                         {timing.isCompleted ? <Badge className="bg-green-100 text-green-800 font-bold text-[10px] px-3 h-7">Performed</Badge> :
@@ -638,10 +535,7 @@ export default function DoctorPortalPage() {
                                         })}
                                     </div>
                                 ) : (
-                                    <div className="flex flex-col items-center justify-center py-32 opacity-20 grayscale">
-                                        <CalendarIcon className="h-20 w-20 mb-4" />
-                                        <p className="font-bold text-xs uppercase tracking-[0.3em]">No Clinical Records for this date</p>
-                                    </div>
+                                    <div className="flex flex-col items-center justify-center py-32 opacity-20 grayscale"><CalendarIcon className="h-20 w-20 mb-4" /><p className="font-bold text-xs uppercase tracking-[0.3em]">No Records Found</p></div>
                                 )}
                             </CardContent>
                         </Card>

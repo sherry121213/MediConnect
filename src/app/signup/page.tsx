@@ -28,10 +28,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { preverifiedDoctors, adminEmails } from "@/lib/auth-config";
 
 const signupSchema = z.object({
-  firstName: z.string().min(2, { message: 'First name must be at least 2 characters.' }).regex(/^[^\d]*$/, { message: "First name cannot contain numbers." }),
-  lastName: z.string().min(2, { message: 'Last name must be at least 2 characters.' }).regex(/^[^\d]*$/, { message: "Last name cannot contain numbers." }),
+  firstName: z.string().min(2, { message: 'First name must be at least 2 characters.' }),
+  lastName: z.string().min(2, { message: 'Last name must be at least 2 characters.' }),
   email: z.string().email({ message: 'Please enter a valid email address.' }),
-  password: z.string().min(6, { message: 'Password must be at least 6 characters.' }).max(32, { message: 'Password cannot exceed 32 characters.' }),
+  password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
   role: z.enum(['patient', 'doctor']),
 });
 
@@ -59,70 +59,18 @@ export default function SignupPage() {
 
   useEffect(() => {
     if (!isUserLoading && user && userData) {
-      if (userData.role === 'admin') {
-        router.replace('/admin');
-      } else if (userData.role === 'doctor') {
-        router.replace('/doctor-portal');
-      } else if (userData.role === 'patient') {
-        router.replace('/patient-portal');
-      } else {
-        router.replace('/'); 
-      }
+      if (userData.role === 'admin') router.replace('/admin');
+      else if (userData.role === 'doctor') router.replace('/doctor-portal');
+      else if (userData.role === 'patient') router.replace('/patient-portal');
     }
   }, [user, userData, isUserLoading, router]);
 
   async function onSubmit(values: SignupFormValues) {
-    const { firstName, lastName, email, password, role } = values;
     if (!auth || !firestore) return;
     setLoading(true);
     
+    const { firstName, lastName, email, password, role } = values;
     const lowercasedEmail = email.toLowerCase();
-    const adminEmailsLower = adminEmails.map(e => e.toLowerCase());
-
-    if (adminEmailsLower.includes(lowercasedEmail)) {
-      try {
-        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-        const newUser = userCredential.user;
-
-        const displayName = email === 'admin@mediconnect.com' ? 'Admin User' : 'Falak Ali';
-        const adminFirstName = email === 'admin@mediconnect.com' ? 'Admin' : 'Falak';
-        const adminLastName = email === 'admin@mediconnect.com' ? 'User' : 'Ali';
-
-        await updateProfile(newUser, {
-          displayName: displayName
-        });
-
-        const adminDocData = {
-          id: newUser.uid,
-          firstName: adminFirstName,
-          lastName: adminLastName,
-          email: newUser.email,
-          role: 'admin',
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          profileComplete: true,
-        };
-
-        const adminDocRef = doc(firestore, 'patients', newUser.uid);
-        setDocumentNonBlocking(adminDocRef, adminDocData, { merge: true });
-
-        toast({
-          title: 'Admin Account Created',
-          description: 'Redirecting to the admin dashboard.',
-        });
-        router.push('/admin');
-        return;
-      } catch (error: any) {
-        if (error.code === 'auth/email-already-in-use') {
-            toast({ title: "Admin Account Exists", description: "Please log in." });
-            router.push('/login');
-        } else {
-             toast({ variant: "destructive", title: "Admin Creation Failed", description: error.message });
-        }
-        setLoading(false);
-        return;
-      }
-    }
 
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
@@ -131,16 +79,22 @@ export default function SignupPage() {
       await sendEmailVerification(newUser);
       await updateProfile(newUser, { displayName: `${firstName} ${lastName}` });
 
+      const timestamp = new Date().toISOString();
       const baseUserData = {
           id: newUser.uid,
           firstName,
           lastName,
-          email,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
+          email: lowercasedEmail,
+          createdAt: timestamp,
+          updatedAt: timestamp,
       };
       
-      if (role === 'doctor') {
+      const isAdmin = adminEmails.map(e => e.toLowerCase()).includes(lowercasedEmail);
+
+      if (isAdmin) {
+        await setDocumentNonBlocking(doc(firestore, 'patients', newUser.uid), { ...baseUserData, role: 'admin', profileComplete: true, verified: true }, { merge: true });
+        router.push('/admin');
+      } else if (role === 'doctor') {
         const preverifiedKey = Object.keys(preverifiedDoctors).find(k => k.toLowerCase() === lowercasedEmail);
         const preverifiedData = preverifiedKey ? preverifiedDoctors[preverifiedKey] : null;
         const isPreverified = !!preverifiedData;
@@ -151,158 +105,57 @@ export default function SignupPage() {
           profileComplete: isPreverified,
           isActive: true, 
           role: 'doctor',
-          ...(preverifiedData && {
-              specialty: preverifiedData.specialty,
-              experience: preverifiedData.experience,
-              medicalSchool: preverifiedData.medicalSchool,
-              degree: preverifiedData.degree,
-              phone: preverifiedData.phone,
-              location: preverifiedData.location,
-              documents: preverifiedData.degreeUrl ? [preverifiedData.degreeUrl] : [],
-          })
+          ...(preverifiedData && { ...preverifiedData })
         };
-        setDocumentNonBlocking(doc(firestore, 'doctors', newUser.uid), doctorData, { merge: true });
-        setDocumentNonBlocking(doc(firestore, 'patients', newUser.uid), { ...baseUserData, role: 'doctor', profileComplete: isPreverified, verified: isPreverified }, { merge: true });
+        await setDocumentNonBlocking(doc(firestore, 'doctors', newUser.uid), doctorData, { merge: true });
+        await setDocumentNonBlocking(doc(firestore, 'patients', newUser.uid), { ...baseUserData, role: 'doctor', profileComplete: isPreverified, verified: isPreverified }, { merge: true });
+        router.push('/doctor-portal');
       } else { 
-        setDocumentNonBlocking(doc(firestore, 'patients', newUser.uid), { ...baseUserData, role: 'patient', profileComplete: false }, { merge: true });
+        await setDocumentNonBlocking(doc(firestore, 'patients', newUser.uid), { ...baseUserData, role: 'patient', profileComplete: false }, { merge: true });
+        router.push('/patient-portal');
       }
       
-      toast({ title: "Account Created!", description: "A verification link has been sent to your email." });
-      router.push(role === 'doctor' ? '/doctor-portal' : '/patient-portal');
+      toast({ title: "Account Created!", description: "Verify your email to continue." });
     } catch (error: any) {
-        if (error.code === 'auth/email-already-in-use') {
-            toast({ variant: "destructive", title: "Email Already Registered", description: "This email is already in use." });
-        } else {
-            toast({ variant: "destructive", title: "Sign Up Failed", description: error.message || "Could not create account." });
-        }
+        toast({ variant: "destructive", title: "Sign Up Failed", description: error.message });
     } finally {
         setLoading(false);
     }
   }
 
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-secondary/30">
       <AppHeader />
-      <main className="flex-grow flex items-center justify-center py-12 px-4 bg-secondary/30">
-        <Card className="mx-auto max-w-sm w-full rounded-[2rem] border-none shadow-2xl overflow-hidden">
-          <CardHeader className="text-center bg-slate-900 text-white p-8">
-            <CardTitle className="text-2xl font-headline">Create an Account</CardTitle>
-            <CardDescription className="text-slate-400">
-              Join Pakistan's professional Precision Clinical network.
-            </CardDescription>
+      <main className="flex-grow flex items-center justify-center p-4">
+        <Card className="w-full max-w-sm rounded-[2rem] border-none shadow-2xl overflow-hidden">
+          <CardHeader className="bg-slate-900 text-white p-8 text-center">
+            <CardTitle className="text-2xl font-headline">Registration</CardTitle>
+            <CardDescription className="text-slate-400">Join the Precision Clinical network.</CardDescription>
           </CardHeader>
           <CardContent className="p-8">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
-                  <FormField
-                    control={form.control}
-                    name="firstName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">First Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Max" {...field} disabled={loading} className="h-12 rounded-xl" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="lastName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Last Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Robinson" {...field} disabled={loading} className="h-12 rounded-xl" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <FormField control={form.control} name="firstName" render={({ field }) => (
+                    <FormItem><FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">First Name</FormLabel><FormControl><Input placeholder="Max" {...field} className="h-11 rounded-xl" /></FormControl><FormMessage /></FormItem>
+                  )} />
+                  <FormField control={form.control} name="lastName" render={({ field }) => (
+                    <FormItem><FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Last Name</FormLabel><FormControl><Input placeholder="Khan" {...field} className="h-11 rounded-xl" /></FormControl><FormMessage /></FormItem>
+                  )} />
                 </div>
-                 <FormField
-                  control={form.control}
-                  name="email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" placeholder="m@example.com" {...field} disabled={loading} className="h-12 rounded-xl" />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="password"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Password</FormLabel>
-                      <FormControl>
-                         <div className="relative">
-                            <Input 
-                                type={showPassword ? "text" : "password"} 
-                                {...field} 
-                                disabled={loading} 
-                                className="pr-12 h-12 rounded-xl"
-                            />
-                            <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                className="absolute right-0 top-0 h-full px-3 py-2 hover:bg-transparent"
-                                onClick={() => setShowPassword(!showPassword)}
-                            >
-                                {showPassword ? <EyeOff className="h-4 w-4 text-muted-foreground" /> : <Eye className="h-4 w-4 text-muted-foreground" />}
-                            </Button>
-                        </div>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField
-                  control={form.control}
-                  name="role"
-                  render={({ field }) => (
-                    <FormItem className="space-y-3">
-                      <FormLabel className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground ml-1">Account Category</FormLabel>
-                      <FormControl>
-                        <RadioGroup
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                          className="flex gap-4"
-                          disabled={loading}
-                        >
-                          <div className="flex items-center space-x-2 bg-slate-50 px-4 py-2 rounded-xl border flex-1">
-                            <RadioGroupItem value="patient" id="role-patient" />
-                            <label htmlFor="role-patient" className="font-bold text-xs cursor-pointer">Patient</label>
-                          </div>
-                          <div className="flex items-center space-x-2 bg-slate-50 px-4 py-2 rounded-xl border flex-1">
-                            <RadioGroupItem value="doctor" id="role-doctor" />
-                            <label htmlFor="role-doctor" className="font-bold text-xs cursor-pointer">Doctor</label>
-                          </div>
-                        </RadioGroup>
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <Button type="submit" className="w-full h-12 rounded-xl font-bold shadow-lg" disabled={loading}>
-                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Finalize Registration
-                </Button>
+                <FormField control={form.control} name="email" render={({ field }) => (
+                  <FormItem><FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Email</FormLabel><FormControl><Input placeholder="m@example.com" {...field} className="h-11 rounded-xl" /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="password" render={({ field }) => (
+                  <FormItem><FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Password</FormLabel><FormControl><div className="relative"><Input type={showPassword ? "text" : "password"} {...field} className="pr-12 h-11 rounded-xl" /><Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button></div></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={form.control} name="role" render={({ field }) => (
+                  <FormItem className="space-y-3"><FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Account Role</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4"><div className="flex items-center space-x-2 bg-slate-50 px-4 py-2 rounded-xl border flex-1"><RadioGroupItem value="patient" id="role-patient" /><label htmlFor="role-patient" className="font-bold text-xs cursor-pointer">Patient</label></div><div className="flex items-center space-x-2 bg-slate-50 px-4 py-2 rounded-xl border flex-1"><RadioGroupItem value="doctor" id="role-doctor" /><label htmlFor="role-doctor" className="font-bold text-xs cursor-pointer">Doctor</label></div></RadioGroup></FormControl></FormItem>
+                )} />
+                <Button type="submit" className="w-full h-12 rounded-xl font-bold shadow-lg" disabled={loading}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Create Account</Button>
               </form>
             </Form>
-            <div className="mt-6 text-center text-sm">
-              Already have an account?{" "}
-              <Link href="/login" className="underline font-bold text-primary">
-                Log in
-              </Link>
-            </div>
+            <p className="mt-6 text-center text-sm text-muted-foreground">Already have an account? <Link href="/login" className="underline font-bold text-primary">Log in</Link></p>
           </CardContent>
         </Card>
       </main>
