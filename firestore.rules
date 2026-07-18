@@ -1,26 +1,123 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    /**
-     * TOTAL_ACCESS_PROTOTYPE_V20
-     * Explicit global read/write access for clinical prototype development.
-     * This ensures all precision session data, notifications, and support threads
-     * are accessible without permission handshakes during high-stakes testing.
-     */
-    match /{document=**} {
-      allow read, write: if true;
+    
+    // --- Helper Functions ---
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Fetches user profile from patients collection for role validation
+    function getUserData() {
+      return get(/databases/$(database)/documents/patients/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        getUserData().role == 'admin' || 
+        request.auth.token.email in ['admin@mediconnect.com', 'falakali1470@gmail.com']
+      );
+    }
+
+    // --- Collection Rules ---
+
+    // Patients/Users collection
+    match /patients/{userId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+    }
+
+    // Professional Doctor profiles
+    match /doctors/{doctorId} {
+      allow read: if true; 
+      allow write: if isAdmin() || (isSignedIn() && request.auth.uid == doctorId);
+    }
+
+    // Credentials for Doctors
+    match /doctorCredentials/{credentialId} {
+      allow read: if isSignedIn() && (resource.data.doctorId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && (request.resource.data.doctorId == request.auth.uid || isAdmin());
+      allow update, delete: if isSignedIn() && (resource.data.doctorId == request.auth.uid || isAdmin());
+    }
+
+    // Appointments (Core Clinical Record)
+    match /appointments/{appointmentId} {
+      // Users can list/view their own appointments. 
+      // Listing requires the query to include a filter for patientId or doctorId matching auth.uid.
+      allow read: if isSignedIn() && (
+        resource.data.patientId == request.auth.uid || 
+        resource.data.doctorId == request.auth.uid || 
+        isAdmin()
+      );
+      // Patients and Admins can create appointments
+      allow create: if isSignedIn(); 
+      // Involved parties can update (e.g. doctor adds diagnosis, patient cancels)
+      allow update: if isSignedIn() && (
+        resource.data.patientId == request.auth.uid || 
+        resource.data.doctorId == request.auth.uid || 
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // Reviews
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow create: if isSignedIn() && request.auth.uid == request.resource.data.patientId;
+      allow update, delete: if isAdmin();
+    }
+
+    // Support Chats (Patient <-> Admin)
+    match /supportChatSessions/{userId} {
+      allow read, write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+    }
+    match /supportChatSessions/{userId}/messages/{msgId} {
+      allow read, write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+    }
+
+    // Admin-Doctor Support Chats
+    match /adminDoctorChatSessions/{sessionId} {
+      allow read, write: if isSignedIn() && (
+        (resource != null && resource.data.doctorId == request.auth.uid) || 
+        isAdmin() ||
+        (resource == null) // Allow creating new session
+      );
+    }
+    match /adminDoctorChatSessions/{sessionId}/messages/{msgId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // Peer-to-Peer Consultation Messages
+    match /consultationSessions/{appointmentId}/messages/{msgId} {
+      allow read, write: if isSignedIn();
+    }
+
+    // WebRTC Signaling Calls
+    match /calls/{appointmentId} {
+      allow read, write: if isSignedIn();
+    }
+    match /calls/{appointmentId}/offerCandidates/{id} { allow read, write: if isSignedIn(); }
+    match /calls/{appointmentId}/answerCandidates/{id} { allow read, write: if isSignedIn(); }
+
+    // Doctor Unavailability Requests
+    match /doctorUnavailabilityRequests/{id} {
+      allow read: if isSignedIn() && (resource.data.doctorId == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && request.resource.data.doctorId == request.auth.uid;
+      allow update: if isAdmin() || (isSignedIn() && resource.data.doctorId == request.auth.uid && resource.data.status == 'pending');
+      allow delete: if isAdmin();
+    }
+
+    // Audit Trail for Missed Sessions
+    match /missedSessionAudits/{id} {
+      allow read: if isAdmin();
+      allow write: if isAdmin();
     }
     
-    // Explicit matches for clinical prototype visibility and index integrity
-    match /appointments/{id} { allow read, write: if true; }
-    match /patients/{id} { allow read, write: if true; }
-    match /doctors/{id} { allow read, write: if true; }
-    match /reviews/{id} { allow read, write: if true; }
-    match /supportChatSessions/{id} { allow read, write: if true; }
-    match /adminDoctorChatSessions/{id} { allow read, write: if true; }
-    match /doctorUnavailabilityRequests/{id} { allow read, write: if true; }
-    match /missedSessionAudits/{id} { allow read, write: if true; }
-    match /doctorCredentials/{id} { allow read, write: if true; }
-    match /calls/{id} { allow read, write: if true; }
+    // Support/Contact collection
+    match /contacts/{id} {
+      allow create: if true;
+      allow read, write: if isAdmin();
+    }
   }
 }
