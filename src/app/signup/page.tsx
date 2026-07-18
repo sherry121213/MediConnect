@@ -186,7 +186,7 @@ export default function SignupPage() {
   if (isUserLoading || user) {
      return (
       <div className="flex h-screen w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
         <span className="ml-2">Loading...</span>
       </div>
     );

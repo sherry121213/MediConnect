@@ -130,64 +130,6 @@ export default function AppHeader() {
     }
   };
 
-  const NotificationCenter = () => (
-    <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full hover:bg-primary/5">
-                <Bell className="h-5 w-5 text-slate-600" />
-                {notifications.length > 0 && (
-                    <span className="absolute top-2 right-2 h-4 w-4 bg-red-500 border-2 border-white rounded-full flex items-center justify-center text-[8px] font-bold text-white animate-in zoom-in">
-                        {notifications.length}
-                    </span>
-                )}
-            </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-80 p-0 rounded-2xl border-none shadow-2xl overflow-hidden" align="end">
-            <div className="bg-slate-900 text-white p-4">
-                <p className="text-[10px] uppercase font-bold tracking-[0.2em] opacity-60">Notification Center</p>
-                <h4 className="text-sm font-bold flex items-center gap-2">
-                    Clinical Activity {notifications.length > 0 && <Badge variant="secondary" className="h-4 text-[8px] bg-primary text-white border-none">{notifications.length}</Badge>}
-                </h4>
-            </div>
-            <ScrollArea className="h-[350px]">
-                {notifications.length > 0 ? (
-                    <div className="divide-y divide-slate-50">
-                        {notifications.map((n) => (
-                            <DropdownMenuItem 
-                                key={n.id} 
-                                className="p-4 flex gap-4 cursor-pointer focus:bg-slate-50 items-start"
-                                onClick={() => n.link && router.push(n.link)}
-                            >
-                                <div className={cn("p-2 rounded-xl bg-slate-100 shrink-0", n.color)}>
-                                    <n.icon className="h-4 w-4" />
-                                </div>
-                                <div className="space-y-0.5 min-w-0">
-                                    <p className={cn("font-bold text-[11px] uppercase tracking-tight", n.isUrgent ? "text-red-600" : "text-slate-900")}>{n.title}</p>
-                                    <p className="text-xs text-muted-foreground leading-snug">{n.msg}</p>
-                                    <p className="text-[9px] text-slate-400 font-medium">{format(new Date(n.timestamp), "p")}</p>
-                                </div>
-                            </DropdownMenuItem>
-                        ))}
-                    </div>
-                ) : (
-                    <div className="py-20 text-center space-y-3 px-8">
-                        <Bell className="h-10 w-10 text-slate-200 mx-auto" />
-                        <div>
-                            <p className="font-bold text-xs text-slate-900">All Quiet</p>
-                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">No pending signals</p>
-                        </div>
-                    </div>
-                )}
-            </ScrollArea>
-            <div className="p-3 bg-slate-50 border-t text-center">
-                <Button variant="ghost" size="sm" className="text-[9px] uppercase font-bold text-primary hover:bg-white" onClick={() => router.push(userData?.role === 'doctor' ? '/doctor-portal' : '/patient-portal')}>
-                    View Full Dashboard <ChevronRight className="h-3 w-3 ml-1" />
-                </Button>
-            </div>
-        </DropdownMenuContent>
-    </DropdownMenu>
-  );
-
   const UserMenu = () => {
     const displayName = [userData?.firstName, userData?.lastName].filter(Boolean).join(' ') || userData?.displayName || user?.displayName || 'User';
     const displayEmail = userData?.email || user?.email;
@@ -300,7 +242,58 @@ export default function AppHeader() {
         <div className="hidden md:flex items-center gap-3">
           {isUserLoading ? null : user ? (
             <>
-                <NotificationCenter />
+                {userData?.role === 'doctor' && (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full hover:bg-primary/5">
+                                <Bell className="h-5 w-5 text-slate-600" />
+                                {notifications.length > 0 && (
+                                    <span className="absolute top-2 right-2 h-4 w-4 bg-red-500 border-2 border-white rounded-full flex items-center justify-center text-[8px] font-bold text-white animate-in zoom-in">
+                                        {notifications.length}
+                                    </span>
+                                )}
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent className="w-80 p-0 rounded-2xl border-none shadow-2xl overflow-hidden" align="end">
+                            <div className="bg-slate-900 text-white p-4">
+                                <p className="text-[10px] uppercase font-bold tracking-[0.2em] opacity-60">Notification Center</p>
+                                <h4 className="text-sm font-bold flex items-center gap-2">
+                                    Clinical Activity {notifications.length > 0 && <Badge variant="secondary" className="h-4 text-[8px] bg-primary text-white border-none">{notifications.length}</Badge>}
+                                </h4>
+                            </div>
+                            <ScrollArea className="h-[350px]">
+                                {notifications.length > 0 ? (
+                                    <div className="divide-y divide-slate-50">
+                                        {notifications.map((n) => (
+                                            <DropdownMenuItem 
+                                                key={n.id} 
+                                                className="p-4 flex gap-4 cursor-pointer focus:bg-slate-50 items-start"
+                                                onClick={() => n.link && router.push(n.link)}
+                                            >
+                                                <div className={cn("p-2 rounded-xl bg-slate-100 shrink-0", n.color)}>
+                                                    <n.icon className="h-4 w-4" />
+                                                </div>
+                                                <div className="space-y-0.5 min-w-0">
+                                                    <p className={cn("font-bold text-[11px] uppercase tracking-tight", n.isUrgent ? "text-red-600" : "text-slate-900")}>{n.title}</p>
+                                                    <p className="text-xs text-muted-foreground leading-snug">{n.msg}</p>
+                                                    <p className="text-[9px] text-slate-400 font-medium">{format(new Date(n.timestamp), "p")}</p>
+                                                </div>
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="py-20 text-center space-y-3 px-8">
+                                        <Bell className="h-10 w-10 text-slate-200 mx-auto" />
+                                        <div>
+                                            <p className="font-bold text-xs text-slate-900">All Quiet</p>
+                                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">No pending signals</p>
+                                        </div>
+                                    </div>
+                                )}
+                            </ScrollArea>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
                 <div className="w-px h-6 bg-slate-200 mx-2" />
                 <UserMenu />
             </>
@@ -318,7 +311,6 @@ export default function AppHeader() {
 
         {/* Mobile Navigation */}
         <div className="flex items-center gap-2 md:hidden">
-             {user && <NotificationCenter />}
              <Sheet open={isMobileMenuOpen} onOpenChange={setMobileMenuOpen}>
                 <SheetTrigger asChild>
                     <Button variant="ghost" size="icon" className="h-10 w-10">
