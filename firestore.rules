@@ -2,10 +2,10 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     /**
-     * PRECISION_SESSION_OPEN_ACCESS_V14
-     * Full global read/write access for clinical prototype development.
-     * This ensures that patients, doctors, and admins can interact with session data
-     * and notification streams without permission handshakes.
+     * TOTAL_ACCESS_PROTOTYPE_V15
+     * Explicit global read/write access for clinical prototype development.
+     * This ensures all precision session data, notifications, and support threads
+     * are accessible without permission handshakes during high-stakes testing.
      */
     match /{document=**} {
       allow read, write: if true;

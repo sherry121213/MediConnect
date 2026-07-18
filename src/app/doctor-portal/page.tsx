@@ -533,19 +533,19 @@ export default function DoctorPortalPage() {
             <div className="max-w-7xl mx-auto space-y-8 pb-20">
                 <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
                     <div className="space-y-1">
-                        <h1 className="text-3xl font-bold font-headline text-slate-900">Precision Practice Command</h1>
-                        <p className="text-muted-foreground text-sm font-medium flex items-center gap-2"><Activity className="h-4 w-4 text-primary" /> Intelligent Professional Performance Analytics</p>
+                        <h1 className="text-3xl font-bold font-headline text-slate-900">Practice Control Center</h1>
+                        <p className="text-muted-foreground text-sm font-medium flex items-center gap-2"><Activity className="h-4 w-4 text-primary" /> Real-time Performance & Precision Clinical Schedule</p>
                     </div>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 w-full md:w-auto">
                         <Card className="p-4 bg-primary text-white border-none shadow-xl shadow-primary/10 rounded-2xl">
-                            <p className="text-[10px] font-bold uppercase opacity-80">Practice Revenue</p>
+                            <p className="text-[10px] font-bold uppercase opacity-80">Revenue Today</p>
                             <p className="text-xl font-bold">PKR {stats.todayRevenue.toLocaleString()}</p>
                         </Card>
                         <Card className="p-4 bg-white border-none shadow-sm rounded-2xl">
-                            <p className="text-[10px] font-bold uppercase text-muted-foreground">Session Load</p>
-                            <p className="text-xl font-bold text-primary">{stats.today} Slots</p>
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground">Active Load</p>
+                            <p className="text-xl font-bold text-primary">{stats.today} Sessions</p>
                         </Card>
-                        <Button variant="outline" className="col-span-2 sm:col-span-1 h-full font-bold gap-2 border-2 bg-white rounded-2xl text-xs"><History className="h-4 w-4 text-primary" /> Performance</Button>
+                        <Button variant="outline" className="col-span-2 sm:col-span-1 h-full font-bold gap-2 border-2 bg-white rounded-2xl text-xs"><History className="h-4 w-4 text-primary" /> History</Button>
                     </div>
                 </div>
 
@@ -554,9 +554,9 @@ export default function DoctorPortalPage() {
                          <Card className="border-none shadow-2xl bg-slate-900 text-white rounded-[2rem] overflow-hidden">
                             <CardHeader className="p-8 border-b border-white/5">
                                 <CardTitle className="text-lg font-headline flex items-center gap-3">
-                                    <Zap className="h-6 w-6 text-primary" /> Quick Actions
+                                    <Zap className="h-6 w-6 text-primary" /> Management
                                 </CardTitle>
-                                <CardDescription className="text-slate-400 text-xs mt-1">Direct management of current practice flow.</CardDescription>
+                                <CardDescription className="text-slate-400 text-xs mt-1">Direct practice operations.</CardDescription>
                             </CardHeader>
                             <CardContent className="p-8 space-y-4">
                                 <Button variant="outline" className="w-full h-14 rounded-2xl bg-white/5 border-white/10 hover:bg-white/10 text-white font-bold justify-start gap-3" asChild>
@@ -574,12 +574,12 @@ export default function DoctorPortalPage() {
                         
                         <Card className="border-none shadow-xl bg-white rounded-3xl overflow-hidden">
                             <CardHeader className="bg-primary/5 border-b p-6">
-                                <CardTitle className="text-xs uppercase font-bold flex items-center gap-2"><ClipboardCheck className="h-4 w-4 text-primary" /> Immediate Queue</CardTitle>
+                                <CardTitle className="text-xs uppercase font-bold flex items-center gap-2"><ClipboardCheck className="h-4 w-4 text-primary" /> Clinical Queue</CardTitle>
                             </CardHeader>
                             <CardContent className="p-0">
                                 {isLoadingAppointments ? <div className="p-12 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary/30" /></div> : 
                                  activeQueue.length > 0 ? <div className="divide-y">{activeQueue.map(apt => apt && <AppointmentRow key={apt.id} apt={apt} patient={patientsMap.get(apt.patientId)} onSelect={handleSelectApt} onNotify={handleNotifyPatient} isMounted={mounted} />)}</div> :
-                                 <div className="p-12 text-center text-muted-foreground italic text-xs">No pending Precision Clinical Sessions.</div>}
+                                 <div className="p-12 text-center text-muted-foreground italic text-xs">No pending sessions found.</div>}
                             </CardContent>
                         </Card>
                     </div>
@@ -589,8 +589,8 @@ export default function DoctorPortalPage() {
                             <CardHeader className="border-b bg-slate-50 p-6 sm:p-8">
                                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
                                     <div className="space-y-1">
-                                        <CardTitle className="text-xl font-headline flex items-center gap-3"><Clock className="h-6 w-6 text-primary" /> Clinical Timeline</CardTitle>
-                                        <CardDescription className="text-xs">Precision sequence of all consultation sessions including administrative buffers.</CardDescription>
+                                        <CardTitle className="text-xl font-headline flex items-center gap-3"><Clock className="h-6 w-6 text-primary" /> Practice Timeline</CardTitle>
+                                        <CardDescription className="text-xs">Precision clinical schedule for today.</CardDescription>
                                     </div>
                                     <div className="flex items-center gap-2 bg-white p-2 rounded-2xl border-2 shadow-sm">
                                         <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewDate(subDays(viewDate, 1))}><ChevronLeft className="h-4 w-4" /></Button>
@@ -624,7 +624,7 @@ export default function DoctorPortalPage() {
                                                             </div>
                                                             <div>
                                                                 <p className="font-bold text-slate-900">{patientsMap.get(apt.patientId)?.firstName} {patientsMap.get(apt.patientId)?.lastName || '...'}</p>
-                                                                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">{apt.appointmentType} • Clinical Window</p>
+                                                                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tight">{apt.appointmentType} • Precision Window</p>
                                                             </div>
                                                         </div>
                                                     </div>
@@ -640,7 +640,7 @@ export default function DoctorPortalPage() {
                                 ) : (
                                     <div className="flex flex-col items-center justify-center py-32 opacity-20 grayscale">
                                         <CalendarIcon className="h-20 w-20 mb-4" />
-                                        <p className="font-bold text-xs uppercase tracking-[0.3em]">No Clinical Registry for this date</p>
+                                        <p className="font-bold text-xs uppercase tracking-[0.3em]">No Clinical Records for this date</p>
                                     </div>
                                 )}
                             </CardContent>

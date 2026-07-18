@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, LogOut, User as UserIcon, Shield, LayoutDashboard, MessageCircle, CalendarClock, Bell, Siren, Clock, User as UserCircle } from 'lucide-react';
+import { Menu, LogOut, User as UserIcon, Shield, LayoutDashboard, MessageCircle, CalendarClock, Bell, Siren, Clock, User as UserCircle, CheckCircle2 } from 'lucide-react';
 import Logo from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import {
@@ -47,11 +47,11 @@ export default function AppHeader() {
   const [now, setNow] = useState(Date.now());
 
   useEffect(() => {
-    const timer = setInterval(() => setNow(Date.now()), 30000);
+    const timer = setInterval(() => setNow(Date.now()), 15000);
     return () => clearInterval(timer);
   }, []);
 
-  // Notification logic for doctors - Guarded by role verification
+  // Notification logic for doctors
   const appointmentsQuery = useMemoFirebase(() => {
     if (!firestore || !user || !userData || userData.role !== 'doctor') return null;
     return query(
@@ -75,18 +75,19 @@ export default function AppHeader() {
         if (!isValid(aptDate)) return;
 
         const startTime = aptDate.getTime();
-        const endTime = startTime + (15 * 60 * 1000);
-        const warningTime = endTime - (5 * 60 * 1000);
+        const endTime = startTime + (15 * 60 * 1000); // 15 min precision session
+        const warningTime = endTime - (5 * 60 * 1000); // 5 min warning
 
-        // 1. New Bookings
+        // 1. New Bookings (Booked in last 24h)
         if (isAfter(new Date(apt.createdAt), yesterday) && apt.status === 'scheduled') {
             alerts.push({
                 id: apt.id + '-new',
                 title: 'New Precision Session',
-                msg: `New booking registered for ${format(aptDate, "MMM dd, p")}`,
+                msg: `Appointment registered for ${format(aptDate, "MMM dd, p")}`,
                 icon: UserCircle,
                 color: 'text-primary',
-                timestamp: new Date(apt.createdAt).getTime()
+                timestamp: new Date(apt.createdAt).getTime(),
+                link: '/doctor-portal'
             });
         }
 
@@ -95,7 +96,7 @@ export default function AppHeader() {
             alerts.push({
                 id: apt.id + '-live',
                 title: 'Clinical Session Live',
-                msg: ' HD Video feed active. Join now.',
+                msg: 'Secure video feed is active. Join now.',
                 icon: Siren,
                 color: 'text-red-600 animate-pulse',
                 timestamp: startTime,
@@ -109,11 +110,12 @@ export default function AppHeader() {
              alerts.push({
                 id: apt.id + '-warning',
                 title: 'Precision Countdown',
-                msg: '5 minutes remaining in session window.',
+                msg: 'Only 5 minutes remaining in session.',
                 icon: Clock,
                 color: 'text-amber-500',
                 timestamp: warningTime,
-                isUrgent: true
+                isUrgent: true,
+                link: `/consultation/${apt.id}`
             });
         }
     });
@@ -158,19 +160,11 @@ export default function AppHeader() {
             <div className="p-1 space-y-1">
               <DropdownMenuItem className="rounded-xl p-3 cursor-pointer" onClick={() => router.push('/doctor-portal')}>
                   <LayoutDashboard className="mr-2 h-4 w-4 text-primary" />
-                  <span className="font-medium">Command Center</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="rounded-xl p-3 cursor-pointer" onClick={() => router.push('/doctor-portal/unavailability')}>
-                <CalendarClock className="mr-2 h-4 w-4 text-primary" />
-                <span className="font-medium">Clinical Pause</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="rounded-xl p-3 cursor-pointer" onClick={() => router.push('/doctor-portal/chat')}>
-                <MessageCircle className="mr-2 h-4 w-4 text-primary" />
-                <span className="font-medium">Admin Link</span>
+                  <span className="font-medium">Dashboard</span>
               </DropdownMenuItem>
               <DropdownMenuItem className="rounded-xl p-3 cursor-pointer" onClick={() => router.push('/doctor-portal/profile')}>
                 <UserIcon className="mr-2 h-4 w-4 text-primary" />
-                <span className="font-medium">Registry Settings</span>
+                <span className="font-medium">Clinical Registry</span>
               </DropdownMenuItem>
             </div>
           )}
@@ -179,11 +173,11 @@ export default function AppHeader() {
             <div className="p-1 space-y-1">
                 <DropdownMenuItem className="rounded-xl p-3 cursor-pointer" onClick={() => router.push('/patient-portal')}>
                     <LayoutDashboard className="mr-2 h-4 w-4 text-primary" />
-                    <span className="font-medium">Care Portal</span>
+                    <span className="font-medium">Patient Portal</span>
                 </DropdownMenuItem>
                 <DropdownMenuItem className="rounded-xl p-3 cursor-pointer" onClick={() => router.push('/patient-portal/profile')}>
                   <UserIcon className="mr-2 h-4 w-4 text-primary" />
-                  <span className="font-medium">Profile Integrity</span>
+                  <span className="font-medium">My Identity</span>
                 </DropdownMenuItem>
             </div>
           )}
@@ -192,11 +186,7 @@ export default function AppHeader() {
             <div className="p-1 space-y-1">
               <DropdownMenuItem className="rounded-xl p-3 cursor-pointer" onClick={() => router.push('/admin')}>
                 <Shield className="mr-2 h-4 w-4 text-primary" />
-                <span className="font-medium">Platform HQ</span>
-              </DropdownMenuItem>
-              <DropdownMenuItem className="rounded-xl p-3 cursor-pointer" onClick={() => router.push('/profile')}>
-                  <UserIcon className="mr-2 h-4 w-4 text-primary" />
-                  <span className="font-medium">Security Key</span>
+                <span className="font-medium">Admin HQ</span>
               </DropdownMenuItem>
             </div>
           )}
@@ -212,42 +202,35 @@ export default function AppHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur supports-[backdrop-filter]:bg-white/60 shadow-sm">
       <div className="container flex h-20 items-center justify-between">
-        <div className="flex items-center gap-2">
-            <Link href="/" className="flex items-center gap-2">
-            <Logo />
-            </Link>
-        </div>
+        <Logo />
         
-        {/* Desktop Navigation */}
-        {userData?.role !== 'doctor' && (
-            <nav className="hidden md:flex gap-8">
-            {navLinks.map((link) => (
-                <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                    'text-sm font-bold uppercase tracking-[0.1em] transition-all hover:text-accent',
-                    pathname === link.href ? 'text-primary' : 'text-slate-500'
-                )}
-                >
-                {link.label}
-                </Link>
-            ))}
-            </nav>
-        )}
+        <nav className="hidden md:flex gap-10">
+          {navLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={cn(
+                'text-sm font-bold uppercase tracking-[0.15em] transition-colors hover:text-primary',
+                pathname === link.href ? 'text-primary' : 'text-slate-500'
+              )}
+            >
+              {link.label}
+            </Link>
+          ))}
+        </nav>
 
-        <div className="hidden md:flex items-center gap-3">
+        <div className="flex items-center gap-3">
           {isUserLoading ? null : user ? (
             <>
                 {userData?.role === 'doctor' && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full hover:bg-primary/5">
+                            <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full hover:bg-slate-50">
                                 <Bell className="h-5 w-5 text-slate-600" />
                                 {notifications.length > 0 && (
-                                    <span className="absolute top-2 right-2 h-4 w-4 bg-red-500 border-2 border-white rounded-full flex items-center justify-center text-[8px] font-bold text-white animate-in zoom-in">
+                                    <span className="absolute top-2 right-2 h-4 w-4 bg-red-500 border-2 border-white rounded-full flex items-center justify-center text-[8px] font-bold text-white animate-pulse">
                                         {notifications.length}
                                     </span>
                                 )}
@@ -255,12 +238,12 @@ export default function AppHeader() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="w-80 p-0 rounded-2xl border-none shadow-2xl overflow-hidden" align="end">
                             <div className="bg-slate-900 text-white p-4">
-                                <p className="text-[10px] uppercase font-bold tracking-[0.2em] opacity-60">Notification Center</p>
+                                <p className="text-[10px] uppercase font-bold tracking-[0.2em] opacity-60">Clinical Pulse</p>
                                 <h4 className="text-sm font-bold flex items-center gap-2">
-                                    Clinical Activity {notifications.length > 0 && <Badge variant="secondary" className="h-4 text-[8px] bg-primary text-white border-none">{notifications.length}</Badge>}
+                                    Recent Notifications {notifications.length > 0 && <Badge variant="secondary" className="h-4 text-[8px] bg-primary text-white border-none">{notifications.length}</Badge>}
                                 </h4>
                             </div>
-                            <ScrollArea className="h-[350px]">
+                            <ScrollArea className="max-h-[400px]">
                                 {notifications.length > 0 ? (
                                     <div className="divide-y divide-slate-50">
                                         {notifications.map((n) => (
@@ -282,105 +265,62 @@ export default function AppHeader() {
                                     </div>
                                 ) : (
                                     <div className="py-20 text-center space-y-3 px-8">
-                                        <Bell className="h-10 w-10 text-slate-200 mx-auto" />
-                                        <div>
-                                            <p className="font-bold text-xs text-slate-900">All Quiet</p>
-                                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">No pending signals</p>
-                                        </div>
+                                        <Bell className="h-10 w-10 text-slate-100 mx-auto" />
+                                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">No active signals</p>
                                     </div>
                                 )}
                             </ScrollArea>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 )}
-                <div className="w-px h-6 bg-slate-200 mx-2" />
+                <div className="w-px h-6 bg-slate-200 mx-2 hidden sm:block" />
                 <UserMenu />
             </>
           ) : (
-            <>
-              <Button variant="ghost" asChild className="font-bold uppercase text-xs tracking-widest">
-                <Link href="/login">Log In</Link>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" asChild className="font-bold uppercase text-xs tracking-widest hidden sm:flex">
+                <Link href="/login">Login</Link>
               </Button>
-              <Button asChild className="bg-accent hover:bg-accent/90 text-white font-bold h-11 px-8 rounded-xl shadow-lg shadow-accent/20">
+              <Button asChild className="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-6 rounded-xl shadow-lg">
                 <Link href="/signup">Sign Up</Link>
               </Button>
-            </>
+            </div>
           )}
-        </div>
-
-        {/* Mobile Navigation */}
-        <div className="flex items-center gap-2 md:hidden">
-             <Sheet open={isMobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-                <SheetTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-10 w-10">
-                    <Menu className="h-6 w-6" />
-                    <span className="sr-only">Toggle Menu</span>
-                    </Button>
-                </SheetTrigger>
-                <SheetContent side="right" className="w-[300px] sm:w-[400px] p-0 border-none rounded-l-[2.5rem] overflow-hidden">
-                    <SheetHeader className="bg-slate-900 text-white p-8">
-                    <SheetTitle className="text-white font-headline text-2xl">Menu</SheetTitle>
-                    <SheetDescription className="text-slate-400">
-                        Access all clinical features.
-                    </SheetDescription>
-                    </SheetHeader>
-                    
-                    <div className="p-8 space-y-10">
-                        {userData?.role !== 'doctor' && (
-                            <nav className="flex flex-col gap-6 text-lg font-bold">
-                            {navLinks.map((link) => (
-                                <Link
-                                key={link.href}
-                                href={link.href}
-                                onClick={() => setMobileMenuOpen(false)}
-                                className={cn(
-                                    'transition-colors uppercase tracking-widest text-sm',
-                                    pathname === link.href ? 'text-primary' : 'text-slate-500'
-                                )}
-                                >
-                                {link.label}
-                                </Link>
-                            ))}
-                            </nav>
-                        )}
-                        <div className="flex flex-col gap-3">
-                        {isUserLoading ? null : user ? (
-                            <div className="space-y-4">
-                            {userData?.role === 'admin' && (
-                                <>
-                                <Button variant="outline" className="w-full h-14 rounded-2xl font-bold border-2" onClick={() => {router.push('/admin'); setMobileMenuOpen(false);}}>Admin Portal</Button>
-                                <Button variant="outline" className="w-full h-14 rounded-2xl font-bold border-2" onClick={() => {router.push('/profile'); setMobileMenuOpen(false);}}>Security Center</Button>
-                                </>
-                            )}
-                            {userData?.role === 'doctor' && (
-                                <>
-                                <Button variant="outline" className="w-full h-14 rounded-2xl font-bold border-2" onClick={() => {router.push('/doctor-portal'); setMobileMenuOpen(false);}}>Dashboard</Button>
-                                <Button variant="outline" className="w-full h-14 rounded-2xl font-bold border-2" onClick={() => {router.push('/doctor-portal/profile'); setMobileMenuOpen(false);}}>Registry Info</Button>
-                                <Button variant="outline" className="w-full h-14 rounded-2xl font-bold border-2" onClick={() => {router.push('/doctor-portal/unavailability'); setMobileMenuOpen(false);}}>Clinical Pause</Button>
-                                </>
-                            )}
-                            {userData?.role === 'patient' && (
-                                <>
-                                <Button variant="outline" className="w-full h-14 rounded-2xl font-bold border-2" onClick={() => {router.push('/patient-portal'); setMobileMenuOpen(false);}}>Care Portal</Button>
-                                <Button variant="outline" className="w-full h-14 rounded-2xl font-bold border-2" onClick={() => {router.push('/patient-portal/profile'); setMobileMenuOpen(false);}}>My Profile</Button>
-                                </>
-                            )}
-                            <Button variant="destructive" className="w-full h-14 rounded-2xl font-bold shadow-xl shadow-red-500/10 mt-8" onClick={() => {handleLogout(); setMobileMenuOpen(false);}}>Log Out</Button>
-                            </div>
-                        ) : (
-                            <div className="grid gap-4 mt-4">
-                            <Button variant="outline" className="h-14 rounded-2xl font-bold border-2" asChild>
-                                <Link href="/login" onClick={() => setMobileMenuOpen(false)}>Log In</Link>
-                            </Button>
-                            <Button asChild className="h-14 rounded-2xl font-bold bg-accent hover:bg-accent/90 text-white shadow-xl shadow-accent/20">
-                                <Link href="/signup" onClick={() => setMobileMenuOpen(false)}>Create Account</Link>
-                            </Button>
-                            </div>
-                        )}
-                        </div>
-                    </div>
-                </SheetContent>
-            </Sheet>
+          
+          <Sheet open={isMobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+            <SheetTrigger asChild>
+              <Button variant="ghost" size="icon" className="md:hidden">
+                <Menu className="h-6 w-6" />
+              </Button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[300px] p-0 border-none rounded-l-[2rem] overflow-hidden">
+              <div className="bg-slate-900 text-white p-8">
+                <Logo />
+                <p className="text-slate-400 text-xs mt-2 font-medium">Precision Clinical Platform</p>
+              </div>
+              <div className="p-8 flex flex-col gap-6">
+                 {navLinks.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className={cn(
+                        'text-lg font-bold uppercase tracking-widest transition-colors',
+                        pathname === link.href ? 'text-primary' : 'text-slate-500'
+                      )}
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                  <DropdownMenuSeparator />
+                  {user ? (
+                    <Button variant="destructive" className="h-14 rounded-2xl font-bold" onClick={handleLogout}>Log Out</Button>
+                  ) : (
+                    <Button className="h-14 rounded-2xl font-bold" asChild><Link href="/login">Portal Login</Link></Button>
+                  )}
+              </div>
+            </SheetContent>
+          </Sheet>
         </div>
       </div>
     </header>
