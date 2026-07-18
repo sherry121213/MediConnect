@@ -21,7 +21,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { signOut } from 'firebase/auth';
 import { collection, query, where } from 'firebase/firestore';
 import { format, isAfter, subHours, isValid } from 'date-fns';
-import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
 
 const navLinks = [
@@ -60,13 +59,7 @@ export default function AppHeader() {
     const currentTime = now;
     const yesterday = subHours(new Date(), 24);
 
-    const appointments = [...appointmentsRaw].sort((a, b) => {
-        const timeA = a.appointmentDateTime ? new Date(a.appointmentDateTime).getTime() : 0;
-        const timeB = b.appointmentDateTime ? new Date(b.appointmentDateTime).getTime() : 0;
-        return timeA - timeB;
-    });
-
-    appointments.forEach(apt => {
+    appointmentsRaw.forEach(apt => {
         if (!apt || !apt.appointmentDateTime) return;
         const aptDate = new Date(apt.appointmentDateTime);
         if (!isValid(aptDate)) return;
@@ -286,7 +279,11 @@ export default function AppHeader() {
                         )}
                         <Button variant="destructive" className="h-14 rounded-2xl font-bold mt-4" onClick={handleLogout}>Log Out</Button>
                       </>
-                  ) : <Button className="h-14 rounded-2xl font-bold" asChild><Link href="/login">Login</Link></Button>}
+                  ) : (
+                    <Button className="h-14 rounded-2xl font-bold" asChild onClick={() => setMobileMenuOpen(false)}>
+                      <Link href="/login">Login</Link>
+                    </Button>
+                  )}
               </div>
             </SheetContent>
           </Sheet>

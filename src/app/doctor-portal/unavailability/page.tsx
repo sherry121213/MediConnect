@@ -12,9 +12,9 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Textarea } from '@/components/ui/textarea';
-import { Calendar as CalendarIcon, Loader2, Clock, CheckCircle2, XCircle, AlertCircle, History, Info, Sparkles, ClipboardList, MessageSquare, ShieldCheck } from 'lucide-react';
+import { Calendar as CalendarIcon, Loader2, Clock, CheckCircle2, XCircle, AlertCircle, History, Info, MessageSquare, ShieldCheck, ArrowLeft } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
-import { format, addDays, startOfDay, isSameDay } from 'date-fns';
+import { format, addDays, startOfDay } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -85,6 +85,17 @@ export default function DoctorUnavailabilityPage() {
   return (
     <main className="flex-grow bg-secondary/30 py-10">
       <div className="container mx-auto px-4 max-w-6xl space-y-10">
+        
+        {/* Navigation Action */}
+        <div className="flex justify-start">
+            <Button variant="ghost" asChild className="rounded-xl hover:bg-white border shadow-sm px-4 group">
+                <Link href="/doctor-portal">
+                    <ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+                    Back to Practice Dashboard
+                </Link>
+            </Button>
+        </div>
+
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div>
             <h1 className="text-3xl font-bold font-headline flex items-center gap-3 tracking-tight">
@@ -193,7 +204,7 @@ export default function DoctorUnavailabilityPage() {
             <CardHeader className="border-b bg-muted/20">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-xl font-headline flex items-center gap-2">
-                    <ClipboardList className="h-6 w-6 text-primary" /> Clinical Audit History
+                    <History className="h-6 w-6 text-primary" /> Clinical Audit History
                 </CardTitle>
                 <History className="h-5 w-5 text-muted-foreground/30" />
               </div>
