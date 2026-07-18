@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, LogOut, Shield, LayoutDashboard, Bell, Siren, Clock, User as UserCircle } from 'lucide-react';
+import { Menu, LogOut, Shield, LayoutDashboard, Bell, Siren, Clock, User as UserCircle, UserCog, Settings } from 'lucide-react';
 import Logo from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -46,7 +46,6 @@ export default function AppHeader() {
 
   const appointmentsQuery = useMemoFirebase(() => {
     if (!firestore || !user || !userData || userData.role !== 'doctor') return null;
-    // Simplified query to avoid permission/index errors during prototype phase
     return query(
         collection(firestore, 'appointments'), 
         where('doctorId', '==', user.uid)
@@ -61,7 +60,6 @@ export default function AppHeader() {
     const currentTime = now;
     const yesterday = subHours(new Date(), 24);
 
-    // Filter and sort locally to avoid complex index requirements
     const appointments = [...appointmentsRaw].sort((a, b) => {
         const timeA = a.appointmentDateTime ? new Date(a.appointmentDateTime).getTime() : 0;
         const timeB = b.appointmentDateTime ? new Date(b.appointmentDateTime).getTime() : 0;
@@ -141,7 +139,7 @@ export default function AppHeader() {
             </Avatar>
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent className="w-56 rounded-2xl border-none shadow-2xl p-2" align="end" forceMount>
+        <DropdownMenuContent className="w-64 rounded-2xl border-none shadow-2xl p-2" align="end" forceMount>
           <DropdownMenuLabel className="font-normal p-3">
             <div className="flex flex-col space-y-1">
               <p className="text-sm font-bold leading-none">{displayName}</p>
@@ -152,25 +150,33 @@ export default function AppHeader() {
           
           {userData?.role === 'doctor' && (
             <div className="p-1 space-y-1">
-              <DropdownMenuItem className="rounded-xl p-3 cursor-pointer" onClick={() => router.push('/doctor-portal')}>
+              <DropdownMenuItem className="rounded-xl p-3 cursor-pointer hover:bg-primary/5" onClick={() => router.push('/doctor-portal')}>
                   <LayoutDashboard className="mr-2 h-4 w-4 text-primary" />
-                  <span className="font-medium">Dashboard</span>
+                  <span className="font-medium">Practice Dashboard</span>
+              </DropdownMenuItem>
+              <DropdownMenuItem className="rounded-xl p-3 cursor-pointer hover:bg-primary/5" onClick={() => router.push('/doctor-portal/profile')}>
+                  <UserCog className="mr-2 h-4 w-4 text-primary" />
+                  <span className="font-medium">Professional Profile</span>
               </DropdownMenuItem>
             </div>
           )}
 
           {userData?.role === 'patient' && (
             <div className="p-1 space-y-1">
-                <DropdownMenuItem className="rounded-xl p-3 cursor-pointer" onClick={() => router.push('/patient-portal')}>
+                <DropdownMenuItem className="rounded-xl p-3 cursor-pointer hover:bg-primary/5" onClick={() => router.push('/patient-portal')}>
                     <LayoutDashboard className="mr-2 h-4 w-4 text-primary" />
                     <span className="font-medium">Patient Portal</span>
+                </DropdownMenuItem>
+                <DropdownMenuItem className="rounded-xl p-3 cursor-pointer hover:bg-primary/5" onClick={() => router.push('/patient-portal/profile')}>
+                    <Settings className="mr-2 h-4 w-4 text-primary" />
+                    <span className="font-medium">Edit Personal Profile</span>
                 </DropdownMenuItem>
             </div>
           )}
           
           {userData?.role === 'admin' && (
             <div className="p-1 space-y-1">
-              <DropdownMenuItem className="rounded-xl p-3 cursor-pointer" onClick={() => router.push('/admin')}>
+              <DropdownMenuItem className="rounded-xl p-3 cursor-pointer hover:bg-primary/5" onClick={() => router.push('/admin')}>
                 <Shield className="mr-2 h-4 w-4 text-primary" />
                 <span className="font-medium">Admin HQ</span>
               </DropdownMenuItem>
@@ -270,7 +276,17 @@ export default function AppHeader() {
                       {link.label}
                     </Link>
                   ))}
-                  {user ? <Button variant="destructive" className="h-14 rounded-2xl font-bold" onClick={handleLogout}>Log Out</Button> : <Button className="h-14 rounded-2xl font-bold" asChild><Link href="/login">Login</Link></Button>}
+                  {user ? (
+                      <>
+                        {userData?.role === 'doctor' && (
+                            <Link key="prof-prof" href="/doctor-portal/profile" onClick={() => setMobileMenuOpen(false)} className="text-lg font-bold uppercase tracking-widest text-slate-500">Professional Profile</Link>
+                        )}
+                        {userData?.role === 'patient' && (
+                            <Link key="pers-prof" href="/patient-portal/profile" onClick={() => setMobileMenuOpen(false)} className="text-lg font-bold uppercase tracking-widest text-slate-500">Personal Profile</Link>
+                        )}
+                        <Button variant="destructive" className="h-14 rounded-2xl font-bold mt-4" onClick={handleLogout}>Log Out</Button>
+                      </>
+                  ) : <Button className="h-14 rounded-2xl font-bold" asChild><Link href="/login">Login</Link></Button>}
               </div>
             </SheetContent>
           </Sheet>
