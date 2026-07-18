@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, LogOut, User as UserIcon, Shield, LayoutDashboard, Bell, Siren, Clock, User as UserCircle } from 'lucide-react';
+import { Menu, LogOut, Shield, LayoutDashboard, Bell, Siren, Clock, User as UserCircle } from 'lucide-react';
 import Logo from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
 import { signOut } from 'firebase/auth';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { collection, query, where } from 'firebase/firestore';
 import { format, isAfter, subHours, isValid } from 'date-fns';
 import { Badge } from '../ui/badge';
 import { ScrollArea } from '../ui/scroll-area';
@@ -46,20 +46,27 @@ export default function AppHeader() {
 
   const appointmentsQuery = useMemoFirebase(() => {
     if (!firestore || !user || !userData || userData.role !== 'doctor') return null;
+    // Simplified query to avoid permission/index errors during prototype phase
     return query(
         collection(firestore, 'appointments'), 
-        where('doctorId', '==', user.uid),
-        orderBy('appointmentDateTime', 'asc')
+        where('doctorId', '==', user.uid)
     );
   }, [firestore, user, userData?.role]);
   
-  const { data: appointments } = useCollection<any>(appointmentsQuery);
+  const { data: appointmentsRaw } = useCollection<any>(appointmentsQuery);
 
   const notifications = useMemo(() => {
-    if (!appointments) return [];
+    if (!appointmentsRaw) return [];
     const alerts: any[] = [];
     const currentTime = now;
     const yesterday = subHours(new Date(), 24);
+
+    // Filter and sort locally to avoid complex index requirements
+    const appointments = [...appointmentsRaw].sort((a, b) => {
+        const timeA = a.appointmentDateTime ? new Date(a.appointmentDateTime).getTime() : 0;
+        const timeB = b.appointmentDateTime ? new Date(b.appointmentDateTime).getTime() : 0;
+        return timeA - timeB;
+    });
 
     appointments.forEach(apt => {
         if (!apt || !apt.appointmentDateTime) return;
@@ -110,7 +117,7 @@ export default function AppHeader() {
     });
 
     return alerts.sort((a, b) => b.timestamp - a.timestamp).slice(0, 10);
-  }, [appointments, now]);
+  }, [appointmentsRaw, now]);
 
   const handleLogout = () => {
     if (auth) {

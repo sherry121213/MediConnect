@@ -137,22 +137,69 @@ export default function SignupPage() {
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid grid-cols-2 gap-4">
                   <FormField control={form.control} name="firstName" render={({ field }) => (
-                    <FormItem><FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">First Name</FormLabel><FormControl><Input placeholder="Max" {...field} className="h-11 rounded-xl" /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                      <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">First Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Max" {...field} className="h-11 rounded-xl" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )} />
                   <FormField control={form.control} name="lastName" render={({ field }) => (
-                    <FormItem><FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Last Name</FormLabel><FormControl><Input placeholder="Khan" {...field} className="h-11 rounded-xl" /></FormControl><FormMessage /></FormItem>
+                    <FormItem>
+                      <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Last Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Khan" {...field} className="h-11 rounded-xl" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
                   )} />
                 </div>
                 <FormField control={form.control} name="email" render={({ field }) => (
-                  <FormItem><FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Email</FormLabel><FormControl><Input placeholder="m@example.com" {...field} className="h-11 rounded-xl" /></FormControl><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Email</FormLabel>
+                    <FormControl>
+                      <Input placeholder="m@example.com" {...field} className="h-11 rounded-xl" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )} />
                 <FormField control={form.control} name="password" render={({ field }) => (
-                  <FormItem><FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Password</FormLabel><FormControl><div className="relative"><Input type={showPassword ? "text" : "password"} {...field} className="pr-12 h-11 rounded-xl" /><Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full" onClick={() => setShowPassword(!showPassword)}>{showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}</Button></div></FormControl><FormMessage /></FormItem>
+                  <FormItem>
+                    <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Password</FormLabel>
+                    <FormControl>
+                      <div className="relative">
+                        <Input type={showPassword ? "text" : "password"} {...field} className="pr-12 h-11 rounded-xl" />
+                        <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full" onClick={() => setShowPassword(!showPassword)}>
+                          {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                        </Button>
+                      </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )} />
                 <FormField control={form.control} name="role" render={({ field }) => (
-                  <FormItem className="space-y-3"><FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Account Role</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4"><div className="flex items-center space-x-2 bg-slate-50 px-4 py-2 rounded-xl border flex-1"><RadioGroupItem value="patient" id="role-patient" /><label htmlFor="role-patient" className="font-bold text-xs cursor-pointer">Patient</label></div><div className="flex items-center space-x-2 bg-slate-50 px-4 py-2 rounded-xl border flex-1"><RadioGroupItem value="doctor" id="role-doctor" /><label htmlFor="role-doctor" className="font-bold text-xs cursor-pointer">Doctor</label></div></RadioGroup></FormControl></FormItem>
+                  <FormItem className="space-y-3">
+                    <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Account Role</FormLabel>
+                    <FormControl>
+                      <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4">
+                        <div className="flex items-center space-x-2 bg-slate-50 px-4 py-2 rounded-xl border flex-1">
+                          <RadioGroupItem value="patient" id="role-patient" />
+                          <label htmlFor="role-patient" className="font-bold text-xs cursor-pointer">Patient</label>
+                        </div>
+                        <div className="flex items-center space-x-2 bg-slate-50 px-4 py-2 rounded-xl border flex-1">
+                          <RadioGroupItem value="doctor" id="role-doctor" />
+                          <label htmlFor="role-doctor" className="font-bold text-xs cursor-pointer">Doctor</label>
+                        </div>
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
                 )} />
-                <Button type="submit" className="w-full h-12 rounded-xl font-bold shadow-lg" disabled={loading}>{loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Create Account</Button>
+                <Button type="submit" className="w-full h-12 rounded-xl font-bold shadow-lg" disabled={loading}>
+                  {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Create Account
+                </Button>
               </form>
             </Form>
             <p className="mt-6 text-center text-sm text-muted-foreground">Already have an account? <Link href="/login" className="underline font-bold text-primary">Log in</Link></p>

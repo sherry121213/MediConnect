@@ -2,14 +2,14 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // PRECISION CLINICAL SESSION - PROTOCOL V25 (STABLE FUNCTIONAL)
+    // PRECISION CLINICAL SESSION - STABLE OPEN ACCESS V26
     // This rule set provides total access for prototype functionality.
     
     match /{document=**} {
       allow read, write: if true;
     }
 
-    // Explicit collection matches for high-fidelity auditing
+    // Explicit collection matches for high-fidelity auditing (redundant but safer for cold-starts)
     match /patients/{userId} { allow read, write: if true; }
     match /doctors/{doctorId} { allow read, write: if true; }
     match /appointments/{appointmentId} { allow read, write: if true; }

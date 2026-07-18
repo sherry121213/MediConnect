@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, ShieldCheck, ChevronLeft, ChevronRight, User, FileText, CheckCircle2, XCircle, PhoneCall, Zap, LayoutList } from "lucide-react";
+import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, FileText, PhoneCall, Zap, LayoutList } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
@@ -342,7 +342,6 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
 
     const isLive = isMounted && now >= startTime && now < endTime && appointment.status === 'scheduled';
     const isFlexibleEarly = isMounted && now >= earlyNotifyTime && now < startTime && appointment.status === 'scheduled';
-    const isExpired = isMounted && now >= endTime && appointment.status !== 'completed';
 
     const handleStartRoom = () => {
         if (isFlexibleEarly && !appointment.readyToStart && firestore) {
