@@ -3,14 +3,14 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Siren, Trash2, RefreshCw, FileText, CheckCircle2, XCircle, PhoneCall, Zap, LayoutList } from "lucide-react";
+import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, ShieldCheck, ChevronLeft, ChevronRight, User, FileText, CheckCircle2, XCircle, PhoneCall, Zap, LayoutList } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, getDocs } from "firebase/firestore";
 import type { Appointment, Patient, Doctor } from '@/lib/types';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -19,7 +19,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { updateDocumentNonBlocking, addDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
-import { format, isSameDay, addDays, subDays, isBefore, isAfter, isValid, startOfDay, addMinutes, parse } from "date-fns";
+import { format, isSameDay, addDays, subDays, isBefore, isValid, addMinutes, parse } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { getNext7Days } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -396,17 +396,17 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
                                                 <Video className="mr-3 h-6 w-6" /> {isLive ? "Join Precision Clinical Session" : "Start Early (Flexible Window)"}
                                             </Button>
                                             <Button variant="outline" className="h-14 text-sm font-bold w-full rounded-2xl gap-3 border-2" onClick={() => onPostpone(appointment)}>
-                                                <RefreshCw className="h-4 w-4 text-primary" /> Shift Session
+                                                <History className="h-4 w-4 text-primary" /> Shift Session
                                             </Button>
                                         </>
                                     ) : isExpired ? (
                                         <div className="space-y-6">
                                             <div className="p-8 bg-red-50 border-2 border-red-100 rounded-3xl text-center space-y-3">
-                                                <AlertCircle className="h-12 w-12 text-red-600 mx-auto" />
+                                                <Activity className="h-12 w-12 text-red-600 mx-auto" />
                                                 <p className="font-bold text-xl text-red-800">Clinical Session Window Concluded</p>
                                             </div>
                                             <Button variant="outline" className="h-16 text-lg font-bold w-full rounded-2xl gap-3 border-2 hover:bg-primary/5" onClick={() => onPostpone(appointment)}>
-                                                <RefreshCw className="h-5 w-5 text-primary" /> Reschedule Session
+                                                <History className="h-5 w-5 text-primary" /> Reschedule Session
                                             </Button>
                                         </div>
                                     ) : (
@@ -417,7 +417,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
                                                 <p className="text-[10px] text-muted-foreground mt-1">Starts at {format(appointmentDate, "p")}</p>
                                             </div>
                                             <Button variant="outline" className="h-16 text-lg font-bold w-full rounded-2xl gap-3 border-2 hover:bg-primary/5" onClick={() => onPostpone(appointment)}>
-                                                <RefreshCw className="h-4 w-4 text-primary" /> Shift Session
+                                                <History className="h-4 w-4 text-primary" /> Shift Session
                                             </Button>
                                         </div>
                                     )}
@@ -453,7 +453,6 @@ export default function DoctorPortalPage() {
     const { toast } = useToast();
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
     const [isConsultOpen, setIsConsultOpen] = useState(false);
-    const [isHistoryOpen, setIsHistoryOpen] = useState(false);
     const [isPostponeOpen, setIsPostponeOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [viewDate, setViewDate] = useState(new Date());
@@ -496,25 +495,6 @@ export default function DoctorPortalPage() {
         };
         fetchPatients();
     }, [appointments, firestore]);
-
-    useEffect(() => {
-        if (!mounted || !appointments || !firestore || !user) return;
-        const checkMissedSessions = async () => {
-            const now = Date.now();
-            const missed = appointments.filter(apt => {
-                if (!apt || apt.status !== 'scheduled' || !apt.appointmentDateTime) return false;
-                return now > new Date(apt.appointmentDateTime).getTime() + (15 * 60 * 1000); 
-            });
-            for (const apt of missed) {
-                if (!apt?.id) continue;
-                updateDocumentNonBlocking(doc(firestore, 'appointments', apt.id), { status: 'expired', updatedAt: new Date().toISOString() });
-                addDocumentNonBlocking(collection(firestore, 'missedSessionAudits'), {
-                    appointmentId: apt.id, doctorId: user.uid, patientId: apt.patientId, scheduledTime: apt.appointmentDateTime, loggedAt: new Date().toISOString()
-                });
-            }
-        };
-        checkMissedSessions();
-    }, [appointments, mounted, firestore, user, nowState]);
 
     const { activeQueue, timelineApts, stats } = useMemo(() => {
         if (!mounted || !appointments) return { activeQueue: [], timelineApts: [], stats: { today: 0, todayRevenue: 0, totalRevenue: 0, totalConsults: 0 } };
@@ -565,7 +545,7 @@ export default function DoctorPortalPage() {
                             <p className="text-[10px] font-bold uppercase text-muted-foreground">Session Load</p>
                             <p className="text-xl font-bold text-primary">{stats.today} Slots</p>
                         </Card>
-                        <Button onClick={() => setIsHistoryOpen(true)} variant="outline" className="col-span-2 sm:col-span-1 h-full font-bold gap-2 border-2 bg-white rounded-2xl text-xs"><History className="h-4 w-4 text-primary" /> Performance</Button>
+                        <Button variant="outline" className="col-span-2 sm:col-span-1 h-full font-bold gap-2 border-2 bg-white rounded-2xl text-xs"><History className="h-4 w-4 text-primary" /> Performance</Button>
                     </div>
                 </div>
 
@@ -589,10 +569,6 @@ export default function DoctorPortalPage() {
                                         <CalendarIcon className="h-5 w-5 text-primary" /> Clinical Pause
                                     </Link>
                                 </Button>
-                                <div className="p-4 rounded-2xl bg-primary/5 border border-primary/20 space-y-2 mt-4">
-                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Status: Precision Window</p>
-                                    <p className="text-xs text-slate-400 leading-relaxed italic">The top notification bell will signal you for live sessions and conclusion countdowns.</p>
-                                </div>
                             </CardContent>
                         </Card>
                         
@@ -671,19 +647,6 @@ export default function DoctorPortalPage() {
                         </Card>
                     </div>
                 </div>
-
-                <Dialog open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-                    <DialogContent className="sm:max-w-md rounded-[2.5rem] p-8 border-none shadow-2xl animate-in zoom-in-95">
-                        <DialogHeader className="text-center mb-8"><DialogTitle className="text-2xl font-headline flex items-center justify-center gap-3"><History className="h-6 w-6 text-primary" /> Clinical Performance</DialogTitle></DialogHeader>
-                        <div className="space-y-4">
-                            <div className="p-6 bg-slate-900 text-white rounded-3xl text-center"><p className="text-[10px] uppercase font-bold opacity-60">Aggregate Earnings</p><p className="text-3xl font-bold mt-1">PKR {stats.totalRevenue.toLocaleString()}</p></div>
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="p-6 bg-primary/10 rounded-3xl text-center"><p className="text-[10px] uppercase font-bold text-primary">Performed</p><p className="text-2xl font-bold text-slate-900">{stats.totalConsults}</p></div>
-                                <div className="p-6 bg-slate-100 rounded-3xl text-center"><p className="text-[10px] uppercase font-bold text-slate-50">Upcoming</p><p className="text-2xl font-bold text-slate-900">{appointments?.filter(a => a?.status === 'scheduled').length || 0}</p></div>
-                            </div>
-                        </div>
-                    </DialogContent>
-                </Dialog>
 
                 {selectedAppointment && <ConsultationDialog isOpen={isConsultOpen} onOpenChange={setIsConsultOpen} appointment={selectedAppointment} patient={patientsMap.get(selectedAppointment.patientId)} isMounted={mounted} onPostpone={handleTriggerPostpone} />}
                 {selectedAppointment && <InternalPostponeDialog isOpen={isPostponeOpen} onOpenChange={setIsPostponeOpen} appointment={selectedAppointment} />}

@@ -11,7 +11,7 @@ The platform connects patients with verified healthcare professionals through en
 - **HD Video consultations**: High-quality, low-latency video/audio feed directly between devices.
 - **Signaling**: Custom implementation using Firestore to exchange ICE candidates and SDP offers/answers.
 - **Security**: Mandatory end-to-end encryption for all clinical sessions.
-- **Precision Timing**: Clinical rooms unlock exactly at the scheduled time and feature a 15-minute consultation window with a 5-minute professional administrative buffer.
+- **Precision Timing**: Clinical rooms unlock exactly at the scheduled time and feature a 15-minute consultation window with an integrated professional administrative buffer.
 
 ### 2. "Floating Page" UI Architecture
 - **Anti-Crop Geometry**: Designed for mobile-first accessibility.

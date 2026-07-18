@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, LogOut, User as UserIcon, Shield, LayoutDashboard, MessageCircle, CalendarClock, Bell, Siren, Clock, ChevronRight, User as UserCircle } from 'lucide-react';
+import { Menu, LogOut, User as UserIcon, Shield, LayoutDashboard, MessageCircle, CalendarClock, Bell, Siren, Clock, User as UserCircle } from 'lucide-react';
 import Logo from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import {
