@@ -339,7 +339,7 @@ export default function AdminDoctorsPage() {
                                         <DropdownMenuLabel className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">Account Operations</DropdownMenuLabel>
                                         {!doctor.verified && (
                                             <DropdownMenuItem onClick={() => handleVerifyDoctor(doctor.id)} className="font-bold text-green-600 focus:text-green-700 rounded-xl cursor-pointer">
-                                                <UserCheck className="mr-2 h-4 w-4" /> Verify Credentials
+                                                <UserCheck className="mr-2 h-4 w-4" /> Verify Record
                                             </DropdownMenuItem>
                                         )}
                                         <DropdownMenuItem asChild className="rounded-xl cursor-pointer">

@@ -269,7 +269,7 @@ export default function AppHeader() {
                       {link.label}
                     </Link>
                   ))}
-                  {user ? (
+                  {user && (
                       <>
                         {userData?.role === 'doctor' && (
                             <Link key="prof-prof" href="/doctor-portal/profile" onClick={() => setMobileMenuOpen(false)} className="text-lg font-bold uppercase tracking-widest text-slate-500">Professional Profile</Link>
@@ -279,7 +279,8 @@ export default function AppHeader() {
                         )}
                         <Button variant="destructive" className="h-14 rounded-2xl font-bold mt-4" onClick={handleLogout}>Log Out</Button>
                       </>
-                  ) : (
+                  )}
+                  {!user && (
                     <Button className="h-14 rounded-2xl font-bold" asChild onClick={() => setMobileMenuOpen(false)}>
                       <Link href="/login">Login</Link>
                     </Button>
