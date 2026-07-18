@@ -177,7 +177,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
             doctorInRoom: false,
             readyToStart: false
         });
-        toast({ title: "Clinical Session Rescheduled", description: `Appointment moved to ${format(newDateTime, "PPP p")}.` });
+        toast({ title: "Precision Clinical Session Rescheduled", description: `Appointment moved to ${format(newDateTime, "PPP p")}.` });
         setIsSaving(false);
         onOpenChange(false);
     };
@@ -187,7 +187,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
             <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[90dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
                     <DialogTitle className="text-xl sm:text-2xl font-headline">Clinical Rescheduling</DialogTitle>
-                    <DialogDescription className="text-slate-400 mt-1 font-medium">Shift this Precision Session precisely.</DialogDescription>
+                    <DialogDescription className="text-slate-400 mt-1 font-medium">Shift this Precision Clinical Session precisely.</DialogDescription>
                 </div>
                 <div className="flex-1 overflow-y-auto bg-white overscroll-contain custom-scrollbar">
                     <div className="p-8 space-y-10 pb-32">
@@ -298,7 +298,7 @@ const AppointmentRow = ({ apt, patient, onSelect, onNotify, isMounted }: { apt: 
                 <div className="min-w-0">
                     <p className="font-bold text-sm truncate">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
                     <p className="text-[10px] text-muted-foreground flex items-center gap-1 uppercase font-bold tracking-tighter truncate">
-                        <Clock className="h-2.5 w-2.5 shrink-0" /> {format(appointmentDate, "p")} • Precision Session
+                        <Clock className="h-2.5 w-2.5 shrink-0" /> {format(appointmentDate, "p")} • Precision Clinical Session
                     </p>
                 </div>
             </div>
@@ -388,12 +388,12 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
                                     {isCompleted ? (
                                         <div className="p-8 bg-green-50 border-2 border-green-100 rounded-3xl text-center space-y-3">
                                             <ShieldCheck className="h-12 w-12 text-green-600 mx-auto" />
-                                            <p className="font-bold text-xl text-green-800">Precision Session Finalized</p>
+                                            <p className="font-bold text-xl text-green-800">Precision Clinical Session Finalized</p>
                                         </div>
                                     ) : (isLive || isFlexibleEarly) ? (
                                         <>
                                             <Button onClick={handleStartRoom} className={cn("h-16 text-lg font-bold shadow-2xl rounded-2xl text-white", isLive ? "bg-red-600 hover:bg-red-700 animate-pulse" : "bg-primary hover:bg-primary/90")}>
-                                                <Video className="mr-3 h-6 w-6" /> {isLive ? "Join Precision Session" : "Start Early (Flexible Window)"}
+                                                <Video className="mr-3 h-6 w-6" /> {isLive ? "Join Precision Clinical Session" : "Start Early (Flexible Window)"}
                                             </Button>
                                             <Button variant="outline" className="h-14 text-sm font-bold w-full rounded-2xl gap-3 border-2" onClick={() => onPostpone(appointment)}>
                                                 <RefreshCw className="h-4 w-4 text-primary" /> Shift Session
@@ -403,7 +403,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
                                         <div className="space-y-6">
                                             <div className="p-8 bg-red-50 border-2 border-red-100 rounded-3xl text-center space-y-3">
                                                 <AlertCircle className="h-12 w-12 text-red-600 mx-auto" />
-                                                <p className="font-bold text-xl text-red-800">Session Window Concluded</p>
+                                                <p className="font-bold text-xl text-red-800">Clinical Session Window Concluded</p>
                                             </div>
                                             <Button variant="outline" className="h-16 text-lg font-bold w-full rounded-2xl gap-3 border-2 hover:bg-primary/5" onClick={() => onPostpone(appointment)}>
                                                 <RefreshCw className="h-5 w-5 text-primary" /> Reschedule Session
@@ -413,7 +413,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
                                         <div className="space-y-4">
                                             <div className="p-6 bg-slate-50 border-2 rounded-3xl text-center">
                                                 <Clock className="h-8 w-8 text-slate-400 mx-auto mb-2" />
-                                                <p className="text-sm font-bold text-slate-600">Awaiting Precision Window</p>
+                                                <p className="text-sm font-bold text-slate-600">Awaiting Precision Clinical Window</p>
                                                 <p className="text-[10px] text-muted-foreground mt-1">Starts at {format(appointmentDate, "p")}</p>
                                             </div>
                                             <Button variant="outline" className="h-16 text-lg font-bold w-full rounded-2xl gap-3 border-2 hover:bg-primary/5" onClick={() => onPostpone(appointment)}>
@@ -543,7 +543,7 @@ export default function DoctorPortalPage() {
     const handleNotifyPatient = (apt: Appointment) => {
         if (!firestore) return;
         updateDocumentNonBlocking(doc(firestore, 'appointments', apt.id), { readyToStart: true, doctorInRoom: true });
-        toast({ title: "Clinical Signal Sent", description: "Requesting patient to join for a Precision Session early start." });
+        toast({ title: "Clinical Signal Sent", description: "Requesting patient to join for a Precision Clinical Session early start." });
     };
 
     if (!mounted || isUserLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -603,7 +603,7 @@ export default function DoctorPortalPage() {
                             <CardContent className="p-0">
                                 {isLoadingAppointments ? <div className="p-12 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary/30" /></div> : 
                                  activeQueue.length > 0 ? <div className="divide-y">{activeQueue.map(apt => apt && <AppointmentRow key={apt.id} apt={apt} patient={patientsMap.get(apt.patientId)} onSelect={handleSelectApt} onNotify={handleNotifyPatient} isMounted={mounted} />)}</div> :
-                                 <div className="p-12 text-center text-muted-foreground italic text-xs">No pending Precision Sessions.</div>}
+                                 <div className="p-12 text-center text-muted-foreground italic text-xs">No pending Precision Clinical Sessions.</div>}
                             </CardContent>
                         </Card>
                     </div>

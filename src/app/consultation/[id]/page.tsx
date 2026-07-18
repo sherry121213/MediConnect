@@ -103,7 +103,7 @@ export default function ConsultationRoomPage() {
         if (secondsLeft === 300) { // 5-minute warning
           toast({
             title: "5 Minutes Remaining",
-            description: "Precision session window is concluding soon.",
+            description: "Precision Clinical Session window is concluding soon.",
           });
         }
       }
@@ -672,7 +672,7 @@ export default function ConsultationRoomPage() {
                                     disabled={isCompleted || isFinalizing}
                                 >
                                     {isFinalizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardCheck className="h-5 w-5" />}
-                                    Complete Session
+                                    Complete Precision Session
                                 </Button>
                             </form>
                         </Form>

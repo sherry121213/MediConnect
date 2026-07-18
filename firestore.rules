@@ -2,7 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     /**
-     * PRECISION_SESSION_OPEN_ACCESS_V10
+     * PRECISION_SESSION_OPEN_ACCESS_V12
      * Global read/write access for clinical prototype development.
      * This ensures that patients, doctors, and admins can interact with session data
      * without permission handshakes during this high-stakes development phase.

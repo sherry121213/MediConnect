@@ -157,7 +157,7 @@ export default function SupportMessenger() {
               </div>
               <div className="min-w-0">
                 <CardTitle className="text-sm font-bold truncate">Support Messenger</CardTitle>
-                {!isMinimized && <p className="text-[9px] text-slate-400 uppercase tracking-widest font-bold">Secure Clinical Link</p>}
+                {!isMinimized && <p className="text-[9px] text-slate-400 uppercase tracking-widest font-bold">Secure Precision Clinical Link</p>}
               </div>
             </div>
             <div className="flex items-center gap-1 shrink-0">
