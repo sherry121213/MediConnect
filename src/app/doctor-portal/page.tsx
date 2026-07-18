@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, getDocs } from "firebase/firestore";
 import type { Appointment, Patient, Doctor } from '@/lib/types';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/dialog"; // using standard path or internal? fixed in header logic.
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -69,6 +69,27 @@ function PatientHistoryTab({ patientId }: { patientId: string }) {
             )}
         </div>
     );
+}
+
+// Internal standard dialog components for stability
+import * as DialogPrimitive from "@radix-ui/react-dialog";
+import { X } from "lucide-react";
+
+function InternalDialog({ isOpen, onOpenChange, children }: { isOpen: boolean, onOpenChange: (o: boolean) => void, children: React.ReactNode }) {
+  return (
+    <DialogPrimitive.Root open={isOpen} onOpenChange={onOpenChange}>
+      <DialogPrimitive.Portal>
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+        <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-0 shadow-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%] sm:rounded-[2.5rem] overflow-hidden">
+          {children}
+          <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground text-white">
+            <X className="h-4 w-4" />
+            <span className="sr-only">Close</span>
+          </DialogPrimitive.Close>
+        </DialogPrimitive.Content>
+      </DialogPrimitive.Portal>
+    </DialogPrimitive.Root>
+  );
 }
 
 function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean, onOpenChange: (o: boolean) => void, appointment: any }) {
@@ -183,14 +204,13 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[90dvh] flex flex-col animate-in zoom-in-95 duration-200">
+        <InternalDialog isOpen={isOpen} onOpenChange={onOpenChange}>
                 <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
-                    <DialogTitle className="text-xl sm:text-2xl font-headline">Clinical Rescheduling</DialogTitle>
-                    <DialogDescription className="text-slate-400 mt-1 font-medium">Shift this Precision Clinical Session precisely.</DialogDescription>
+                    <DialogPrimitive.Title className="text-xl sm:text-2xl font-headline">Clinical Rescheduling</DialogPrimitive.Title>
+                    <DialogPrimitive.Description className="text-slate-400 mt-1 font-medium">Shift this Precision Clinical Session precisely.</DialogPrimitive.Description>
                 </div>
-                <div className="flex-1 overflow-y-auto bg-white overscroll-contain custom-scrollbar">
-                    <div className="p-8 space-y-10 pb-32">
+                <div className="flex-1 overflow-y-auto bg-white overscroll-contain custom-scrollbar max-h-[60dvh]">
+                    <div className="p-8 space-y-10">
                         <div>
                             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4">Select Date</p>
                             <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 custom-scrollbar">
@@ -263,8 +283,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
                         </Button>
                     </div>
                 </div>
-            </DialogContent>
-        </Dialog>
+        </InternalDialog>
     );
 }
 
@@ -352,18 +371,17 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl p-0 overflow-hidden border-none shadow-2xl rounded-[2.5rem] max-h-[95dvh] flex flex-col animate-in zoom-in-95 duration-200">
+        <InternalDialog isOpen={isOpen} onOpenChange={onOpenChange}>
                 <Tabs defaultValue="overview" className="w-full flex-1 flex flex-col overflow-hidden">
                     <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
-                        <DialogTitle className="text-2xl font-headline mb-6 text-white">Clinical Record</DialogTitle>
+                        <DialogPrimitive.Title className="text-2xl font-headline mb-6 text-white">Clinical Record</DialogPrimitive.Title>
                         <TabsList className="bg-white/10 w-full grid grid-cols-3 h-12 p-1 rounded-xl">
                             <TabsTrigger value="overview" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 font-bold uppercase text-[10px]">Record</TabsTrigger>
                             <TabsTrigger value="history" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 font-bold uppercase text-[10px]">History</TabsTrigger>
                             <TabsTrigger value="notes" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 font-bold uppercase text-[10px]">Notes</TabsTrigger>
                         </TabsList>
                     </div>
-                    <div className="flex-1 overflow-y-auto bg-white p-6 sm:p-10 pb-32">
+                    <div className="flex-1 overflow-y-auto bg-white p-6 sm:p-10 pb-32 max-h-[60dvh]">
                         <TabsContent value="overview" className="space-y-8 m-0">
                             <div className="flex items-center gap-6 p-6 border-2 rounded-[2rem] bg-muted/20">
                                 <Avatar className="h-16 w-16 shadow-lg border-2 border-white"><AvatarFallback className="bg-primary text-white font-bold text-lg">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback></Avatar>
@@ -396,8 +414,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
                         </TabsContent>
                     </div>
                 </Tabs>
-            </DialogContent>
-        </Dialog>
+        </InternalDialog>
     );
 }
 
@@ -484,8 +501,8 @@ export default function DoctorPortalPage() {
                          <Card className="border-none shadow-2xl bg-slate-900 text-white rounded-[2rem] overflow-hidden">
                             <CardHeader className="p-8"><CardTitle className="text-lg flex items-center gap-3"><Zap className="h-6 w-6 text-primary" /> Management</CardTitle></CardHeader>
                             <CardContent className="p-8 space-y-4">
-                                <Button variant="outline" className="w-full h-14 rounded-2xl bg-white/5 border-white/10 text-white font-bold" asChild><Link href="/doctor-portal/patients"><LayoutList className="h-5 w-5 mr-3" /> Record</Link></Button>
-                                <Button variant="outline" className="w-full h-14 rounded-2xl bg-white/5 border-white/10 text-white font-bold" asChild><Link href="/doctor-portal/unavailability"><CalendarIcon className="h-5 w-5 mr-3" /> Clinical Pause</Link></Button>
+                                <Button variant="outline" className="w-full justify-start h-14 rounded-2xl bg-white/5 border-white/10 text-white font-bold" asChild><Link href="/doctor-portal/patients"><LayoutList className="h-5 w-5 mr-3" /> Record</Link></Button>
+                                <Button variant="outline" className="w-full justify-start h-14 rounded-2xl bg-white/5 border-white/10 text-white font-bold" asChild><Link href="/doctor-portal/unavailability"><CalendarIcon className="h-5 w-5 mr-3" /> Clinical Pause</Link></Button>
                             </CardContent>
                         </Card>
                         <Card className="border-none shadow-xl bg-white rounded-3xl overflow-hidden">

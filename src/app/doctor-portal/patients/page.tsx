@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
 
-const PatientProfileCell = ({ patientId, onShowHistory }: { patientId: string, onShowHistory: (pid: string) => void }) => {
+const PatientProfileCell = ({ patientId }: { patientId: string }) => {
     const firestore = useFirestore();
     const patientDocRef = useMemoFirebase(() => {
         if (!firestore || !patientId) return null;
@@ -161,7 +161,7 @@ export default function DoctorPatientsPage() {
                                         {filteredPatients.map((p) => p && p.id && (
                                             <TableRow key={p.id} className="hover:bg-primary/5 transition-all group">
                                                 <TableCell className="py-5 pl-8">
-                                                    <PatientProfileCell patientId={p.id} onShowHistory={() => {}} />
+                                                    <PatientProfileCell patientId={p.id} />
                                                 </TableCell>
                                                 <TableCell>
                                                     <Badge variant="secondary" className="bg-primary/10 text-primary font-bold text-[10px] uppercase">

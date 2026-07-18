@@ -58,7 +58,6 @@ export default function SupportMessenger() {
   const [adminCategory, setAdminCategory] = useState<MessengerCategory>('patients');
   const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   
-  // FIXED: Explicitly declared and initialized reference
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
   const isConsultationRoom = pathname?.includes('/consultation/');
