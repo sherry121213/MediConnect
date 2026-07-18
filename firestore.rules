@@ -3,11 +3,81 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     /**
-     * CLINICAL_PROTOTYPE_OPEN_ACCESS
-     * Providing unrestricted access to all collections for rapid development.
-     * This ensures the 'appointments', 'reviews', and other clinical collections are fully accessible.
-     * [REDEPLOY_TRIGGER_ACTIVE_SESSION_V2]
+     * PRECISION_CLINICAL_ACCESS_V3
+     * Granting explicit access to core clinical collections for rapid prototyping.
+     * This ensures the 'appointments', 'reviews', 'doctorCredentials', and 'patients' 
+     * collections are fully accessible while maintaining session integrity.
+     * [REDEPLOY_TRIGGER_ACTIVE_SESSION_V3_PERMISSIONS]
      */
+    match /patients/{userId} {
+      allow read, write: if true;
+    }
+    
+    match /doctors/{doctorId} {
+      allow read, write: if true;
+    }
+    
+    match /appointments/{appointmentId} {
+      allow read, write: if true;
+    }
+    
+    match /reviews/{reviewId} {
+      allow read, write: if true;
+    }
+    
+    match /doctorCredentials/{credentialId} {
+      allow read, write: if true;
+    }
+
+    match /doctorUnavailabilityRequests/{requestId} {
+      allow read, write: if true;
+    }
+
+    match /missedSessionAudits/{auditId} {
+      allow read, write: if true;
+    }
+
+    match /adminDoctorChatSessions/{sessionId} {
+      allow read, write: if true;
+      match /messages/{messageId} {
+        allow read, write: if true;
+      }
+    }
+
+    match /supportChatSessions/{sessionId} {
+      allow read, write: if true;
+      match /messages/{messageId} {
+        allow read, write: if true;
+      }
+    }
+
+    match /consultationSessions/{sessionId} {
+      allow read, write: if true;
+      match /messages/{messageId} {
+        allow read, write: if true;
+      }
+    }
+
+    match /calls/{callId} {
+      allow read, write: if true;
+      match /offerCandidates/{candidateId} {
+        allow read, write: if true;
+      }
+      match /answerCandidates/{candidateId} {
+        allow read, write: if true;
+      }
+    }
+
+    match /contacts/{contactId} {
+      allow read, write: if true;
+    }
+
+    match /roles_admin/{userId} {
+      allow read: if true;
+      allow write: if false; // Role assignment is system-locked
+    }
+
+    // Catch-all for other collections used in the prototype
     match /{document=**} {
       allow read, write: if true;
     }

@@ -55,7 +55,7 @@ export default function AppHeader() {
   // Notification logic for doctors - Guarded by role verification
   const appointmentsQuery = useMemoFirebase(() => {
     // CRITICAL: Only initiate query if userData is fully loaded and role is confirmed as 'doctor'
-    if (!firestore || !user || userData?.role !== 'doctor') return null;
+    if (!firestore || !user || !userData || userData.role !== 'doctor') return null;
     return query(
         collection(firestore, 'appointments'), 
         where('doctorId', '==', user.uid),

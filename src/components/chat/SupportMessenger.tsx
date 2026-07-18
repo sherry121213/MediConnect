@@ -65,14 +65,14 @@ export default function SupportMessenger() {
 
   // Queries for Admin - Explicitly guarded by role
   const patientSessionsQuery = useMemoFirebase(() => {
-    if (!firestore || userData?.role !== 'admin') return null;
+    if (!firestore || !user || !userData || userData.role !== 'admin') return null;
     return query(collection(firestore, 'supportChatSessions'), orderBy('lastMessageAt', 'desc'), limit(20));
-  }, [firestore, userData?.role]);
+  }, [firestore, user, userData?.role]);
 
   const doctorSessionsQuery = useMemoFirebase(() => {
-    if (!firestore || userData?.role !== 'admin') return null;
+    if (!firestore || !user || !userData || userData.role !== 'admin') return null;
     return query(collection(firestore, 'adminDoctorChatSessions'), orderBy('lastMessageAt', 'desc'), limit(20));
-  }, [firestore, userData?.role]);
+  }, [firestore, user, userData?.role]);
 
   const { data: patientSessions } = useCollection<any>(patientSessionsQuery);
   const { data: doctorSessions } = useCollection<any>(doctorSessionsQuery);
@@ -102,7 +102,7 @@ export default function SupportMessenger() {
   const { data: messages, isLoading: isLoadingMessages } = useCollection<any>(messagesQuery);
 
   useEffect(() => {
-    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+    chatScrollRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
@@ -274,7 +274,7 @@ export default function SupportMessenger() {
         )}
       >
         {isOpen ? <Minimize2 className="h-6 w-6 text-white" /> : <MessageCircle className="h-6 w-6 text-white" />}
-        {!isOpen && userData.role === 'admin' && (patientSessions?.some(s => s.unreadByAdmin) || doctorSessions?.some(s => s.lastMessageSenderRole === 'doctor')) && (
+        {!isOpen && userData?.role === 'admin' && (patientSessions?.some(s => s.unreadByAdmin) || doctorSessions?.some(s => s.lastMessageSenderRole === 'doctor')) && (
           <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 rounded-full border-2 border-white animate-pulse flex items-center justify-center text-[9px] font-bold text-white">!</span>
         )}
       </Button>
