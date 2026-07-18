@@ -98,7 +98,9 @@ export default function SupportMessenger() {
   const { data: messages, isLoading: isLoadingMessages } = useCollection<any>(messagesQuery);
 
   useEffect(() => {
-    chatScrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (chatScrollRef.current) {
+        chatScrollRef.current.scrollIntoView({ behavior: 'smooth' });
+    }
   }, [messages]);
 
   const handleSendMessage = async (e: React.FormEvent) => {

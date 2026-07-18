@@ -100,11 +100,10 @@ export default function ConsultationRoomPage() {
         const secs = secondsLeft % 60;
         setTimeRemaining(`${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
         
-        if (secondsLeft === 60) {
+        if (secondsLeft === 300) { // 5-minute warning
           toast({
-            variant: "destructive",
-            title: "Clinical Session Ending",
-            description: "60 seconds remaining. Professional administrative buffer follows.",
+            title: "5 Minutes Remaining",
+            description: "Precision session window is concluding soon.",
           });
         }
       }
@@ -460,7 +459,7 @@ export default function ConsultationRoomPage() {
                 </div>
             ) : !isCompleted && (
                 <Badge variant="outline" className="bg-primary/20 text-primary border-primary/40 font-bold px-4 py-2 rounded-full uppercase text-[10px]">
-                   <Siren className="h-3 w-3 mr-2 animate-pulse" /> Early Flexible Start
+                   <Siren className="h-3 w-3 mr-2 animate-pulse" /> Flexible Window Active
                 </Badge>
             )}
             <Badge variant="outline" className={cn("gap-1.5 px-3 py-1 text-[10px] font-bold hidden sm:flex", isCompleted ? "bg-green-50/10 text-green-400 border-green-500/20" : "bg-red-50/10 text-red-400 border-red-500/20")}>

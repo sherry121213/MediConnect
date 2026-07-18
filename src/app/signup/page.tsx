@@ -106,9 +106,6 @@ export default function SignupPage() {
         const adminDocRef = doc(firestore, 'patients', newUser.uid);
         setDocumentNonBlocking(adminDocRef, adminDocData, { merge: true });
 
-        const roleDocRef = doc(firestore, 'roles_admin', newUser.uid);
-        setDocumentNonBlocking(roleDocRef, { active: true }, { merge: true });
-
         toast({
           title: 'Admin Account Created',
           description: 'Redirecting to the admin dashboard.',
