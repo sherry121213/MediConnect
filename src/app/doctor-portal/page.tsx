@@ -5,10 +5,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Siren, Trash2, RefreshCw, FileText, CheckCircle2, XCircle, PhoneCall, Zap, LayoutList } from "lucide-react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
+import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, getDocs } from "firebase/firestore";
-import type { Appointment, Patient, Doctor } from "@/lib/types";
+import type { Appointment, Patient, Doctor } from '@/lib/types';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
