@@ -275,7 +275,7 @@ export default function DoctorDetailPage() {
             <main className="flex-grow py-12">
                 <div className="container mx-auto px-4 space-y-10">
                     <Button asChild variant="ghost" className="mb-2 rounded-xl group font-bold">
-                        <Link href="/find-a-doctor"><ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to Registry</Link>
+                        <Link href="/find-a-doctor"><ArrowLeft className="mr-2 h-4 w-4 group-hover:-translate-x-1 transition-transform" /> Back to Record</Link>
                     </Button>
 
                     <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">

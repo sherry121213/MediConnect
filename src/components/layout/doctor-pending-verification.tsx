@@ -116,7 +116,7 @@ export default function DoctorPendingVerification() {
                                 <div>
                                     <p className="font-bold text-sm">Administrative Audit</p>
                                     <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">
-                                        {isAdminVerified ? 'Registry Approved' : 'Review in queue'}
+                                        {isAdminVerified ? 'Record Approved' : 'Review in queue'}
                                     </p>
                                 </div>
                             </div>

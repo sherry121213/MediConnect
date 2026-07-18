@@ -143,7 +143,7 @@ export default function AdminPatientsPage() {
                 </div>
                 <div className="flex items-center gap-4 bg-white p-3 rounded-2xl border shadow-sm w-full md:w-auto">
                     <div className="flex-1 text-center px-4 border-r">
-                        <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-tighter">Total Registry</p>
+                        <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-tighter">Total Record</p>
                         <p className="text-xl font-bold text-primary">{patients?.length || 0}</p>
                     </div>
                     <div className="flex-1 text-center px-4">

@@ -2,7 +2,7 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // PRECISION CLINICAL SESSION - TOTAL ACCESS PROTOCOL V35
+    // PRECISION CLINICAL SESSION - TOTAL ACCESS PROTOCOL V40
     // This rule set provides total access to all collections for prototype functionality and resolves listing errors.
     
     match /{document=**} {

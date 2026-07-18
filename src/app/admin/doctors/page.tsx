@@ -121,7 +121,7 @@ export default function AdminDoctorsPage() {
         setIsSubmitting(true);
 
         try {
-            // 1. Initialize Doctor Registry IDs
+            // 1. Initialize Doctor Record IDs
             const doctorRef = doc(collection(firestore, 'doctors'));
             const doctorId = doctorRef.id;
 
@@ -173,7 +173,7 @@ export default function AdminDoctorsPage() {
             setIsDialogOpen(false);
         } catch (error) {
             console.error("Enrollment failed:", error);
-            toast({ variant: "destructive", title: "Enrollment Error", description: "Could not finalize doctor registry details." });
+            toast({ variant: "destructive", title: "Enrollment Error", description: "Could not finalize doctor record details." });
         } finally {
             setIsSubmitting(false);
         }
@@ -198,7 +198,7 @@ export default function AdminDoctorsPage() {
     <div className="p-4 md:p-8 space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-            <h1 className="text-3xl font-bold font-headline tracking-tight">Clinical Registry</h1>
+            <h1 className="text-3xl font-bold font-headline tracking-tight">Clinical Record</h1>
             <p className="text-muted-foreground text-sm">Audit professional identities and practice status.</p>
         </div>
         <Dialog open={isDialogOpen} onOpenChange={(open) => { if (!isSubmitting) setIsDialogOpen(open); }}>
@@ -221,7 +221,7 @@ export default function AdminDoctorsPage() {
                             <FormField control={form.control} name="lastName" render={({ field }) => (<FormItem><FormLabel className="text-xs uppercase font-bold tracking-widest opacity-60">Last Name</FormLabel><FormControl><Input placeholder="Khan" {...field} className="rounded-xl border-2" disabled={isSubmitting}/></FormControl></FormItem>)} />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                            <FormField control={form.control} name="email" render={({ field }) => (<FormItem><FormLabel className="text-xs uppercase font-bold tracking-widest opacity-60">Registry Email</FormLabel><FormControl><Input type="email" placeholder="amina@example.com" {...field} className="rounded-xl border-2" disabled={isSubmitting}/></FormControl></FormItem>)} />
+                            <FormField control={form.control} name="email" render={({ field }) => (<FormItem><FormLabel className="text-xs uppercase font-bold tracking-widest opacity-60">Record Email</FormLabel><FormControl><Input type="email" placeholder="amina@example.com" {...field} className="rounded-xl border-2" disabled={isSubmitting}/></FormControl></FormItem>)} />
                             <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel className="text-xs uppercase font-bold tracking-widest opacity-60">Clinical Phone</FormLabel><FormControl><Input placeholder="03XXXXXXXXX" {...field} className="rounded-xl border-2" disabled={isSubmitting}/></FormControl></FormItem>)} />
                         </div>
                     </div>
@@ -236,7 +236,7 @@ export default function AdminDoctorsPage() {
                             <FormField control={form.control} name="medicalSchool" render={({ field }) => (<FormItem><FormLabel className="text-xs uppercase font-bold tracking-widest opacity-60">Medical School</FormLabel><FormControl><Input placeholder="Aga Khan University" {...field} className="rounded-xl border-2" disabled={isSubmitting}/></FormControl></FormItem>)} />
                             <FormField control={form.control} name="degree" render={({ field }) => (<FormItem><FormLabel className="text-xs uppercase font-bold tracking-widest opacity-60">Primary Degree</FormLabel><FormControl><Input placeholder="MBBS, FCPS" {...field} className="rounded-xl border-2" disabled={isSubmitting}/></FormControl></FormItem>)} />
                         </div>
-                        <FormField control={form.control} name="location" render={({ field }) => (<FormItem><FormLabel className="text-xs uppercase font-bold tracking-widest opacity-60">Registry Hub (City)</FormLabel><FormControl><Input placeholder="Karachi" {...field} className="rounded-xl border-2" disabled={isSubmitting}/></FormControl></FormItem>)} />
+                        <FormField control={form.control} name="location" render={({ field }) => (<FormItem><FormLabel className="text-xs uppercase font-bold tracking-widest opacity-60">Record Hub (City)</FormLabel><FormControl><Input placeholder="Karachi" {...field} className="rounded-xl border-2" disabled={isSubmitting}/></FormControl></FormItem>)} />
                     </div>
 
                     <div className="space-y-6">
@@ -372,7 +372,7 @@ export default function AdminDoctorsPage() {
                     )
                 })}
                 {!isLoadingDoctors && doctors?.length === 0 && (
-                    <TableRow><TableCell colSpan={5} className="text-center py-32 text-muted-foreground italic"><Stethoscope className="h-16 w-16 mx-auto mb-4 opacity-10" />No clinical professionals indexed in registry.</TableCell></TableRow>
+                    <TableRow><TableCell colSpan={5} className="text-center py-32 text-muted-foreground italic"><Stethoscope className="h-16 w-16 mx-auto mb-4 opacity-10" />No clinical professionals indexed in record.</TableCell></TableRow>
                 )}
             </TableBody>
             </Table>

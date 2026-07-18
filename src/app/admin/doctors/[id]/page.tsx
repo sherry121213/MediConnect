@@ -103,7 +103,7 @@ export default function DoctorProfilePage() {
             <Button asChild variant="ghost" className="rounded-xl hover:bg-white shadow-sm border">
                 <Link href="/admin/doctors">
                     <ArrowLeft className="mr-2 h-4 w-4" />
-                    Back to Registry
+                    Back to Record
                 </Link>
             </Button>
             
@@ -133,7 +133,7 @@ export default function DoctorProfilePage() {
                      {!doctor.verified && (
                         <div className="w-full md:w-auto shrink-0 pt-6 md:pt-0">
                             <Button onClick={handleVerifyDoctor} size="lg" className="w-full sm:px-10 rounded-2xl shadow-xl shadow-primary/20 font-bold h-14">
-                                <CheckCircle className="mr-2 h-5 w-5" /> Approve Registry
+                                <CheckCircle className="mr-2 h-5 w-5" /> Approve Record
                             </Button>
                         </div>
                     )}

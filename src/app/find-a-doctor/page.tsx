@@ -104,7 +104,7 @@ export default function FindADoctorPage() {
           {/* Enhanced Search Header */}
           <div className="max-w-4xl mx-auto space-y-8">
             <div className="text-center space-y-3">
-                <h1 className="text-4xl md:text-5xl font-bold font-headline text-slate-900 tracking-tight">Clinical Registry</h1>
+                <h1 className="text-4xl md:text-5xl font-bold font-headline text-slate-900 tracking-tight">Clinical Record</h1>
                 <p className="text-muted-foreground text-sm max-w-lg mx-auto font-medium">Search and book verified healthcare professionals instantly.</p>
             </div>
 
@@ -183,7 +183,7 @@ export default function FindADoctorPage() {
             ) : (
               <div className="col-span-full text-center py-32 bg-white rounded-[3rem] border-4 border-dashed border-slate-100">
                 <AlertCircle className="h-16 w-16 mx-auto mb-4 text-slate-200" />
-                <h3 className="text-xl font-bold text-slate-900">No registry matches found</h3>
+                <h3 className="text-xl font-bold text-slate-900">No record matches found</h3>
                 <p className="text-muted-foreground text-sm mt-1">Adjust your search parameters or location.</p>
               </div>
             )}

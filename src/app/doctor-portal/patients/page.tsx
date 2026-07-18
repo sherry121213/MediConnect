@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Search, Loader2, User, CreditCard, ExternalLink, Filter, CheckCircle2, AlertCircle, Clock, History, ChevronRight } from "lucide-react";
 import Link from "next/link";
@@ -54,7 +54,6 @@ export default function DoctorPatientsPage() {
     const patientStats = useMemo(() => {
         if (!appointments) return { uniquePatients: [], stats: { total: 0, paid: 0, pending: 0, uniqueCount: 0 } };
         
-        // Safety filter: Ensure we only map over valid appointment objects
         const validAppointments = appointments.filter(a => a && a.patientId);
         
         const uniquePatientIds = Array.from(new Set(validAppointments.map(a => a.patientId)));
@@ -84,20 +83,18 @@ export default function DoctorPatientsPage() {
 
     const filteredPatients = useMemo(() => {
         if (!patientStats.uniquePatients) return [];
-        if (!searchTerm) return patientStats.uniquePatients;
-        // Search filter logic
         return patientStats.uniquePatients;
-    }, [patientStats.uniquePatients, searchTerm]);
+    }, [patientStats.uniquePatients]);
 
     return (
         <main className="min-h-screen flex flex-col bg-secondary/30 py-8 overflow-x-hidden overflow-y-auto overscroll-none">
             <div className="container mx-auto px-4 max-w-6xl space-y-8 flex-1 pb-20">
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                     <div>
-                        <h1 className="text-3xl font-bold font-headline">Clinical Registry</h1>
+                        <h1 className="text-3xl font-bold font-headline text-slate-900">Clinical Record</h1>
                         <p className="text-muted-foreground mt-1">Review professional history and unique patient distribution.</p>
                     </div>
-                    <Button variant="outline" asChild className="rounded-xl border-2 font-bold shadow-sm h-11 px-6">
+                    <Button variant="outline" asChild className="rounded-xl border-2 font-bold shadow-sm h-11 px-6 bg-white">
                         <Link href="/doctor-portal">Back to Dashboard</Link>
                     </Button>
                 </div>
@@ -138,7 +135,7 @@ export default function DoctorPatientsPage() {
                             <div className="relative w-full md:w-80">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input 
-                                    placeholder="Search registry..." 
+                                    placeholder="Search record..." 
                                     className="pl-9 h-11 border-2 rounded-xl bg-white"
                                     value={searchTerm}
                                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -157,7 +154,7 @@ export default function DoctorPatientsPage() {
                                             <TableHead className="py-5 pl-8 font-bold">Patient Profile</TableHead>
                                             <TableHead className="font-bold">Total Visits</TableHead>
                                             <TableHead className="font-bold">Last Interaction</TableHead>
-                                            <TableHead className="text-right pr-8 font-bold">Registry Audit</TableHead>
+                                            <TableHead className="text-right pr-8 font-bold">Record Audit</TableHead>
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>

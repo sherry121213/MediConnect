@@ -205,7 +205,7 @@ export default function DoctorProfilePage() {
         await setDoc(doc(firestore, 'doctors', user.uid), doctorData, { merge: true });
         await setDoc(doc(firestore, 'patients', user.uid), patientData, { merge: true });
 
-        toast({ title: 'Registry Updated', description: 'Your information has been secured.' });
+        toast({ title: 'Record Updated', description: 'Your information has been secured.' });
         router.push('/doctor-portal');
     } catch (error) {
         toast({ variant: "destructive", title: "Sync Failed" });
@@ -226,7 +226,7 @@ export default function DoctorProfilePage() {
                     <h1 className="text-3xl font-bold font-headline tracking-tight text-foreground flex items-center gap-3">
                         <ShieldCheck className="h-8 w-8 text-primary" /> Professional Identity
                     </h1>
-                    <p className="text-muted-foreground text-sm mt-1">Manage your clinical registry and credential portfolio.</p>
+                    <p className="text-muted-foreground text-sm mt-1">Manage your clinical record and credential portfolio.</p>
                 </div>
                 {isVerified ? (
                     <Badge className="bg-green-100 text-green-800 border-green-200 h-10 gap-2 px-6 rounded-full font-bold">

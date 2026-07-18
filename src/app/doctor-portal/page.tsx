@@ -358,7 +358,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
                     <div className="bg-slate-900 p-6 sm:p-8 text-white shrink-0">
                         <DialogTitle className="text-2xl font-headline mb-6 text-white">Clinical Record</DialogTitle>
                         <TabsList className="bg-white/10 w-full grid grid-cols-3 h-12 p-1 rounded-xl">
-                            <TabsTrigger value="overview" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 font-bold uppercase text-[10px]">Registry</TabsTrigger>
+                            <TabsTrigger value="overview" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 font-bold uppercase text-[10px]">Record</TabsTrigger>
                             <TabsTrigger value="history" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 font-bold uppercase text-[10px]">History</TabsTrigger>
                             <TabsTrigger value="notes" className="rounded-lg data-[state=active]:bg-white data-[state=active]:text-slate-900 font-bold uppercase text-[10px]">Notes</TabsTrigger>
                         </TabsList>
@@ -484,7 +484,7 @@ export default function DoctorPortalPage() {
                          <Card className="border-none shadow-2xl bg-slate-900 text-white rounded-[2rem] overflow-hidden">
                             <CardHeader className="p-8"><CardTitle className="text-lg flex items-center gap-3"><Zap className="h-6 w-6 text-primary" /> Management</CardTitle></CardHeader>
                             <CardContent className="p-8 space-y-4">
-                                <Button variant="outline" className="w-full h-14 rounded-2xl bg-white/5 border-white/10 text-white font-bold" asChild><Link href="/doctor-portal/patients"><LayoutList className="h-5 w-5 mr-3" /> Registry</Link></Button>
+                                <Button variant="outline" className="w-full h-14 rounded-2xl bg-white/5 border-white/10 text-white font-bold" asChild><Link href="/doctor-portal/patients"><LayoutList className="h-5 w-5 mr-3" /> Record</Link></Button>
                                 <Button variant="outline" className="w-full h-14 rounded-2xl bg-white/5 border-white/10 text-white font-bold" asChild><Link href="/doctor-portal/unavailability"><CalendarIcon className="h-5 w-5 mr-3" /> Clinical Pause</Link></Button>
                             </CardContent>
                         </Card>
