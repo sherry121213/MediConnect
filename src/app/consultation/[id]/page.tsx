@@ -3,11 +3,11 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, setDoc, onSnapshot, addDoc, updateDoc, deleteDoc, getDocs, query } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, addDoc, updateDoc, query } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, User, Clock, Video as VideoIcon, AlertTriangle, ClipboardCheck, CheckCircle2, Siren } from 'lucide-react';
-import { format, isValid, addMinutes, isAfter, differenceInSeconds } from 'date-fns';
+import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, Clock, Siren, AlertTriangle, ClipboardCheck, CheckCircle2 } from 'lucide-react';
+import { isValid, addMinutes, isAfter, differenceInSeconds } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -104,7 +104,7 @@ export default function ConsultationRoomPage() {
           toast({
             variant: "destructive",
             title: "Clinical Session Ending",
-            description: "60 seconds remaining. Administrative buffer follows.",
+            description: "60 seconds remaining. Professional administrative buffer follows.",
           });
         }
       }

@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Siren, Trash2, RefreshCw, FileText, CheckCircle2, XCircle, PhoneCall } from "lucide-react";
+import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, Settings2, ShieldCheck, Moon, ChevronLeft, ChevronRight, User, Bell, AlertCircle, Siren, Trash2, RefreshCw, FileText, CheckCircle2, XCircle, PhoneCall, Zap, LayoutList } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
@@ -147,7 +147,6 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
         if (!existingAppointments || !selectedDate || !selectedTimeStr) return { isAvailable: true, message: '' };
 
         const proposedStart = parse(selectedTimeStr, 'hh:mm a', selectedDate);
-        // Protocol: 20 min block for Precision Clinical Session
         const proposedEnd = addMinutes(proposedStart, 20);
         const now = new Date();
 
@@ -460,15 +459,12 @@ export default function DoctorPortalPage() {
     const [isPostponeOpen, setIsPostponeOpen] = useState(false);
     const [mounted, setMounted] = useState(false);
     const [viewDate, setViewDate] = useState(new Date());
-    const [dismissedAlertIds, setDismissedAlertIds] = useState<Set<string>>(new Set());
     const [nowState, setNowState] = useState(Date.now());
     const [patientsMap, setPatientsMap] = useState<Map<string, Patient>>(new Map());
 
     useEffect(() => {
         setMounted(true);
         const timer = setInterval(() => setNowState(Date.now()), 15000);
-        const saved = localStorage.getItem('dismissed_alerts');
-        if (saved) try { setDismissedAlertIds(new Set(JSON.parse(saved))); } catch (e) { }
         return () => clearInterval(timer);
     }, []);
 
@@ -522,12 +518,10 @@ export default function DoctorPortalPage() {
         checkMissedSessions();
     }, [appointments, mounted, firestore, user, nowState]);
 
-    const { activeQueue, timelineApts, stats, notifications } = useMemo(() => {
-        if (!mounted || !appointments) return { activeQueue: [], timelineApts: [], stats: { today: 0, todayRevenue: 0, totalRevenue: 0, totalConsults: 0 }, notifications: [] };
+    const { activeQueue, timelineApts, stats } = useMemo(() => {
+        if (!mounted || !appointments) return { activeQueue: [], timelineApts: [], stats: { today: 0, todayRevenue: 0, totalRevenue: 0, totalConsults: 0 } };
         
         const now = new Date();
-        const yesterday = subDays(now, 1);
-
         const allToday = appointments.filter(apt => apt && apt.appointmentDateTime && isSameDay(new Date(apt.appointmentDateTime), now) && apt.status !== 'cancelled');
         const viewDayApts = appointments.filter(apt => apt && apt.appointmentDateTime && isSameDay(new Date(apt.appointmentDateTime), viewDate) && apt.status !== 'cancelled')
                                       .sort((a,b) => a.appointmentDateTime.localeCompare(b.appointmentDateTime));
@@ -538,27 +532,12 @@ export default function DoctorPortalPage() {
         const lifetimeRev = appointments.filter(a => a && a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
         const totalCompleted = appointments.filter(a => a && a.status === 'completed').length;
 
-        const alerts: any[] = [];
-        appointments.forEach(a => {
-            if (!a?.appointmentDateTime || a.status === 'completed' || a.status === 'cancelled') return;
-            const alertId = a.id + (a.status === 'expired' ? '-exp' : '-notif');
-            if (dismissedAlertIds.has(alertId)) return;
-            if (a.status === 'expired') alerts.push({ id: alertId, msg: `Missed Window: ${format(new Date(a.appointmentDateTime), "p")}`, icon: AlertCircle, color: 'text-destructive', timestamp: new Date(a.updatedAt || a.createdAt).getTime() });
-            else if (isAfter(new Date(a.createdAt), yesterday)) alerts.push({ id: alertId, msg: `New Registry: ${format(new Date(a.appointmentDateTime), "PP p")}`, icon: Clock, color: 'text-primary', timestamp: new Date(a.createdAt).getTime() });
-            
-            const aptStart = new Date(a.appointmentDateTime).getTime();
-            if (Date.now() >= aptStart && Date.now() < aptStart + (15 * 60 * 1000) && a.status === 'scheduled') {
-                alerts.push({ id: alertId + '-live', msg: "PRECISION SESSION LIVE", icon: Siren, color: 'text-red-500 animate-pulse font-bold', isReminder: true, timestamp: Date.now() + 1000000 });
-            }
-        });
-
         return { 
             activeQueue: activeQ,
             timelineApts: viewDayApts,
-            stats: { today: allToday.length, todayRevenue: todayRev, totalRevenue: lifetimeRev, totalConsults: totalCompleted },
-            notifications: alerts.sort((a, b) => (b.timestamp || 0) - (a.timestamp || 0))
+            stats: { today: allToday.length, todayRevenue: todayRev, totalRevenue: lifetimeRev, totalConsults: totalCompleted }
         };
-    }, [appointments, mounted, viewDate, dismissedAlertIds, nowState]);
+    }, [appointments, mounted, viewDate, nowState]);
 
     const handleSelectApt = (apt: Appointment) => { setSelectedAppointment(apt); setIsConsultOpen(true); };
     const handleTriggerPostpone = (apt: any) => { setSelectedAppointment(apt); setIsConsultOpen(false); setIsPostponeOpen(true); };
@@ -594,23 +573,34 @@ export default function DoctorPortalPage() {
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                     <div className="lg:col-span-4 space-y-8">
-                        <Card className="border-none shadow-xl bg-white rounded-3xl overflow-hidden">
-                             <CardHeader className="bg-slate-50 border-b p-6">
-                                <CardTitle className="text-xs uppercase font-bold flex items-center gap-2"><Bell className="h-4 w-4 text-amber-500" /> Professional Alerts</CardTitle>
+                         <Card className="border-none shadow-2xl bg-slate-900 text-white rounded-[2rem] overflow-hidden">
+                            <CardHeader className="p-8 border-b border-white/5">
+                                <CardTitle className="text-lg font-headline flex items-center gap-3">
+                                    <Zap className="h-6 w-6 text-primary" /> Quick Actions
+                                </CardTitle>
+                                <CardDescription className="text-slate-400 text-xs mt-1">Direct management of current practice flow.</CardDescription>
                             </CardHeader>
-                            <CardContent className="p-4 space-y-3">
-                                {notifications.length > 0 ? notifications.map(n => n && (
-                                    <div key={n.id} className={cn("p-4 rounded-2xl border-2 flex gap-3 items-start", n.isReminder ? "bg-red-50 border-red-100" : "bg-slate-50 border-slate-100")}>
-                                        <n.icon className={cn("h-4 w-4 shrink-0 mt-0.5", n.color)} />
-                                        <p className={cn("text-xs font-bold", n.isReminder ? "text-red-700" : "text-slate-700")}>{n.msg}</p>
-                                    </div>
-                                )) : <div className="text-center py-8 opacity-20"><Activity className="h-8 w-8 mx-auto" /></div>}
+                            <CardContent className="p-8 space-y-4">
+                                <Button variant="outline" className="w-full h-14 rounded-2xl bg-white/5 border-white/10 hover:bg-white/10 text-white font-bold justify-start gap-3" asChild>
+                                    <Link href="/doctor-portal/patients">
+                                        <LayoutList className="h-5 w-5 text-primary" /> Patient Registry
+                                    </Link>
+                                </Button>
+                                <Button variant="outline" className="w-full h-14 rounded-2xl bg-white/5 border-white/10 hover:bg-white/10 text-white font-bold justify-start gap-3" asChild>
+                                    <Link href="/doctor-portal/unavailability">
+                                        <CalendarIcon className="h-5 w-5 text-primary" /> Clinical Pause
+                                    </Link>
+                                </Button>
+                                <div className="p-4 rounded-2xl bg-primary/5 border border-primary/20 space-y-2 mt-4">
+                                    <p className="text-[10px] font-bold uppercase tracking-widest text-primary">Status: Precision Window</p>
+                                    <p className="text-xs text-slate-400 leading-relaxed italic">The top notification bell will signal you for live sessions and conclusion countdowns.</p>
+                                </div>
                             </CardContent>
                         </Card>
                         
                         <Card className="border-none shadow-xl bg-white rounded-3xl overflow-hidden">
                             <CardHeader className="bg-primary/5 border-b p-6">
-                                <CardTitle className="text-xs uppercase font-bold flex items-center gap-2"><ClipboardCheck className="h-4 w-4 text-primary" /> Immediate Sessions</CardTitle>
+                                <CardTitle className="text-xs uppercase font-bold flex items-center gap-2"><ClipboardCheck className="h-4 w-4 text-primary" /> Immediate Queue</CardTitle>
                             </CardHeader>
                             <CardContent className="p-0">
                                 {isLoadingAppointments ? <div className="p-12 text-center"><Loader2 className="h-8 w-8 animate-spin mx-auto text-primary/30" /></div> : 
