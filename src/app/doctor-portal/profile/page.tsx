@@ -1,3 +1,4 @@
+
 'use client';
 
 import { z } from 'zod';
@@ -20,8 +21,10 @@ import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 const profileSchema = z.object({
+  gender: z.enum(['male', 'female', 'other']),
   specialty: z.string().min(2, 'Specialty is required.'),
   experience: z.coerce.number().min(0, 'Experience must be a positive number.'),
   medicalSchool: z.string().min(2, 'Medical school is required.'),
@@ -45,7 +48,6 @@ export default function DoctorProfilePage() {
   
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // FETCHING DE-COUPLED CREDENTIALS
   const credentialsQuery = useMemoFirebase(() => {
     if (!firestore || !user) return null;
     return query(collection(firestore, 'doctorCredentials'), where('doctorId', '==', user.uid));
@@ -55,6 +57,7 @@ export default function DoctorProfilePage() {
   const form = useForm<ProfileFormValues>({
     resolver: zodResolver(profileSchema),
     defaultValues: {
+      gender: 'male',
       specialty: '',
       experience: 0,
       medicalSchool: '',
@@ -76,6 +79,7 @@ export default function DoctorProfilePage() {
           if (docSnap.exists()) {
             const data = docSnap.data();
             form.reset({
+              gender: data.gender || 'male',
               specialty: data.specialty || '',
               experience: data.experience || 0,
               medicalSchool: data.medicalSchool || '',
@@ -103,15 +107,12 @@ export default function DoctorProfilePage() {
 
   const handleSaveCroppedImage = async (croppedImage: string) => {
     if (!user || !firestore) return;
-    
     setIsSyncing(true);
     setCropperImage(null);
-
     try {
       const updateData = { photoURL: croppedImage, updatedAt: new Date().toISOString() };
       await setDoc(doc(firestore, 'doctors', user.uid), updateData, { merge: true });
       await setDoc(doc(firestore, 'patients', user.uid), updateData, { merge: true });
-
       toast({ title: 'Identity Secured', description: 'Profile photo updated.' });
       setIsSyncing(false);
     } catch (error: any) {
@@ -122,31 +123,25 @@ export default function DoctorProfilePage() {
 
   const handleDegreeSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0 || !user || !firestore) return;
-    
     setIsSyncing(true);
     const files = Array.from(e.target.files);
-
     for (const file of files) {
         const reader = new FileReader();
-        
         await new Promise<void>((resolve) => {
             reader.onload = async (event) => {
                 const base64String = event.target?.result as string;
-                
                 const credentialData = {
                     doctorId: user.uid,
-                    fileUrl: base64String, // Storing Base64 directly for instant viewing
+                    fileUrl: base64String,
                     fileName: file.name,
                     uploadedAt: new Date().toISOString(),
                 };
-                
                 await addDocumentNonBlocking(collection(firestore, 'doctorCredentials'), credentialData);
                 resolve();
             };
             reader.readAsDataURL(file);
         });
     }
-
     toast({ title: "Clinical Assets Synced", description: `${files.length} degree(s) added to portal.` });
     setIsSyncing(false);
     e.target.value = ''; 
@@ -182,7 +177,6 @@ export default function DoctorProfilePage() {
   const onSubmit = async (values: ProfileFormValues) => {
     if (!user || !firestore) return;
     setIsSubmitting(true);
-
     try {
         const timestamp = new Date().toISOString();
         const doctorData = {
@@ -193,18 +187,16 @@ export default function DoctorProfilePage() {
             profileComplete: true,
             updatedAt: timestamp,
         };
-
         const patientData = { 
             profileComplete: true, 
             updatedAt: timestamp,
             phone: values.phone,
+            gender: values.gender,
             firstName: userData?.firstName,
             lastName: userData?.lastName
         };
-
         await setDoc(doc(firestore, 'doctors', user.uid), doctorData, { merge: true });
         await setDoc(doc(firestore, 'patients', user.uid), patientData, { merge: true });
-
         toast({ title: 'Record Updated', description: 'Your information has been secured.' });
         router.push('/doctor-portal');
     } catch (error) {
@@ -213,8 +205,6 @@ export default function DoctorProfilePage() {
         setIsSubmitting(false);
     }
   };
-
-  const totalUploadedCount = credentials?.length || 0;
 
   if (isUserLoading) return <div className="flex min-h-screen items-center justify-center bg-secondary/10"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
@@ -298,7 +288,7 @@ export default function DoctorProfilePage() {
                         </div>
                         <Separator className="bg-slate-800" />
                         <p className="text-[10px] text-slate-500 italic leading-relaxed">
-                            MEDICONNECT POLICY: Verification typically takes 12-24 hours. Ensure your details match your clinical credentials.
+                            MEDICONNECT POLICY: Verification typically takes 12-24 hours.
                         </p>
                     </Card>
                 </div>
@@ -312,29 +302,47 @@ export default function DoctorProfilePage() {
                             <Form {...form}>
                                 <form className="space-y-8">
                                     <div className="grid md:grid-cols-2 gap-8">
+                                        <FormField control={form.control} name="gender" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel className="text-[11px] uppercase font-bold tracking-widest opacity-60">Gender</FormLabel>
+                                                <FormControl>
+                                                    <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4">
+                                                        <div className="flex items-center space-x-2">
+                                                            <RadioGroupItem value="male" id="p-male" />
+                                                            <label htmlFor="p-male" className="text-sm">Male</label>
+                                                        </div>
+                                                        <div className="flex items-center space-x-2">
+                                                            <RadioGroupItem value="female" id="p-female" />
+                                                            <label htmlFor="p-female" className="text-sm">Female</label>
+                                                        </div>
+                                                    </RadioGroup>
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
                                         <FormField control={form.control} name="specialty" render={({ field }) => (
                                             <FormItem><FormLabel className="text-[11px] uppercase font-bold tracking-widest opacity-60">Medical Specialty</FormLabel><FormControl><Input placeholder="e.g. Cardiology" {...field} className="h-12 rounded-xl border-2" disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
                                         )} />
+                                    </div>
+                                    <div className="grid md:grid-cols-2 gap-8">
                                         <FormField control={form.control} name="experience" render={({ field }) => (
                                             <FormItem><FormLabel className="text-[11px] uppercase font-bold tracking-widest opacity-60">Years in Practice</FormLabel><FormControl><Input type="number" {...field} className="h-12 rounded-xl border-2" disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
                                         )} />
-                                    </div>
-                                    <div className="grid md:grid-cols-2 gap-8">
                                         <FormField control={form.control} name="medicalSchool" render={({ field }) => (
                                             <FormItem><FormLabel className="text-[11px] uppercase font-bold tracking-widest opacity-60">Medical Institution</FormLabel><FormControl><Input placeholder="e.g. Aga Khan University" {...field} className="h-12 rounded-xl border-2" disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
                                         )} />
+                                    </div>
+                                    <div className="grid md:grid-cols-2 gap-8">
                                         <FormField control={form.control} name="degree" render={({ field }) => (
                                             <FormItem><FormLabel className="text-[11px] uppercase font-bold tracking-widest opacity-60">Highest Qualification</FormLabel><FormControl><Input placeholder="e.g. MBBS, FCPS" {...field} className="h-12 rounded-xl border-2" disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
                                         )} />
-                                    </div>
-                                    <div className="grid md:grid-cols-2 gap-8">
                                         <FormField control={form.control} name="phone" render={({ field }) => (
                                             <FormItem><FormLabel className="text-[11px] uppercase font-bold tracking-widest opacity-60">Clinical Phone</FormLabel><FormControl><Input placeholder="03XXXXXXXXX" {...field} className="h-12 rounded-xl border-2" disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
                                         )} />
-                                        <FormField control={form.control} name="location" render={({ field }) => (
-                                            <FormItem><FormLabel className="text-[11px] uppercase font-bold tracking-widest opacity-60">Practice City</FormLabel><FormControl><Input placeholder="e.g. Karachi" {...field} className="h-12 rounded-xl border-2" disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
-                                        )} />
                                     </div>
+                                    <FormField control={form.control} name="location" render={({ field }) => (
+                                        <FormItem><FormLabel className="text-[11px] uppercase font-bold tracking-widest opacity-60">Practice City</FormLabel><FormControl><Input placeholder="e.g. Karachi" {...field} className="h-12 rounded-xl border-2" disabled={isSubmitting} /></FormControl><FormMessage /></FormItem>
+                                    )} />
                                 </form>
                             </Form>
                         </CardContent>
@@ -344,7 +352,7 @@ export default function DoctorProfilePage() {
                          <CardHeader className="bg-muted/10 border-b px-8 py-8">
                             <div className="flex justify-between items-center">
                                 <CardTitle className="text-xl">Degrees & Assets</CardTitle>
-                                <Badge className="bg-primary/10 text-primary border-none">{totalUploadedCount} Synced Assets</Badge>
+                                <Badge className="bg-primary/10 text-primary border-none">{credentials?.length || 0} Assets</Badge>
                             </div>
                         </CardHeader>
                         <CardContent className="p-8 space-y-8">
@@ -354,34 +362,20 @@ export default function DoctorProfilePage() {
                                     <p className="text-sm font-bold">Attach Professional Evidence</p>
                                     <p className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1">Images or PDFs</p>
                                 </div>
-                                
                                 <label htmlFor="degree-upload" className="cursor-pointer">
-                                    <Button 
-                                        type="button" 
-                                        variant="outline" 
-                                        className="rounded-xl font-bold border-2 pointer-events-none"
-                                        disabled={isSyncing}
-                                    >
+                                    <Button type="button" variant="outline" className="rounded-xl font-bold border-2 pointer-events-none" disabled={isSyncing}>
                                         {isSyncing ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
                                         Select Degree Files
                                     </Button>
                                 </label>
-                                <input 
-                                    id="degree-upload"
-                                    type="file" 
-                                    multiple 
-                                    accept="image/*,.pdf" 
-                                    className="hidden" 
-                                    onChange={handleDegreeSelect}
-                                    disabled={isSyncing}
-                                />
+                                <input id="degree-upload" type="file" multiple accept="image/*,.pdf" className="hidden" onChange={handleDegreeSelect} disabled={isSyncing} />
                             </div>
 
-                            {totalUploadedCount > 0 && (
+                            {credentials && credentials.length > 0 && (
                                 <div className="space-y-4 pt-4">
                                     <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground border-b pb-2">Evidence Archive</p>
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        {credentials?.map((cred, idx) => (
+                                        {credentials.map((cred, idx) => (
                                             <div key={cred.id} className="group relative p-3 rounded-2xl border bg-muted/10 flex items-center justify-between gap-4">
                                                 <div className="flex items-center gap-3 min-w-0">
                                                     <div className="h-10 w-10 rounded-xl bg-white border flex items-center justify-center text-primary shrink-0">
@@ -389,18 +383,14 @@ export default function DoctorProfilePage() {
                                                     </div>
                                                     <div className="min-w-0">
                                                         <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-tighter truncate">{cred.fileName || `Asset-${idx + 1}`}</p>
-                                                        <p className="text-[8px] text-green-600 font-bold uppercase flex items-center gap-1">
-                                                            <CheckCircle2 className="h-2 w-2" /> Secured
-                                                        </p>
+                                                        <p className="text-[8px] text-green-600 font-bold uppercase flex items-center gap-1"><CheckCircle2 className="h-2 w-2" /> Secured</p>
                                                     </div>
                                                 </div>
                                                 <div className="flex items-center gap-2 shrink-0">
                                                     <Button asChild size="icon" variant="ghost" className="h-8 w-8 rounded-lg hover:bg-primary/10 text-primary">
                                                         <a href={cred.fileUrl} target="_blank" rel="noopener noreferrer"><ExternalLink className="h-4 w-4" /></a>
                                                     </Button>
-                                                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg hover:bg-destructive/10 text-destructive" onClick={() => removeDoc(cred.id)}>
-                                                        <Trash2 className="h-4 w-4" />
-                                                    </Button>
+                                                    <Button size="icon" variant="ghost" className="h-8 w-8 rounded-lg hover:bg-destructive/10 text-destructive" onClick={() => removeDoc(cred.id)}><Trash2 className="h-4 w-4" /></Button>
                                                 </div>
                                             </div>
                                         ))}
@@ -410,18 +400,9 @@ export default function DoctorProfilePage() {
                         </CardContent>
                     </Card>
 
-                    <Button 
-                        onClick={form.handleSubmit(onSubmit)} 
-                        className="w-full h-16 text-lg font-bold rounded-[2rem] shadow-2xl shadow-primary/20" 
-                        disabled={isSubmitting || isSyncing || !isEmailVerified}
-                    >
+                    <Button onClick={form.handleSubmit(onSubmit)} className="w-full h-16 text-lg font-bold rounded-[2rem] shadow-2xl shadow-primary/20" disabled={isSubmitting || isSyncing || !isEmailVerified}>
                         {isSubmitting ? <><Loader2 className="mr-3 h-5 w-5 animate-spin" /> Finalizing...</> : "Save Professional Information"}
                     </Button>
-                    {!isEmailVerified && (
-                        <p className="text-center text-[10px] font-bold uppercase text-destructive tracking-widest">
-                            Email verification required before submission.
-                        </p>
-                    )}
                 </div>
             </div>
         </div>

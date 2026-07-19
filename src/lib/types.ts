@@ -12,6 +12,7 @@ export interface Doctor {
   firstName: string;
   lastName: string;
   email: string;
+  gender?: 'male' | 'female' | 'other';
   phone?: string;
   specialty?: Specialty | string;
   location?: string;
@@ -37,6 +38,7 @@ export interface Patient {
     firstName: string;
     lastName: string;
     email: string;
+    gender?: 'male' | 'female' | 'other';
     phone?: string;
     dateOfBirth?: string;
     address?: string;

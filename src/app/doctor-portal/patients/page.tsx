@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo } from "react";
@@ -53,23 +54,14 @@ export default function DoctorPatientsPage() {
 
     const patientStats = useMemo(() => {
         if (!appointments) return { uniquePatients: [], stats: { total: 0, paid: 0, pending: 0, uniqueCount: 0 } };
-        
         const validAppointments = appointments.filter(a => a && a.patientId);
-        
         const uniquePatientIds = Array.from(new Set(validAppointments.map(a => a.patientId)));
         const patientData = uniquePatientIds.map(pid => {
             const apts = validAppointments.filter(a => a.patientId === pid);
             const sortedApts = apts.filter(a => a && a.appointmentDateTime).sort((a,b) => new Date(b.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime());
             const lastApt = sortedApts[0];
-            
-            return {
-                id: pid,
-                totalVisits: apts.length,
-                lastVisit: lastApt?.appointmentDateTime || '',
-                lastStatus: lastApt?.status || 'Unknown'
-            };
+            return { id: pid, totalVisits: apts.length, lastVisit: lastApt?.appointmentDateTime || '', lastStatus: lastApt?.status || 'Unknown' };
         });
-
         return {
             uniquePatients: patientData,
             stats: {
@@ -101,97 +93,47 @@ export default function DoctorPatientsPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     <Card className="border-none shadow-xl bg-primary text-primary-foreground rounded-2xl overflow-hidden">
-                        <CardHeader className="pb-2">
-                            <p className="text-[10px] font-bold uppercase opacity-80 tracking-widest">Unique Patients</p>
-                            <CardTitle className="text-4xl font-bold">{patientStats.stats.uniqueCount}</CardTitle>
-                        </CardHeader>
+                        <CardHeader className="pb-2"><p className="text-[10px] font-bold uppercase opacity-80 tracking-widest">Unique Patients</p><CardTitle className="text-4xl font-bold">{patientStats.stats.uniqueCount}</CardTitle></CardHeader>
                     </Card>
                     <Card className="border-none shadow-xl bg-white rounded-2xl overflow-hidden">
-                        <CardHeader className="pb-2">
-                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Total Consultations</p>
-                            <CardTitle className="text-4xl font-bold text-primary">{patientStats.stats.total}</CardTitle>
-                        </CardHeader>
+                        <CardHeader className="pb-2"><p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Total Consultations</p><CardTitle className="text-4xl font-bold text-primary">{patientStats.stats.total}</CardTitle></CardHeader>
                     </Card>
                     <Card className="border-none shadow-xl bg-white rounded-2xl overflow-hidden">
-                        <CardHeader className="pb-2">
-                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest text-green-600">Verified Fees</p>
-                            <CardTitle className="text-4xl font-bold text-green-600">{patientStats.stats.paid}</CardTitle>
-                        </CardHeader>
+                        <CardHeader className="pb-2"><p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest text-green-600">Verified Fees</p><CardTitle className="text-4xl font-bold text-green-600">{patientStats.stats.paid}</CardTitle></CardHeader>
                     </Card>
                     <Card className="border-none shadow-xl bg-white rounded-2xl overflow-hidden">
-                        <CardHeader className="pb-2">
-                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest text-amber-600">Pending Review</p>
-                            <CardTitle className="text-4xl font-bold text-amber-600">{patientStats.stats.pending}</CardTitle>
-                        </CardHeader>
+                        <CardHeader className="pb-2"><p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest text-amber-600">Pending Review</p><CardTitle className="text-4xl font-bold text-amber-600">{patientStats.stats.pending}</CardTitle></CardHeader>
                     </Card>
                 </div>
 
                 <Card className="border-none shadow-2xl rounded-3xl overflow-hidden bg-white">
                     <CardHeader className="bg-primary/5 border-b p-6 sm:p-8">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                            <CardTitle className="text-xl flex items-center gap-3 text-slate-900">
-                                <History className="h-6 w-6 text-primary" /> Comprehensive Patient Pool
-                            </CardTitle>
+                            <CardTitle className="text-xl flex items-center gap-3 text-slate-900"><History className="h-6 w-6 text-primary" /> Comprehensive Patient Pool</CardTitle>
                             <div className="relative w-full md:w-80">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                                <Input 
-                                    placeholder="Search record..." 
-                                    className="pl-9 h-11 border-2 rounded-xl bg-white"
-                                    value={searchTerm}
-                                    onChange={(e) => setSearchTerm(e.target.value)}
-                                />
+                                <Input placeholder="Search record..." className="pl-9 h-11 border-2 rounded-xl bg-white" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
                             </div>
                         </div>
                     </CardHeader>
                     <CardContent className="p-0">
-                        {isLoading ? (
-                            <div className="flex justify-center py-24"><Loader2 className="h-10 w-10 animate-spin text-primary/30" /></div>
-                        ) : filteredPatients.length > 0 ? (
+                        {isLoading ? (<div className="flex justify-center py-24"><Loader2 className="h-10 w-10 animate-spin text-primary/30" /></div>) : filteredPatients.length > 0 ? (
                             <div className="overflow-x-auto custom-scrollbar">
                                 <Table>
-                                    <TableHeader className="bg-muted/10">
-                                        <TableRow>
-                                            <TableHead className="py-5 pl-8 font-bold">Patient Profile</TableHead>
-                                            <TableHead className="font-bold">Total Visits</TableHead>
-                                            <TableHead className="font-bold">Last Interaction</TableHead>
-                                            <TableHead className="text-right pr-8 font-bold">Record Audit</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
+                                    <TableHeader className="bg-muted/10"><TableRow><TableHead className="py-5 pl-8 font-bold">Patient Profile</TableHead><TableHead className="font-bold">Total Visits</TableHead><TableHead className="font-bold">Last Interaction</TableHead><TableHead className="text-right pr-8 font-bold">Record Audit</TableHead></TableRow></TableHeader>
                                     <TableBody>
                                         {filteredPatients.map((p) => p && p.id && (
                                             <TableRow key={p.id} className="hover:bg-primary/5 transition-all group">
-                                                <TableCell className="py-5 pl-8">
-                                                    <PatientProfileCell patientId={p.id} />
-                                                </TableCell>
-                                                <TableCell>
-                                                    <Badge variant="secondary" className="bg-primary/10 text-primary font-bold text-[10px] uppercase">
-                                                        {p.totalVisits} Consultations
-                                                    </Badge>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-2 text-xs font-medium text-slate-600">
-                                                        <Clock className="h-3 w-3 text-muted-foreground" />
-                                                        {p.lastVisit ? format(new Date(p.lastVisit), "MMM dd, yyyy") : 'N/A'}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-right pr-8">
-                                                    <Button variant="ghost" size="sm" asChild className="rounded-xl hover:bg-primary hover:text-white font-bold text-[10px] uppercase gap-2 transition-all h-9 px-4">
-                                                        <Link href={`/doctor-portal/records?patientId=${p.id}`}>
-                                                            Audit Records <ChevronRight className="h-3.5 w-3.5" />
-                                                        </Link>
-                                                    </Button>
-                                                </TableCell>
+                                                <TableCell className="py-5 pl-8"><PatientProfileCell patientId={p.id} /></TableCell>
+                                                <TableCell><Badge variant="secondary" className="bg-primary/10 text-primary font-bold text-[10px] uppercase">{p.totalVisits} Consultations</Badge></TableCell>
+                                                <TableCell><div className="flex items-center gap-2 text-xs font-medium text-slate-600"><Clock className="h-3 w-3 text-muted-foreground" />{p.lastVisit ? format(new Date(p.lastVisit), "MMM dd, yyyy") : 'N/A'}</div></TableCell>
+                                                <TableCell className="text-right pr-8"><Button variant="ghost" size="sm" asChild className="rounded-xl hover:bg-primary hover:text-white font-bold text-[10px] uppercase gap-2 h-9 px-4"><Link href={`/doctor-portal/records?patientId=${p.id}`}>Audit Records <ChevronRight className="h-3.5 w-3.5" /></Link></Button></TableCell>
                                             </TableRow>
                                         ))}
                                     </TableBody>
                                 </Table>
                             </div>
-                        ) : (
-                            <div className="text-center py-32 text-muted-foreground italic">
-                                <AlertCircle className="h-16 w-16 mx-auto mb-4 opacity-10" />
-                                <p className="text-lg font-bold text-slate-400 tracking-tight">No clinical records matched your search.</p>
-                            </div>
-                        )}
+                        ) : (<div className="text-center py-32 text-muted-foreground italic"><AlertCircle className="h-16 w-16 mx-auto mb-4 opacity-10" /><p className="text-lg font-bold text-slate-400 tracking-tight">No clinical records matched.</p></div>)}
                     </CardContent>
                 </Card>
             </div>

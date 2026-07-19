@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from "next/link";
@@ -33,6 +34,7 @@ const signupSchema = z.object({
   email: z.string().email({ message: 'Please enter a valid email address.' }),
   password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
   role: z.enum(['patient', 'doctor']),
+  gender: z.enum(['male', 'female', 'other'], { required_error: 'Please select your gender.' }),
 });
 
 type SignupFormValues = z.infer<typeof signupSchema>;
@@ -54,6 +56,7 @@ export default function SignupPage() {
       email: '',
       password: '',
       role: 'patient',
+      gender: 'male',
     },
   });
 
@@ -69,7 +72,7 @@ export default function SignupPage() {
     if (!auth || !firestore) return;
     setLoading(true);
     
-    const { firstName, lastName, email, password, role } = values;
+    const { firstName, lastName, email, password, role, gender } = values;
     const lowercasedEmail = email.toLowerCase();
 
     try {
@@ -85,6 +88,7 @@ export default function SignupPage() {
           firstName,
           lastName,
           email: lowercasedEmail,
+          gender,
           createdAt: timestamp,
           updatedAt: timestamp,
       };
@@ -178,6 +182,30 @@ export default function SignupPage() {
                     <FormMessage />
                   </FormItem>
                 )} />
+                
+                <FormField control={form.control} name="gender" render={({ field }) => (
+                  <FormItem className="space-y-3">
+                    <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Gender Identity</FormLabel>
+                    <FormControl>
+                      <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex flex-wrap gap-2">
+                        <div className="flex items-center space-x-2 bg-slate-50 px-3 py-2 rounded-xl border flex-1 min-w-[80px]">
+                          <RadioGroupItem value="male" id="g-male" />
+                          <label htmlFor="g-male" className="font-bold text-[10px] cursor-pointer">Male</label>
+                        </div>
+                        <div className="flex items-center space-x-2 bg-slate-50 px-3 py-2 rounded-xl border flex-1 min-w-[80px]">
+                          <RadioGroupItem value="female" id="g-female" />
+                          <label htmlFor="g-female" className="font-bold text-[10px] cursor-pointer">Female</label>
+                        </div>
+                         <div className="flex items-center space-x-2 bg-slate-50 px-3 py-2 rounded-xl border flex-1 min-w-[80px]">
+                          <RadioGroupItem value="other" id="g-other" />
+                          <label htmlFor="g-other" className="font-bold text-[10px] cursor-pointer">Other</label>
+                        </div>
+                      </RadioGroup>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )} />
+
                 <FormField control={form.control} name="role" render={({ field }) => (
                   <FormItem className="space-y-3">
                     <FormLabel className="text-[10px] uppercase font-bold text-muted-foreground">Account Role</FormLabel>

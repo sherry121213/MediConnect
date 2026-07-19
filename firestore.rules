@@ -1,15 +1,16 @@
+
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
     // PRECISION CLINICAL SESSION - TOTAL ACCESS PROTOCOL V42
-    // This rule set provides total access to all collections for prototype functionality and resolves listing errors.
+    // Explicit total access for high-fidelity prototype auditing and term records.
     
     match /{document=**} {
       allow read, write: if true;
     }
 
-    // Explicit collection matches for high-fidelity auditing and listing
+    // Explicit collection rules for auditing
     match /patients/{userId} { allow read, write: if true; }
     match /doctors/{doctorId} { allow read, write: if true; }
     match /appointments/{appointmentId} { allow read, write: if true; }

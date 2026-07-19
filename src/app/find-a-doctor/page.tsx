@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -20,18 +21,18 @@ import { cn } from '@/lib/utils';
 const locations = ["Islamabad", "Rawalpindi", "Lahore", "Karachi", "Peshawar", "Faisalabad", "Multan", "Quetta"];
 
 const filterPills = [
-    { label: "Female Doctors", icon: Users },
-    { label: "Doctors Near Me", icon: MapPin },
-    { label: "Most Experienced", icon: Star },
-    { label: "Available Today", icon: Clock },
+    { id: 'female', label: "Female Doctors", icon: Users },
+    { id: 'near', label: "Doctors Near Me", icon: MapPin },
+    { id: 'exp', label: "Most Experienced", icon: Star },
+    { id: 'today', label: "Available Today", icon: Clock },
 ];
 
 export default function FindADoctorPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('all');
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
+  const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
   const [isLocating, setIsLocating] = useState(false);
-  const [showLocationBanner, setShowLocationBanner] = useState(true);
   const firestore = useFirestore();
   const { toast } = useToast();
   const [currentPage, setCurrentPage] = useState(1);
@@ -48,6 +49,17 @@ export default function FindADoctorPage() {
 
   const { data: doctors, isLoading: isLoadingDoctors } = useCollection<Doctor>(doctorsQuery);
 
+  const handlePillClick = (filterId: string) => {
+      if (activeFilterId === filterId) {
+          setActiveFilterId(null);
+      } else {
+          setActiveFilterId(filterId);
+          if (filterId === 'near') {
+              handleLocationClick();
+          }
+      }
+  };
+
   const handleLocationClick = () => {
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
@@ -59,7 +71,6 @@ export default function FindADoctorPage() {
             const matchedCity = locations.find(loc => city?.toLowerCase().includes(loc.toLowerCase()));
             if (matchedCity) {
                  setSelectedLocation(matchedCity);
-                 setShowLocationBanner(false);
                  toast({ title: `Location Detected: ${matchedCity}` });
             } else {
                 toast({ title: "Location Note", description: `Primary coverage for hub cities only.` });
@@ -82,16 +93,24 @@ export default function FindADoctorPage() {
     return doctors.filter(doctor => {
       const isActive = doctor.isActive !== false;
       if (!isActive) return false;
+      
       const nameMatch = `${doctor.firstName} ${doctor.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
       const specialtyMatch = selectedSpecialty === 'all' || doctor.specialty === selectedSpecialty;
       const locationMatch = selectedLocation === 'all' || doctor.location === selectedLocation;
-      return nameMatch && specialtyMatch && locationMatch;
+      
+      // Female Doctors Filter Logic
+      const genderMatch = activeFilterId === 'female' ? doctor.gender === 'female' : true;
+      
+      // Additional filter pill logic
+      const experienceMatch = activeFilterId === 'exp' ? (doctor.experience || 0) >= 10 : true;
+
+      return nameMatch && specialtyMatch && locationMatch && genderMatch && experienceMatch;
     });
-  }, [doctors, searchTerm, selectedSpecialty, selectedLocation]);
+  }, [doctors, searchTerm, selectedSpecialty, selectedLocation, activeFilterId]);
   
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedSpecialty, selectedLocation]);
+  }, [searchTerm, selectedSpecialty, selectedLocation, activeFilterId]);
 
   const pageCount = Math.ceil(filteredDoctors.length / doctorsPerPage);
   const paginatedDoctors = filteredDoctors.slice((currentPage - 1) * doctorsPerPage, currentPage * doctorsPerPage);
@@ -101,27 +120,30 @@ export default function FindADoctorPage() {
       <AppHeader />
       <main className="flex-grow">
         <div className="container mx-auto px-4 py-12">
-          {/* Enhanced Search Header */}
           <div className="max-w-4xl mx-auto space-y-8">
             <div className="text-center space-y-3">
                 <h1 className="text-4xl md:text-5xl font-bold font-headline text-slate-900 tracking-tight">Clinical Record</h1>
                 <p className="text-muted-foreground text-sm max-w-lg mx-auto font-medium">Search and book verified healthcare professionals instantly.</p>
             </div>
 
-            {/* Horizontal Filter Pills */}
             <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 no-scrollbar">
-                {filterPills.map((pill, idx) => (
+                {filterPills.map((pill) => (
                     <button 
-                        key={idx} 
-                        className="h-10 px-6 rounded-full bg-white border-2 border-slate-100 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 hover:border-primary/30 hover:bg-primary/5 transition-all text-slate-600 hover:text-primary shadow-sm"
+                        key={pill.id} 
+                        onClick={() => handlePillClick(pill.id)}
+                        className={cn(
+                            "h-10 px-6 rounded-full border-2 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm",
+                            activeFilterId === pill.id 
+                                ? "bg-primary border-primary text-white" 
+                                : "bg-white border-slate-100 text-slate-600 hover:border-primary/30 hover:bg-primary/5"
+                        )}
                     >
-                        <pill.icon className="h-3 w-3" />
+                        <pill.icon className={cn("h-3 w-3", activeFilterId === pill.id ? "text-white" : "text-slate-400")} />
                         {pill.label}
                     </button>
                 ))}
             </div>
 
-            {/* Main Search Bar */}
             <div className="p-2 bg-white rounded-[2rem] shadow-2xl shadow-slate-200/50 border-4 border-white">
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
                     <div className="md:col-span-6 relative group">
@@ -163,7 +185,6 @@ export default function FindADoctorPage() {
             </div>
           </div>
 
-          {/* Results Grid */}
           <div className="mt-16 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
             {isLoadingDoctors ? (
                 Array.from({ length: 6 }).map((_, i) => (
@@ -184,7 +205,7 @@ export default function FindADoctorPage() {
               <div className="col-span-full text-center py-32 bg-white rounded-[3rem] border-4 border-dashed border-slate-100">
                 <AlertCircle className="h-16 w-16 mx-auto mb-4 text-slate-200" />
                 <h3 className="text-xl font-bold text-slate-900">No record matches found</h3>
-                <p className="text-muted-foreground text-sm mt-1">Adjust your search parameters or location.</p>
+                <p className="text-muted-foreground text-sm mt-1">Adjust your search parameters or filters.</p>
               </div>
             )}
           </div>

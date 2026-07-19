@@ -1,3 +1,4 @@
+
 'use client';
 
 import {
@@ -54,11 +55,13 @@ import { useState, useRef } from "react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Progress } from "@/components/ui/progress";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const addDoctorSchema = z.object({
   firstName: z.string().min(2, { message: "First name is required." }),
   lastName: z.string().min(2, { message: "Last name is required." }),
   email: z.string().email({ message: "Invalid email." }),
+  gender: z.enum(['male', 'female', 'other']),
   specialty: z.string().min(2, { message: "Specialty required." }),
   location: z.string().min(2, { message: "Location required." }),
   phone: z.string().min(10, { message: "Valid phone required." }),
@@ -90,6 +93,7 @@ export default function AdminDoctorsPage() {
             firstName: "", 
             lastName: "", 
             email: "", 
+            gender: "male",
             specialty: "", 
             location: "",
             phone: "",
@@ -121,11 +125,9 @@ export default function AdminDoctorsPage() {
         setIsSubmitting(true);
 
         try {
-            // 1. Initialize Doctor Record IDs
             const doctorRef = doc(collection(firestore, 'doctors'));
             const doctorId = doctorRef.id;
 
-            // 2. Construct Unified Professional Profile
             const timestamp = new Date().toISOString();
             const newDoctorData: Doctor = {
                 id: doctorId,
@@ -140,13 +142,13 @@ export default function AdminDoctorsPage() {
                 updatedAt: timestamp,
             };
 
-            // 3. Force Persistence
             await setDoc(doctorRef, newDoctorData);
             await setDoc(doc(firestore, 'patients', doctorId), {
                 id: doctorId,
                 firstName: values.firstName,
                 lastName: values.lastName,
                 email: values.email,
+                gender: values.gender,
                 phone: values.phone,
                 role: 'doctor',
                 verified: true,
@@ -155,7 +157,6 @@ export default function AdminDoctorsPage() {
                 updatedAt: timestamp,
             });
 
-            // 4. Save Credentials as de-coupled records
             if (selectedFiles.length > 0) {
                 for (const fileObj of selectedFiles) {
                     await addDocumentNonBlocking(collection(firestore, 'doctorCredentials'), {
@@ -172,7 +173,6 @@ export default function AdminDoctorsPage() {
             setSelectedFiles([]);
             setIsDialogOpen(false);
         } catch (error) {
-            console.error("Enrollment failed:", error);
             toast({ variant: "destructive", title: "Enrollment Error", description: "Could not finalize doctor record details." });
         } finally {
             setIsSubmitting(false);
@@ -221,9 +221,26 @@ export default function AdminDoctorsPage() {
                             <FormField control={form.control} name="lastName" render={({ field }) => (<FormItem><FormLabel className="text-xs uppercase font-bold tracking-widest opacity-60">Last Name</FormLabel><FormControl><Input placeholder="Khan" {...field} className="rounded-xl border-2" disabled={isSubmitting}/></FormControl></FormItem>)} />
                         </div>
                         <div className="grid grid-cols-2 gap-4">
-                            <FormField control={form.control} name="email" render={({ field }) => (<FormItem><FormLabel className="text-xs uppercase font-bold tracking-widest opacity-60">Record Email</FormLabel><FormControl><Input type="email" placeholder="amina@example.com" {...field} className="rounded-xl border-2" disabled={isSubmitting}/></FormControl></FormItem>)} />
-                            <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel className="text-xs uppercase font-bold tracking-widest opacity-60">Clinical Phone</FormLabel><FormControl><Input placeholder="03XXXXXXXXX" {...field} className="rounded-xl border-2" disabled={isSubmitting}/></FormControl></FormItem>)} />
+                             <FormField control={form.control} name="gender" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="text-xs uppercase font-bold tracking-widest opacity-60">Gender</FormLabel>
+                                    <FormControl>
+                                        <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4">
+                                            <div className="flex items-center space-x-2">
+                                                <RadioGroupItem value="male" id="adm-male" />
+                                                <label htmlFor="adm-male" className="text-xs">Male</label>
+                                            </div>
+                                            <div className="flex items-center space-x-2">
+                                                <RadioGroupItem value="female" id="adm-female" />
+                                                <label htmlFor="adm-female" className="text-xs">Female</label>
+                                            </div>
+                                        </RadioGroup>
+                                    </FormControl>
+                                </FormItem>
+                             )} />
+                             <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel className="text-xs uppercase font-bold tracking-widest opacity-60">Clinical Phone</FormLabel><FormControl><Input placeholder="03XXXXXXXXX" {...field} className="rounded-xl border-2" disabled={isSubmitting}/></FormControl></FormItem>)} />
                         </div>
+                        <FormField control={form.control} name="email" render={({ field }) => (<FormItem><FormLabel className="text-xs uppercase font-bold tracking-widest opacity-60">Record Email</FormLabel><FormControl><Input type="email" placeholder="amina@example.com" {...field} className="rounded-xl border-2" disabled={isSubmitting}/></FormControl></FormItem>)} />
                     </div>
 
                     <div className="space-y-6">
