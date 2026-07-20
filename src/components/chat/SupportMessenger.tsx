@@ -30,20 +30,22 @@ const SessionItem = ({ session, onClick, isActive, isDoctor }: { session: any, o
     <button 
       onClick={onClick}
       className={cn(
-        "w-full p-4 rounded-[1.5rem] border-2 transition-all text-left group flex items-center gap-3",
-        isActive ? "border-primary bg-primary/5 shadow-md" : "border-transparent bg-white hover:bg-slate-50"
+        "w-full p-3 rounded-2xl border-2 transition-all text-left group flex items-center gap-3",
+        isActive ? "border-primary bg-primary/5 shadow-sm" : "border-transparent bg-white hover:bg-slate-50"
       )}
     >
-      <div className="h-10 w-10 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 shadow-inner group-hover:bg-primary/10 transition-colors">
-        <User className="h-5 w-5 text-slate-400 group-hover:text-primary" />
+      <div className="h-9 w-9 rounded-xl bg-slate-100 flex items-center justify-center shrink-0 shadow-inner group-hover:bg-primary/10 transition-colors">
+        <User className="h-4 w-4 text-slate-400 group-hover:text-primary" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-bold text-xs truncate text-slate-900">
+        <p className="font-bold text-[11px] truncate text-slate-900">
           {isDoctor ? `Dr. ${profile?.firstName || '...'}` : (profile?.firstName ? `${profile.firstName} ${profile.lastName}` : 'Support User')}
         </p>
-        <p className="text-[9px] text-muted-foreground truncate italic opacity-70 mt-0.5">{session.lastMessageContent || session.lastMessage || 'Precision session open'}</p>
+        <p className="text-[9px] text-muted-foreground truncate italic opacity-70">
+            {session.lastMessageContent || session.lastMessage || 'Open session'}
+        </p>
       </div>
-      {(session.unreadByAdmin || session.lastMessageSenderRole === 'doctor') && <div className="h-2 w-2 rounded-full bg-primary shrink-0 animate-pulse" />}
+      {(session.unreadByAdmin || session.lastMessageSenderRole === 'doctor') && <div className="h-1.5 w-1.5 rounded-full bg-primary shrink-0 animate-pulse" />}
     </button>
   );
 };
@@ -102,7 +104,7 @@ export default function SupportMessenger() {
     if (chatScrollRef.current) {
         chatScrollRef.current.scrollIntoView({ behavior: 'smooth' });
     }
-  }, [messages]);
+  }, [messages, isOpen, isMinimized]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -145,104 +147,101 @@ export default function SupportMessenger() {
   if (!user || !userData || isConsultationRoom) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end pointer-events-none group">
+    <div className="fixed bottom-4 right-4 z-[100] flex flex-col items-end pointer-events-none overscroll-none">
       {isOpen && (
         <Card className={cn(
-          "w-[90vw] sm:w-[400px] mb-4 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border-none overflow-hidden transition-all duration-500 ease-in-out pointer-events-auto flex flex-col bg-white rounded-[2.5rem] origin-bottom-right",
-          isMinimized ? "h-16" : "h-[70dvh] sm:h-[550px] max-h-[700px] animate-in slide-in-from-bottom-5 zoom-in-95"
+          "w-[calc(100vw-2rem)] sm:w-[380px] mb-3 shadow-[0_10px_50px_-10px_rgba(0,0,0,0.2)] border-none overflow-hidden transition-all duration-300 ease-out pointer-events-auto flex flex-col bg-white rounded-[2rem] origin-bottom-right",
+          isMinimized ? "h-14" : "h-[65dvh] sm:h-[500px] animate-in slide-in-from-bottom-2 zoom-in-95"
         )}>
-          <CardHeader className="bg-slate-950 text-white p-5 flex flex-row items-center justify-between space-y-0 cursor-pointer shrink-0 border-b border-white/5" onClick={() => setIsMinimized(!isMinimized)}>
-            <div className="flex items-center gap-4">
-              <div className="h-10 w-10 rounded-2xl bg-primary/20 flex items-center justify-center shrink-0 border-2 border-primary/20 shadow-lg">
-                <ShieldCheck className="h-5 w-5 text-primary" />
+          {/* Header */}
+          <CardHeader className="bg-slate-950 text-white p-4 flex flex-row items-center justify-between space-y-0 cursor-pointer shrink-0 border-b border-white/5" onClick={() => setIsMinimized(!isMinimized)}>
+            <div className="flex items-center gap-3">
+              <div className="h-8 w-8 rounded-xl bg-primary/20 flex items-center justify-center shrink-0 border border-primary/30">
+                <ShieldCheck className="h-4 w-4 text-primary" />
               </div>
               <div className="min-w-0">
-                <CardTitle className="text-sm font-bold truncate font-headline tracking-tight">Clinical Support</CardTitle>
-                {!isMinimized && <p className="text-[8px] text-slate-400 uppercase tracking-[0.25em] font-bold mt-0.5">Secure Precision Link</p>}
+                <CardTitle className="text-xs font-bold truncate font-headline tracking-tight uppercase">Support Link</CardTitle>
+                {!isMinimized && <p className="text-[7px] text-slate-500 uppercase tracking-[0.2em] font-bold">Secure Precision Connection</p>}
               </div>
             </div>
             <div className="flex items-center gap-1 shrink-0">
-              <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-500 hover:text-white rounded-xl transition-colors" onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }}>
-                {isMinimized ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+              <Button size="icon" variant="ghost" className="h-7 w-7 text-slate-500 hover:text-white rounded-lg" onClick={(e) => { e.stopPropagation(); setIsMinimized(!isMinimized); }}>
+                {isMinimized ? <Maximize2 className="h-3.5 w-3.5" /> : <Minimize2 className="h-3.5 w-3.5" />}
               </Button>
-              <Button size="icon" variant="ghost" className="h-8 w-8 text-slate-500 hover:text-white rounded-xl transition-colors" onClick={(e) => { e.stopPropagation(); setIsOpen(false); }}>
-                <X className="h-4 w-4" />
+              <Button size="icon" variant="ghost" className="h-7 w-7 text-slate-500 hover:text-white rounded-lg" onClick={(e) => { e.stopPropagation(); setIsOpen(false); }}>
+                <X className="h-3.5 w-3.5" />
               </Button>
             </div>
           </CardHeader>
 
           {!isMinimized && (
             <>
-              <CardContent className="flex-1 overflow-hidden p-0 flex flex-col bg-slate-50">
+              <CardContent className="flex-1 overflow-hidden p-0 flex flex-col bg-slate-50/50">
                 {userData.role === 'admin' && !activeSessionId ? (
-                   <div className="flex flex-col h-full overflow-hidden">
-                      <div className="flex bg-white shrink-0 sticky top-0 z-10 p-2 gap-2 border-b">
+                   <div className="flex flex-col h-full">
+                      <div className="flex bg-white shrink-0 p-1.5 gap-1 border-b">
                         <button 
                             onClick={() => setAdminCategory('patients')}
-                            className={cn("flex-1 py-3 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all rounded-2xl", adminCategory === 'patients' ? "bg-primary text-white shadow-xl shadow-primary/20" : "text-slate-400 hover:bg-slate-50 border border-transparent")}
+                            className={cn("flex-1 py-2 text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all rounded-xl", adminCategory === 'patients' ? "bg-primary text-white" : "text-slate-400 hover:bg-slate-50")}
                         >
-                            <Users className="h-3.5 w-3.5" /> Patients
+                            <Users className="h-3 w-3" /> Patients
                         </button>
                         <button 
                             onClick={() => setAdminCategory('doctors')}
-                            className={cn("flex-1 py-3 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all rounded-2xl", adminCategory === 'doctors' ? "bg-primary text-white shadow-xl shadow-primary/20" : "text-slate-400 hover:bg-slate-50 border border-transparent")}
+                            className={cn("flex-1 py-2 text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all rounded-xl", adminCategory === 'doctors' ? "bg-primary text-white" : "text-slate-400 hover:bg-slate-50")}
                         >
-                            <Stethoscope className="h-3.5 w-3.5" /> Providers
+                            <Stethoscope className="h-3 w-3" /> Providers
                         </button>
                       </div>
-                      <div className="p-4 space-y-3 overflow-y-auto flex-1 custom-scrollbar overscroll-contain">
+                      <div className="p-3 space-y-2 overflow-y-auto flex-1 custom-scrollbar overscroll-contain">
                         {adminCategory === 'patients' ? (
                             patientSessions?.map(s => <SessionItem key={s.id} session={s} onClick={() => setActiveSessionId(s.id)} isActive={activeSessionId === s.id} isDoctor={false} />)
                         ) : (
                             doctorSessions?.map(s => <SessionItem key={s.id} session={s} onClick={() => setActiveSessionId(s.id)} isActive={activeSessionId === s.id} isDoctor={true} />)
                         )}
                         {((adminCategory === 'patients' && !patientSessions?.length) || (adminCategory === 'doctors' && !doctorSessions?.length)) && (
-                            <div className="py-32 text-center italic text-muted-foreground text-[11px] px-8 space-y-4">
-                                <div className="h-20 w-20 bg-primary/5 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <MessageSquare className="h-10 w-10 text-primary opacity-20" />
-                                </div>
-                                <p className="font-bold uppercase tracking-widest opacity-40">No active clinical queries</p>
+                            <div className="py-20 text-center italic text-muted-foreground text-[10px] px-8 space-y-4 opacity-40">
+                                <MessageSquare className="h-8 w-8 mx-auto" />
+                                <p className="font-bold uppercase tracking-widest">No Active Queries</p>
                             </div>
                         )}
                       </div>
                    </div>
                 ) : (
-                  <div className="flex flex-col h-full overflow-hidden">
+                  <div className="flex flex-col h-full">
                     {userData.role === 'admin' && (
-                       <div className="p-4 border-b bg-white flex items-center justify-between shrink-0 sticky top-0 z-10 shadow-sm">
-                         <Button variant="ghost" size="sm" className="text-[10px] font-bold uppercase h-9 px-4 rounded-xl border-2 hover:bg-slate-50 transition-all" onClick={() => setActiveSessionId(null)}>
-                           ← Back to Record
+                       <div className="p-2 border-b bg-white flex items-center justify-between shrink-0">
+                         <Button variant="ghost" size="sm" className="text-[8px] font-bold uppercase h-7 px-3 rounded-lg border hover:bg-slate-50" onClick={() => setActiveSessionId(null)}>
+                           ← Back
                          </Button>
-                         <Badge variant="outline" className="text-[9px] uppercase font-bold border-primary/20 text-primary bg-primary/5 px-3 py-1 rounded-full">
-                            {adminCategory === 'patients' ? 'Patient Channel' : 'Provider Channel'}
+                         <Badge variant="outline" className="text-[7px] uppercase font-bold border-primary/20 text-primary bg-primary/5 px-2 py-0.5 rounded-full">
+                            {adminCategory === 'patients' ? 'Patient' : 'Provider'}
                          </Badge>
                        </div>
                     )}
-                    <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-slate-50/30 overscroll-contain">
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-white/30 overscroll-contain">
                         {messages && messages.map((m: any) => {
                         const isMe = m.senderId === user.uid;
                         return (
                             <div key={m.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
                             <div className={cn(
-                                "max-w-[85%] p-4 rounded-[1.75rem] text-[13px] shadow-sm leading-relaxed transition-all",
-                                isMe ? "bg-primary text-white rounded-br-none shadow-lg shadow-primary/10" : "bg-white text-slate-800 rounded-bl-none border-2 border-slate-100"
+                                "max-w-[85%] p-3 rounded-[1.25rem] text-[12px] shadow-sm leading-relaxed",
+                                isMe ? "bg-primary text-white rounded-br-none" : "bg-white text-slate-800 rounded-bl-none border"
                             )}>
                                 {m.content || m.text}
                             </div>
-                            <span className="text-[9px] text-slate-400 mt-2 font-bold uppercase tracking-widest flex items-center gap-2">
-                                {isMe ? 'Authenticated' : 'MediConnect'} • {m.timestamp ? format(new Date(m.timestamp), "p") : ''}
+                            <span className="text-[7px] text-slate-400 mt-1 font-bold uppercase tracking-widest">
+                                {m.timestamp ? format(new Date(m.timestamp), "p") : ''}
                             </span>
                             </div>
                         );
                         })}
                         {(!messages || messages.length === 0) && !isLoadingMessages && (
-                        <div className="h-full flex flex-col items-center justify-center text-center p-12 space-y-6">
-                            <div className="h-20 w-20 rounded-[2.5rem] bg-primary/5 flex items-center justify-center border-4 border-white shadow-xl">
-                                <ShieldCheck className="h-10 w-10 text-primary opacity-30" />
-                            </div>
+                        <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-4 opacity-60">
+                            <ShieldCheck className="h-8 w-8 text-primary opacity-20" />
                             <div className="space-y-1">
-                                <p className="text-[11px] text-slate-900 font-bold uppercase tracking-[0.2em]">End-to-End Encryption</p>
-                                <p className="text-[11px] text-slate-400 leading-relaxed italic">Initiate a direct professional session with our clinical support team.</p>
+                                <p className="text-[9px] text-slate-900 font-bold uppercase tracking-widest">Encrypted Session</p>
+                                <p className="text-[9px] text-slate-400 leading-relaxed italic">Direct line to our support team is now open.</p>
                             </div>
                         </div>
                         )}
@@ -253,16 +252,16 @@ export default function SupportMessenger() {
               </CardContent>
 
               {(userData.role !== 'admin' || activeSessionId) && (
-                <CardFooter className="p-6 border-t bg-white shrink-0 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
-                  <form onSubmit={handleSendMessage} className="w-full flex gap-3">
+                <CardFooter className="p-3 border-t bg-white shrink-0">
+                  <form onSubmit={handleSendMessage} className="w-full flex gap-2">
                     <Input 
-                      placeholder="Type secure message..." 
-                      className="flex-1 bg-slate-50 border-2 border-slate-100 h-14 text-sm rounded-2xl px-6 focus-visible:ring-primary focus-visible:border-primary transition-all shadow-inner"
+                      placeholder="Type message..." 
+                      className="flex-1 bg-slate-50 border-none h-10 text-xs rounded-xl px-4 focus-visible:ring-primary shadow-inner"
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
                     />
-                    <Button type="submit" disabled={!newMessage.trim()} className="bg-primary hover:bg-primary/90 h-14 w-14 p-0 rounded-2xl shrink-0 shadow-2xl shadow-primary/20 transition-transform active:scale-95">
-                      <Send className="h-5 w-5 text-white" />
+                    <Button type="submit" disabled={!newMessage.trim()} className="bg-primary hover:bg-primary/90 h-10 w-10 p-0 rounded-xl shrink-0 shadow-lg shadow-primary/20">
+                      <Send className="h-4 w-4 text-white" />
                     </Button>
                   </form>
                 </CardFooter>
@@ -275,13 +274,13 @@ export default function SupportMessenger() {
       <Button 
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "h-16 w-16 rounded-[1.75rem] shadow-[0_15px_40px_rgba(0,0,0,0.2)] pointer-events-auto transition-all hover:scale-110 active:scale-90 border-4 border-white animate-in slide-in-from-bottom-10",
+          "h-14 w-14 rounded-2xl shadow-xl pointer-events-auto transition-all hover:scale-105 active:scale-95 border-4 border-white animate-in slide-in-from-bottom-4",
           isOpen ? "bg-slate-950" : "bg-primary"
         )}
       >
-        {isOpen ? <Minimize2 className="h-7 w-7 text-white" /> : <MessageCircle className="h-7 w-7 text-white" />}
+        {isOpen ? <Minimize2 className="h-6 w-6 text-white" /> : <MessageCircle className="h-6 w-6 text-white" />}
         {!isOpen && userData?.role === 'admin' && (patientSessions?.some(s => s.unreadByAdmin) || doctorSessions?.some(s => s.lastMessageSenderRole === 'doctor')) && (
-          <span className="absolute -top-1 -right-1 h-6 w-6 bg-red-500 rounded-full border-4 border-white animate-pulse flex items-center justify-center text-[10px] font-bold text-white shadow-xl">!</span>
+          <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 rounded-full border-4 border-white animate-pulse flex items-center justify-center text-[8px] font-bold text-white shadow-lg">!</span>
         )}
       </Button>
     </div>
