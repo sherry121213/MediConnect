@@ -20,7 +20,6 @@ import { cn } from '@/lib/utils';
 const locations = ["Islamabad", "Rawalpindi", "Lahore", "Karachi", "Peshawar", "Faisalabad", "Multan", "Quetta"];
 
 const filterPills = [
-    { id: 'female', label: "Female Doctors", icon: Users },
     { id: 'near', label: "Doctors Near Me", icon: MapPin },
     { id: 'exp', label: "Most Experienced", icon: Star },
     { id: 'today', label: "Available Today", icon: Clock },
@@ -97,13 +96,10 @@ export default function FindADoctorPage() {
       const specialtyMatch = selectedSpecialty === 'all' || doctor.specialty === selectedSpecialty;
       const locationMatch = selectedLocation === 'all' || doctor.location === selectedLocation;
       
-      // Female Doctors Filter Logic
-      const genderMatch = activeFilterId === 'female' ? doctor.gender === 'female' : true;
-      
       // Additional filter pill logic
       const experienceMatch = activeFilterId === 'exp' ? (doctor.experience || 0) >= 10 : true;
 
-      return nameMatch && specialtyMatch && locationMatch && genderMatch && experienceMatch;
+      return nameMatch && specialtyMatch && locationMatch && experienceMatch;
     });
   }, [doctors, searchTerm, selectedSpecialty, selectedLocation, activeFilterId]);
   
