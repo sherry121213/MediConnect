@@ -30,6 +30,7 @@ export default function FindADoctorPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('all');
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
+  const [detectedCity, setDetectedCity] = useState<string | null>(null);
   const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
   const [isLocating, setIsLocating] = useState(false);
   const firestore = useFirestore();
@@ -51,6 +52,7 @@ export default function FindADoctorPage() {
   const handlePillClick = (filterId: string) => {
       if (activeFilterId === filterId) {
           setActiveFilterId(null);
+          if (filterId === 'near') setDetectedCity(null);
       } else {
           setActiveFilterId(filterId);
           if (filterId === 'near') {
@@ -68,21 +70,24 @@ export default function FindADoctorPage() {
             const data = await response.json();
             const city = data.address.city || data.address.town || data.address.village || data.address.state;
             const matchedCity = locations.find(loc => city?.toLowerCase().includes(loc.toLowerCase()));
+            
             if (matchedCity) {
-                 setSelectedLocation(matchedCity);
-                 toast({ title: `Location Detected: ${matchedCity}` });
+                 setDetectedCity(matchedCity);
+                 toast({ title: `Location Detected: ${matchedCity}`, description: "Clinical record filtered for your area." });
             } else {
-                toast({ title: "Location Note", description: `Primary coverage for hub cities only.` });
+                toast({ title: "Location Note", description: `Primary coverage for hub cities only. Showing all records.` });
+                setDetectedCity(null);
             }
         } catch (error) {
-            toast({ variant: "destructive", title: "Location Error" });
+            toast({ variant: "destructive", title: "Location Error", description: "Could not resolve your city." });
         } finally {
             setIsLocating(false);
         }
       },
       () => {
-        toast({ variant: "destructive", title: "Access Denied" });
+        toast({ variant: "destructive", title: "Access Denied", description: "Enable location permissions to find doctors near you." });
         setIsLocating(false);
+        setActiveFilterId(null);
       }
     );
   };
@@ -95,15 +100,22 @@ export default function FindADoctorPage() {
       
       const nameMatch = `${doctor.firstName} ${doctor.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
       const specialtyMatch = selectedSpecialty === 'all' || doctor.specialty === selectedSpecialty;
-      const locationMatch = selectedLocation === 'all' || doctor.location === selectedLocation;
       
-      // Additional filter pill logic
+      // Near Me Priority Logic
+      let locationMatch = true;
+      if (activeFilterId === 'near' && detectedCity) {
+          locationMatch = doctor.location === detectedCity;
+      } else {
+          locationMatch = selectedLocation === 'all' || doctor.location === selectedLocation;
+      }
+      
+      // Pill Specific Logic
       const experienceMatch = activeFilterId === 'exp' ? (doctor.experience || 0) >= 10 : true;
       const genderMatch = activeFilterId === 'female' ? doctor.gender === 'female' : true;
 
       return nameMatch && specialtyMatch && locationMatch && experienceMatch && genderMatch;
     });
-  }, [doctors, searchTerm, selectedSpecialty, selectedLocation, activeFilterId]);
+  }, [doctors, searchTerm, selectedSpecialty, selectedLocation, activeFilterId, detectedCity]);
   
   useEffect(() => {
     setCurrentPage(1);
@@ -113,29 +125,34 @@ export default function FindADoctorPage() {
   const paginatedDoctors = filteredDoctors.slice((currentPage - 1) * doctorsPerPage, currentPage * doctorsPerPage);
 
   return (
-    <div className="flex flex-col min-h-screen bg-slate-50">
+    <div className="flex flex-col min-h-screen bg-slate-50 overflow-x-hidden w-full">
       <AppHeader />
-      <main className="flex-grow">
-        <div className="container mx-auto px-4 py-12">
+      <main className="flex-grow w-full max-w-[100vw]">
+        <div className="container mx-auto px-4 py-8 md:py-12">
           <div className="max-w-4xl mx-auto space-y-8">
             <div className="text-center space-y-3">
                 <h1 className="text-4xl md:text-5xl font-bold font-headline text-slate-900 tracking-tight">Clinical Record</h1>
                 <p className="text-muted-foreground text-sm max-w-lg mx-auto font-medium">Search and book verified healthcare professionals instantly.</p>
             </div>
 
-            <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 no-scrollbar">
+            <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 no-scrollbar custom-scrollbar">
                 {filterPills.map((pill) => (
                     <button 
                         key={pill.id} 
                         onClick={() => handlePillClick(pill.id)}
+                        disabled={pill.id === 'near' && isLocating}
                         className={cn(
-                            "h-10 px-6 rounded-full border-2 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm",
+                            "h-10 px-6 rounded-full border-2 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm shrink-0",
                             activeFilterId === pill.id 
                                 ? "bg-primary border-primary text-white" 
                                 : "bg-white border-slate-100 text-slate-600 hover:border-primary/30 hover:bg-primary/5"
                         )}
                     >
-                        <pill.icon className={cn("h-3 w-3", activeFilterId === pill.id ? "text-white" : "text-slate-400")} />
+                        {pill.id === 'near' && isLocating ? (
+                            <Loader2 className="h-3 w-3 animate-spin" />
+                        ) : (
+                            <pill.icon className={cn("h-3 w-3", activeFilterId === pill.id ? "text-white" : "text-slate-400")} />
+                        )}
                         {pill.label}
                     </button>
                 ))}
@@ -166,7 +183,13 @@ export default function FindADoctorPage() {
                         </Select>
                     </div>
                     <div className="md:col-span-3">
-                        <Select onValueChange={setSelectedLocation} value={selectedLocation}>
+                        <Select 
+                            onValueChange={(val) => {
+                                setSelectedLocation(val);
+                                setActiveFilterId(null); // Clear "Near Me" if manual selection happens
+                            }} 
+                            value={activeFilterId === 'near' && detectedCity ? detectedCity : selectedLocation}
+                        >
                             <SelectTrigger className="h-14 border-none bg-slate-50 rounded-2xl font-bold text-xs">
                                 <SelectValue placeholder="City" />
                             </SelectTrigger>
@@ -181,6 +204,14 @@ export default function FindADoctorPage() {
                 </div>
             </div>
           </div>
+
+          {activeFilterId === 'near' && detectedCity && (
+              <div className="mt-8 max-w-4xl mx-auto flex items-center justify-center animate-in fade-in slide-in-from-top-2">
+                  <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 gap-2 py-1.5 px-4 rounded-full font-bold text-[10px] uppercase tracking-widest">
+                      <MapPin className="h-3 w-3" /> Showing results for {detectedCity}
+                  </Badge>
+              </div>
+          )}
 
           <div className="mt-16 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
             {isLoadingDoctors ? (
@@ -203,17 +234,20 @@ export default function FindADoctorPage() {
                 <AlertCircle className="h-16 w-16 mx-auto mb-4 text-slate-200" />
                 <h3 className="text-xl font-bold text-slate-900">No record matches found</h3>
                 <p className="text-muted-foreground text-sm mt-1">Adjust your search parameters or filters.</p>
+                {activeFilterId === 'near' && !detectedCity && (
+                    <p className="text-primary font-bold text-[10px] uppercase mt-4">Try selecting a city manually from the hub list.</p>
+                )}
               </div>
             )}
           </div>
 
           {pageCount > 1 && (
-            <div className="mt-16 flex justify-center items-center gap-6">
-                <Button variant="outline" onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1} className="rounded-2xl font-bold h-12 px-8 border-2 bg-white hover:bg-slate-50">Previous</Button>
+            <div className="mt-16 flex justify-center items-center gap-6 pb-12">
+                <Button variant="outline" onClick={() => setCurrentPage(p => p - 1)} disabled={currentPage === 1} className="rounded-2xl font-bold h-12 px-8 border-2 bg-white hover:bg-slate-50 shadow-sm">Previous</Button>
                 <span className="text-xs font-bold bg-white px-6 py-2.5 rounded-full shadow-inner text-slate-500 uppercase tracking-widest border-2">
                     {currentPage} / {pageCount}
                 </span>
-                <Button variant="outline" onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage === pageCount} className="rounded-2xl font-bold h-12 px-8 border-2 bg-white hover:bg-slate-50">Next</Button>
+                <Button variant="outline" onClick={() => setCurrentPage(p => p + 1)} disabled={currentPage === pageCount} className="rounded-2xl font-bold h-12 px-8 border-2 bg-white hover:bg-slate-50 shadow-sm">Next</Button>
             </div>
           )}
         </div>
