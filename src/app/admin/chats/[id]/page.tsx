@@ -98,11 +98,11 @@ export default function AdminSpecificChatPage() {
     });
   };
 
-  if (isLoadingSession) return <div className="flex h-screen items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
+  if (isLoadingSession) return <div className="flex h-[100dvh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
-    <div className="p-4 md:p-8 flex flex-col h-[calc(100vh-1rem)] sm:h-[calc(100vh-2rem)] space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="p-4 md:p-8 flex flex-col h-[100dvh] space-y-4 overscroll-none overflow-hidden">
+      <div className="shrink-0 flex items-center justify-between">
         <Button variant="ghost" onClick={() => router.push('/admin/chats')} className="w-fit h-10 px-2 sm:px-4">
             <ArrowLeft className="mr-2 h-4 w-4" /> <span className="text-xs sm:text-sm">Back to Messages</span>
         </Button>
@@ -110,8 +110,8 @@ export default function AdminSpecificChatPage() {
 
       <div className="flex-1 flex gap-6 overflow-hidden flex-col lg:flex-row">
         {/* Chat Area */}
-        <Card className="flex-1 flex flex-col shadow-xl border-none overflow-hidden bg-white rounded-2xl">
-            <CardHeader className="bg-slate-900 text-white p-4">
+        <Card className="flex-1 flex flex-col shadow-xl border-none overflow-hidden bg-white rounded-2xl min-h-0">
+            <CardHeader className="bg-slate-900 text-white p-4 shrink-0">
             <div className="flex items-center gap-3">
                 <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-slate-700 flex items-center justify-center text-white font-bold text-lg sm:text-xl shrink-0">
                 {doctor ? doctor.firstName[0] : <User className="h-5 w-5 sm:h-6 sm:w-6" />}
@@ -127,7 +127,7 @@ export default function AdminSpecificChatPage() {
             </div>
             </CardHeader>
 
-            <CardContent className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50 custom-scrollbar space-y-4">
+            <CardContent className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50 custom-scrollbar space-y-4 overscroll-contain">
             {isLoadingMessages ? (
                 <div className="h-full flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
             ) : messages && messages.length > 0 ? (
@@ -155,7 +155,7 @@ export default function AdminSpecificChatPage() {
             <div ref={scrollRef} />
             </CardContent>
 
-            <CardFooter className="p-3 sm:p-4 border-t bg-white">
+            <CardFooter className="p-3 sm:p-4 border-t bg-white shrink-0">
             <form onSubmit={handleSendMessage} className="w-full flex gap-2 sm:gap-3">
                 <Input 
                 placeholder="Type response..." 
@@ -170,8 +170,8 @@ export default function AdminSpecificChatPage() {
             </CardFooter>
         </Card>
 
-        {/* Sidebar for Emergency Actions - Desktop & Mobile adapted */}
-        <div className="w-full lg:w-80 space-y-4 lg:space-y-6">
+        {/* Sidebar for Emergency Actions */}
+        <div className="shrink-0 w-full lg:w-80 space-y-4 lg:space-y-6 lg:overflow-y-auto custom-scrollbar">
             <Card className="border-none shadow-lg overflow-hidden rounded-2xl">
                 <CardHeader className="bg-primary/5 py-3 px-4">
                     <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-2 uppercase tracking-tighter">
@@ -182,7 +182,7 @@ export default function AdminSpecificChatPage() {
                     <div>
                         <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3 opacity-60">Pending Emergency Requests</p>
                         {pendingRequests && pendingRequests.length > 0 ? (
-                            <div className="space-y-3 max-h-[150px] lg:max-h-none overflow-y-auto pr-1">
+                            <div className="space-y-3 max-h-[200px] lg:max-h-none overflow-y-auto pr-1">
                                 {pendingRequests.map((req: any) => (
                                     <div key={req.id} className="p-3 bg-muted/30 rounded-xl border text-[11px] space-y-2 hover:bg-muted/50 transition-colors">
                                         <div className="flex justify-between items-start">

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -463,158 +462,143 @@ export default function ConsultationRoomPage() {
   const isCompleted = appointment?.status === 'completed';
 
   return (
-    <div className="flex h-screen bg-slate-950 overflow-hidden text-white">
+    <div className="flex flex-col h-[100dvh] bg-slate-950 overflow-hidden text-white overscroll-none">
       {/* Header */}
-      <header className="absolute top-0 left-0 right-0 z-50 p-6 pointer-events-none">
-        <div className="container mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3 bg-slate-900/60 backdrop-blur-xl p-2 pr-6 rounded-full border border-white/10 pointer-events-auto">
-            <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
-              <ShieldCheck className="text-primary h-5 w-5" />
+      <header className="shrink-0 p-4 border-b border-white/10 bg-slate-900/60 backdrop-blur-xl flex items-center justify-between z-50">
+          <div className="flex items-center gap-3">
+            <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
+              <ShieldCheck className="text-primary h-4 w-4" />
             </div>
-            <div>
-              <h1 className="font-bold text-sm uppercase">Clinical Session Room</h1>
-              <p className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">{isCompleted ? 'Archived' : signalingStatus}</p>
+            <div className="min-w-0">
+              <h1 className="font-bold text-xs uppercase truncate">Clinical Room</h1>
+              <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest truncate">{isCompleted ? 'Archived' : signalingStatus}</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 pointer-events-auto">
+          <div className="flex items-center gap-2">
             {(!isCompleted && isAfter(new Date(), new Date(appointment?.appointmentDateTime))) ? (
-                 <div className="bg-slate-900/60 backdrop-blur-xl px-4 py-2 rounded-full border border-white/10 flex items-center gap-2">
-                    <Clock className="h-4 w-4 text-primary" />
-                    <span className={cn("font-mono text-sm font-bold", parseInt(timeRemaining.split(':')[0]) < 5 ? "text-red-500 animate-pulse" : "text-white")}>
+                 <div className="bg-slate-800/80 px-3 py-1.5 rounded-full border border-white/10 flex items-center gap-2">
+                    <Clock className="h-3.5 w-3.5 text-primary" />
+                    <span className={cn("font-mono text-xs font-bold", parseInt(timeRemaining.split(':')[0]) < 5 ? "text-red-500 animate-pulse" : "text-white")}>
                         {timeRemaining}
                     </span>
                 </div>
             ) : !isCompleted && (
-                <Badge variant="outline" className="bg-primary/20 text-primary border-primary/40 font-bold px-4 py-2 rounded-full uppercase text-[10px]">
-                   <Siren className="h-3 w-3 mr-2 animate-pulse" /> Flexible Window Active
+                <Badge variant="outline" className="bg-primary/20 text-primary border-primary/40 font-bold px-3 py-1 rounded-full uppercase text-[8px] hidden sm:flex">
+                   <Siren className="h-3 w-3 mr-2 animate-pulse" /> Window Active
                 </Badge>
             )}
-            <Badge variant="outline" className={cn("gap-1.5 px-3 py-1 text-[10px] font-bold hidden sm:flex", isCompleted ? "bg-green-50/10 text-green-400 border-green-500/20" : "bg-red-50/10 text-red-400 border-red-500/20")}>
-              <div className={cn("h-1.5 w-1.5 rounded-full", isCompleted ? "bg-green-50" : "bg-red-50 animate-pulse")} /> 
-              {isCompleted ? "COMPLETED" : appointment?.isExtended ? "EXTENDED" : "LIVE SESSION"}
+            <Badge variant="outline" className={cn("gap-1 px-2 py-0.5 text-[8px] font-bold", isCompleted ? "bg-green-50/10 text-green-400" : "bg-red-50/10 text-red-400")}>
+              {isCompleted ? "COMPLETED" : "LIVE"}
             </Badge>
           </div>
-        </div>
       </header>
 
-      {/* Video Content */}
-      <main className="relative flex-1 flex flex-col lg:flex-row overflow-hidden bg-black">
-        <div className="flex-1 relative">
-          {isExpired && !isCompleted ? (
-            <div className="absolute inset-0 z-50 bg-slate-950 flex flex-col items-center justify-center text-center p-8 space-y-6">
-                 <div className="h-24 w-24 rounded-full bg-red-500/20 flex items-center justify-center text-red-500">
-                    <AlertTriangle className="h-12 w-12" />
-                 </div>
-                 <div className="space-y-2">
-                    <h2 className="text-2xl font-bold">Clinical Window Concluded</h2>
-                    <p className="text-slate-400 max-w-md">Entering administrative buffer. Please finalize records.</p>
-                 </div>
-                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
-            </div>
-          ) : isCompleted ? (
-            <div className="absolute inset-0 z-50 bg-slate-950 flex flex-col items-center justify-center text-center p-8 space-y-6">
-                <div className="h-24 w-24 rounded-full bg-green-500/20 flex items-center justify-center text-green-500">
-                   <CheckCircle2 className="h-12 w-12" />
-                </div>
-                <div className="space-y-2">
-                   <h2 className="text-2xl font-bold text-green-400">Precision Session Finalized</h2>
-                   <p className="text-slate-400 max-w-md">The record has been secured. Buffer active.</p>
-                </div>
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-           </div>
-          ) : (
-            <>
-                <video 
-                    ref={remoteVideoRef} 
-                    className={cn("w-full h-full object-cover transition-opacity duration-1000", isPeerConnected ? "opacity-100" : "opacity-0")} 
-                    autoPlay 
-                    playsInline 
-                />
-                
-                {!isPeerConnected && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-8 bg-slate-950 z-10">
-                        <div className="relative">
-                            <div className="h-32 w-32 rounded-full border-2 border-primary/30 border-dashed animate-spin duration-[3s]" />
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <Avatar className="h-24 w-24 border-4 border-slate-900 shadow-2xl">
-                                    <AvatarFallback className="bg-primary/10 text-primary text-4xl font-bold">
-                                        {peer?.firstName?.[0] || '...'}
-                                    </AvatarFallback>
-                                </Avatar>
-                            </div>
-                        </div>
-                        <div className="text-center px-6">
-                            <p className="font-bold text-xl mb-2">Establishing Secure Link</p>
-                            <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Clinical Care Tunnel</p>
-                        </div>
-                    </div>
-                )}
-            </>
-          )}
+      {/* Main Content Area */}
+      <main className="flex-1 relative flex flex-col lg:flex-row overflow-hidden min-h-0 bg-black">
+        {/* Video Area */}
+        <div className="flex-1 relative flex flex-col overflow-hidden bg-slate-950">
+          <div className="flex-1 relative overflow-hidden">
+            {isExpired && !isCompleted ? (
+              <div className="absolute inset-0 z-40 bg-slate-950 flex flex-col items-center justify-center text-center p-6 space-y-4">
+                  <AlertTriangle className="h-10 w-10 text-red-500" />
+                  <div className="space-y-1">
+                      <h2 className="text-lg font-bold">Window Concluded</h2>
+                      <p className="text-xs text-slate-400">Entering buffer. Finalize records.</p>
+                  </div>
+              </div>
+            ) : isCompleted ? (
+              <div className="absolute inset-0 z-40 bg-slate-950 flex flex-col items-center justify-center text-center p-6 space-y-4">
+                  <CheckCircle2 className="h-10 w-10 text-green-500" />
+                  <div className="space-y-1">
+                    <h2 className="text-lg font-bold text-green-400">Session Finalized</h2>
+                    <p className="text-xs text-slate-400">Record secured.</p>
+                  </div>
+              </div>
+            ) : (
+              <>
+                  <video 
+                      ref={remoteVideoRef} 
+                      className={cn("w-full h-full object-cover transition-opacity duration-1000", isPeerConnected ? "opacity-100" : "opacity-0")} 
+                      autoPlay 
+                      playsInline 
+                  />
+                  
+                  {!isPeerConnected && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-6 bg-slate-950 z-10">
+                          <Avatar className="h-20 w-24 border-4 border-slate-900 animate-pulse">
+                              <AvatarFallback className="bg-primary/10 text-primary text-2xl font-bold">
+                                  {peer?.firstName?.[0] || '...'}
+                              </AvatarFallback>
+                          </Avatar>
+                          <div className="text-center px-4">
+                              <p className="font-bold text-sm mb-1">Connecting Secure Link</p>
+                              <p className="text-[8px] text-slate-500 uppercase tracking-widest font-bold">Precision Tunnel</p>
+                          </div>
+                      </div>
+                  )}
+              </>
+            )}
 
-          {/* Local PIP */}
-          {!isCompleted && (
-            <div className="absolute top-24 right-8 w-32 sm:w-48 aspect-video rounded-2xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900 z-30 transition-all">
-                <video 
-                    ref={localVideoRef} 
-                    className={cn("w-full h-full object-cover -scale-x-100", isVideoOff && "hidden")} 
-                    autoPlay 
-                    muted 
-                    playsInline 
-                />
-                {isVideoOff && (
-                    <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800 text-slate-500">
-                        <VideoOff className="h-6 w-6" />
-                        <span className="text-[8px] font-bold uppercase mt-1">Privacy Mode</span>
-                    </div>
-                )}
-            </div>
-          )}
+            {/* Local PIP */}
+            {!isCompleted && (
+              <div className="absolute top-4 right-4 w-24 sm:w-40 aspect-video rounded-xl overflow-hidden border border-white/20 shadow-2xl bg-slate-900 z-30">
+                  <video 
+                      ref={localVideoRef} 
+                      className={cn("w-full h-full object-cover -scale-x-100", isVideoOff && "hidden")} 
+                      autoPlay 
+                      muted 
+                      playsInline 
+                  />
+                  {isVideoOff && (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-800 text-slate-500">
+                          <VideoOff className="h-4 w-4" />
+                          <span className="text-[6px] font-bold uppercase mt-1">Privacy</span>
+                      </div>
+                  )}
+              </div>
+            )}
+          </div>
 
-          {/* Controls */}
-          {!isCompleted && (
-            <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-4 px-6 py-4 bg-slate-900/80 backdrop-blur-2xl rounded-full border border-white/10 shadow-2xl z-40">
-                <Button size="icon" variant={isMuted ? "destructive" : "secondary"} className="h-12 w-12 rounded-full" onClick={toggleMute} disabled={isExpired}>
-                    {isMuted ? <MicOff /> : <Mic />}
-                </Button>
-                <Button size="icon" variant={isVideoOff ? "destructive" : "secondary"} className="h-12 w-12 rounded-full" onClick={toggleVideo} disabled={isExpired}>
-                    {isVideoOff ? <VideoOff /> : <Video />}
-                </Button>
-                <div className="w-px h-8 bg-white/10 mx-2" />
-                <Button variant="destructive" className="h-12 px-8 rounded-full font-bold gap-2 text-xs uppercase" onClick={handleEndSession} disabled={isEnding || isExpired}>
-                    <PhoneOff className="h-4 w-4" /> End Session
-                </Button>
-            </div>
-          )}
+          {/* Controls Bar */}
+          <div className="shrink-0 p-4 border-t border-white/5 bg-slate-900/40 backdrop-blur-2xl flex items-center justify-center gap-3">
+              <Button size="icon" variant={isMuted ? "destructive" : "secondary"} className="h-10 w-10 rounded-full" onClick={toggleMute} disabled={isExpired || isCompleted}>
+                  {isMuted ? <MicOff className="h-4 w-4" /> : <Mic className="h-4 w-4" />}
+              </Button>
+              <Button size="icon" variant={isVideoOff ? "destructive" : "secondary"} className="h-10 w-10 rounded-full" onClick={toggleVideo} disabled={isExpired || isCompleted}>
+                  {isVideoOff ? <VideoOff className="h-4 w-4" /> : <Video className="h-4 w-4" />}
+              </Button>
+              <div className="w-px h-6 bg-white/10 mx-1" />
+              <Button variant="destructive" className="h-10 px-6 rounded-full font-bold gap-2 text-[10px] uppercase" onClick={handleEndSession} disabled={isEnding || isExpired}>
+                  <PhoneOff className="h-3.5 w-3.5" /> <span className="hidden sm:inline">End Session</span><span className="sm:hidden">End</span>
+              </Button>
+          </div>
         </div>
 
         {/* Sidebar (Chat or Clinical Notes) */}
         <aside className={cn(
-            "w-full lg:w-[420px] bg-slate-950/40 backdrop-blur-3xl border-l border-white/10 flex flex-col z-20 transition-all duration-500",
-            isSidebarOpen ? "h-[350px] lg:h-auto opacity-100" : "h-0 lg:w-0 opacity-0 overflow-hidden"
+            "shrink-0 w-full lg:w-[400px] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col z-20 transition-all duration-300",
+            isSidebarOpen ? "h-[300px] lg:h-full opacity-100" : "h-0 lg:w-0 opacity-0 overflow-hidden"
         )}>
-          <Tabs defaultValue="chat" className="w-full h-full flex flex-col">
-            <div className="px-4 pt-4 border-b border-white/5 bg-slate-900/40">
-                 <TabsList className="w-full bg-white/5 p-1 rounded-xl">
-                    <TabsTrigger value="chat" className="flex-1 text-[10px] uppercase font-bold tracking-widest gap-2">
-                        <MessageSquare className="h-3.5 w-3.5" /> Clinical Chat
+          <Tabs defaultValue="chat" className="w-full h-full flex flex-col overflow-hidden">
+            <TabsList className="shrink-0 bg-slate-900 p-1 flex">
+                <TabsTrigger value="chat" className="flex-1 text-[9px] uppercase font-bold tracking-widest gap-2 py-2">
+                    <MessageSquare className="h-3 w-3" /> Chat
+                </TabsTrigger>
+                {isDoctor && (
+                    <TabsTrigger value="notes" className="flex-1 text-[9px] uppercase font-bold tracking-widest gap-2 py-2">
+                        <ClipboardCheck className="h-3 w-3" /> Records
                     </TabsTrigger>
-                    {isDoctor && (
-                        <TabsTrigger value="notes" className="flex-1 text-[10px] uppercase font-bold tracking-widest gap-2">
-                            <ClipboardCheck className="h-3.5 w-3.5" /> Record Entry
-                        </TabsTrigger>
-                    )}
-                </TabsList>
-            </div>
+                )}
+            </TabsList>
             
-            <TabsContent value="chat" className="flex-1 flex flex-col m-0 min-h-0">
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
+            <TabsContent value="chat" className="flex-1 flex flex-col m-0 min-h-0 bg-slate-950/40">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar overscroll-contain">
                     {messages.map((msg: any) => {
                         const isMe = msg.senderId === user?.uid;
                         const displayTime = msg.timestamp && isValid(new Date(msg.timestamp)) ? format(new Date(msg.timestamp), "p") : '';
                         return (
                             <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
-                                <div className={cn("max-w-[85%] p-3 rounded-2xl text-xs shadow-lg", isMe ? "bg-primary text-white rounded-br-none" : "bg-slate-900/80 border border-white/5 rounded-bl-none")}>
+                                <div className={cn("max-w-[85%] p-3 rounded-2xl text-xs shadow-lg", isMe ? "bg-primary text-white rounded-br-none" : "bg-slate-900 border border-white/5 rounded-bl-none")}>
                                     <p className="leading-relaxed">{msg.content}</p>
                                 </div>
                                 <span className="text-[8px] text-slate-500 mt-1 uppercase font-bold tracking-tighter">
@@ -626,49 +610,47 @@ export default function ConsultationRoomPage() {
                     <div ref={chatScrollRef} />
                 </div>
 
-                <form onSubmit={handleSendMessage} className="p-4 bg-slate-950/80 border-t border-white/5 flex gap-2">
+                <form onSubmit={handleSendMessage} className="shrink-0 p-3 bg-slate-900/80 border-t border-white/5 flex gap-2">
                     <Input 
                         placeholder={isExpired || isCompleted ? "Buffer active..." : "Secure message..."}
                         disabled={isExpired || isCompleted}
-                        className="bg-slate-900/50 border-white/10 text-white h-11 text-xs rounded-2xl focus:ring-primary" 
+                        className="bg-slate-950/50 border-white/10 text-white h-10 text-xs rounded-xl focus:ring-primary" 
                         value={newMessage} 
                         onChange={(e) => setNewMessage(e.target.value)} 
                     />
-                    <Button type="submit" disabled={!newMessage.trim() || isExpired || isCompleted} className="bg-primary h-11 w-11 p-0 rounded-2xl shrink-0">
+                    <Button type="submit" disabled={!newMessage.trim() || isExpired || isCompleted} className="bg-primary h-10 w-10 p-0 rounded-xl shrink-0">
                         <Send className="h-4 w-4" />
                     </Button>
                 </form>
             </TabsContent>
 
             {isDoctor && (
-                <TabsContent value="notes" className="flex-1 overflow-y-auto p-6 m-0 bg-slate-900/20 custom-scrollbar">
-                    <div className="space-y-6">
-                        <div className="bg-primary/5 p-4 rounded-2xl border border-primary/20 space-y-2">
-                            <h3 className="text-sm font-bold text-primary flex items-center gap-2">
-                                <AlertTriangle className="h-4 w-4" /> Finalization Buffer
-                            </h3>
-                            <p className="text-[10px] text-slate-400 leading-relaxed italic">
-                                Once finalized, the patient receives their clinical summary. Use the administrative buffer for accuracy.
+                <TabsContent value="notes" className="flex-1 overflow-y-auto p-4 m-0 bg-slate-900/20 custom-scrollbar overscroll-contain">
+                    <div className="space-y-4 pb-6">
+                        <div className="bg-primary/5 p-3 rounded-xl border border-primary/20 flex gap-2">
+                            <AlertTriangle className="h-4 w-4 text-primary shrink-0" />
+                            <p className="text-[9px] text-slate-400 leading-relaxed italic">
+                                Once finalized, patient receives the record instantly. Use buffer for precision.
                             </p>
                         </div>
 
                         <Form {...form}>
-                            <form onSubmit={form.handleSubmit(handleFinalizeClinicalNotes)} className="space-y-6">
+                            <form onSubmit={form.handleSubmit(handleFinalizeClinicalNotes)} className="space-y-4">
                                 <FormField
                                     control={form.control}
                                     name="diagnosis"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Diagnosis Summary</FormLabel>
+                                            <FormLabel className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Diagnosis Summary</FormLabel>
                                             <FormControl>
                                                 <Input 
-                                                    placeholder="Enter primary clinical findings..." 
-                                                    className="bg-slate-900/50 border-white/10 text-white h-12 rounded-xl"
+                                                    placeholder="Findings..." 
+                                                    className="bg-slate-950/50 border-white/10 text-white h-10 text-xs rounded-lg"
                                                     {...field}
                                                     disabled={isCompleted || isFinalizing}
                                                 />
                                             </FormControl>
-                                            <FormMessage />
+                                            <FormMessage className="text-[8px]" />
                                         </FormItem>
                                     )}
                                 />
@@ -678,28 +660,28 @@ export default function ConsultationRoomPage() {
                                     name="prescription"
                                     render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Treatment & Advice</FormLabel>
+                                            <FormLabel className="text-[9px] font-bold uppercase tracking-widest text-slate-400">Advice</FormLabel>
                                             <FormControl>
                                                 <Textarea 
-                                                    placeholder="List medications and follow-up advice..." 
-                                                    rows={8}
-                                                    className="bg-slate-900/50 border-white/10 text-white rounded-xl resize-none"
+                                                    placeholder="Medications/Advice..." 
+                                                    rows={5}
+                                                    className="bg-slate-950/50 border-white/10 text-white text-xs rounded-lg resize-none"
                                                     {...field}
                                                     disabled={isCompleted || isFinalizing}
                                                 />
                                             </FormControl>
-                                            <FormMessage />
+                                            <FormMessage className="text-[8px]" />
                                         </FormItem>
                                     )}
                                 />
 
                                 <Button 
                                     type="submit" 
-                                    className="w-full h-14 text-sm font-bold rounded-2xl shadow-xl bg-primary hover:bg-primary/90 gap-2"
+                                    className="w-full h-11 text-xs font-bold rounded-xl shadow-xl bg-primary hover:bg-primary/90 gap-2"
                                     disabled={isCompleted || isFinalizing}
                                 >
-                                    {isFinalizing ? <Loader2 className="h-4 w-4 animate-spin" /> : <ClipboardCheck className="h-5 w-5" />}
-                                    Complete Precision Session
+                                    {isFinalizing ? <Loader2 className="h-3 w-3 animate-spin" /> : <ClipboardCheck className="h-4 w-4" />}
+                                    Finalize Precision Record
                                 </Button>
                             </form>
                         </Form>
@@ -711,16 +693,16 @@ export default function ConsultationRoomPage() {
       </main>
 
       <Dialog open={showExtensionDialog} onOpenChange={setShowExtensionDialog}>
-          <DialogContent className="sm:max-w-[425px] rounded-[2rem] border-none shadow-2xl">
+          <DialogContent className="w-[90vw] sm:max-w-[425px] rounded-[2rem] border-none shadow-2xl">
               <DialogHeader>
-                  <DialogTitle className="text-xl font-headline">Extend Consultation?</DialogTitle>
-                  <DialogDescription>
-                      Clinical window concludes in 5 minutes. Would you like to add 10 minutes of extra time?
+                  <DialogTitle className="text-lg font-headline">Extend Consultation?</DialogTitle>
+                  <DialogDescription className="text-sm">
+                      Clinical window concludes in 5 minutes. Add 10 minutes?
                   </DialogDescription>
               </DialogHeader>
-              <DialogFooter className="gap-3 mt-4">
-                  <Button variant="ghost" onClick={() => setShowExtensionDialog(false)} className="rounded-xl">Ignore</Button>
-                  <Button onClick={handleExtendSession} className="bg-primary rounded-xl font-bold">Add 10 Minutes</Button>
+              <DialogFooter className="gap-2 mt-2">
+                  <Button variant="ghost" onClick={() => setShowExtensionDialog(false)} className="rounded-xl flex-1">Ignore</Button>
+                  <Button onClick={handleExtendSession} className="bg-primary rounded-xl font-bold flex-1">Add 10 Min</Button>
               </DialogFooter>
           </DialogContent>
       </Dialog>

@@ -148,10 +148,10 @@ export default function SupportMessenger() {
     <div className="fixed bottom-4 right-4 z-[100] flex flex-col items-end pointer-events-none">
       {isOpen && (
         <Card className={cn(
-          "w-[350px] sm:w-[380px] mb-3 shadow-2xl border-none overflow-hidden transition-all duration-300 pointer-events-auto flex flex-col",
-          isMinimized ? "h-14" : "h-[500px]"
+          "w-[calc(100vw-2rem)] sm:w-[380px] mb-3 shadow-2xl border-none overflow-hidden transition-all duration-300 pointer-events-auto flex flex-col",
+          isMinimized ? "h-14" : "h-[70dvh] sm:h-[500px] max-h-[600px]"
         )}>
-          <CardHeader className="bg-slate-900 text-white p-4 flex flex-row items-center justify-between space-y-0 cursor-pointer" onClick={() => setIsMinimized(!isMinimized)}>
+          <CardHeader className="bg-slate-900 text-white p-4 flex flex-row items-center justify-between space-y-0 cursor-pointer shrink-0" onClick={() => setIsMinimized(!isMinimized)}>
             <div className="flex items-center gap-2">
               <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
                 <ShieldCheck className="h-5 w-5 text-primary" />
@@ -173,10 +173,10 @@ export default function SupportMessenger() {
 
           {!isMinimized && (
             <>
-              <CardContent className="flex-1 overflow-y-auto p-0 flex flex-col bg-slate-50 custom-scrollbar">
+              <CardContent className="flex-1 overflow-y-auto p-0 flex flex-col bg-slate-50 custom-scrollbar overscroll-contain">
                 {userData.role === 'admin' && !activeSessionId ? (
                    <div className="flex flex-col h-full">
-                      <div className="flex border-b bg-white">
+                      <div className="flex border-b bg-white shrink-0 sticky top-0 z-10">
                         <button 
                             onClick={() => setAdminCategory('patients')}
                             className={cn("flex-1 py-3 text-[10px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-colors", adminCategory === 'patients' ? "text-primary border-b-2 border-primary" : "text-muted-foreground")}
@@ -190,7 +190,7 @@ export default function SupportMessenger() {
                             <Stethoscope className="h-3 w-3" /> Doctors
                         </button>
                       </div>
-                      <div className="p-4 space-y-2 overflow-y-auto">
+                      <div className="p-4 space-y-2 overflow-y-auto flex-1">
                         {adminCategory === 'patients' ? (
                             patientSessions?.map(s => <SessionItem key={s.id} session={s} onClick={() => setActiveSessionId(s.id)} isActive={activeSessionId === s.id} isDoctor={false} />)
                         ) : (
@@ -207,7 +207,7 @@ export default function SupportMessenger() {
                 ) : (
                   <div className="flex flex-col h-full">
                     {userData.role === 'admin' && (
-                       <div className="p-2 border-b bg-white flex items-center justify-between">
+                       <div className="p-2 border-b bg-white flex items-center justify-between shrink-0 sticky top-0 z-10">
                          <Button variant="ghost" size="sm" className="text-[9px] font-bold uppercase h-7 px-2" onClick={() => setActiveSessionId(null)}>
                            ← Back to List
                          </Button>
@@ -246,7 +246,7 @@ export default function SupportMessenger() {
               </CardContent>
 
               {(userData.role !== 'admin' || activeSessionId) && (
-                <CardFooter className="p-3 border-t bg-white">
+                <CardFooter className="p-3 border-t bg-white shrink-0">
                   <form onSubmit={handleSendMessage} className="w-full flex gap-2">
                     <Input 
                       placeholder="Type message..." 

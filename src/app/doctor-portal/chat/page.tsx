@@ -138,35 +138,35 @@ export default function DoctorChatPage() {
   };
 
   return (
-    <main className="flex-grow bg-secondary/30 py-8">
-      <div className="container mx-auto px-4 max-w-4xl h-[calc(100vh-12rem)]">
-        <Card className="h-full flex flex-col shadow-xl overflow-hidden border-none">
-          <CardHeader className="bg-slate-900 text-white p-4">
+    <main className="flex-grow bg-secondary/30 py-4 sm:py-8 h-[calc(100dvh-5rem)] sm:h-[calc(100dvh-8rem)] flex flex-col overflow-hidden overscroll-none">
+      <div className="container mx-auto px-4 max-w-4xl flex-1 flex flex-col min-h-0">
+        <Card className="flex-1 flex flex-col shadow-xl overflow-hidden border-none min-h-0">
+          <CardHeader className="bg-slate-900 text-white p-4 shrink-0">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-white/20 rounded-full">
-                  <Shield className="h-6 w-6 text-white" />
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="p-2 bg-white/20 rounded-full shrink-0">
+                  <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                 </div>
-                <div>
-                  <CardTitle className="text-xl">Administrative Support</CardTitle>
-                  <p className="text-xs text-slate-400">Direct line to Mediconnect Admins</p>
+                <div className="min-w-0">
+                  <CardTitle className="text-sm sm:text-xl truncate">Administrative Support</CardTitle>
+                  <p className="text-[9px] sm:text-xs text-slate-400 truncate">Direct line to Mediconnect Admins</p>
                 </div>
               </div>
               
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
-                    <Button variant="destructive" size="sm" className="font-bold gap-2">
-                        <Siren className="h-4 w-4" /> Request Emergency Off
+                    <Button variant="destructive" size="sm" className="font-bold gap-2 shrink-0 h-8 sm:h-10 text-[10px] sm:text-sm px-2 sm:px-4">
+                        <Siren className="h-3.5 w-3.5" /> <span className="hidden xs:inline">Emergency Off</span><span className="xs:hidden">Off</span>
                     </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-[450px]">
+                <DialogContent className="w-[95vw] sm:max-w-[450px] rounded-[2rem] border-none shadow-2xl">
                     <DialogHeader>
-                        <DialogTitle>Emergency Absence Application</DialogTitle>
-                        <DialogDescription>
+                        <DialogTitle className="text-lg font-headline">Emergency Absence Application</DialogTitle>
+                        <DialogDescription className="text-xs">
                             File an urgent clinical pause. Note: Policy requires leave to be logged at least 24h in advance.
                         </DialogDescription>
                     </DialogHeader>
-                    <div className="space-y-6 py-4">
+                    <div className="space-y-4 py-4 max-h-[60dvh] overflow-y-auto pr-2 custom-scrollbar">
                         <div className="space-y-2">
                             <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Step 1: Pick Clinical Date</Label>
                             <Popover>
@@ -201,7 +201,7 @@ export default function DoctorChatPage() {
                                 value={emergencyReason}
                                 onChange={(e) => setEmergencyReason(e.target.value)}
                                 rows={4}
-                                className="resize-none rounded-xl border-2"
+                                className="resize-none rounded-xl border-2 text-sm"
                             />
                         </div>
 
@@ -210,12 +210,12 @@ export default function DoctorChatPage() {
                             Same-day automated leave is blocked for patient safety. Select tomorrow or later for review.
                         </div>
                     </div>
-                    <DialogFooter>
-                        <Button variant="ghost" onClick={() => setIsDialogOpen(false)}>Cancel</Button>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="flex-1 sm:flex-none">Cancel</Button>
                         <Button 
                             onClick={handleSubmitEmergencyRequest} 
                             disabled={!emergencyReason.trim() || !requestedDate || isRequesting}
-                            className="bg-primary hover:bg-primary/90 font-bold"
+                            className="bg-primary hover:bg-primary/90 font-bold flex-1 sm:flex-none"
                         >
                             {isRequesting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit to Admin"}
                         </Button>
@@ -225,7 +225,7 @@ export default function DoctorChatPage() {
             </div>
           </CardHeader>
           
-          <CardContent className="flex-1 overflow-y-auto p-6 bg-white custom-scrollbar space-y-4">
+          <CardContent className="flex-1 overflow-y-auto p-4 sm:p-6 bg-white custom-scrollbar space-y-4 overscroll-contain">
             {isLoadingSession || isLoadingMessages ? (
               <div className="h-full flex items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -236,11 +236,11 @@ export default function DoctorChatPage() {
                 return (
                   <div key={msg.id} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
                     <div className={cn(
-                      "max-w-[70%] p-3 rounded-2xl text-sm shadow-sm",
+                      "max-w-[85%] sm:max-w-[70%] p-3 rounded-2xl text-xs sm:text-sm shadow-sm",
                       isMe ? "bg-slate-800 text-white rounded-br-none" : "bg-muted rounded-bl-none"
                     )}>
                       <p className="leading-relaxed">{msg.content}</p>
-                      <p className={cn("text-[10px] mt-1 opacity-70", isMe ? "text-right" : "")}>
+                      <p className={cn("text-[9px] mt-1 opacity-70", isMe ? "text-right" : "")}>
                         {format(new Date(msg.timestamp), "p")}
                       </p>
                     </div>
@@ -248,24 +248,24 @@ export default function DoctorChatPage() {
                 );
               })
             ) : (
-              <div className="h-full flex flex-col items-center justify-center text-muted-foreground italic">
+              <div className="h-full flex flex-col items-center justify-center text-muted-foreground italic text-center p-8">
                 <MessageSquare className="h-12 w-12 opacity-10 mb-2" />
-                <p>Start a conversation with our administrative team.</p>
+                <p className="text-xs sm:text-sm">Start a conversation with our administrative team.</p>
               </div>
             )}
             <div ref={scrollRef} />
           </CardContent>
 
-          <CardFooter className="p-4 border-t bg-muted/30">
-            <form onSubmit={handleSendMessage} className="w-full flex gap-3">
+          <CardFooter className="p-3 sm:p-4 border-t bg-muted/30 shrink-0">
+            <form onSubmit={handleSendMessage} className="w-full flex gap-2 sm:gap-3">
               <Input 
                 placeholder="Type your clinical query..." 
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                className="flex-1 bg-white border-none shadow-inner"
+                className="flex-1 bg-white border-none shadow-inner h-11 sm:h-12 text-sm rounded-xl"
               />
-              <Button type="submit" disabled={!newMessage.trim()} className="px-6 bg-slate-900 hover:bg-slate-800">
-                <Send className="h-4 w-4 mr-2" /> Send
+              <Button type="submit" disabled={!newMessage.trim()} className="px-4 sm:px-6 bg-slate-900 hover:bg-slate-800 rounded-xl h-11 sm:h-12 shrink-0">
+                <Send className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Send</span>
               </Button>
             </form>
           </CardFooter>
