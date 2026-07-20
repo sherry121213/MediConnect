@@ -83,7 +83,6 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
     const [isSaving, setIsSaving] = useState(false);
     const availableDates = getNext7Days();
 
-    // Shift filters for reschedule
     const isToday = isSameDay(selectedDate, new Date());
     const currentHour24 = new Date().getHours();
     const currentPeriod = currentHour24 >= 12 ? "PM" : "AM";
@@ -100,7 +99,6 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
         if (selectedPeriod === 'AM') {
             filtered = ["10", "11"];
         } else {
-            // Shift ends at 9 PM, so last selectable start hour is 8
             filtered = ["12", "02", "03", "04", "05", "06", "07", "08"];
         }
 
@@ -116,6 +114,16 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
             return true;
         });
     }, [isToday, selectedPeriod, currentPeriod, currentHour12]);
+
+    const availableMinutes = useMemo(() => {
+        const allMins = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
+        if (!isToday) return allMins;
+        const hNum = parseInt(selectedHour);
+        if (selectedPeriod === currentPeriod && hNum === currentHour12) {
+            return allMins.filter(m => parseInt(m) > new Date().getMinutes());
+        }
+        return allMins;
+    }, [isToday, selectedHour, selectedPeriod, currentPeriod, currentHour12]);
 
     useEffect(() => {
         if (availableHours.length > 0 && !availableHours.includes(selectedHour)) {
@@ -147,7 +155,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
                     <div className="flex gap-4 overflow-x-auto pb-4">{availableDates.map(day => (<button key={day.date.toISOString()} onClick={() => setSelectedDate(day.date)} className={cn("p-4 rounded-3xl border-2 transition-all shrink-0 w-24 sm:w-28 text-center", isSameDay(selectedDate, day.date) ? 'bg-primary/5 border-primary' : 'bg-background hover:bg-muted border-slate-100')}><p className="text-[10px] font-bold uppercase">{day.dayName}</p><p className="text-xl font-bold font-headline">{format(day.date, "dd")}</p></button>))}</div>
                     <div className="grid grid-cols-3 gap-2 sm:gap-3 p-4 border-2 rounded-2xl bg-slate-50">
                         <Select value={selectedHour} onValueChange={setSelectedHour}><SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger><SelectContent className="max-h-[200px]">{availableHours.map(h=><SelectItem key={h} value={h}>{h}</SelectItem>)}</SelectContent></Select>
-                        <Select value={selectedMinute} onValueChange={setSelectedMinute}><SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger><SelectContent>{['00','15','30','45'].map(m=><SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select>
+                        <Select value={selectedMinute} onValueChange={setSelectedMinute}><SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger><SelectContent className="max-h-[200px]">{availableMinutes.map(m=><SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select>
                         <Select value={selectedPeriod} onValueChange={setSelectedPeriod}><SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger><SelectContent>{availablePeriods.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select>
                     </div>
                 </div>

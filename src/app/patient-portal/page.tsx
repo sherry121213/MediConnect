@@ -52,7 +52,6 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
     }, [isToday, currentPeriod]);
 
     const availableHours = useMemo(() => {
-        // Shift constraints: AM (10, 11), PM (12, 02-08). Break at 01 PM. Shift ends at 09 PM.
         let filtered = [];
         if (selectedPeriod === 'AM') {
             filtered = ["10", "11"];
@@ -74,7 +73,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
     }, [isToday, selectedPeriod, currentPeriod, currentHour12]);
 
     const availableMinutes = useMemo(() => {
-        const allMins = ["00", "15", "30", "45"];
+        const allMins = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
         if (!isToday) return allMins;
 
         const hNum = parseInt(selectedHour);
