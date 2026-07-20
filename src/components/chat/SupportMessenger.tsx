@@ -145,10 +145,10 @@ export default function SupportMessenger() {
   if (!user || !userData || isConsultationRoom) return null;
 
   return (
-    <div className="fixed bottom-6 left-6 z-[100] flex flex-col items-start pointer-events-none group">
+    <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end pointer-events-none group">
       {isOpen && (
         <Card className={cn(
-          "w-[calc(100vw-3rem)] sm:w-[420px] mb-4 shadow-[0_20px_50px_rgba(0,0,0,0.2)] border-none overflow-hidden transition-all duration-500 ease-in-out pointer-events-auto flex flex-col bg-white rounded-[2.5rem] origin-bottom-left",
+          "w-[calc(100vw-3rem)] sm:w-[420px] mb-4 shadow-[0_20px_50px_rgba(0,0,0,0.2)] border-none overflow-hidden transition-all duration-500 ease-in-out pointer-events-auto flex flex-col bg-white rounded-[2.5rem] origin-bottom-right",
           isMinimized ? "h-16" : "h-[65dvh] sm:h-[600px] max-h-[800px] animate-in slide-in-from-bottom-5 zoom-in-95"
         )}>
           <CardHeader className="bg-slate-950 text-white p-5 flex flex-row items-center justify-between space-y-0 cursor-pointer shrink-0 border-b border-white/5" onClick={() => setIsMinimized(!isMinimized)}>
@@ -211,7 +211,7 @@ export default function SupportMessenger() {
                     {userData.role === 'admin' && (
                        <div className="p-4 border-b bg-white flex items-center justify-between shrink-0 sticky top-0 z-10">
                          <Button variant="ghost" size="sm" className="text-[10px] font-bold uppercase h-9 px-4 rounded-xl border-2 hover:bg-slate-50 transition-all" onClick={() => setActiveSessionId(null)}>
-                           ← Back to Registry
+                           ← Back to Record
                          </Button>
                          <Badge variant="outline" className="text-[9px] uppercase font-bold border-primary/20 text-primary bg-primary/5 px-3 py-1 rounded-full">
                             {adminCategory === 'patients' ? 'Patient Channel' : 'Provider Channel'}
