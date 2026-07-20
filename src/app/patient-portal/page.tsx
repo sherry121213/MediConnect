@@ -2,7 +2,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, PhoneCall, RefreshCw, CalendarIcon, ShieldCheck, PhoneIncoming, X, HelpCircle, AlertCircle, CheckCircle2, XCircle, Siren } from "lucide-react";
+import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, RefreshCw, CalendarIcon, ShieldCheck, PhoneIncoming, X, HelpCircle, AlertCircle, CheckCircle2, XCircle, Siren } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -11,7 +11,7 @@ import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } fro
 import { collection, query, where, doc } from "firebase/firestore";
 import type { Appointment, Doctor } from "@/lib/types";
 import { useMemo, useState, useEffect } from "react";
-import { format, isAfter, subHours, isSameDay, startOfDay, isBefore, isValid, addDays, addMinutes, parse } from "date-fns";
+import { format, isAfter, isSameDay, isBefore, isValid, addMinutes, parse } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
@@ -20,7 +20,6 @@ import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 import Autoplay from "embla-carousel-autoplay";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 
@@ -104,7 +103,6 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
         if (!existingAppointments || !selectedDate || !selectedTimeStr) return { isAvailable: true, message: '' };
 
         const proposedStart = parse(selectedTimeStr, 'hh:mm a', selectedDate);
-        // Precision Session: 15+5 block (20 mins)
         const proposedEnd = addMinutes(proposedStart, 20);
         const now = new Date();
 
@@ -145,13 +143,13 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
 
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent className="sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[90dvh] flex flex-col animate-in zoom-in-95 duration-200">
+            <DialogContent className="w-[95vw] sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[90dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-primary p-6 sm:p-8 text-white shrink-0">
                     <DialogTitle className="text-xl sm:text-2xl font-headline">Reschedule Clinical Session</DialogTitle>
                     <DialogDescription className="text-primary-foreground/80 mt-1 font-medium">Adjust your precision start time.</DialogDescription>
                 </div>
                 <div className="flex-1 overflow-y-auto bg-white overscroll-contain custom-scrollbar">
-                    <div className="p-6 sm:p-8 space-y-10 pb-32">
+                    <div className="p-4 sm:p-8 space-y-8 pb-32">
                         <div>
                             <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-4">Step 1: Choose Date</p>
                             <div className="flex gap-4 overflow-x-auto pb-4 -mx-2 px-2 custom-scrollbar">
@@ -160,26 +158,26 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                                         key={day.date.toISOString()}
                                         onClick={() => { setSelectedDate(day.date); }}
                                         className={cn(
-                                            "p-4 rounded-3xl border-2 transition-all shrink-0 w-28 text-center flex flex-col items-center justify-center gap-1",
+                                            "p-4 rounded-3xl border-2 transition-all shrink-0 w-24 sm:w-28 text-center flex flex-col items-center justify-center gap-1",
                                             isSameDay(selectedDate, day.date) ? 'bg-primary/5 border-primary shadow-sm' : 'bg-background hover:bg-muted border-slate-100'
                                         )}
                                     >
                                         <p className="text-[10px] font-bold uppercase text-muted-foreground">{day.dayName}</p>
-                                        <p className="text-xl font-bold font-headline text-slate-900">{format(day.date, "dd")}</p>
+                                        <p className="text-lg sm:text-xl font-bold font-headline text-slate-900">{format(day.date, "dd")}</p>
                                         <p className="text-[10px] text-muted-foreground">{format(day.date, "MMM")}</p>
                                     </button>
                                 ))}
                             </div>
                         </div>
 
-                        <div className="border-t pt-10">
-                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 2: Precise Adjustment (Precision Window)</p>
-                            <div className="p-6 border-4 border-dashed rounded-[2rem] bg-slate-50/50 space-y-6">
-                                <div className="grid grid-cols-3 gap-3">
+                        <div className="border-t pt-8">
+                            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6">Step 2: Precise Adjustment</p>
+                            <div className="p-4 sm:p-6 border-4 border-dashed rounded-[2rem] bg-slate-50/50 space-y-6">
+                                <div className="grid grid-cols-3 gap-2 sm:gap-3">
                                     <div className="space-y-2">
                                         <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest ml-1">Hour</Label>
                                         <Select value={selectedHour} onValueChange={setSelectedHour}>
-                                            <SelectTrigger className="h-12 rounded-xl border-2 bg-white font-bold">
+                                            <SelectTrigger className="h-10 sm:h-12 rounded-xl border-2 bg-white font-bold text-xs sm:text-sm">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent className="max-h-[200px] rounded-xl border-none shadow-xl">
@@ -192,7 +190,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                                     <div className="space-y-2">
                                         <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest ml-1">Minute</Label>
                                         <Select value={selectedMinute} onValueChange={setSelectedMinute}>
-                                            <SelectTrigger className="h-12 rounded-xl border-2 bg-white font-bold">
+                                            <SelectTrigger className="h-10 sm:h-12 rounded-xl border-2 bg-white font-bold text-xs sm:text-sm">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent className="max-h-[200px] rounded-xl border-none shadow-xl">
@@ -205,7 +203,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                                     <div className="space-y-2">
                                         <Label className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest ml-1">Period</Label>
                                         <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
-                                            <SelectTrigger className="h-12 rounded-xl border-2 bg-white font-bold">
+                                            <SelectTrigger className="h-10 sm:h-12 rounded-xl border-2 bg-white font-bold text-xs sm:text-sm">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent className="rounded-xl border-none shadow-xl">
@@ -225,17 +223,17 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
                                 ) : selectedTimeStr ? (
                                     <div className="p-3 bg-green-50 border border-green-200 rounded-xl flex items-center gap-2">
                                         <CheckCircle2 className="h-4 w-4 text-green-600" />
-                                        <p className="text-[10px] text-green-800 font-bold uppercase">Clinical Window Valid: {selectedTimeStr}</p>
+                                        <p className="text-[10px] text-green-800 font-bold uppercase">Valid: {selectedTimeStr}</p>
                                     </div>
                                 ) : null}
                             </div>
                         </div>
                     </div>
                 </div>
-                <div className="p-6 sm:p-8 border-t bg-slate-50 shrink-0 mt-auto">
-                    <div className="flex gap-4">
-                        <Button variant="ghost" className="flex-1 h-14 rounded-2xl font-bold" onClick={() => onOpenChange(false)}>Cancel</Button>
-                        <Button className="flex-1 h-14 rounded-2xl font-bold shadow-2xl shadow-primary/20 bg-primary text-white" disabled={!timeValidation.isAvailable || isSaving} onClick={handleConfirm}>
+                <div className="p-4 sm:p-8 border-t bg-slate-50 shrink-0 mt-auto">
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <Button variant="ghost" className="flex-1 h-12 sm:h-14 rounded-2xl font-bold" onClick={() => onOpenChange(false)}>Cancel</Button>
+                        <Button className="flex-1 h-12 sm:h-14 rounded-2xl font-bold shadow-2xl shadow-primary/20 bg-primary text-white" disabled={!timeValidation.isAvailable || isSaving} onClick={handleConfirm}>
                             {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Finalize Move"}
                         </Button>
                     </div>
@@ -262,7 +260,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
     }, [apt?.appointmentDateTime]);
     
     const now = isMounted ? Date.now() : 0;
-    const bufferTime = appointmentDate ? appointmentDate.getTime() - (5 * 60 * 1000) : 0; // Buffer for ringing
+    const bufferTime = appointmentDate ? appointmentDate.getTime() - (5 * 60 * 1000) : 0; 
     const startTime = appointmentDate ? appointmentDate.getTime() : 0; 
     const endTime = appointmentDate ? appointmentDate.getTime() + (15 * 60 * 1000) : 0; 
     
@@ -288,8 +286,8 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                             {photoSrc ? <Image src={photoSrc} alt="Doctor" fill className="object-cover" /> : <div className="h-full w-full flex items-center justify-center font-bold text-primary">{doctor?.firstName?.[0]}</div>}
                          </div>
                          <div className="min-w-0">
-                            <p className="font-bold text-xs truncate">Dr. {doctor?.lastName}</p>
-                            <p className="text-[8px] text-primary uppercase font-bold tracking-tight truncate">{doctor?.specialty}</p>
+                            <p className="font-bold text-xs truncate">Dr. {doctor?.lastName || '...'}</p>
+                            <p className="text-[8px] text-primary uppercase font-bold tracking-tight truncate">{doctor?.specialty || 'Professional'}</p>
                          </div>
                     </div>
                     <div className="space-y-1">
@@ -297,15 +295,15 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                             <CalendarIcon className="h-3 w-3" /> {format(appointmentDate, "MMM dd")}
                         </div>
                         <div className="flex items-center gap-2 text-[10px] font-bold text-slate-600">
-                            <Clock className="h-3 w-3" /> {format(appointmentDate, "p")} (Precision)
+                            <Clock className="h-3 w-3" /> {format(appointmentDate, "p")}
                         </div>
                     </div>
                     <div className="mt-auto pt-2 flex items-center justify-between gap-2">
-                         <Badge className={cn("text-[10px] uppercase font-bold px-2 py-0.5 shrink-0 h-auto", apt.status === 'completed' ? "bg-green-100 text-green-800" : (isExpired || apt.status === 'expired') ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-600")}>
+                         <Badge className={cn("text-[8px] sm:text-[10px] uppercase font-bold px-2 py-0.5 shrink-0 h-auto", apt.status === 'completed' ? "bg-green-100 text-green-800" : (isExpired || apt.status === 'expired') ? "bg-red-50 text-red-600" : "bg-slate-100 text-slate-600")}>
                             {apt.status === 'completed' ? 'Performed' : (isExpired || apt.status === 'expired') ? 'Missed' : apt.status}
                         </Badge>
                         <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-[9px] font-bold text-primary shrink-0">
-                            <Link href={`/appointments/${apt.id}`}>View Summary</Link>
+                            <Link href={`/appointments/${apt.id}`}>View Summaries</Link>
                         </Button>
                     </div>
                 </div>
@@ -344,7 +342,6 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                                 {isLoadingDoctor ? 'Loading...' : `Dr. ${doctor?.firstName} ${doctor?.lastName}`}
                             </p>
                             {(isLive || (isFlexibleBuffer && apt.readyToStart)) && apt.status === 'scheduled' && apt.paymentStatus === 'approved' && <Badge className="bg-red-600 text-white animate-pulse h-4 text-[7px] px-1.5 uppercase font-bold">LIVE</Badge>}
-                            {(isExpired || apt.status === 'expired') && <Badge variant="destructive" className="h-4 text-[7px] px-1.5 uppercase font-bold">MISSED</Badge>}
                         </div>
                         <p className="text-[10px] sm:text-xs text-primary font-bold uppercase tracking-wider opacity-80 truncate">{doctor?.specialty || 'Medical Specialist'}</p>
                         <div className="flex wrap items-center gap-1.5 sm:gap-2 pt-1">
@@ -352,28 +349,20 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                                 <CalendarIcon className="w-2.5 h-2.5" /> {format(appointmentDate, "MMM dd")}
                             </Badge>
                             <Badge variant="outline" className="flex items-center gap-1 px-1.5 text-[8px] sm:text-[10px] font-bold">
-                                <Clock className="w-2.5 h-2.5" /> {format(appointmentDate, "p")} (Precision Window)
+                                <Clock className="w-2.5 h-2.5" /> {format(appointmentDate, "p")}
                             </Badge>
                         </div>
                     </div>
                 </div>
                 <div className="flex flex-row sm:flex-col gap-2 shrink-0 w-full sm:w-auto">
                     {apt.paymentStatus === 'pending' ? (
-                        <div className="flex flex-col gap-2 w-full min-w-[150px]">
+                        <div className="flex flex-col gap-2 w-full min-w-[140px]">
                             <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 px-3 py-2 font-bold text-[9px] sm:text-[10px] whitespace-nowrap w-full justify-center h-auto">
                                 <Clock className="w-3 h-3 mr-1.5" /> Payment Under Review
                             </Badge>
-                            <p className="text-[8px] text-muted-foreground text-center uppercase font-bold tracking-tighter">Awaiting Admin Approval</p>
-                        </div>
-                    ) : apt.paymentStatus === 'rejected' ? (
-                        <div className="flex flex-col gap-2 w-full min-w-[150px]">
-                            <Badge variant="destructive" className="px-3 py-2 font-bold text-[9px] sm:text-[10px] whitespace-nowrap w-full justify-center h-auto">
-                                <X className="w-3 h-3 mr-1.5" /> Payment Rejected
-                            </Badge>
-                            <p className="text-[8px] text-destructive text-center uppercase font-bold tracking-tighter">Contact Support Chat</p>
                         </div>
                     ) : isUpcoming && !isExpired && apt.status === 'scheduled' ? (
-                        <>
+                        <div className="flex flex-row sm:flex-col gap-2 w-full">
                             {(!isLive && !(isFlexibleBuffer && apt.readyToStart)) && (
                                 <Button variant="outline" size="sm" className="font-bold border-2 h-9 flex-1 sm:w-auto text-[10px]" onClick={() => onPostpone(apt)}>
                                     <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Reschedule
@@ -392,28 +381,25 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                                             {isLive ? `Secure session closes at ${format(addMinutes(appointmentDate, 15), "p")}.` : `Secure session opens at ${format(appointmentDate, "p")}.`}
                                         </DialogDescription>
                                     </DialogHeader>
-                                    <div className="grid grid-cols-1 gap-4 py-4 sm:py-6">
-                                        <Button variant="outline" className="justify-start h-20 sm:h-16 border-2 hover:border-primary group bg-muted/5" onClick={handleJoin} disabled={!isLive && !(isFlexibleBuffer && apt.readyToStart)}>
-                                            <Video className="mr-3 sm:mr-4 h-6 w-6 text-primary shrink-0"/> <div className="text-left min-w-0"><p className="font-bold text-foreground truncate">Professional Consultation</p><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter truncate">{(isLive || apt.readyToStart) ? 'HD Video Feed Active' : 'Unlocks at Start Time'}</p></div>
+                                    <div className="py-4">
+                                        <Button variant="outline" className="w-full justify-start h-20 border-2 hover:border-primary group bg-muted/5 rounded-2xl" onClick={handleJoin}>
+                                            <Video className="mr-4 h-6 w-6 text-primary shrink-0"/> <div className="text-left"><p className="font-bold text-foreground">Professional Consultation</p><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">HD Video Feed Active</p></div>
                                         </Button>
                                     </div>
                                     {!isLive && isFlexibleBuffer && apt.readyToStart && (
                                         <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 animate-pulse">
                                             <Siren className="h-5 w-5 text-red-600 shrink-0" />
-                                            <p className="text-xs text-red-800 font-bold">URGENT: Your doctor is ready to start early. Please join the session.</p>
+                                            <p className="text-xs text-red-800 font-bold">Your doctor is ready to start early.</p>
                                         </div>
                                     )}
                                 </DialogContent>
                             </Dialog>
-                        </>
+                        </div>
                     ) : (
-                        <div className="flex flex-col gap-2 w-full">
+                        <div className="flex flex-row sm:flex-col gap-2 w-full">
                              <Button variant="ghost" asChild className="gap-2 text-primary font-bold hover:bg-primary/5 flex-1 sm:w-auto justify-center h-9 text-[10px]">
                                 <Link href={`/appointments/${apt.id}`}><FileText className="h-4 w-4" /> View Record</Link>
                             </Button>
-                            <Badge variant={apt.status === 'completed' ? 'secondary' : 'destructive'} className="text-[10px] font-bold uppercase tracking-wider px-3 py-0.5 mx-auto shrink-0 h-auto">
-                                {apt.status === 'completed' ? 'Performed' : (isExpired || apt.status === 'expired') ? 'Missed' : apt.status}
-                            </Badge>
                         </div>
                     )}
                 </div>
@@ -448,7 +434,6 @@ export default function PatientPortalPage() {
         const now = new Date();
         const validAppointments = appointments.filter(apt => apt !== null && apt.id && apt.appointmentDateTime);
 
-        // Ringing logic for early flexible start
         const currentRinging = validAppointments.find(apt => 
             (apt.doctorInRoom === true || apt.readyToStart === true) && 
             apt.status === 'scheduled' && 
@@ -463,9 +448,7 @@ export default function PatientPortalPage() {
                 if (!isValid(d)) return false;
                 const endTime = d.getTime() + (15 * 60 * 1000); 
                 const isMissed = now.getTime() > endTime;
-                return !isMissed && 
-                       (apt.status === 'scheduled' || apt.status === 'expired') &&
-                       (apt.paymentStatus === 'approved' || apt.paymentStatus === 'pending' || apt.paymentStatus === 'rejected');
+                return !isMissed && (apt.status === 'scheduled' || apt.status === 'expired');
             })
             .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
 
@@ -474,8 +457,7 @@ export default function PatientPortalPage() {
                 const d = new Date(apt.appointmentDateTime);
                 if (!isValid(d)) return false;
                 const endTime = d.getTime() + (15 * 60 * 1000); 
-                const isMissed = now.getTime() > endTime;
-                return isMissed || apt.status === 'completed' || apt.status === 'expired';
+                return now.getTime() > endTime || apt.status === 'completed' || apt.status === 'expired';
             })
             .sort((a, b) => b.appointmentDateTime.localeCompare(a.appointmentDateTime))
             .slice(0, 10);
@@ -488,109 +470,93 @@ export default function PatientPortalPage() {
         setIsPostponeOpen(true);
     };
 
-    if (!mounted || isUserLoading) return <div className="min-h-svh flex items-center justify-center bg-secondary/30"><Loader2 className="h-8 w-8 animate-spin text-primary/30" /></div>;
+    if (!mounted || isUserLoading) return <div className="min-h-screen flex items-center justify-center bg-secondary/30"><Loader2 className="h-8 w-8 animate-spin text-primary/30" /></div>;
 
     return (
-        <main className="min-h-svh flex flex-col bg-secondary/30 py-6 sm:py-10 overflow-x-hidden">
+        <main className="min-h-screen flex flex-col bg-secondary/30 py-6 sm:py-10 overflow-x-hidden">
             <div className="container mx-auto px-4 flex-1 pb-24">
                 {ringingApt && (
-                    <div className="mb-8 animate-in slide-in-from-top-4 duration-500">
-                        <Card className="bg-red-600 text-white border-none shadow-2xl overflow-hidden rounded-3xl" asChild>
-                            <div className="p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
+                    <div className="mb-6 sm:mb-8 animate-in slide-in-from-top-4 duration-500">
+                        <Card className="bg-red-600 text-white border-none shadow-2xl overflow-hidden rounded-3xl">
+                            <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                                 <div className="flex items-center gap-4">
-                                    <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center animate-pulse">
-                                        <PhoneIncoming className="h-6 w-6 text-white" />
+                                    <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-white/20 flex items-center justify-center animate-pulse">
+                                        <PhoneIncoming className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                                     </div>
-                                    <div>
-                                        <p className="text-[10px] uppercase font-bold tracking-widest opacity-80">Clinical Signal Received</p>
-                                        <p className="text-lg font-bold text-center sm:text-left">
-                                            {ringingApt.readyToStart && !isAfter(new Date(), new Date(ringingApt.appointmentDateTime)) 
-                                                ? "Your doctor is ready to start early." 
-                                                : "Your clinical session is now live."}
-                                        </p>
+                                    <div className="text-center sm:text-left">
+                                        <p className="text-[10px] uppercase font-bold tracking-widest opacity-80">Signal Received</p>
+                                        <p className="text-base sm:text-lg font-bold">Session is now live.</p>
                                     </div>
                                 </div>
-                                <Button asChild className="bg-white text-red-600 hover:bg-slate-100 font-bold px-8 h-12 rounded-2xl w-full sm:w-auto">
-                                    <Link href={`/consultation/${ringingApt.id}`}>Join Session Now</Link>
+                                <Button asChild className="bg-white text-red-600 hover:bg-slate-100 font-bold px-8 h-10 sm:h-12 rounded-2xl w-full sm:w-auto shadow-lg">
+                                    <Link href={`/consultation/${ringingApt.id}`}>Join Now</Link>
                                 </Button>
-                            </div>
+                            </CardContent>
                         </Card>
                     </div>
                 )}
 
-                <div className="grid lg:grid-cols-12 gap-8 lg:gap-10">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-10">
                     <div className="lg:col-span-4 space-y-6">
                         <Card className="overflow-hidden border-none shadow-2xl bg-white/80 backdrop-blur-md rounded-[2rem]">
-                            <CardHeader className="bg-primary text-primary-foreground pb-8 pt-8 sm:pb-12 sm:pt-12 px-6 sm:px-10">
-                                <CardTitle className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] opacity-80">Precision Patient Portal</CardTitle>
-                                <CardDescription className="text-3xl sm:text-4xl font-bold font-headline text-white mt-3 truncate">Hello, {userData?.firstName}</CardDescription>
+                            <CardHeader className="bg-primary text-primary-foreground p-6 sm:p-10">
+                                <CardTitle className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] opacity-80">Patient Portal</CardTitle>
+                                <CardDescription className="text-2xl sm:text-3xl font-bold font-headline text-white mt-3 truncate">Hello, {userData?.firstName}</CardDescription>
                             </CardHeader>
-                            <CardContent className="pt-8 sm:pt-10 space-y-4 px-6 sm:px-10 pb-12">
-                                <Button className="w-full justify-start h-16 text-base font-bold shadow-xl shadow-primary/20 rounded-2xl" asChild><Link href="/find-a-doctor"><PlusCircle className="mr-3 h-6 w-6" /> Book Clinical Session</Link></Button>
-                                <Button variant="outline" className="w-full justify-start h-16 text-base font-bold border-2 rounded-2xl hover:bg-primary/5 transition-all" asChild><Link href="/patient-portal/messages"><MessageSquare className="mr-3 h-6 w-6 text-primary" /> Care Message Center</Link></Button>
-                                <Button variant="outline" className="w-full justify-start h-16 text-base font-bold border-2 rounded-2xl hover:bg-primary/5 transition-all" asChild><Link href="/patient-portal/history"><History className="mr-3 h-6 w-6 text-primary" /> My History</Link></Button>
+                            <CardContent className="p-4 sm:p-8 space-y-3">
+                                <Button className="w-full justify-start h-14 sm:h-16 text-sm font-bold shadow-xl shadow-primary/20 rounded-2xl" asChild><Link href="/find-a-doctor"><PlusCircle className="mr-3 h-5 w-5" /> Book Session</Link></Button>
+                                <Button variant="outline" className="w-full justify-start h-14 sm:h-16 text-sm font-bold border-2 rounded-2xl hover:bg-primary/5 transition-all" asChild><Link href="/patient-portal/messages"><MessageSquare className="mr-3 h-5 w-5 text-primary" /> Care Center</Link></Button>
+                                <Button variant="outline" className="w-full justify-start h-14 sm:h-16 text-sm font-bold border-2 rounded-2xl hover:bg-primary/5 transition-all" asChild><Link href="/patient-portal/history"><History className="mr-3 h-5 w-5 text-primary" /> My History</Link></Button>
                             </CardContent>
                         </Card>
 
-                        <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden rounded-[2rem]">
-                            <CardContent className="p-8 space-y-5 text-center">
-                                <div className="h-14 w-14 rounded-3xl bg-primary/20 flex items-center justify-center mx-auto shadow-inner">
-                                    <HelpCircle className="h-7 w-7 text-primary" />
-                                </div>
-                                <div className="space-y-2">
-                                    <h4 className="font-bold text-lg">Administrative Help</h4>
-                                    <p className="text-xs text-slate-400 leading-relaxed">Facing issues with payments or bookings? Chat with our team instantly.</p>
-                                </div>
-                                <div className="p-3 bg-white/5 rounded-xl border border-white/10 text-[10px] font-bold uppercase tracking-widest text-slate-500">
-                                    Secure Support Link Active
+                        <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden rounded-[2rem] hidden sm:block">
+                            <CardContent className="p-8 space-y-4 text-center">
+                                <HelpCircle className="h-8 w-8 text-primary mx-auto" />
+                                <div>
+                                    <h4 className="font-bold text-base">Administrative Help</h4>
+                                    <p className="text-xs text-slate-400 mt-1">Facing issues? Chat with us instantly.</p>
                                 </div>
                             </CardContent>
                         </Card>
                     </div>
 
-                    <div className="lg:col-span-8 space-y-10 sm:space-y-16">
+                    <div className="lg:col-span-8 space-y-10">
                         <section>
-                            <div className="flex items-center justify-between mb-6 sm:mb-8">
-                                <h2 className="text-2xl sm:text-3xl font-bold font-headline flex items-center gap-5">
-                                    <div className="h-8 sm:h-10 w-2 bg-primary rounded-full shrink-0"></div>
-                                    Scheduled Sessions
-                                </h2>
-                            </div>
-                            {isLoadingAppointments ? <div className="py-16 flex justify-center"><Loader2 className="h-10 w-10 animate-spin text-primary/30" /></div> : 
-                             upcomingAppointments.length === 0 ? <Card className="border-dashed border-4 bg-transparent rounded-[2.5rem]"><CardContent className="py-20 sm:py-24 text-center px-4"><Calendar className="h-16 w-16 text-muted-foreground/10 mx-auto mb-6" /><p className="text-muted-foreground font-medium">No upcoming clinical sessions found.</p></CardContent></Card> :
-                             <div className="space-y-5">{upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={true} onPostpone={handlePostpone} isMounted={mounted} />)}</div>}
+                            <h2 className="text-xl sm:text-2xl font-bold font-headline flex items-center gap-4 mb-6">
+                                <div className="h-6 sm:h-8 w-1.5 bg-primary rounded-full shrink-0"></div>
+                                Scheduled Sessions
+                            </h2>
+                            {isLoadingAppointments ? <div className="py-12 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary/30" /></div> : 
+                             upcomingAppointments.length === 0 ? <Card className="border-dashed border-2 bg-transparent rounded-[2.5rem]"><CardContent className="py-16 text-center text-muted-foreground text-sm">No upcoming clinical sessions.</CardContent></Card> :
+                             <div className="space-y-4">{upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={true} onPostpone={handlePostpone} isMounted={mounted} />)}</div>}
                         </section>
 
                         <section>
-                            <div className="flex items-center justify-between mb-6 sm:mb-8">
-                                <h2 className="text-2xl sm:text-3xl font-bold font-headline flex items-center gap-5">
-                                    <div className="h-8 sm:h-10 w-2 bg-muted rounded-full shrink-0"></div>
+                            <div className="flex items-center justify-between mb-6">
+                                <h2 className="text-xl sm:text-2xl font-bold font-headline flex items-center gap-4">
+                                    <div className="h-6 sm:h-8 w-1.5 bg-muted rounded-full shrink-0"></div>
                                     Clinical History
                                 </h2>
-                                {recentPastAppointments.length > 0 && <Button variant="ghost" size="sm" asChild className="text-primary font-bold text-sm hover:bg-primary/5 px-4 h-10 rounded-xl"><Link href="/patient-portal/history">View Full Archive <ChevronRight className="ml-2 h-4 w-4" /></Link></Button>}
+                                {recentPastAppointments.length > 0 && <Link href="/patient-portal/history" className="text-primary font-bold text-xs hover:underline flex items-center">Archive <ChevronRight className="h-3 w-3" /></Link>}
                             </div>
                             
                             {recentPastAppointments.length > 0 ? (
-                                <div className="relative group">
-                                    <Carousel
-                                        opts={{ align: "start", loop: false }}
-                                        plugins={[Autoplay({ delay: 6000, stopOnInteraction: true })]}
-                                        className="w-full"
-                                    >
-                                        <CarouselContent className="-ml-4">
-                                            {recentPastAppointments.map(apt => (
-                                                <CarouselItem key={apt.id} className="pl-4 md:basis-1/2 lg:basis-1/2">
-                                                    <AppointmentCard apt={apt} isUpcoming={false} onPostpone={handlePostpone} isMounted={mounted} variant="compact" />
-                                                </CarouselItem>
-                                            ))}
-                                        </CarouselContent>
-                                        <CarouselPrevious className="hidden sm:flex -left-4 bg-white/90 backdrop-blur shadow-lg border-none" />
-                                        <CarouselNext className="hidden sm:flex -right-4 bg-white/90 backdrop-blur shadow-lg border-none" />
-                                    </Carousel>
-                                </div>
+                                <Carousel
+                                    opts={{ align: "start", loop: false }}
+                                    className="w-full"
+                                >
+                                    <CarouselContent className="-ml-2 sm:-ml-4">
+                                        {recentPastAppointments.map(apt => (
+                                            <CarouselItem key={apt.id} className="pl-2 sm:pl-4 basis-[85%] sm:basis-1/2">
+                                                <AppointmentCard apt={apt} isUpcoming={false} onPostpone={handlePostpone} isMounted={mounted} variant="compact" />
+                                            </CarouselItem>
+                                        ))}
+                                    </CarouselContent>
+                                </Carousel>
                             ) : (
-                                <div className="text-center py-20 bg-muted/10 rounded-[2.5rem] border-2 border-dashed">
-                                    <p className="text-muted-foreground text-sm italic font-medium">No past clinical sessions logged.</p>
+                                <div className="text-center py-12 bg-muted/10 rounded-[2.5rem] border-2 border-dashed">
+                                    <p className="text-muted-foreground text-xs italic font-medium">No past clinical sessions logged.</p>
                                 </div>
                             )}
                         </section>

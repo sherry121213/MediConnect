@@ -63,18 +63,13 @@ export default function AppHeader() {
 
         const startTime = aptDate.getTime();
         const endTime = startTime + (15 * 60 * 1000); 
-        const warningTime = endTime - (5 * 60 * 1000); 
 
         if (apt.createdAt && isAfter(new Date(apt.createdAt), yesterday) && apt.status === 'scheduled') {
-            alerts.push({ id: apt.id + '-new', title: 'New Precision Session', msg: `Appointment for ${format(aptDate, "MMM dd, p")}`, icon: UserCircle, color: 'text-primary', timestamp: new Date(apt.createdAt).getTime(), link: '/doctor-portal' });
+            alerts.push({ id: apt.id + '-new', title: 'New Booking', msg: `${format(aptDate, "MMM dd, p")}`, icon: UserCircle, color: 'text-primary', timestamp: new Date(apt.createdAt).getTime(), link: '/doctor-portal' });
         }
 
         if (currentTime >= startTime && currentTime < endTime && apt.status === 'scheduled' && apt.paymentStatus === 'approved') {
-            alerts.push({ id: apt.id + '-live', title: 'Clinical Session Live', msg: 'Secure video feed is active.', icon: Siren, color: 'text-red-600 animate-pulse', timestamp: startTime, isUrgent: true, link: `/consultation/${apt.id}` });
-        }
-
-        if (currentTime >= warningTime && currentTime < endTime && apt.status === 'scheduled' && apt.paymentStatus === 'approved') {
-             alerts.push({ id: apt.id + '-warning', title: 'Precision Countdown', msg: '5 minutes remaining in session.', icon: Clock, color: 'text-amber-500', timestamp: warningTime, isUrgent: true, link: `/consultation/${apt.id}` });
+            alerts.push({ id: apt.id + '-live', title: 'Session Live', msg: 'Secure video feed active.', icon: Siren, color: 'text-red-600 animate-pulse', timestamp: startTime, isUrgent: true, link: `/consultation/${apt.id}` });
         }
     });
 
@@ -167,7 +162,7 @@ export default function AppHeader() {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="w-80 p-0 rounded-2xl border-none shadow-2xl overflow-hidden" align="end">
-                            <div className="bg-slate-900 text-white p-4"><h4 className="text-sm font-bold">Clinical Signals</h4></div>
+                            <div className="bg-slate-900 text-white p-4"><h4 className="text-sm font-bold">Signals</h4></div>
                             <ScrollArea className="max-h-[400px]">
                                 {notifications.length > 0 ? (<div className="divide-y divide-slate-50">{notifications.map((n) => (<DropdownMenuItem key={n.id} className="p-4 flex gap-4 cursor-pointer" onClick={() => n.link && router.push(n.link)}><div className={cn("p-2 rounded-xl bg-slate-100", n.color)}><n.icon className="h-4 w-4" /></div><div className="space-y-0.5"><p className={cn("font-bold text-[11px] uppercase", n.isUrgent ? "text-red-600" : "")}>{n.title}</p><p className="text-xs text-muted-foreground">{n.msg}</p></div></DropdownMenuItem>))}</div>) : (<div className="py-20 text-center px-8"><Bell className="h-10 w-10 text-slate-100 mx-auto" /><p className="text-[10px] text-muted-foreground uppercase font-bold mt-2">No active signals</p></div>)}
                             </ScrollArea>
@@ -177,11 +172,11 @@ export default function AppHeader() {
                 <UserMenu />
             </>
           ) : (
-            <div className="flex items-center gap-3">
-                <Button asChild variant="outline" className="border-2 border-primary text-primary hover:bg-primary/5 font-bold h-10 px-6 rounded-xl shadow-sm hidden sm:inline-flex">
+            <div className="flex items-center gap-2 sm:gap-3">
+                <Button asChild variant="outline" className="border-2 border-primary text-primary hover:bg-primary/5 font-bold h-10 px-4 sm:px-6 rounded-xl hidden sm:inline-flex">
                     <Link href="/login">Login</Link>
                 </Button>
-                <Button asChild className="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-6 rounded-xl shadow-lg">
+                <Button asChild className="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-4 sm:px-6 rounded-xl shadow-lg">
                     <Link href="/signup">Sign Up</Link>
                 </Button>
             </div>
@@ -200,7 +195,7 @@ export default function AppHeader() {
                       <div className="flex flex-col gap-6 pt-6 border-t border-slate-100">
                         {userData?.role === 'doctor' && (
                             <>
-                                <Link href="/doctor-portal" onClick={() => setMobileMenuOpen(false)} className="text-lg font-bold uppercase tracking-widest text-slate-500">Practice Dashboard</Link>
+                                <Link href="/doctor-portal" onClick={() => setMobileMenuOpen(false)} className="text-lg font-bold uppercase tracking-widest text-slate-500">Dashboard</Link>
                                 <Link href="/doctor-portal/profile" onClick={() => setMobileMenuOpen(false)} className="text-lg font-bold uppercase tracking-widest text-slate-500">Professional Profile</Link>
                             </>
                         )}
