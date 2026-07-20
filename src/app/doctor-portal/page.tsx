@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, FileText, Zap, LayoutList } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, getDocs } from "firebase/firestore";
 import type { Appointment, Patient, Doctor } from '@/lib/types';
@@ -64,6 +64,7 @@ function InternalDialog({ isOpen, onOpenChange, children }: { isOpen: boolean, o
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80 data-[state=open]:animate-in data-[state=closed]:animate-out" />
         <DialogPrimitive.Content className="fixed left-[50%] top-[50%] z-50 grid w-[95vw] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border bg-background p-0 shadow-lg sm:rounded-[2.5rem] overflow-hidden">
+          <DialogPrimitive.Title className="sr-only">Clinical Dialog</DialogPrimitive.Title>
           {children}
           <DialogPrimitive.Close className="absolute right-4 top-4 rounded-sm opacity-70 transition-opacity hover:opacity-100 text-white"><X className="h-4 w-4" /><span className="sr-only">Close</span></DialogPrimitive.Close>
         </DialogPrimitive.Content>
@@ -76,11 +77,19 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
     const firestore = useFirestore();
     const { toast } = useToast();
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-    const [selectedHour, setSelectedHour] = useState<string>("09");
+    const [selectedHour, setSelectedHour] = useState<string>("10");
     const [selectedMinute, setSelectedMinute] = useState<string>("00");
     const [selectedPeriod, setSelectedPeriod] = useState<string>("AM");
     const [isSaving, setIsSaving] = useState(false);
     const availableDates = getNext7Days();
+
+    // Shift filters for reschedule
+    const availablePeriods = selectedDate && isSameDay(selectedDate, new Date()) && new Date().getHours() >= 12 ? ["PM"] : ["AM", "PM"];
+    
+    const availableHours = useMemo(() => {
+        if (selectedPeriod === 'AM') return ["10", "11"];
+        return ["12", "02", "03", "04", "05", "06", "07", "08", "09"];
+    }, [selectedPeriod]);
 
     const handleConfirm = async () => {
         if (!firestore || !appointment) return;
@@ -105,9 +114,9 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
                 <div className="flex-1 overflow-y-auto bg-white p-4 sm:p-8 space-y-8 max-h-[60dvh]">
                     <div className="flex gap-4 overflow-x-auto pb-4">{availableDates.map(day => (<button key={day.date.toISOString()} onClick={() => setSelectedDate(day.date)} className={cn("p-4 rounded-3xl border-2 transition-all shrink-0 w-24 sm:w-28 text-center", isSameDay(selectedDate, day.date) ? 'bg-primary/5 border-primary' : 'bg-background hover:bg-muted border-slate-100')}><p className="text-[10px] font-bold uppercase">{day.dayName}</p><p className="text-xl font-bold font-headline">{format(day.date, "dd")}</p></button>))}</div>
                     <div className="grid grid-cols-3 gap-2 sm:gap-3 p-4 border-2 rounded-2xl bg-slate-50">
-                        <Select value={selectedHour} onValueChange={setSelectedHour}><SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger><SelectContent>{Array.from({length:12},(_,i)=>(i+1).toString().padStart(2,'0')).map(h=><SelectItem key={h} value={h}>{h}</SelectItem>)}</SelectContent></Select>
+                        <Select value={selectedHour} onValueChange={setSelectedHour}><SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger><SelectContent>{availableHours.map(h=><SelectItem key={h} value={h}>{h}</SelectItem>)}</SelectContent></Select>
                         <Select value={selectedMinute} onValueChange={setSelectedMinute}><SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger><SelectContent>{['00','15','30','45'].map(m=><SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select>
-                        <Select value={selectedPeriod} onValueChange={setSelectedPeriod}><SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="AM">AM</SelectItem><SelectItem value="PM">PM</SelectItem></SelectContent></Select>
+                        <Select value={selectedPeriod} onValueChange={setSelectedPeriod}><SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger><SelectContent>{availablePeriods.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select>
                     </div>
                 </div>
                 <div className="p-6 sm:p-8 border-t bg-slate-50 shrink-0 mt-auto"><div className="flex flex-col sm:flex-row gap-4"><Button variant="ghost" className="flex-1 h-12" onClick={() => onOpenChange(false)}>Cancel</Button><Button className="flex-1 h-12" disabled={isSaving} onClick={handleConfirm}>{isSaving ? <Loader2 className="animate-spin" /> : "Confirm Move"}</Button></div></div>

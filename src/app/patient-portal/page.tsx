@@ -27,7 +27,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
     const firestore = useFirestore();
     const { toast } = useToast();
     const [selectedDate, setSelectedDate] = useState<Date>(new Date());
-    const [selectedHour, setSelectedHour] = useState<string>("09");
+    const [selectedHour, setSelectedHour] = useState<string>("10");
     const [selectedMinute, setSelectedMinute] = useState<string>("00");
     const [selectedPeriod, setSelectedPeriod] = useState<string>("AM");
     const [isSaving, setIsSaving] = useState(false);
@@ -52,10 +52,17 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
     }, [isToday, currentPeriod]);
 
     const availableHours = useMemo(() => {
-        const allHours = Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, '0'));
-        if (!isToday) return allHours;
+        // Shift constraints: AM (10, 11), PM (12, 02-09). Skip 01 PM for break.
+        let filtered = [];
+        if (selectedPeriod === 'AM') {
+            filtered = ["10", "11"];
+        } else {
+            filtered = ["12", "02", "03", "04", "05", "06", "07", "08", "09"];
+        }
 
-        return allHours.filter(h => {
+        if (!isToday) return filtered;
+
+        return filtered.filter(h => {
             const hNum = parseInt(h);
             if (selectedPeriod === currentPeriod) {
                 const compareH = hNum === 12 ? 0 : hNum;
@@ -67,7 +74,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
     }, [isToday, selectedPeriod, currentPeriod, currentHour12]);
 
     const availableMinutes = useMemo(() => {
-        const allMins = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
+        const allMins = ["00", "15", "30", "45"];
         if (!isToday) return allMins;
 
         const hNum = parseInt(selectedHour);
@@ -78,12 +85,10 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
     }, [isToday, selectedHour, selectedPeriod, currentPeriod, currentHour12, currentMin]);
 
     useEffect(() => {
-        if (isToday) {
-            if (!availablePeriods.includes(selectedPeriod)) setSelectedPeriod(availablePeriods[0]);
-            if (!availableHours.includes(selectedHour)) setSelectedHour(availableHours[0] || "09");
-            if (!availableMinutes.includes(selectedMinute)) setSelectedMinute(availableMinutes[0] || "00");
+        if (availableHours.length > 0 && !availableHours.includes(selectedHour)) {
+            setSelectedHour(availableHours[0]);
         }
-    }, [isToday, availablePeriods, availableHours, availableMinutes, selectedPeriod, selectedHour, selectedMinute]);
+    }, [availableHours]);
 
     const doctorDocRef = useMemoFirebase(() => {
         if (!firestore || !appointment?.doctorId) return null;
@@ -146,7 +151,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
             <DialogContent className="w-[95vw] sm:max-w-xl rounded-[2.5rem] border-none shadow-2xl overflow-hidden p-0 max-h-[90dvh] flex flex-col animate-in zoom-in-95 duration-200">
                 <div className="bg-primary p-6 sm:p-8 text-white shrink-0">
                     <DialogTitle className="text-xl sm:text-2xl font-headline">Reschedule Clinical Session</DialogTitle>
-                    <DialogDescription className="text-primary-foreground/80 mt-1 font-medium">Adjust your precision start time.</DialogDescription>
+                    <DialogDescription className="text-primary-foreground/80 mt-1 font-medium">Adjust your precision start time (10 AM - 9 PM).</DialogDescription>
                 </div>
                 <div className="flex-1 overflow-y-auto bg-white overscroll-contain custom-scrollbar">
                     <div className="p-4 sm:p-8 space-y-8 pb-32">
@@ -303,7 +308,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                             {apt.status === 'completed' ? 'Performed' : (isExpired || apt.status === 'expired') ? 'Missed' : apt.status}
                         </Badge>
                         <Button asChild variant="ghost" size="sm" className="h-7 px-2 text-[9px] font-bold text-primary shrink-0">
-                            <Link href={`/appointments/${apt.id}`}>View Summaries</Link>
+                            <Link href={`/appointments/${apt.id}`}>View Record</Link>
                         </Button>
                     </div>
                 </div>
@@ -313,7 +318,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
 
     return (
         <Card className={cn(
-            "hover:shadow-lg transition-all border-l-4 bg-card/50 backdrop-blur-sm overflow-hidden",
+            "hover:shadow-lg transition-all border-l-4 bg-card/50 backdrop-blur-sm overflow-hidden rounded-2xl",
             (isLive || (isFlexibleBuffer && apt.readyToStart)) && apt.paymentStatus === 'approved' ? "border-l-red-500 bg-red-50/10 shadow-md scale-[1.01]" : "border-l-primary/40",
             (isExpired || apt.status === 'expired') && "opacity-80 border-l-destructive/40"
         )} asChild>
@@ -358,7 +363,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                     {apt.paymentStatus === 'pending' ? (
                         <div className="flex flex-col gap-2 w-full min-w-[140px]">
                             <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 px-3 py-2 font-bold text-[9px] sm:text-[10px] whitespace-nowrap w-full justify-center h-auto">
-                                <Clock className="w-3 h-3 mr-1.5" /> Payment Under Review
+                                <Clock className="w-3 h-3 mr-1.5" /> Reviewing Payment
                             </Badge>
                         </div>
                     ) : isUpcoming && !isExpired && apt.status === 'scheduled' ? (
@@ -398,7 +403,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                     ) : (
                         <div className="flex flex-row sm:flex-col gap-2 w-full">
                              <Button variant="ghost" asChild className="gap-2 text-primary font-bold hover:bg-primary/5 flex-1 sm:w-auto justify-center h-9 text-[10px]">
-                                <Link href={`/appointments/${apt.id}`}><FileText className="h-4 w-4" /> View Record</Link>
+                                <Link href={`/appointments/${apt.id}`}><FileText className="h-4 w-4" /> View Summary</Link>
                             </Button>
                         </div>
                     )}
@@ -474,7 +479,7 @@ export default function PatientPortalPage() {
 
     return (
         <main className="min-h-screen flex flex-col bg-secondary/30 py-6 sm:py-10 overflow-x-hidden">
-            <div className="container mx-auto px-4 flex-1 pb-24">
+            <div className="container mx-auto px-4 lg:px-8 max-w-7xl flex-1 pb-24">
                 {ringingApt && (
                     <div className="mb-6 sm:mb-8 animate-in slide-in-from-top-4 duration-500">
                         <Card className="bg-red-600 text-white border-none shadow-2xl overflow-hidden rounded-3xl">
@@ -510,12 +515,12 @@ export default function PatientPortalPage() {
                             </CardContent>
                         </Card>
 
-                        <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden rounded-[2rem] hidden sm:block">
+                        <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden rounded-[2rem] hidden lg:block">
                             <CardContent className="p-8 space-y-4 text-center">
                                 <HelpCircle className="h-8 w-8 text-primary mx-auto" />
                                 <div>
                                     <h4 className="font-bold text-base">Administrative Help</h4>
-                                    <p className="text-xs text-slate-400 mt-1">Facing issues? Chat with us instantly.</p>
+                                    <p className="text-xs text-slate-400 mt-1">Facing issues? Chat with us instantly via the Support Messenger below.</p>
                                 </div>
                             </CardContent>
                         </Card>
@@ -528,7 +533,7 @@ export default function PatientPortalPage() {
                                 Scheduled Sessions
                             </h2>
                             {isLoadingAppointments ? <div className="py-12 flex justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary/30" /></div> : 
-                             upcomingAppointments.length === 0 ? <Card className="border-dashed border-2 bg-transparent rounded-[2.5rem]"><CardContent className="py-16 text-center text-muted-foreground text-sm">No upcoming clinical sessions.</CardContent></Card> :
+                             upcomingAppointments.length === 0 ? <Card className="border-dashed border-2 bg-transparent rounded-[2.5rem]"><CardContent className="py-16 text-center text-muted-foreground text-sm">No upcoming clinical sessions scheduled.</CardContent></Card> :
                              <div className="space-y-4">{upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={true} onPostpone={handlePostpone} isMounted={mounted} />)}</div>}
                         </section>
 
@@ -553,6 +558,10 @@ export default function PatientPortalPage() {
                                             </CarouselItem>
                                         ))}
                                     </CarouselContent>
+                                    <div className="hidden sm:flex justify-end gap-2 mt-4">
+                                        <CarouselPrevious className="relative translate-y-0 left-0" />
+                                        <CarouselNext className="relative translate-y-0 right-0" />
+                                    </div>
                                 </Carousel>
                             ) : (
                                 <div className="text-center py-12 bg-muted/10 rounded-[2.5rem] border-2 border-dashed">

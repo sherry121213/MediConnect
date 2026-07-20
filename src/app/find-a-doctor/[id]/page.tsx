@@ -86,9 +86,9 @@ export default function DoctorDetailPage() {
     const doctorId = params.id as string;
 
     const [selectedDate, setSelectedDate] = useState(getNext7Days()[0].date);
-    const [selectedHour, setSelectedHour] = useState<string>("");
-    const [selectedMinute, setSelectedMinute] = useState<string>("");
-    const [selectedPeriod, setSelectedPeriod] = useState<string>("");
+    const [selectedHour, setSelectedHour] = useState<string>("10");
+    const [selectedMinute, setSelectedMinute] = useState<string>("00");
+    const [selectedPeriod, setSelectedPeriod] = useState<string>("AM");
     const [appointmentType, setAppointmentType] = useState<'Video Call' | 'Audio Call'>('Video Call');
     const [paymentMethod, setPaymentMethod] = useState<string>('Easypaisa');
     const [isBooking, setIsBooking] = useState(false);
@@ -115,10 +115,17 @@ export default function DoctorDetailPage() {
     }, [isToday, currentPeriod]);
 
     const availableHours = useMemo(() => {
-        const allHours = Array.from({ length: 12 }, (_, i) => (i + 1).toString().padStart(2, '0'));
-        if (!isToday) return allHours;
+        // Shift constraints: AM (10, 11), PM (12, 02-09). Skip 01 PM for break.
+        let filtered = [];
+        if (selectedPeriod === 'AM') {
+            filtered = ["10", "11"];
+        } else {
+            filtered = ["12", "02", "03", "04", "05", "06", "07", "08", "09"];
+        }
 
-        return allHours.filter(h => {
+        if (!isToday) return filtered;
+
+        return filtered.filter(h => {
             const hNum = parseInt(h);
             if (selectedPeriod === currentPeriod) {
                 const compareH = hNum === 12 ? 0 : hNum;
@@ -130,7 +137,7 @@ export default function DoctorDetailPage() {
     }, [isToday, selectedPeriod, currentPeriod, currentHour12]);
 
     const availableMinutes = useMemo(() => {
-        const allMins = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
+        const allMins = ["00", "15", "30", "45"];
         if (!isToday) return allMins;
 
         const hNum = parseInt(selectedHour);
@@ -141,14 +148,10 @@ export default function DoctorDetailPage() {
     }, [isToday, selectedHour, selectedPeriod, currentPeriod, currentHour12, currentMin]);
 
     useEffect(() => {
-        if (isToday && mounted) {
+        if (mounted) {
             if (!availablePeriods.includes(selectedPeriod)) setSelectedPeriod(availablePeriods[0]);
-            if (!availableHours.includes(selectedHour)) setSelectedHour(availableHours[0] || "");
-            if (!availableMinutes.includes(selectedMinute)) setSelectedMinute(availableMinutes[0] || "");
-        } else if (!isToday && mounted) {
-            if (!selectedPeriod) setSelectedPeriod("AM");
-            if (!selectedHour) setSelectedHour("09");
-            if (!selectedMinute) setSelectedMinute("00");
+            if (!availableHours.includes(selectedHour)) setSelectedHour(availableHours[0] || "10");
+            if (!availableMinutes.includes(selectedMinute)) setSelectedMinute(availableMinutes[0] || "00");
         }
     }, [isToday, availablePeriods, availableHours, availableMinutes, selectedPeriod, selectedHour, selectedMinute, mounted]);
 
@@ -184,7 +187,6 @@ export default function DoctorDetailPage() {
         if (!mounted || !existingAppointments || !selectedDate || !selectedTimeStr) return { isAvailable: true, message: '' };
 
         const proposedStart = parse(selectedTimeStr, 'hh:mm a', selectedDate);
-        // Precision Session: 15 min consultation + 5 min administrative buffer = 20 min block
         const proposedEnd = addMinutes(proposedStart, 20);
 
         if (isSameDay(selectedDate, nowTicker) && isBefore(proposedStart, nowTicker)) {
@@ -347,6 +349,16 @@ export default function DoctorDetailPage() {
                                     </div>
                                 </CardHeader>
                                 <CardContent className="p-8 sm:p-12 space-y-12">
+                                    <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-2xl">
+                                        <div className="flex gap-3">
+                                            <Clock className="h-5 w-5 text-amber-600 shrink-0" />
+                                            <div>
+                                                <p className="text-xs font-bold text-amber-800 uppercase tracking-wider">Clinical Timing Notice</p>
+                                                <p className="text-[10px] text-amber-700 mt-1">Practice Hours: 10 AM - 9 PM. Lunch Break: 1 PM - 2 PM.</p>
+                                            </div>
+                                        </div>
+                                    </div>
+
                                     <div>
                                         <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6 flex items-center gap-3">
                                             <div className="h-1 w-6 bg-primary rounded-full" /> Step 1: Choose Clinical Date
@@ -433,12 +445,6 @@ export default function DoctorDetailPage() {
                                                             <p className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Precision Window</p>
                                                             <p className="text-sm font-bold text-green-800">{selectedTimeStr}</p>
                                                         </div>
-                                                    </div>
-                                                    <div className="p-4 bg-primary/5 border border-primary/20 rounded-2xl flex gap-3">
-                                                        <Info className="h-5 w-5 text-primary shrink-0" />
-                                                        <p className="text-[10px] text-muted-foreground leading-relaxed italic">
-                                                            <strong>Note:</strong> A professional administrative buffer follows your clinical session. If the doctor is ready early, they may signal you to join for a flexible start.
-                                                        </p>
                                                     </div>
                                                 </div>
                                             ) : null}

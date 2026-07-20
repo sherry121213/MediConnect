@@ -184,10 +184,10 @@ export default function AppHeader() {
           <Sheet open={isMobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild><Button variant="ghost" size="icon" className="md:hidden"><Menu className="h-6 w-6" /></Button></SheetTrigger>
             <SheetContent side="right" className="w-[300px] p-0 border-none rounded-l-[2rem] overflow-hidden">
-              <SheetHeader className="sr-only">
-                <SheetTitle>Navigation Menu</SheetTitle>
+              <SheetHeader className="p-8 pb-0">
+                <SheetTitle className="sr-only">Main Navigation</SheetTitle>
+                <Logo />
               </SheetHeader>
-              <div className="bg-slate-900 text-white p-8"><Logo /></div>
               <div className="p-8 flex flex-col gap-6">
                  {navLinks.map((link) => (
                     <Link key={link.href} href={link.href} onClick={() => setMobileMenuOpen(false)} className={cn('text-lg font-bold uppercase tracking-widest transition-colors', pathname === link.href ? 'text-primary' : 'text-slate-500')}>
