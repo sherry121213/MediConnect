@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
@@ -85,12 +84,44 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
     const availableDates = getNext7Days();
 
     // Shift filters for reschedule
-    const availablePeriods = selectedDate && isSameDay(selectedDate, new Date()) && new Date().getHours() >= 12 ? ["PM"] : ["AM", "PM"];
-    
+    const isToday = isSameDay(selectedDate, new Date());
+    const currentHour24 = new Date().getHours();
+    const currentPeriod = currentHour24 >= 12 ? "PM" : "AM";
+    const currentHour12 = currentHour24 > 12 ? currentHour24 - 12 : (currentHour24 === 0 ? 12 : currentHour24);
+
+    const availablePeriods = useMemo(() => {
+        if (!isToday) return ["AM", "PM"];
+        if (currentPeriod === "PM") return ["PM"];
+        return ["AM", "PM"];
+    }, [isToday, currentPeriod]);
+
     const availableHours = useMemo(() => {
-        if (selectedPeriod === 'AM') return ["10", "11"];
-        return ["12", "02", "03", "04", "05", "06", "07", "08", "09"];
-    }, [selectedPeriod]);
+        let filtered = [];
+        if (selectedPeriod === 'AM') {
+            filtered = ["10", "11"];
+        } else {
+            // Shift ends at 9 PM, so last selectable start hour is 8
+            filtered = ["12", "02", "03", "04", "05", "06", "07", "08"];
+        }
+
+        if (!isToday) return filtered;
+
+        return filtered.filter(h => {
+            const hNum = parseInt(h);
+            if (selectedPeriod === currentPeriod) {
+                const compareH = hNum === 12 ? 0 : hNum;
+                const currentCompareH = currentHour12 === 12 ? 0 : currentHour12;
+                return compareH >= currentCompareH;
+            }
+            return true;
+        });
+    }, [isToday, selectedPeriod, currentPeriod, currentHour12]);
+
+    useEffect(() => {
+        if (availableHours.length > 0 && !availableHours.includes(selectedHour)) {
+            setSelectedHour(availableHours[0]);
+        }
+    }, [availableHours]);
 
     const handleConfirm = async () => {
         if (!firestore || !appointment) return;
@@ -115,7 +146,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
                 <div className="flex-1 overflow-y-auto bg-white p-4 sm:p-8 space-y-8 max-h-[60dvh]">
                     <div className="flex gap-4 overflow-x-auto pb-4">{availableDates.map(day => (<button key={day.date.toISOString()} onClick={() => setSelectedDate(day.date)} className={cn("p-4 rounded-3xl border-2 transition-all shrink-0 w-24 sm:w-28 text-center", isSameDay(selectedDate, day.date) ? 'bg-primary/5 border-primary' : 'bg-background hover:bg-muted border-slate-100')}><p className="text-[10px] font-bold uppercase">{day.dayName}</p><p className="text-xl font-bold font-headline">{format(day.date, "dd")}</p></button>))}</div>
                     <div className="grid grid-cols-3 gap-2 sm:gap-3 p-4 border-2 rounded-2xl bg-slate-50">
-                        <Select value={selectedHour} onValueChange={setSelectedHour}><SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger><SelectContent>{availableHours.map(h=><SelectItem key={h} value={h}>{h}</SelectItem>)}</SelectContent></Select>
+                        <Select value={selectedHour} onValueChange={setSelectedHour}><SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger><SelectContent className="max-h-[200px]">{availableHours.map(h=><SelectItem key={h} value={h}>{h}</SelectItem>)}</SelectContent></Select>
                         <Select value={selectedMinute} onValueChange={setSelectedMinute}><SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger><SelectContent>{['00','15','30','45'].map(m=><SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select>
                         <Select value={selectedPeriod} onValueChange={setSelectedPeriod}><SelectTrigger className="h-10 text-xs"><SelectValue /></SelectTrigger><SelectContent>{availablePeriods.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select>
                     </div>

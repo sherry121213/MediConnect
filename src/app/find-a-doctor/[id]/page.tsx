@@ -115,12 +115,12 @@ export default function DoctorDetailPage() {
     }, [isToday, currentPeriod]);
 
     const availableHours = useMemo(() => {
-        // Shift constraints: AM (10, 11), PM (12, 02-09). Skip 01 PM for break.
+        // Shift constraints: AM (10, 11), PM (12, 02-08). Break at 01 PM. Shift ends at 09 PM (so last hour is 08 PM).
         let filtered = [];
         if (selectedPeriod === 'AM') {
             filtered = ["10", "11"];
         } else {
-            filtered = ["12", "02", "03", "04", "05", "06", "07", "08", "09"];
+            filtered = ["12", "02", "03", "04", "05", "06", "07", "08"];
         }
 
         if (!isToday) return filtered;
@@ -150,7 +150,7 @@ export default function DoctorDetailPage() {
     useEffect(() => {
         if (mounted) {
             if (!availablePeriods.includes(selectedPeriod)) setSelectedPeriod(availablePeriods[0]);
-            if (!availableHours.includes(selectedHour)) setSelectedHour(availableHours[0] || "10");
+            if (!availableHours.includes(selectedHour)) setSelectedHour(availableHours[0] || (selectedPeriod === 'AM' ? "10" : "12"));
             if (!availableMinutes.includes(selectedMinute)) setSelectedMinute(availableMinutes[0] || "00");
         }
     }, [isToday, availablePeriods, availableHours, availableMinutes, selectedPeriod, selectedHour, selectedMinute, mounted]);
