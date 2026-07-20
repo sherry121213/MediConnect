@@ -147,21 +147,20 @@ export default function SupportMessenger() {
   if (!user || !userData || isConsultationRoom) return null;
 
   return (
-    <div className="fixed bottom-4 right-4 z-[100] flex flex-col items-end pointer-events-none overscroll-none">
+    <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end pointer-events-none overscroll-none">
       {isOpen && (
         <Card className={cn(
-          "w-[calc(100vw-2rem)] sm:w-[380px] mb-3 shadow-[0_10px_50px_-10px_rgba(0,0,0,0.2)] border-none overflow-hidden transition-all duration-300 ease-out pointer-events-auto flex flex-col bg-white rounded-[2rem] origin-bottom-right",
-          isMinimized ? "h-14" : "h-[65dvh] sm:h-[500px] animate-in slide-in-from-bottom-2 zoom-in-95"
+          "w-[calc(100vw-2rem)] sm:w-[380px] mb-4 shadow-2xl border-none overflow-hidden transition-all duration-300 pointer-events-auto flex flex-col bg-white rounded-[2.5rem] origin-bottom-right",
+          isMinimized ? "h-14" : "h-[60dvh] sm:h-[500px] animate-in slide-in-from-bottom-2 zoom-in-95"
         )}>
-          {/* Header */}
           <CardHeader className="bg-slate-950 text-white p-4 flex flex-row items-center justify-between space-y-0 cursor-pointer shrink-0 border-b border-white/5" onClick={() => setIsMinimized(!isMinimized)}>
             <div className="flex items-center gap-3">
               <div className="h-8 w-8 rounded-xl bg-primary/20 flex items-center justify-center shrink-0 border border-primary/30">
                 <ShieldCheck className="h-4 w-4 text-primary" />
               </div>
-              <div className="min-w-0">
-                <CardTitle className="text-xs font-bold truncate font-headline tracking-tight uppercase">Support Link</CardTitle>
-                {!isMinimized && <p className="text-[7px] text-slate-500 uppercase tracking-[0.2em] font-bold">Secure Precision Connection</p>}
+              <div>
+                <CardTitle className="text-[10px] font-bold truncate uppercase tracking-widest">Support Link</CardTitle>
+                {!isMinimized && <p className="text-[7px] text-slate-500 uppercase tracking-[0.2em] font-bold">Secure Connection</p>}
               </div>
             </div>
             <div className="flex items-center gap-1 shrink-0">
@@ -176,34 +175,22 @@ export default function SupportMessenger() {
 
           {!isMinimized && (
             <>
-              <CardContent className="flex-1 overflow-hidden p-0 flex flex-col bg-slate-50/50">
+              <CardContent className="flex-1 overflow-hidden p-0 flex flex-col bg-slate-50/30">
                 {userData.role === 'admin' && !activeSessionId ? (
                    <div className="flex flex-col h-full">
                       <div className="flex bg-white shrink-0 p-1.5 gap-1 border-b">
-                        <button 
-                            onClick={() => setAdminCategory('patients')}
-                            className={cn("flex-1 py-2 text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all rounded-xl", adminCategory === 'patients' ? "bg-primary text-white" : "text-slate-400 hover:bg-slate-50")}
-                        >
+                        <button onClick={() => setAdminCategory('patients')} className={cn("flex-1 py-2 text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 rounded-xl transition-all", adminCategory === 'patients' ? "bg-primary text-white" : "text-slate-400 hover:bg-slate-50")}>
                             <Users className="h-3 w-3" /> Patients
                         </button>
-                        <button 
-                            onClick={() => setAdminCategory('doctors')}
-                            className={cn("flex-1 py-2 text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 transition-all rounded-xl", adminCategory === 'doctors' ? "bg-primary text-white" : "text-slate-400 hover:bg-slate-50")}
-                        >
+                        <button onClick={() => setAdminCategory('doctors')} className={cn("flex-1 py-2 text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 rounded-xl transition-all", adminCategory === 'doctors' ? "bg-primary text-white" : "text-slate-400 hover:bg-slate-50")}>
                             <Stethoscope className="h-3 w-3" /> Providers
                         </button>
                       </div>
-                      <div className="p-3 space-y-2 overflow-y-auto flex-1 custom-scrollbar overscroll-contain">
+                      <div className="p-3 space-y-2 overflow-y-auto flex-1 custom-scrollbar">
                         {adminCategory === 'patients' ? (
                             patientSessions?.map(s => <SessionItem key={s.id} session={s} onClick={() => setActiveSessionId(s.id)} isActive={activeSessionId === s.id} isDoctor={false} />)
                         ) : (
                             doctorSessions?.map(s => <SessionItem key={s.id} session={s} onClick={() => setActiveSessionId(s.id)} isActive={activeSessionId === s.id} isDoctor={true} />)
-                        )}
-                        {((adminCategory === 'patients' && !patientSessions?.length) || (adminCategory === 'doctors' && !doctorSessions?.length)) && (
-                            <div className="py-20 text-center italic text-muted-foreground text-[10px] px-8 space-y-4 opacity-40">
-                                <MessageSquare className="h-8 w-8 mx-auto" />
-                                <p className="font-bold uppercase tracking-widest">No Active Queries</p>
-                            </div>
                         )}
                       </div>
                    </div>
@@ -211,40 +198,22 @@ export default function SupportMessenger() {
                   <div className="flex flex-col h-full">
                     {userData.role === 'admin' && (
                        <div className="p-2 border-b bg-white flex items-center justify-between shrink-0">
-                         <Button variant="ghost" size="sm" className="text-[8px] font-bold uppercase h-7 px-3 rounded-lg border hover:bg-slate-50" onClick={() => setActiveSessionId(null)}>
-                           ← Back
-                         </Button>
-                         <Badge variant="outline" className="text-[7px] uppercase font-bold border-primary/20 text-primary bg-primary/5 px-2 py-0.5 rounded-full">
-                            {adminCategory === 'patients' ? 'Patient' : 'Provider'}
-                         </Badge>
+                         <Button variant="ghost" size="sm" className="text-[8px] font-bold uppercase h-7 px-3 rounded-lg border hover:bg-slate-50" onClick={() => setActiveSessionId(null)}>← Back</Button>
+                         <Badge variant="outline" className="text-[7px] uppercase font-bold border-primary/20 text-primary bg-primary/5 px-2 py-0.5 rounded-full">{adminCategory === 'patients' ? 'Patient' : 'Provider'}</Badge>
                        </div>
                     )}
-                    <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-white/30 overscroll-contain">
+                    <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-white/50">
                         {messages && messages.map((m: any) => {
                         const isMe = m.senderId === user.uid;
                         return (
                             <div key={m.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
-                            <div className={cn(
-                                "max-w-[85%] p-3 rounded-[1.25rem] text-[12px] shadow-sm leading-relaxed",
-                                isMe ? "bg-primary text-white rounded-br-none" : "bg-white text-slate-800 rounded-bl-none border"
-                            )}>
+                            <div className={cn("max-w-[85%] p-3 rounded-2xl text-[12px] shadow-sm leading-relaxed", isMe ? "bg-primary text-white rounded-br-none" : "bg-white text-slate-800 rounded-bl-none border")}>
                                 {m.content || m.text}
                             </div>
-                            <span className="text-[7px] text-slate-400 mt-1 font-bold uppercase tracking-widest">
-                                {m.timestamp ? format(new Date(m.timestamp), "p") : ''}
-                            </span>
+                            <span className="text-[7px] text-slate-400 mt-1 font-bold uppercase tracking-widest">{m.timestamp ? format(new Date(m.timestamp), "p") : ''}</span>
                             </div>
                         );
                         })}
-                        {(!messages || messages.length === 0) && !isLoadingMessages && (
-                        <div className="h-full flex flex-col items-center justify-center text-center p-8 space-y-4 opacity-60">
-                            <ShieldCheck className="h-8 w-8 text-primary opacity-20" />
-                            <div className="space-y-1">
-                                <p className="text-[9px] text-slate-900 font-bold uppercase tracking-widest">Encrypted Session</p>
-                                <p className="text-[9px] text-slate-400 leading-relaxed italic">Direct line to our support team is now open.</p>
-                            </div>
-                        </div>
-                        )}
                         <div ref={chatScrollRef} />
                     </div>
                   </div>
@@ -254,15 +223,8 @@ export default function SupportMessenger() {
               {(userData.role !== 'admin' || activeSessionId) && (
                 <CardFooter className="p-3 border-t bg-white shrink-0">
                   <form onSubmit={handleSendMessage} className="w-full flex gap-2">
-                    <Input 
-                      placeholder="Type message..." 
-                      className="flex-1 bg-slate-50 border-none h-10 text-xs rounded-xl px-4 focus-visible:ring-primary shadow-inner"
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                    />
-                    <Button type="submit" disabled={!newMessage.trim()} className="bg-primary hover:bg-primary/90 h-10 w-10 p-0 rounded-xl shrink-0 shadow-lg shadow-primary/20">
-                      <Send className="h-4 w-4 text-white" />
-                    </Button>
+                    <Input placeholder="Secure message..." className="flex-1 bg-slate-50 border-none h-11 text-xs rounded-xl px-4" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
+                    <Button type="submit" disabled={!newMessage.trim()} className="bg-primary hover:bg-primary/90 h-11 w-11 p-0 rounded-xl shrink-0"><Send className="h-4 w-4 text-white" /></Button>
                   </form>
                 </CardFooter>
               )}
@@ -271,18 +233,13 @@ export default function SupportMessenger() {
         </Card>
       )}
 
-      <Button 
-        onClick={() => setIsOpen(!isOpen)}
-        className={cn(
-          "h-14 w-14 rounded-2xl shadow-xl pointer-events-auto transition-all hover:scale-105 active:scale-95 border-4 border-white animate-in slide-in-from-bottom-4",
-          isOpen ? "bg-slate-950" : "bg-primary"
-        )}
-      >
-        {isOpen ? <Minimize2 className="h-6 w-6 text-white" /> : <MessageCircle className="h-6 w-6 text-white" />}
+      <Button onClick={() => setIsOpen(!isOpen)} className={cn("h-16 w-16 rounded-[1.5rem] shadow-2xl pointer-events-auto transition-all hover:scale-105 active:scale-95 border-4 border-white animate-in slide-in-from-bottom-4", isOpen ? "bg-slate-950" : "bg-primary")}>
+        {isOpen ? <Minimize2 className="h-7 w-7 text-white" /> : <MessageSquare className="h-7 w-7 text-white" />}
         {!isOpen && userData?.role === 'admin' && (patientSessions?.some(s => s.unreadByAdmin) || doctorSessions?.some(s => s.lastMessageSenderRole === 'doctor')) && (
-          <span className="absolute -top-1 -right-1 h-5 w-5 bg-red-500 rounded-full border-4 border-white animate-pulse flex items-center justify-center text-[8px] font-bold text-white shadow-lg">!</span>
+          <span className="absolute -top-1 -right-1 h-6 w-6 bg-red-500 rounded-full border-4 border-white animate-pulse flex items-center justify-center text-[10px] font-bold text-white">!</span>
         )}
       </Button>
     </div>
   );
 }
+
