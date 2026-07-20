@@ -7,7 +7,7 @@ import DoctorCard from '@/components/doctor-card';
 import { specialties } from '@/lib/data';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, MapPin, Loader2, X, AlertCircle, Filter, Users, Star, Clock } from 'lucide-react';
+import { Search, MapPin, Loader2, X, AlertCircle, Filter, Users, Star, Clock, User } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import type { Doctor } from '@/lib/types';
@@ -20,6 +20,7 @@ import { cn } from '@/lib/utils';
 const locations = ["Islamabad", "Rawalpindi", "Lahore", "Karachi", "Peshawar", "Faisalabad", "Multan", "Quetta"];
 
 const filterPills = [
+    { id: 'female', label: "Female Doctors", icon: User },
     { id: 'near', label: "Doctors Near Me", icon: MapPin },
     { id: 'exp', label: "Most Experienced", icon: Star },
     { id: 'today', label: "Available Today", icon: Clock },
@@ -98,8 +99,9 @@ export default function FindADoctorPage() {
       
       // Additional filter pill logic
       const experienceMatch = activeFilterId === 'exp' ? (doctor.experience || 0) >= 10 : true;
+      const genderMatch = activeFilterId === 'female' ? doctor.gender === 'female' : true;
 
-      return nameMatch && specialtyMatch && locationMatch && experienceMatch;
+      return nameMatch && specialtyMatch && locationMatch && experienceMatch && genderMatch;
     });
   }, [doctors, searchTerm, selectedSpecialty, selectedLocation, activeFilterId]);
   
