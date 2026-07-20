@@ -117,10 +117,10 @@ export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardPr
                         <Video className="h-5 w-5" />
                     </div>
                     <div>
-                        <p className="text-xs font-bold text-slate-900">Online Video Consultation</p>
+                        <p className="text-xs font-bold text-slate-900">Online Consultation</p>
                         <div className="flex items-center gap-1.5 mt-0.5">
                             <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-                            <span className="text-[9px] font-bold uppercase text-green-600">Online</span>
+                            <span className="text-[9px] font-bold uppercase text-green-600">Online Now</span>
                         </div>
                     </div>
                 </div>
@@ -147,11 +147,8 @@ export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardPr
         </div>
 
         {/* Action Footer */}
-        <div className="flex gap-3 pt-2">
-            <Button variant="outline" className="flex-1 h-12 rounded-xl border-2 font-bold text-xs gap-2 group" onClick={handleBookAppointment}>
-                <Video className="h-4 w-4 text-primary group-hover:scale-110 transition-transform" /> Video Consult
-            </Button>
-            <Button className="flex-1 h-12 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs shadow-lg shadow-primary/20" onClick={handleBookAppointment}>
+        <div className="pt-2">
+            <Button className="w-full h-12 rounded-xl bg-primary hover:bg-primary/90 text-white font-bold text-xs shadow-lg shadow-primary/20" onClick={handleBookAppointment}>
                 Book Appointment
             </Button>
         </div>

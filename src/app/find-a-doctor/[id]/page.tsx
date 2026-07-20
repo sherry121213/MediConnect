@@ -451,6 +451,44 @@ export default function DoctorDetailPage() {
                                         </div>
                                     </div>
 
+                                    <div>
+                                        <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6 flex items-center gap-3">
+                                            <div className="h-1 w-6 bg-primary rounded-full" /> Step 3: Consultation Mode
+                                        </h4>
+                                        <div className="flex flex-col sm:flex-row gap-4">
+                                            <button 
+                                                onClick={() => setAppointmentType('Video Call')}
+                                                className={cn(
+                                                    "flex-1 p-6 rounded-[2rem] border-2 transition-all flex items-center gap-4 group",
+                                                    appointmentType === 'Video Call' ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 bg-white hover:border-slate-200"
+                                                )}
+                                            >
+                                                <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center transition-colors", appointmentType === 'Video Call' ? "bg-primary text-white" : "bg-slate-100 text-slate-400 group-hover:bg-slate-200")}>
+                                                    <Video className="h-5 w-5" />
+                                                </div>
+                                                <div className="text-left">
+                                                    <p className="font-bold text-sm">Video Consultation</p>
+                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">HD Video Call</p>
+                                                </div>
+                                            </button>
+                                            <button 
+                                                onClick={() => setAppointmentType('Audio Call')}
+                                                className={cn(
+                                                    "flex-1 p-6 rounded-[2rem] border-2 transition-all flex items-center gap-4 group",
+                                                    appointmentType === 'Audio Call' ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 bg-white hover:border-slate-200"
+                                                )}
+                                            >
+                                                <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center transition-colors", appointmentType === 'Audio Call' ? "bg-primary text-white" : "bg-slate-100 text-slate-400 group-hover:bg-slate-200")}>
+                                                    <PhoneCall className="h-5 w-5" />
+                                                </div>
+                                                <div className="text-left">
+                                                    <p className="font-bold text-sm">Audio Consultation</p>
+                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Voice Call Only</p>
+                                                </div>
+                                            </button>
+                                        </div>
+                                    </div>
+
                                     <div className="pt-6">
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
