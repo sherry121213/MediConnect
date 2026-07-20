@@ -101,46 +101,46 @@ export default function AdminSpecificChatPage() {
   if (isLoadingSession) return <div className="flex h-[100dvh] items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   return (
-    <div className="p-4 md:p-8 flex flex-col h-[100dvh] space-y-4 overscroll-none overflow-hidden">
+    <div className="p-4 md:p-8 flex flex-col h-[100dvh] max-h-[100dvh] space-y-4 overflow-hidden bg-slate-50">
       <div className="shrink-0 flex items-center justify-between">
-        <Button variant="ghost" onClick={() => router.push('/admin/chats')} className="w-fit h-10 px-2 sm:px-4">
-            <ArrowLeft className="mr-2 h-4 w-4" /> <span className="text-xs sm:text-sm">Back to Messages</span>
+        <Button variant="ghost" onClick={() => router.push('/admin/chats')} className="w-fit h-10 px-4 rounded-xl border bg-white shadow-sm font-bold">
+            <ArrowLeft className="mr-2 h-4 w-4" /> <span className="text-sm">Support Center</span>
         </Button>
       </div>
 
-      <div className="flex-1 flex gap-6 overflow-hidden flex-col lg:flex-row">
-        {/* Chat Area */}
-        <Card className="flex-1 flex flex-col shadow-xl border-none overflow-hidden bg-white rounded-2xl min-h-0">
-            <CardHeader className="bg-slate-900 text-white p-4 shrink-0">
-            <div className="flex items-center gap-3">
-                <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-slate-700 flex items-center justify-center text-white font-bold text-lg sm:text-xl shrink-0">
-                {doctor ? doctor.firstName[0] : <User className="h-5 w-5 sm:h-6 sm:w-6" />}
+      <div className="flex-1 flex gap-6 overflow-hidden flex-col lg:flex-row min-h-0">
+        {/* Chat Area - Manageable Height */}
+        <Card className="flex-1 flex flex-col shadow-2xl border-none overflow-hidden bg-white rounded-[2.5rem] min-h-0">
+            <CardHeader className="bg-slate-950 text-white p-5 shrink-0">
+            <div className="flex items-center gap-4">
+                <div className="h-12 w-12 rounded-2xl bg-slate-800 flex items-center justify-center text-white font-bold text-xl shrink-0 border border-white/5 shadow-inner">
+                {doctor ? doctor.firstName[0] : <User className="h-6 w-6" />}
                 </div>
                 <div className="min-w-0">
-                <CardTitle className="text-base sm:text-xl truncate">
+                <CardTitle className="text-lg font-headline truncate">
                     {doctor ? `Dr. ${doctor.firstName} ${doctor.lastName}` : 'Doctor'}
                 </CardTitle>
-                <div className="flex items-center gap-1 text-[9px] text-slate-400 uppercase font-bold tracking-tighter">
-                    <ShieldCheck className="h-2.5 w-2.5" /> Secure Administrative Session
+                <div className="flex items-center gap-1 text-[9px] text-slate-500 uppercase font-bold tracking-widest">
+                    <ShieldCheck className="h-2.5 w-2.5" /> Clinical Support Line
                 </div>
                 </div>
             </div>
             </CardHeader>
 
-            <CardContent className="flex-1 overflow-y-auto p-4 sm:p-6 bg-slate-50 custom-scrollbar space-y-4 overscroll-contain">
+            <CardContent className="flex-1 overflow-y-auto p-6 bg-slate-50 custom-scrollbar space-y-4 overscroll-contain">
             {isLoadingMessages ? (
-                <div className="h-full flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
+                <div className="h-full flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary/30" /></div>
             ) : messages && messages.length > 0 ? (
                 messages.sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((msg: any) => {
                 const isMe = msg.senderRole === 'admin';
                 return (
                     <div key={msg.id} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
                     <div className={cn(
-                        "max-w-[85%] sm:max-w-[70%] p-3 sm:p-4 rounded-2xl text-xs sm:text-sm shadow-sm",
-                        isMe ? "bg-slate-800 text-white rounded-br-none" : "bg-white border rounded-bl-none"
+                        "max-w-[85%] sm:max-w-[70%] p-4 rounded-[1.5rem] text-[13px] shadow-sm leading-relaxed",
+                        isMe ? "bg-slate-900 text-white rounded-br-none" : "bg-white border border-slate-200 text-slate-800 rounded-bl-none"
                     )}>
-                        <p className="leading-relaxed">{msg.content}</p>
-                        <p className={cn("text-[9px] mt-1 opacity-50", isMe ? "text-right" : "")}>
+                        <p>{msg.content}</p>
+                        <p className={cn("text-[8px] mt-2 font-bold uppercase tracking-widest opacity-40", isMe ? "text-right" : "")}>
                         {format(new Date(msg.timestamp), "p")}
                         </p>
                     </div>
@@ -148,75 +148,81 @@ export default function AdminSpecificChatPage() {
                 );
                 })
             ) : (
-                <div className="h-full flex flex-col items-center justify-center text-muted-foreground italic text-xs">
-                <p>No messages yet.</p>
+                <div className="h-full flex flex-col items-center justify-center text-muted-foreground italic text-xs space-y-2 opacity-50">
+                    <AlertCircle className="h-8 w-8 opacity-20" />
+                    <p>Encryption established. No messages found.</p>
                 </div>
             )}
             <div ref={scrollRef} />
             </CardContent>
 
-            <CardFooter className="p-3 sm:p-4 border-t bg-white shrink-0">
-            <form onSubmit={handleSendMessage} className="w-full flex gap-2 sm:gap-3">
+            <CardFooter className="p-4 border-t bg-white shrink-0">
+            <form onSubmit={handleSendMessage} className="w-full flex gap-3">
                 <Input 
-                placeholder="Type response..." 
+                placeholder="Secure response..." 
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                className="flex-1 bg-slate-50 border-slate-200 h-11 sm:h-10 text-xs sm:text-sm"
+                className="flex-1 bg-slate-50 border-none h-12 px-5 text-sm rounded-2xl shadow-inner focus-visible:ring-primary"
                 />
-                <Button type="submit" disabled={!newMessage.trim()} className="bg-slate-900 hover:bg-slate-800 px-4 sm:px-8 h-11 sm:h-10">
-                <Send className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Reply</span>
+                <Button type="submit" disabled={!newMessage.trim()} className="bg-slate-950 hover:bg-slate-900 px-6 rounded-2xl h-12 shadow-lg shadow-slate-100">
+                <Send className="h-4 w-4 mr-2" /> <span>Reply</span>
                 </Button>
             </form>
             </CardFooter>
         </Card>
 
-        {/* Sidebar for Emergency Actions */}
-        <div className="shrink-0 w-full lg:w-80 space-y-4 lg:space-y-6 lg:overflow-y-auto custom-scrollbar">
-            <Card className="border-none shadow-lg overflow-hidden rounded-2xl">
-                <CardHeader className="bg-primary/5 py-3 px-4">
-                    <CardTitle className="text-xs sm:text-sm font-bold flex items-center gap-2 uppercase tracking-tighter">
-                        <AlertCircle className="h-4 w-4 text-primary" /> Clinical Actions
+        {/* Sidebar for Emergency Actions - Fixed Width */}
+        <div className="shrink-0 w-full lg:w-80 space-y-6 overflow-hidden flex flex-col min-h-0">
+            <Card className="border-none shadow-xl overflow-hidden rounded-[2rem] bg-white">
+                <CardHeader className="bg-primary/5 py-4 px-5 border-b">
+                    <CardTitle className="text-[10px] font-bold flex items-center gap-2 uppercase tracking-[0.2em] text-primary">
+                        <AlertCircle className="h-4 w-4" /> Priority Actions
                     </CardTitle>
                 </CardHeader>
-                <CardContent className="p-4 space-y-4">
-                    <div>
-                        <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-3 opacity-60">Pending Emergency Requests</p>
+                <CardContent className="p-5 overflow-y-auto max-h-[400px] custom-scrollbar">
+                    <div className="space-y-4">
+                        <p className="text-[9px] font-bold text-muted-foreground uppercase tracking-widest opacity-60">Pending Unavailability</p>
                         {pendingRequests && pendingRequests.length > 0 ? (
-                            <div className="space-y-3 max-h-[200px] lg:max-h-none overflow-y-auto pr-1">
+                            <div className="space-y-3">
                                 {pendingRequests.map((req: any) => (
-                                    <div key={req.id} className="p-3 bg-muted/30 rounded-xl border text-[11px] space-y-2 hover:bg-muted/50 transition-colors">
+                                    <div key={req.id} className="p-4 bg-slate-50 rounded-2xl border-2 border-slate-100 space-y-3 hover:border-primary/20 transition-all">
                                         <div className="flex justify-between items-start">
-                                            <Badge variant="outline" className="text-[9px] bg-white font-bold h-4">
+                                            <Badge variant="outline" className="text-[9px] bg-white font-bold h-5 border-slate-200">
                                                 {format(new Date(req.requestedDate), "MMM dd")}
                                             </Badge>
-                                            {req.isEmergency && <Badge className="bg-red-500 text-[8px] h-4 font-bold">EMERGENCY</Badge>}
+                                            {req.isEmergency && <Badge className="bg-red-500 text-[8px] h-5 font-bold uppercase animate-pulse">Emergency</Badge>}
                                         </div>
-                                        <p className="italic text-muted-foreground line-clamp-2 leading-tight">{req.reason}</p>
+                                        <p className="text-[11px] text-slate-600 italic leading-relaxed line-clamp-3">"{req.reason}"</p>
                                         <Button 
                                             size="sm" 
-                                            className="w-full h-8 text-[10px] font-bold rounded-lg"
+                                            className="w-full h-9 text-[10px] font-bold rounded-xl shadow-md"
                                             onClick={() => handleApproveLeave(req.id)}
                                         >
-                                            <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Approve Absence
+                                            <CheckCircle2 className="h-3.5 w-3.5 mr-1.5" /> Approve Pause
                                         </Button>
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <p className="text-xs text-muted-foreground italic text-center py-6 bg-muted/20 rounded-xl border border-dashed">
-                                No pending leave requests.
-                            </p>
+                            <div className="text-center py-10 bg-slate-50/50 rounded-[1.5rem] border-2 border-dashed border-slate-100">
+                                <p className="text-[10px] text-slate-400 font-medium italic">No pending leave requests.</p>
+                            </div>
                         )}
                     </div>
                 </CardContent>
             </Card>
 
-            <Card className="bg-slate-900 text-white border-none shadow-lg rounded-2xl hidden lg:block">
-                <CardContent className="p-5 space-y-3">
-                    <h4 className="text-xs font-bold uppercase text-slate-400 tracking-widest">Context Panel</h4>
-                    <p className="text-[11px] leading-relaxed text-slate-400 italic">
-                        Use this area to approve immediate clinical pauses discussed in chat. Approval instantly blocks the doctor's calendar to prevent further patient bookings on that date.
-                    </p>
+            <Card className="bg-slate-950 text-white border-none shadow-2xl rounded-[2rem] hidden lg:block overflow-hidden">
+                <CardContent className="p-6 space-y-4">
+                    <div className="h-10 w-10 rounded-2xl bg-white/5 flex items-center justify-center text-primary">
+                        <ShieldCheck className="h-6 w-6" />
+                    </div>
+                    <div className="space-y-2">
+                        <h4 className="text-[10px] font-bold uppercase text-slate-500 tracking-[0.2em]">Clinical Context</h4>
+                        <p className="text-[11px] leading-relaxed text-slate-400 italic">
+                            Approved absences immediately block the provider's precision booking engine. Existing patient sessions for these dates must be shifted manually via the timeline.
+                        </p>
+                    </div>
                 </CardContent>
             </Card>
         </div>

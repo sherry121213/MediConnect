@@ -6,7 +6,7 @@ import { collection, query, where, doc, addDoc, setDoc } from 'firebase/firestor
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, Shield, MessageSquare, Siren, Clock, Calendar as CalendarIcon } from 'lucide-react';
+import { Loader2, Send, Shield, MessageSquare, Siren, Clock, Calendar as CalendarIcon, ShieldCheck } from 'lucide-react';
 import { format, addDays, startOfDay } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
@@ -138,51 +138,51 @@ export default function DoctorChatPage() {
   };
 
   return (
-    <main className="flex-grow bg-secondary/30 py-4 sm:py-8 h-[calc(100dvh-5rem)] sm:h-[calc(100dvh-8rem)] flex flex-col overflow-hidden overscroll-none">
+    <main className="flex-grow bg-slate-50/50 py-4 sm:py-8 min-h-screen flex flex-col overflow-hidden">
       <div className="container mx-auto px-4 max-w-4xl flex-1 flex flex-col min-h-0">
-        <Card className="flex-1 flex flex-col shadow-xl overflow-hidden border-none min-h-0">
-          <CardHeader className="bg-slate-900 text-white p-4 shrink-0">
+        <Card className="flex-1 flex flex-col shadow-2xl overflow-hidden border-none rounded-[2.5rem] bg-white min-h-[500px] max-h-[calc(100dvh-10rem)] sm:max-h-[700px]">
+          <CardHeader className="bg-slate-950 text-white p-5 shrink-0">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3 min-w-0">
-                <div className="p-2 bg-white/20 rounded-full shrink-0">
-                  <Shield className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="p-2.5 bg-primary/10 rounded-2xl border border-primary/20 shrink-0 shadow-inner">
+                  <ShieldCheck className="h-6 w-6 text-primary" />
                 </div>
                 <div className="min-w-0">
-                  <CardTitle className="text-sm sm:text-xl truncate">Administrative Support</CardTitle>
-                  <p className="text-[9px] sm:text-xs text-slate-400 truncate">Direct line to Mediconnect Admins</p>
+                  <CardTitle className="text-base sm:text-xl font-headline tracking-tight">Admin Support</CardTitle>
+                  <p className="text-[9px] sm:text-[10px] text-slate-500 uppercase tracking-widest font-bold">Direct Provider Access</p>
                 </div>
               </div>
               
               <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
                 <DialogTrigger asChild>
-                    <Button variant="destructive" size="sm" className="font-bold gap-2 shrink-0 h-8 sm:h-10 text-[10px] sm:text-sm px-2 sm:px-4">
-                        <Siren className="h-3.5 w-3.5" /> <span className="hidden xs:inline">Emergency Off</span><span className="xs:hidden">Off</span>
+                    <Button variant="destructive" size="sm" className="font-bold gap-2 shrink-0 h-10 text-[10px] sm:text-xs rounded-xl shadow-lg shadow-red-900/20">
+                        <Siren className="h-4 w-4" /> <span className="hidden xs:inline">Emergency Pause</span><span className="xs:hidden">Off</span>
                     </Button>
                 </DialogTrigger>
-                <DialogContent className="w-[95vw] sm:max-w-[450px] rounded-[2rem] border-none shadow-2xl">
-                    <DialogHeader>
-                        <DialogTitle className="text-lg font-headline">Emergency Absence Application</DialogTitle>
-                        <DialogDescription className="text-xs">
-                            File an urgent clinical pause. Note: Policy requires leave to be logged at least 24h in advance.
+                <DialogContent className="w-[95vw] sm:max-w-[450px] rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
+                    <div className="bg-red-600 p-6 text-white text-center space-y-1">
+                        <DialogTitle className="text-xl font-headline">Clinical Emergency</DialogTitle>
+                        <DialogDescription className="text-red-100 text-xs font-medium">
+                            Log an urgent clinical or personal pause.
                         </DialogDescription>
-                    </DialogHeader>
-                    <div className="space-y-4 py-4 max-h-[60dvh] overflow-y-auto pr-2 custom-scrollbar">
-                        <div className="space-y-2">
-                            <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Step 1: Pick Clinical Date</Label>
+                    </div>
+                    <div className="p-6 sm:p-8 space-y-6 max-h-[60dvh] overflow-y-auto custom-scrollbar bg-white">
+                        <div className="space-y-3">
+                            <Label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest ml-1">Proposed Absence Date</Label>
                             <Popover>
                                 <PopoverTrigger asChild>
                                     <Button
                                         variant={"outline"}
                                         className={cn(
-                                            "w-full justify-start text-left font-normal h-12 rounded-xl border-2",
-                                            !requestedDate && "text-muted-foreground"
+                                            "w-full justify-start text-left font-bold h-14 rounded-2xl border-2 transition-all",
+                                            !requestedDate ? "text-muted-foreground" : "border-slate-100 hover:border-primary/30"
                                         )}
                                     >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                        <CalendarIcon className="mr-3 h-5 w-5 text-primary" />
                                         {requestedDate ? format(requestedDate, "PPP") : <span>Select date</span>}
                                     </Button>
                                 </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
+                                <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl" align="start">
                                     <Calendar
                                         mode="single"
                                         selected={requestedDate}
@@ -194,30 +194,30 @@ export default function DoctorChatPage() {
                             </Popover>
                         </div>
 
-                        <div className="space-y-2">
-                            <Label className="text-[10px] uppercase font-bold text-muted-foreground tracking-widest">Step 2: Emergency Context</Label>
+                        <div className="space-y-3">
+                            <Label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest ml-1">Urgent Context</Label>
                             <Textarea 
-                                placeholder="Detail the urgent clinical or personal reason for this pause..." 
+                                placeholder="Detail why you need an immediate pause..." 
                                 value={emergencyReason}
                                 onChange={(e) => setEmergencyReason(e.target.value)}
                                 rows={4}
-                                className="resize-none rounded-xl border-2 text-sm"
+                                className="resize-none rounded-2xl border-2 text-sm p-4 focus-visible:ring-primary transition-colors"
                             />
                         </div>
 
-                        <div className="p-3 bg-amber-50 text-amber-800 rounded-lg text-[10px] font-medium border border-amber-200 flex gap-2">
-                            <Clock className="h-4 w-4 shrink-0" />
-                            Same-day automated leave is blocked for patient safety. Select tomorrow or later for review.
+                        <div className="p-4 bg-amber-50 text-amber-800 rounded-2xl text-[10px] font-bold border border-amber-100 flex gap-3 italic leading-relaxed">
+                            <Clock className="h-5 w-5 shrink-0 text-amber-600" />
+                            Policy: Automated booking locks are applied immediately upon admin approval of emergency requests.
                         </div>
                     </div>
-                    <DialogFooter className="gap-2 sm:gap-0">
-                        <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="flex-1 sm:flex-none">Cancel</Button>
+                    <DialogFooter className="p-6 sm:p-8 bg-slate-50 border-t flex flex-col sm:flex-row gap-3">
+                        <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="flex-1 rounded-2xl h-12 font-bold order-2 sm:order-1">Cancel</Button>
                         <Button 
                             onClick={handleSubmitEmergencyRequest} 
                             disabled={!emergencyReason.trim() || !requestedDate || isRequesting}
-                            className="bg-primary hover:bg-primary/90 font-bold flex-1 sm:flex-none"
+                            className="bg-red-600 hover:bg-red-700 font-bold flex-1 h-12 rounded-2xl shadow-xl shadow-red-100 order-1 sm:order-2"
                         >
-                            {isRequesting ? <Loader2 className="h-4 w-4 animate-spin" /> : "Submit to Admin"}
+                            {isRequesting ? <Loader2 className="h-4 w-4 animate-spin" /> : "File Emergency"}
                         </Button>
                     </DialogFooter>
                 </DialogContent>
@@ -225,10 +225,10 @@ export default function DoctorChatPage() {
             </div>
           </CardHeader>
           
-          <CardContent className="flex-1 overflow-y-auto p-4 sm:p-6 bg-white custom-scrollbar space-y-4 overscroll-contain">
+          <CardContent className="flex-1 overflow-y-auto p-6 sm:p-10 bg-slate-50/30 custom-scrollbar space-y-6 overscroll-contain">
             {isLoadingSession || isLoadingMessages ? (
               <div className="h-full flex items-center justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <Loader2 className="h-8 w-8 animate-spin text-primary/30" />
               </div>
             ) : messages && messages.length > 0 ? (
               messages.sort((a,b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()).map((msg: any) => {
@@ -236,11 +236,11 @@ export default function DoctorChatPage() {
                 return (
                   <div key={msg.id} className={cn("flex", isMe ? "justify-end" : "justify-start")}>
                     <div className={cn(
-                      "max-w-[85%] sm:max-w-[70%] p-3 rounded-2xl text-xs sm:text-sm shadow-sm",
-                      isMe ? "bg-slate-800 text-white rounded-br-none" : "bg-muted rounded-bl-none"
+                      "max-w-[85%] sm:max-w-[70%] p-4 rounded-3xl text-[13px] shadow-sm leading-relaxed",
+                      isMe ? "bg-slate-900 text-white rounded-br-none" : "bg-white border border-slate-200 text-slate-800 rounded-bl-none"
                     )}>
-                      <p className="leading-relaxed">{msg.content}</p>
-                      <p className={cn("text-[9px] mt-1 opacity-70", isMe ? "text-right" : "")}>
+                      <p>{msg.content}</p>
+                      <p className={cn("text-[8px] mt-2 font-bold uppercase tracking-widest opacity-40", isMe ? "text-right" : "")}>
                         {format(new Date(msg.timestamp), "p")}
                       </p>
                     </div>
@@ -248,24 +248,29 @@ export default function DoctorChatPage() {
                 );
               })
             ) : (
-              <div className="h-full flex flex-col items-center justify-center text-muted-foreground italic text-center p-8">
-                <MessageSquare className="h-12 w-12 opacity-10 mb-2" />
-                <p className="text-xs sm:text-sm">Start a conversation with our administrative team.</p>
+              <div className="h-full flex flex-col items-center justify-center text-muted-foreground italic text-center p-12 space-y-4">
+                <div className="h-16 w-16 rounded-[1.5rem] bg-slate-100 flex items-center justify-center">
+                    <MessageSquare className="h-8 w-8 opacity-20" />
+                </div>
+                <div className="space-y-1">
+                    <p className="text-xs font-bold uppercase tracking-widest opacity-40">Encryption Verified</p>
+                    <p className="text-[11px]">Start a conversation with our administrative team.</p>
+                </div>
               </div>
             )}
             <div ref={scrollRef} />
           </CardContent>
 
-          <CardFooter className="p-3 sm:p-4 border-t bg-muted/30 shrink-0">
-            <form onSubmit={handleSendMessage} className="w-full flex gap-2 sm:gap-3">
+          <CardFooter className="p-5 sm:p-8 border-t bg-white shrink-0">
+            <form onSubmit={handleSendMessage} className="w-full flex gap-3">
               <Input 
-                placeholder="Type your clinical query..." 
+                placeholder="Secure professional query..." 
                 value={newMessage}
                 onChange={(e) => setNewMessage(e.target.value)}
-                className="flex-1 bg-white border-none shadow-inner h-11 sm:h-12 text-sm rounded-xl"
+                className="flex-1 bg-slate-50 border-none h-14 text-sm rounded-2xl px-6 focus-visible:ring-primary shadow-inner"
               />
-              <Button type="submit" disabled={!newMessage.trim()} className="px-4 sm:px-6 bg-slate-900 hover:bg-slate-800 rounded-xl h-11 sm:h-12 shrink-0">
-                <Send className="h-4 w-4 sm:mr-2" /> <span className="hidden sm:inline">Send</span>
+              <Button type="submit" disabled={!newMessage.trim()} className="px-6 bg-slate-950 hover:bg-slate-900 rounded-2xl h-14 shrink-0 shadow-2xl shadow-slate-100">
+                <Send className="h-5 w-5" />
               </Button>
             </form>
           </CardFooter>
