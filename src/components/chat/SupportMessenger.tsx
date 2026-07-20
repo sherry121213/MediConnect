@@ -148,8 +148,8 @@ export default function SupportMessenger() {
     <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end pointer-events-none group">
       {isOpen && (
         <Card className={cn(
-          "w-[calc(100vw-3rem)] sm:w-[420px] mb-4 shadow-[0_20px_50px_rgba(0,0,0,0.2)] border-none overflow-hidden transition-all duration-500 ease-in-out pointer-events-auto flex flex-col bg-white rounded-[2.5rem] origin-bottom-right",
-          isMinimized ? "h-16" : "h-[65dvh] sm:h-[600px] max-h-[800px] animate-in slide-in-from-bottom-5 zoom-in-95"
+          "w-[90vw] sm:w-[400px] mb-4 shadow-[0_20px_60px_-15px_rgba(0,0,0,0.3)] border-none overflow-hidden transition-all duration-500 ease-in-out pointer-events-auto flex flex-col bg-white rounded-[2.5rem] origin-bottom-right",
+          isMinimized ? "h-16" : "h-[70dvh] sm:h-[550px] max-h-[700px] animate-in slide-in-from-bottom-5 zoom-in-95"
         )}>
           <CardHeader className="bg-slate-950 text-white p-5 flex flex-row items-center justify-between space-y-0 cursor-pointer shrink-0 border-b border-white/5" onClick={() => setIsMinimized(!isMinimized)}>
             <div className="flex items-center gap-4">
@@ -190,7 +190,7 @@ export default function SupportMessenger() {
                             <Stethoscope className="h-3.5 w-3.5" /> Providers
                         </button>
                       </div>
-                      <div className="p-4 space-y-3 overflow-y-auto flex-1 custom-scrollbar">
+                      <div className="p-4 space-y-3 overflow-y-auto flex-1 custom-scrollbar overscroll-contain">
                         {adminCategory === 'patients' ? (
                             patientSessions?.map(s => <SessionItem key={s.id} session={s} onClick={() => setActiveSessionId(s.id)} isActive={activeSessionId === s.id} isDoctor={false} />)
                         ) : (
@@ -209,7 +209,7 @@ export default function SupportMessenger() {
                 ) : (
                   <div className="flex flex-col h-full overflow-hidden">
                     {userData.role === 'admin' && (
-                       <div className="p-4 border-b bg-white flex items-center justify-between shrink-0 sticky top-0 z-10">
+                       <div className="p-4 border-b bg-white flex items-center justify-between shrink-0 sticky top-0 z-10 shadow-sm">
                          <Button variant="ghost" size="sm" className="text-[10px] font-bold uppercase h-9 px-4 rounded-xl border-2 hover:bg-slate-50 transition-all" onClick={() => setActiveSessionId(null)}>
                            ← Back to Record
                          </Button>
@@ -218,14 +218,14 @@ export default function SupportMessenger() {
                          </Badge>
                        </div>
                     )}
-                    <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-slate-50/30">
+                    <div className="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar bg-slate-50/30 overscroll-contain">
                         {messages && messages.map((m: any) => {
                         const isMe = m.senderId === user.uid;
                         return (
                             <div key={m.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
                             <div className={cn(
-                                "max-w-[85%] p-4 rounded-[1.75rem] text-[13px] shadow-sm leading-relaxed",
-                                isMe ? "bg-primary text-white rounded-bl-[1.75rem] rounded-br-none shadow-xl shadow-primary/10" : "bg-white text-slate-800 rounded-br-[1.75rem] rounded-bl-none border-2 border-slate-100"
+                                "max-w-[85%] p-4 rounded-[1.75rem] text-[13px] shadow-sm leading-relaxed transition-all",
+                                isMe ? "bg-primary text-white rounded-br-none shadow-lg shadow-primary/10" : "bg-white text-slate-800 rounded-bl-none border-2 border-slate-100"
                             )}>
                                 {m.content || m.text}
                             </div>
@@ -253,7 +253,7 @@ export default function SupportMessenger() {
               </CardContent>
 
               {(userData.role !== 'admin' || activeSessionId) && (
-                <CardFooter className="p-6 border-t bg-white shrink-0">
+                <CardFooter className="p-6 border-t bg-white shrink-0 shadow-[0_-4px_20px_-10px_rgba(0,0,0,0.05)]">
                   <form onSubmit={handleSendMessage} className="w-full flex gap-3">
                     <Input 
                       placeholder="Type secure message..." 
@@ -275,7 +275,7 @@ export default function SupportMessenger() {
       <Button 
         onClick={() => setIsOpen(!isOpen)}
         className={cn(
-          "h-16 w-16 rounded-[1.75rem] shadow-[0_15px_40px_rgba(0,0,0,0.15)] pointer-events-auto transition-all hover:scale-110 active:scale-90 border-4 border-white animate-in slide-in-from-bottom-10",
+          "h-16 w-16 rounded-[1.75rem] shadow-[0_15px_40px_rgba(0,0,0,0.2)] pointer-events-auto transition-all hover:scale-110 active:scale-90 border-4 border-white animate-in slide-in-from-bottom-10",
           isOpen ? "bg-slate-950" : "bg-primary"
         )}
       >
