@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, LogOut, Shield, LayoutDashboard, Bell, Siren, Clock, User as UserCircle, UserCog, Settings } from 'lucide-react';
+import { Menu, LogOut, Shield, LayoutDashboard, Bell, Siren, User as UserCircle, UserCog, Settings } from 'lucide-react';
 import Logo from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -143,7 +143,7 @@ export default function AppHeader() {
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur shadow-sm">
-      <div className="container flex h-20 items-center justify-between">
+      <div className="w-full px-4 sm:px-8 flex h-20 items-center justify-between">
         {/* Left side: Logo and Navigation */}
         <div className="flex items-center gap-12">
           <Logo />
@@ -197,7 +197,7 @@ export default function AppHeader() {
           )}
           
           <Sheet open={isMobileMenuOpen} onOpenChange={setMobileMenuOpen}>
-            <SheetTrigger asChild><Button variant="ghost" size="icon" className="md:hidden"><Menu className="h-6 w-6" /></Button></SheetTrigger>
+            <SheetTrigger asChild><Button variant="ghost" size="icon" className="md:hidden ml-2"><Menu className="h-6 w-6" /></Button></SheetTrigger>
             <SheetContent side="right" className="w-[300px] p-0 border-none rounded-l-[2rem] overflow-hidden">
               <SheetHeader className="p-8 pb-0">
                 <SheetTitle className="sr-only">Main Navigation</SheetTitle>

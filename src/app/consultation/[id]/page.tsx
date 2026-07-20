@@ -3,15 +3,15 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, setDoc, onSnapshot, addDoc, updateDoc, query } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, addDoc, updateDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, Clock, Siren, AlertTriangle, ClipboardCheck, CheckCircle2, User, Volume2 } from 'lucide-react';
-import { isValid, addMinutes, isAfter, differenceInSeconds } from 'date-fns';
+import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, Clock, Siren, AlertTriangle, ClipboardCheck, CheckCircle2, Volume2 } from 'lucide-react';
+import { addMinutes, differenceInSeconds } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { addDocumentNonBlocking, updateDocumentNonBlocking } from '@/firebase/non-blocking-updates';
+import { updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
@@ -89,7 +89,6 @@ export default function ConsultationRoomPage() {
     },
   });
 
-  // Sync initial values when appointment data loads
   useEffect(() => {
       if (appointment) {
           form.reset({
@@ -99,7 +98,6 @@ export default function ConsultationRoomPage() {
       }
   }, [appointment, form]);
 
-  // 1. Session Expiry & Timer Logic
   useEffect(() => {
     if (!appointment?.appointmentDateTime || appointment?.status === 'completed') return;
 
@@ -159,7 +157,6 @@ export default function ConsultationRoomPage() {
     }, 3000);
   };
 
-  // 2. Hardware Acquisition
   useEffect(() => {
     if (!appointment) return;
     let isMounted = true;
@@ -176,6 +173,10 @@ export default function ConsultationRoomPage() {
         setHasCameraPermission(true);
         setSignalingStatus("Secure Link Active");
         if (isAudioOnly) setIsVideoOff(true);
+        
+        if (localVideoRef.current && stream.getVideoTracks().length > 0) {
+            localVideoRef.current.srcObject = stream;
+        }
       } catch (err) {
         console.error("Media Error:", err);
         if (isMounted) {
@@ -191,7 +192,6 @@ export default function ConsultationRoomPage() {
     };
   }, [appointment, isAudioOnly, toast]);
 
-  // 3. WebRTC Signaling
   useEffect(() => {
     if (!firestore || !appointmentId || !user || !hasCameraPermission || !userData || isExpired || appointment?.status === 'completed') return;
 
@@ -351,32 +351,35 @@ export default function ConsultationRoomPage() {
   const isCompleted = appointment?.status === 'completed';
 
   return (
-    <div className="flex flex-col h-[100dvh] bg-slate-950 overflow-hidden text-white overscroll-none">
-      <header className="shrink-0 p-4 border-b border-white/10 bg-slate-900/60 backdrop-blur-xl flex items-center justify-between z-50">
+    <div className="flex flex-col h-[100dvh] max-h-[100dvh] bg-slate-950 overflow-hidden text-white overscroll-none fixed inset-0">
+      {/* Header - Fixed Height */}
+      <header className="shrink-0 h-16 p-4 border-b border-white/10 bg-slate-900/60 backdrop-blur-xl flex items-center justify-between z-50">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
               <ShieldCheck className="text-primary h-4 w-4" />
             </div>
-            <div>
+            <div className="min-w-0">
               <h1 className="font-bold text-[10px] uppercase truncate">Precision Clinical Room</h1>
               <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest truncate">{isAudioOnly ? 'Voice Only Link' : 'Secure Video Tunnel'}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
             {!isCompleted && (
-                <div className="bg-slate-800/80 px-3 py-1 rounded-full border border-white/10 flex items-center gap-2">
+                <div className="bg-slate-800/80 px-3 py-1 rounded-full border border-white/10 flex items-center gap-2 shrink-0">
                     <Clock className="h-3 w-3 text-primary" />
                     <span className={cn("font-mono text-xs font-bold", parseInt(timeRemaining.split(':')[0]) < 5 ? "text-red-500 animate-pulse" : "text-white")}>{timeRemaining}</span>
                 </div>
             )}
-            <Badge variant="outline" className={cn("px-2 py-0.5 text-[8px] font-bold", isCompleted ? "bg-green-50/10 text-green-400" : "bg-red-50/10 text-red-400")}>
+            <Badge variant="outline" className={cn("px-2 py-0.5 text-[8px] font-bold shrink-0", isCompleted ? "bg-green-50/10 text-green-400" : "bg-red-50/10 text-red-400")}>
               {isCompleted ? "ARCHIVED" : "LIVE"}
             </Badge>
           </div>
       </header>
 
+      {/* Main Content Area - Flexible height, handles internal scrolling only */}
       <main className="flex-1 relative flex flex-col lg:flex-row overflow-hidden min-h-0">
         <div className="flex-1 relative flex flex-col overflow-hidden bg-black">
+          {/* Video/AV Display */}
           <div className="flex-1 relative overflow-hidden flex items-center justify-center">
             {isExpired && !isCompleted ? (
               <div className="text-center p-6 space-y-4 animate-in fade-in">
@@ -418,6 +421,7 @@ export default function ConsultationRoomPage() {
               </>
             )}
 
+            {/* Local Pip */}
             {!isAudioOnly && !isCompleted && (
               <div className="absolute top-4 right-4 w-28 sm:w-44 aspect-video rounded-xl overflow-hidden border border-white/10 shadow-2xl bg-slate-900 z-30">
                   <video ref={localVideoRef} className={cn("w-full h-full object-cover -scale-x-100", isVideoOff && "hidden")} autoPlay muted playsInline />
@@ -426,30 +430,35 @@ export default function ConsultationRoomPage() {
             )}
           </div>
 
-          <div className="shrink-0 p-6 border-t border-white/5 bg-slate-900/60 backdrop-blur-2xl flex items-center justify-center gap-4">
-              <Button size="icon" variant={isMuted ? "destructive" : "secondary"} className="h-12 w-12 rounded-full transition-transform active:scale-95" onClick={() => { if(localStream.current) { localStream.current.getAudioTracks()[0].enabled = isMuted; setIsMuted(!isMuted); } }} disabled={isExpired || isCompleted}>
-                  {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+          {/* Controls Bar - Bottom center */}
+          <div className="shrink-0 h-20 border-t border-white/5 bg-slate-900/60 backdrop-blur-2xl flex items-center justify-center gap-4 px-4">
+              <Button size="icon" variant={isMuted ? "destructive" : "secondary"} className="h-10 w-10 sm:h-12 sm:w-12 rounded-full transition-transform active:scale-95" onClick={() => { if(localStream.current) { localStream.current.getAudioTracks()[0].enabled = isMuted; setIsMuted(!isMuted); } }} disabled={isExpired || isCompleted}>
+                  {isMuted ? <MicOff className="h-4 w-4 sm:h-5 sm:w-5" /> : <Mic className="h-4 w-4 sm:h-5 sm:w-5" />}
               </Button>
               {!isAudioOnly && (
-                  <Button size="icon" variant={isVideoOff ? "destructive" : "secondary"} className="h-12 w-12 rounded-full transition-transform active:scale-95" onClick={() => { if(localStream.current) { localStream.current.getVideoTracks()[0].enabled = isVideoOff; setIsVideoOff(!isVideoOff); } }} disabled={isExpired || isCompleted}>
-                    {isVideoOff ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
+                  <Button size="icon" variant={isVideoOff ? "destructive" : "secondary"} className="h-10 w-10 sm:h-12 sm:w-12 rounded-full transition-transform active:scale-95" onClick={() => { if(localStream.current) { localStream.current.getVideoTracks()[0].enabled = isVideoOff; setIsVideoOff(!isVideoOff); } }} disabled={isExpired || isCompleted}>
+                    {isVideoOff ? <VideoOff className="h-4 w-4 sm:h-5 sm:w-5" /> : <Video className="h-4 w-4 sm:h-5 sm:w-5" />}
                   </Button>
               )}
               <div className="w-px h-8 bg-white/10 mx-2" />
-              <Button variant="destructive" className="h-12 px-8 rounded-full font-bold uppercase text-[10px] tracking-widest shadow-xl shadow-red-900/20" onClick={handleEndSession} disabled={isEnding || isExpired}>
+              <Button variant="destructive" className="h-10 px-6 sm:h-12 sm:px-8 rounded-full font-bold uppercase text-[10px] tracking-widest shadow-xl shadow-red-900/20" onClick={handleEndSession} disabled={isEnding || isExpired}>
                   <PhoneOff className="h-4 w-4 mr-2" /> End
+              </Button>
+              <Button variant="ghost" size="icon" className="lg:hidden h-10 w-10 text-slate-400" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+                  <MessageSquare className="h-5 w-5" />
               </Button>
           </div>
         </div>
 
+        {/* Sidebar - Handles Chat and Notes with its own scrolling */}
         <aside className={cn(
-            "shrink-0 w-full lg:w-[420px] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col z-20 bg-slate-900/40 backdrop-blur-md transition-all duration-300",
-            isSidebarOpen ? "h-[350px] lg:h-full" : "h-0 lg:w-0 overflow-hidden"
+            "shrink-0 w-full lg:w-[400px] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col z-20 bg-slate-900 transition-all duration-300",
+            isSidebarOpen ? "h-[45dvh] lg:h-full" : "h-0 lg:w-0 overflow-hidden"
         )}>
           <Tabs defaultValue="chat" className="w-full h-full flex flex-col overflow-hidden">
-            <TabsList className="shrink-0 bg-slate-950/40 p-1 flex">
-                <TabsTrigger value="chat" className="flex-1 text-[10px] uppercase font-bold tracking-widest gap-2 py-3 rounded-xl"><MessageSquare className="h-3.5 w-3.5" /> Chat</TabsTrigger>
-                {isDoctor && <TabsTrigger value="notes" className="flex-1 text-[10px] uppercase font-bold tracking-widest gap-2 py-3 rounded-xl"><ClipboardCheck className="h-3.5 w-3.5" /> Records</TabsTrigger>}
+            <TabsList className="shrink-0 bg-slate-950/40 p-1 flex h-12">
+                <TabsTrigger value="chat" className="flex-1 text-[10px] uppercase font-bold tracking-widest gap-2 py-2 rounded-xl"><MessageSquare className="h-3.5 w-3.5" /> Chat</TabsTrigger>
+                {isDoctor && <TabsTrigger value="notes" className="flex-1 text-[10px] uppercase font-bold tracking-widest gap-2 py-2 rounded-xl"><ClipboardCheck className="h-3.5 w-3.5" /> Records</TabsTrigger>}
             </TabsList>
             
             <TabsContent value="chat" className="flex-1 flex flex-col m-0 min-h-0">
@@ -468,7 +477,7 @@ export default function ConsultationRoomPage() {
                     <div ref={chatScrollRef} />
                 </div>
                 <form onSubmit={handleSendMessage} className="shrink-0 p-3 bg-slate-950/40 border-t border-white/5 flex gap-2">
-                    <Input placeholder={isCompleted ? "Archived..." : "Secure message..."} disabled={isCompleted} className="bg-white/5 border-white/10 h-11 text-xs rounded-xl" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
+                    <Input placeholder={isCompleted ? "Archived..." : "Secure message..."} disabled={isCompleted} className="bg-white/5 border-white/10 h-11 text-xs rounded-xl focus-visible:ring-primary" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
                     <Button type="submit" disabled={!newMessage.trim() || isCompleted} className="bg-primary h-11 w-11 p-0 rounded-xl shrink-0"><Send className="h-4 w-4" /></Button>
                 </form>
             </TabsContent>
@@ -478,10 +487,10 @@ export default function ConsultationRoomPage() {
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(handleFinalizeClinicalNotes)} className="space-y-6">
                             <FormField control={form.control} name="diagnosis" render={({ field }) => (
-                                <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Diagnosis Summary</FormLabel><FormControl><Input placeholder="Primary findings..." className="bg-white/5 border-white/10 h-12 text-sm rounded-xl" {...field} disabled={isCompleted || isFinalizing} /></FormControl><FormMessage className="text-[9px]" /></FormItem>
+                                <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Diagnosis Summary</FormLabel><FormControl><Input placeholder="Primary findings..." className="bg-white/5 border-white/10 h-12 text-sm rounded-xl focus-visible:ring-primary" {...field} disabled={isCompleted || isFinalizing} /></FormControl><FormMessage className="text-[9px]" /></FormItem>
                             )} />
                             <FormField control={form.control} name="prescription" render={({ field }) => (
-                                <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Treatment Advice</FormLabel><FormControl><Textarea placeholder="Details & Medications..." rows={6} className="bg-white/5 border-white/10 text-sm rounded-xl resize-none" {...field} disabled={isCompleted || isFinalizing} /></FormControl><FormMessage className="text-[9px]" /></FormItem>
+                                <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Treatment Advice</FormLabel><FormControl><Textarea placeholder="Details & Medications..." rows={6} className="bg-white/5 border-white/10 text-sm rounded-xl resize-none focus-visible:ring-primary" {...field} disabled={isCompleted || isFinalizing} /></FormControl><FormMessage className="text-[9px]" /></FormItem>
                             )} />
                             <Button type="submit" className="w-full h-14 font-bold rounded-2xl bg-primary hover:bg-primary/90 shadow-xl shadow-primary/10" disabled={isCompleted || isFinalizing}>
                                 {isFinalizing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Finalize Record"}
@@ -494,6 +503,7 @@ export default function ConsultationRoomPage() {
         </aside>
       </main>
 
+      {/* Extension Dialog */}
       <Dialog open={showExtensionDialog} onOpenChange={setShowExtensionDialog}>
           <DialogContent className="rounded-[2.5rem] border-none shadow-2xl p-8 text-center space-y-6 bg-white text-slate-900">
               <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto"><Clock className="h-8 w-8 text-primary" /></div>
@@ -510,4 +520,3 @@ export default function ConsultationRoomPage() {
     </div>
   );
 }
-
