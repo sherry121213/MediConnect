@@ -142,18 +142,18 @@ export default function AppHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur shadow-sm">
+    <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur shadow-sm overflow-x-hidden">
       <div className="w-full px-4 sm:px-8 flex h-20 items-center justify-between">
         {/* Left side: Logo and Navigation */}
-        <div className="flex items-center gap-12">
+        <div className="flex items-center gap-4 md:gap-12 min-w-0">
           <Logo />
-          <nav className="hidden md:flex gap-10">
+          <nav className="hidden md:flex gap-4 lg:gap-10 shrink-0">
             {navLinks.map((link) => (
               <Link 
                 key={link.href} 
                 href={link.href} 
                 className={cn(
-                  'text-sm font-bold uppercase tracking-[0.15em] transition-colors hover:text-primary', 
+                  'text-sm font-bold uppercase tracking-[0.15em] transition-colors hover:text-primary whitespace-nowrap', 
                   pathname === link.href ? 'text-primary' : 'text-slate-500'
                 )}
               >
@@ -163,8 +163,8 @@ export default function AppHeader() {
           </nav>
         </div>
 
-        {/* Right side: Auth buttons / User Menu */}
-        <div className="flex items-center gap-3">
+        {/* Right side: Auth buttons / User Menu - Rightmost position */}
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {isUserLoading ? null : user ? (
             <>
                 {userData?.role === 'doctor' && (
@@ -187,10 +187,10 @@ export default function AppHeader() {
             </>
           ) : (
             <div className="flex items-center gap-2 sm:gap-3">
-                <Button asChild variant="outline" className="border-2 border-primary text-primary hover:bg-primary/5 font-bold h-10 px-4 sm:px-6 rounded-xl hidden sm:inline-flex">
+                <Button asChild variant="outline" className="border-2 border-primary text-primary hover:bg-primary/5 font-bold h-10 px-4 sm:px-6 rounded-xl hidden sm:inline-flex whitespace-nowrap">
                     <Link href="/login">Login</Link>
                 </Button>
-                <Button asChild className="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-4 sm:px-6 rounded-xl shadow-lg">
+                <Button asChild className="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-4 sm:px-6 rounded-xl shadow-lg whitespace-nowrap">
                     <Link href="/signup">Sign Up</Link>
                 </Button>
             </div>

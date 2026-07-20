@@ -147,7 +147,7 @@ export default function SupportMessenger() {
   if (!user || !userData || isConsultationRoom) return null;
 
   return (
-    <div className="fixed bottom-6 right-6 z-[100] flex flex-col items-end pointer-events-none overscroll-none">
+    <div className="fixed bottom-6 right-4 sm:right-6 z-[100] flex flex-col items-end pointer-events-none overscroll-none">
       {isOpen && (
         <Card className={cn(
           "w-[calc(100vw-2rem)] sm:w-[380px] mb-4 shadow-2xl border-none overflow-hidden transition-all duration-300 pointer-events-auto flex flex-col bg-white rounded-[2.5rem] origin-bottom-right",
@@ -177,7 +177,7 @@ export default function SupportMessenger() {
             <>
               <CardContent className="flex-1 overflow-hidden p-0 flex flex-col bg-slate-50/30">
                 {userData.role === 'admin' && !activeSessionId ? (
-                   <div className="flex flex-col h-full">
+                   <div className="flex flex-col h-full overflow-hidden">
                       <div className="flex bg-white shrink-0 p-1.5 gap-1 border-b">
                         <button onClick={() => setAdminCategory('patients')} className={cn("flex-1 py-2 text-[9px] font-bold uppercase tracking-widest flex items-center justify-center gap-2 rounded-xl transition-all", adminCategory === 'patients' ? "bg-primary text-white" : "text-slate-400 hover:bg-slate-50")}>
                             <Users className="h-3 w-3" /> Patients
@@ -195,7 +195,7 @@ export default function SupportMessenger() {
                       </div>
                    </div>
                 ) : (
-                  <div className="flex flex-col h-full">
+                  <div className="flex flex-col h-full overflow-hidden">
                     {userData.role === 'admin' && (
                        <div className="p-2 border-b bg-white flex items-center justify-between shrink-0">
                          <Button variant="ghost" size="sm" className="text-[8px] font-bold uppercase h-7 px-3 rounded-lg border hover:bg-slate-50" onClick={() => setActiveSessionId(null)}>← Back</Button>
@@ -233,7 +233,7 @@ export default function SupportMessenger() {
         </Card>
       )}
 
-      <Button onClick={() => setIsOpen(!isOpen)} className={cn("h-16 w-16 rounded-[1.5rem] shadow-2xl pointer-events-auto transition-all hover:scale-105 active:scale-95 border-4 border-white animate-in slide-in-from-bottom-4", isOpen ? "bg-slate-950" : "bg-primary")}>
+      <Button onClick={() => setIsOpen(!isOpen)} className={cn("h-16 w-16 rounded-[1.5rem] shadow-2xl pointer-events-auto transition-all hover:scale-105 active:scale-95 border-4 border-white animate-in slide-in-from-bottom-4 relative", isOpen ? "bg-slate-950" : "bg-primary")}>
         {isOpen ? <Minimize2 className="h-7 w-7 text-white" /> : <MessageSquare className="h-7 w-7 text-white" />}
         {!isOpen && userData?.role === 'admin' && (patientSessions?.some(s => s.unreadByAdmin) || doctorSessions?.some(s => s.lastMessageSenderRole === 'doctor')) && (
           <span className="absolute -top-1 -right-1 h-6 w-6 bg-red-500 rounded-full border-4 border-white animate-pulse flex items-center justify-center text-[10px] font-bold text-white">!</span>
@@ -242,4 +242,3 @@ export default function SupportMessenger() {
     </div>
   );
 }
-
