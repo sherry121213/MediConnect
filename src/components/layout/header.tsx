@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -177,21 +176,38 @@ export default function AppHeader() {
                 )}
                 <UserMenu />
             </>
-          ) : (<Button asChild className="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-6 rounded-xl shadow-lg"><Link href="/signup">Sign Up</Link></Button>)}
+          ) : (
+            <div className="flex items-center gap-2">
+                <Button asChild variant="ghost" className="font-bold h-10 px-4 rounded-xl hidden sm:inline-flex">
+                    <Link href="/login">Login</Link>
+                </Button>
+                <Button asChild className="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-6 rounded-xl shadow-lg">
+                    <Link href="/signup">Sign Up</Link>
+                </Button>
+            </div>
+          )}
           <Sheet open={isMobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild><Button variant="ghost" size="icon" className="md:hidden"><Menu className="h-6 w-6" /></Button></SheetTrigger>
             <SheetContent side="right" className="w-[300px] p-0 border-none rounded-l-[2rem] overflow-hidden">
               <div className="bg-slate-900 text-white p-8"><Logo /></div>
               <div className="p-8 flex flex-col gap-6">
                  {navLinks.map((link) => (<Link key={link.href} href={link.href} onClick={() => setMobileMenuOpen(false)} className={cn('text-lg font-bold uppercase tracking-widest transition-colors', pathname === link.href ? 'text-primary' : 'text-slate-500')}>{link.label}</Link>))}
-                  {user && (
+                  {user ? (
                       <>
                         {userData?.role === 'doctor' && (<Link href="/doctor-portal/profile" onClick={() => setMobileMenuOpen(false)} className="text-lg font-bold uppercase tracking-widest text-slate-500">Professional Profile</Link>)}
                         {userData?.role === 'patient' && (<Link href="/patient-portal/profile" onClick={() => setMobileMenuOpen(false)} className="text-lg font-bold uppercase tracking-widest text-slate-500">Edit Personal Profile</Link>)}
                         <Button variant="destructive" className="h-14 rounded-2xl font-bold mt-4" onClick={handleLogout}>Log Out</Button>
                       </>
+                  ) : (
+                      <>
+                        <Button variant="outline" className="h-14 rounded-2xl font-bold" asChild onClick={() => setMobileMenuOpen(false)}>
+                            <Link href="/login">Login</Link>
+                        </Button>
+                        <Button className="h-14 rounded-2xl font-bold shadow-lg" asChild onClick={() => setMobileMenuOpen(false)}>
+                            <Link href="/signup">Sign Up</Link>
+                        </Button>
+                      </>
                   )}
-                  {!user && (<Button className="h-14 rounded-2xl font-bold" asChild onClick={() => setMobileMenuOpen(false)}><Link href="/login">Login</Link></Button>)}
               </div>
             </SheetContent>
           </Sheet>
