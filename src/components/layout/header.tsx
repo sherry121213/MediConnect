@@ -191,13 +191,27 @@ export default function AppHeader() {
             <SheetContent side="right" className="w-[300px] p-0 border-none rounded-l-[2rem] overflow-hidden">
               <div className="bg-slate-900 text-white p-8"><Logo /></div>
               <div className="p-8 flex flex-col gap-6">
-                 {navLinks.map((link) => (<Link key={link.href} href={link.href} onClick={() => setMobileMenuOpen(false)} className={cn('text-lg font-bold uppercase tracking-widest transition-colors', pathname === link.href ? 'text-primary' : 'text-slate-500')}>{link.label}</Link>))}
+                 {navLinks.map((link) => (
+                    <Link key={link.href} href={link.href} onClick={() => setMobileMenuOpen(false)} className={cn('text-lg font-bold uppercase tracking-widest transition-colors', pathname === link.href ? 'text-primary' : 'text-slate-500')}>
+                        {link.label}
+                    </Link>
+                 ))}
                   {user ? (
-                      <>
-                        {userData?.role === 'doctor' && (<Link href="/doctor-portal/profile" onClick={() => setMobileMenuOpen(false)} className="text-lg font-bold uppercase tracking-widest text-slate-500">Professional Profile</Link>)}
-                        {userData?.role === 'patient' && (<Link href="/patient-portal/profile" onClick={() => setMobileMenuOpen(false)} className="text-lg font-bold uppercase tracking-widest text-slate-500">Edit Personal Profile</Link>)}
+                      <div className="flex flex-col gap-6 pt-6 border-t border-slate-100">
+                        {userData?.role === 'doctor' && (
+                            <>
+                                <Link href="/doctor-portal" onClick={() => setMobileMenuOpen(false)} className="text-lg font-bold uppercase tracking-widest text-slate-500">Practice Dashboard</Link>
+                                <Link href="/doctor-portal/profile" onClick={() => setMobileMenuOpen(false)} className="text-lg font-bold uppercase tracking-widest text-slate-500">Professional Profile</Link>
+                            </>
+                        )}
+                        {userData?.role === 'patient' && (
+                            <>
+                                <Link href="/patient-portal" onClick={() => setMobileMenuOpen(false)} className="text-lg font-bold uppercase tracking-widest text-slate-500">Patient Portal</Link>
+                                <Link href="/patient-portal/profile" onClick={() => setMobileMenuOpen(false)} className="text-lg font-bold uppercase tracking-widest text-slate-500">Edit Personal Profile</Link>
+                            </>
+                        )}
                         <Button variant="destructive" className="h-14 rounded-2xl font-bold mt-4" onClick={handleLogout}>Log Out</Button>
-                      </>
+                      </div>
                   ) : (
                       <div className="flex flex-col gap-4 mt-4">
                         <Button variant="outline" className="h-14 rounded-2xl font-bold border-2 border-primary text-primary" asChild onClick={() => setMobileMenuOpen(false)}>

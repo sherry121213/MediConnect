@@ -94,16 +94,28 @@ export default function DoctorPatientsPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                     <Card className="border-none shadow-xl bg-primary text-primary-foreground rounded-2xl overflow-hidden">
-                        <CardHeader className="pb-2"><p className="text-[10px] font-bold uppercase opacity-80 tracking-widest">Unique Patients</p><CardTitle className="text-4xl font-bold">{patientStats.stats.uniqueCount}</CardTitle></CardHeader>
+                        <CardHeader className="pb-2">
+                            <p className="text-[10px] font-bold uppercase opacity-80 tracking-widest">Unique Patients</p>
+                            <CardTitle className="text-4xl font-bold">{patientStats.stats.uniqueCount}</CardTitle>
+                        </CardHeader>
                     </Card>
                     <Card className="border-none shadow-xl bg-white rounded-2xl overflow-hidden">
-                        <CardHeader className="pb-2"><p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Total Consultations</p><CardTitle className="text-4xl font-bold text-primary">{patientStats.stats.total}</CardTitle></CardHeader>
+                        <CardHeader className="pb-2">
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Total Consultations</p>
+                            <CardTitle className="text-4xl font-bold text-primary">{patientStats.stats.total}</CardTitle>
+                        </CardHeader>
                     </Card>
                     <Card className="border-none shadow-xl bg-white rounded-2xl overflow-hidden">
-                        <CardHeader className="pb-2"><p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest text-green-600">Verified Fees</p><CardTitle className="text-4xl font-bold text-green-600">{patientStats.stats.paid}</CardTitle></CardHeader>
+                        <CardHeader className="pb-2">
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest text-green-600">Verified Fees</p>
+                            <CardTitle className="text-4xl font-bold text-green-600">{patientStats.stats.paid}</CardTitle>
+                        </CardHeader>
                     </Card>
                     <Card className="border-none shadow-xl bg-white rounded-2xl overflow-hidden">
-                        <CardHeader className="pb-2"><p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest text-amber-600">Pending Review</p><CardTitle className="text-4xl font-bold text-amber-600">{patientStats.stats.pending}</CardTitle></CardHeader>
+                        <CardHeader className="pb-2">
+                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest text-amber-600">Pending Review</p>
+                            <CardTitle className="text-4xl font-bold text-amber-600">{patientStats.stats.pending}</CardTitle>
+                        </CardHeader>
                     </Card>
                 </div>
 
@@ -134,7 +146,7 @@ export default function DoctorPatientsPage() {
                                         </TableRow>
                                     </TableHeader>
                                     <TableBody>
-                                        {filteredPatients.map((p) => p && p.id && (
+                                        {filteredPatients.map((p) => (
                                             <TableRow key={p.id} className="hover:bg-primary/5 transition-all group">
                                                 <TableCell className="py-5 pl-8"><PatientProfileCell patientId={p.id} /></TableCell>
                                                 <TableCell><Badge variant="secondary" className="bg-primary/10 text-primary font-bold text-[10px] uppercase">{p.totalVisits} Consultations</Badge></TableCell>
