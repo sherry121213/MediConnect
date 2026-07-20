@@ -6,7 +6,7 @@ import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Star, MapPin, ShieldCheck, Video, Clock, BriefcaseMedical, CheckCircle2 } from 'lucide-react';
+import { Star, MapPin, ShieldCheck, Video, Clock, BriefcaseMedical, CheckCircle2, Wallet, CreditCard } from 'lucide-react';
 import { useUser } from '@/firebase';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
@@ -51,9 +51,12 @@ export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardPr
                     <h3 className="text-sm font-bold font-headline line-clamp-1">{name}</h3>
                     <p className="text-[10px] text-primary font-bold uppercase tracking-tighter">{doctor.specialty}</p>
                 </div>
-                <div className="flex items-center gap-1 text-[10px] font-bold">
-                    <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                    <span>{doctor.rating || 0}</span>
+                <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-1 text-[10px] font-bold">
+                        <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
+                        <span>{doctor.rating || 0}</span>
+                    </div>
+                    <Badge variant="outline" className="text-[9px] font-bold border-primary/20 text-primary bg-primary/5 px-2">PKR 1,500</Badge>
                 </div>
                 <Button size="sm" className="w-full bg-accent hover:bg-accent/90 text-white font-bold h-8 text-[10px] rounded-lg" onClick={handleBookAppointment}>
                     Book Appointment
@@ -103,6 +106,22 @@ export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardPr
                     <Star className="h-3 w-3 text-amber-400 fill-amber-400" /> {doctor.rating || 4.8}
                 </p>
                 <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest">{doctor.reviews || 0} Reviews</p>
+            </div>
+        </div>
+
+        {/* Unique Fee Section */}
+        <div className="bg-primary/5 rounded-2xl p-4 border border-primary/10 flex items-center justify-between group">
+            <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-white flex items-center justify-center text-primary shadow-sm">
+                    <Wallet className="h-5 w-5" />
+                </div>
+                <div>
+                    <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Consultation Fee</p>
+                    <p className="text-base font-bold text-slate-900">PKR 1,500</p>
+                </div>
+            </div>
+            <div className="text-right">
+                <Badge className="bg-white text-primary border-primary/20 text-[8px] font-bold uppercase py-0.5">Secure Pay</Badge>
             </div>
         </div>
 
