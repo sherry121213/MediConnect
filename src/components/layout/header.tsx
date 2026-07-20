@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Menu, LogOut, Shield, LayoutDashboard, Bell, Siren, Clock, User as UserCircle, UserCog, Settings } from 'lucide-react';
 import Logo from '@/components/logo';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { cn } from '@/lib/utils';
 import { useState, useMemo, useEffect } from 'react';
 import { useAuth, useUserData, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -184,6 +184,9 @@ export default function AppHeader() {
           <Sheet open={isMobileMenuOpen} onOpenChange={setMobileMenuOpen}>
             <SheetTrigger asChild><Button variant="ghost" size="icon" className="md:hidden"><Menu className="h-6 w-6" /></Button></SheetTrigger>
             <SheetContent side="right" className="w-[300px] p-0 border-none rounded-l-[2rem] overflow-hidden">
+              <SheetHeader className="sr-only">
+                <SheetTitle>Navigation Menu</SheetTitle>
+              </SheetHeader>
               <div className="bg-slate-900 text-white p-8"><Logo /></div>
               <div className="p-8 flex flex-col gap-6">
                  {navLinks.map((link) => (

@@ -2,9 +2,9 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // PRECISION CLINICAL SESSION - TOTAL ACCESS PROTOCOL V45
-    // Explicit total access for high-fidelity prototype auditing and term records.
+    // PRECISION CLINICAL SESSION - TOTAL ACCESS PROTOCOL V46
     // Standardizing terminology: Registry -> Record.
+    // Explicit total access for high-fidelity prototype auditing.
     
     match /{document=**} {
       allow read, write: if true;
@@ -21,6 +21,6 @@ service cloud.firestore {
     match /calls/{callId} { allow read, write: if true; }
     match /doctorUnavailabilityRequests/{requestId} { allow read, write: if true; }
     match /missedSessionAudits/{auditId} { allow read, write: if true; }
-    match /contacts/{contactId} { allow read, write: if true; }
+    change /contacts/{contactId} { allow read, write: if true; }
   }
 }
