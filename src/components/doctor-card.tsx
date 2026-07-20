@@ -56,7 +56,7 @@ export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardPr
                     <span>{doctor.rating || 0}</span>
                 </div>
                 <Button size="sm" className="w-full bg-accent hover:bg-accent/90 text-white font-bold h-8 text-[10px] rounded-lg" onClick={handleBookAppointment}>
-                    View Profile
+                    Book Appointment
                 </Button>
             </div>
         </Card>
@@ -106,43 +106,18 @@ export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardPr
             </div>
         </div>
 
-        {/* Services & Availability */}
+        {/* Location Section */}
         <div className="space-y-3">
-            <div className={cn(
-                "p-4 rounded-2xl border-2 transition-all cursor-pointer flex items-center justify-between group",
-                "border-primary bg-primary/5 shadow-sm"
-            )}>
-                <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform">
-                        <Video className="h-5 w-5" />
-                    </div>
-                    <div>
-                        <p className="text-xs font-bold text-slate-900">Online Consultation</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                            <div className="h-1.5 w-1.5 rounded-full bg-green-500 animate-pulse" />
-                            <span className="text-[9px] font-bold uppercase text-green-600">Online Now</span>
-                        </div>
-                    </div>
-                </div>
-                <div className="text-right">
-                    <p className="text-xs font-bold text-primary">Rs. 1,500</p>
-                </div>
-            </div>
-
-            <div className="p-4 rounded-2xl border-2 border-slate-50 bg-slate-50/30 flex items-center justify-between opacity-60">
+            <div className="p-4 rounded-2xl border-2 border-slate-100 bg-slate-50/30 flex items-center justify-between group">
                  <div className="flex items-center gap-3">
-                    <div className="h-9 w-9 rounded-xl bg-slate-200 flex items-center justify-center text-slate-400">
+                    <div className="h-9 w-9 rounded-xl bg-slate-100 flex items-center justify-center text-slate-400 group-hover:bg-primary/10 group-hover:text-primary transition-colors">
                         <MapPin className="h-5 w-5" />
                     </div>
                     <div>
                         <p className="text-xs font-bold text-slate-900">Clinical Center</p>
-                        <div className="flex items-center gap-1.5 mt-0.5">
-                            <div className="h-1.5 w-1.5 rounded-full bg-slate-400" />
-                            <span className="text-[9px] font-bold uppercase text-slate-500">Available Tomorrow</span>
-                        </div>
+                        <p className="text-[10px] text-muted-foreground font-medium">{doctor.location || 'Pakistan'}</p>
                     </div>
                 </div>
-                <p className="text-xs font-bold text-slate-400">{doctor.location}</p>
             </div>
         </div>
 
