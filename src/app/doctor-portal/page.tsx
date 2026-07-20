@@ -1,9 +1,10 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, FileText, Zap, LayoutList } from "lucide-react";
+import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, FileText, Zap, LayoutList, Siren, PhoneIncoming } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -124,20 +125,29 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
     );
 }
 
-const AppointmentRow = ({ apt, patient, onSelect, isMounted }: { apt: Appointment, patient?: Patient, onSelect: (a: Appointment) => void, isMounted: boolean }) => {
+const AppointmentRow = ({ apt, patient, onSelect, isMounted, onRing }: { apt: Appointment, patient?: Patient, onSelect: (a: Appointment) => void, isMounted: boolean, onRing: (a: Appointment) => void }) => {
     const appointmentDate = new Date(apt.appointmentDateTime);
     const now = isMounted ? Date.now() : 0;
     const startTime = appointmentDate.getTime();
+    const bufferWindow = startTime - (10 * 60 * 1000); // Ringable 10 mins before
     const isLive = isMounted && now >= startTime && now < startTime + (15*60*1000);
+    const canRing = isMounted && now >= bufferWindow && now < startTime && !apt.readyToStart;
+
     return (
-        <div className={cn("flex items-center justify-between p-4 hover:bg-muted/50 rounded-xl cursor-pointer transition-all", isLive && "bg-primary/5 border-primary/20 shadow-sm")} onClick={() => onSelect(apt)}>
-            <div className="flex items-center gap-3 min-w-0">
+        <div className={cn("flex items-center justify-between p-4 hover:bg-muted/50 rounded-xl transition-all", isLive && "bg-primary/5 border-primary/20 shadow-sm")}>
+            <div className="flex items-center gap-3 min-w-0 cursor-pointer" onClick={() => onSelect(apt)}>
                 <Avatar className="h-10 w-10 shrink-0"><AvatarFallback className="text-xs">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback></Avatar>
                 <div className="min-w-0"><p className="font-bold text-sm truncate">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p><p className="text-[10px] text-muted-foreground uppercase">{format(appointmentDate, "p")}</p></div>
             </div>
             <div className="flex items-center gap-2">
                 {isLive && <Badge className="bg-red-600 text-white animate-pulse text-[8px] h-4">LIVE</Badge>}
-                {!isLive && <Badge variant="outline" className="text-[8px] h-4 uppercase">{apt.status}</Badge>}
+                {canRing && (
+                    <Button variant="ghost" size="sm" className="h-7 px-2 text-[8px] font-bold uppercase bg-amber-50 text-amber-600 hover:bg-amber-100 rounded-lg animate-in zoom-in-95" onClick={() => onRing(apt)}>
+                        <Siren className="h-3 w-3 mr-1" /> Ring Patient
+                    </Button>
+                )}
+                {apt.readyToStart && !isLive && <Badge variant="outline" className="text-[8px] h-4 uppercase border-amber-400 text-amber-600">Rung</Badge>}
+                {!isLive && !canRing && !apt.readyToStart && <Badge variant="outline" className="text-[8px] h-4 uppercase">{apt.status}</Badge>}
             </div>
         </div>
     );
@@ -186,6 +196,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
 export default function DoctorPortalPage() {
     const { user, isUserLoading } = useUserData();
     const firestore = useFirestore();
+    const { toast } = useToast();
     const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
     const [isConsultOpen, setIsConsultOpen] = useState(false);
     const [isPostponeOpen, setIsPostponeOpen] = useState(false);
@@ -227,6 +238,18 @@ export default function DoctorPortalPage() {
         return { activeQueue: activeQ, timelineApts: viewDayApts, stats: { today: allToday.length, todayRevenue: todayRev } };
     }, [appointments, mounted, viewDate]);
 
+    const handleRingPatient = (apt: Appointment) => {
+        if (!firestore) return;
+        updateDocumentNonBlocking(doc(firestore, 'appointments', apt.id), { 
+            readyToStart: true,
+            updatedAt: new Date().toISOString()
+        });
+        toast({
+            title: "Patient Notified",
+            description: "A ringing signal has been sent to the patient portal.",
+        });
+    };
+
     if (!mounted || isUserLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin" /></div>;
 
     return (
@@ -239,7 +262,7 @@ export default function DoctorPortalPage() {
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                     <div className="lg:col-span-4 space-y-6">
                          <Card className="bg-slate-900 text-white rounded-[2rem] overflow-hidden"><CardHeader className="p-6 sm:p-8"><CardTitle className="text-lg flex items-center gap-3"><Zap className="h-6 w-6 text-primary" /> Management</CardTitle></CardHeader><CardContent className="p-6 sm:p-8 pt-0 space-y-3"><Button variant="outline" className="w-full justify-start h-12 rounded-2xl bg-white/5 text-xs" asChild><Link href="/doctor-portal/patients"><LayoutList className="h-4 w-4 mr-3" /> Record Pool</Link></Button><Button variant="outline" className="w-full justify-start h-12 rounded-2xl bg-white/5 text-xs" asChild><Link href="/doctor-portal/unavailability"><CalendarIcon className="h-4 w-4 mr-3" /> Clinical Pause</Link></Button></CardContent></Card>
-                        <Card className="bg-white rounded-3xl overflow-hidden"><CardHeader className="bg-primary/5 p-4 sm:p-6"><CardTitle className="text-[10px] uppercase font-bold flex items-center gap-2"><ClipboardCheck className="h-4 w-4 text-primary" /> Queue</CardTitle></CardHeader><CardContent className="p-0">{isLoadingAppointments ? <div className="p-12 text-center"><Loader2 className="animate-spin mx-auto opacity-20" /></div> : activeQueue.length > 0 ? <div className="divide-y">{activeQueue.map(apt => <AppointmentRow key={apt.id} apt={apt} patient={patientsMap.get(apt.patientId)} onSelect={(a)=>{setSelectedAppointment(a);setIsConsultOpen(true)}} isMounted={mounted} />)}</div> : <div className="p-12 text-center text-muted-foreground text-[10px] uppercase font-bold tracking-widest">No active sessions</div>}</CardContent></Card>
+                        <Card className="bg-white rounded-3xl overflow-hidden"><CardHeader className="bg-primary/5 p-4 sm:p-6"><CardTitle className="text-[10px] uppercase font-bold flex items-center gap-2"><ClipboardCheck className="h-4 w-4 text-primary" /> Queue</CardTitle></CardHeader><CardContent className="p-0">{isLoadingAppointments ? <div className="p-12 text-center"><Loader2 className="animate-spin mx-auto opacity-20" /></div> : activeQueue.length > 0 ? <div className="divide-y">{activeQueue.map(apt => <AppointmentRow key={apt.id} apt={apt} patient={patientsMap.get(apt.patientId)} onSelect={(a)=>{setSelectedAppointment(a);setIsConsultOpen(true)}} isMounted={mounted} onRing={handleRingPatient} />)}</div> : <div className="p-12 text-center text-muted-foreground text-[10px] uppercase font-bold tracking-widest">No active sessions</div>}</CardContent></Card>
                     </div>
                     <div className="lg:col-span-8 space-y-6">
                         <Card className="rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden bg-white"><CardHeader className="border-b bg-slate-50 p-4 sm:p-8"><div className="flex flex-col sm:flex-row justify-between items-center gap-4"><CardTitle className="text-lg sm:text-xl font-headline flex items-center gap-3"><Clock className="h-6 w-6 text-primary" /> Timeline</CardTitle><div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border-2 shadow-sm"><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewDate(subDays(viewDate, 1))}><ChevronLeft className="h-4 w-4" /></Button><span className="px-2 text-[10px] font-bold uppercase">{format(viewDate, "MMM dd")}</span><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewDate(addDays(viewDate, 1))}><ChevronRight className="h-4 w-4" /></Button></div></div></CardHeader><CardContent className="p-4 sm:p-10 min-h-[300px]">{timelineApts.length > 0 ? (<div className="space-y-4">{timelineApts.map((apt) => (<div key={apt.id} className={cn("flex items-center justify-between p-4 sm:p-6 rounded-[1.5rem] border-2 transition-all", apt.status === 'completed' ? "border-green-100 bg-green-50/50" : "border-slate-100 bg-white")}><div className="flex items-center gap-4"><div><p className="font-bold text-sm sm:text-base">{patientsMap.get(apt.patientId)?.firstName} {patientsMap.get(apt.patientId)?.lastName || '...'}</p><p className="text-[9px] text-muted-foreground uppercase">{apt.appointmentType} • {format(new Date(apt.appointmentDateTime), "p")}</p></div></div><Button variant="outline" size="sm" onClick={() => {setSelectedAppointment(apt);setIsConsultOpen(true)}} className="h-8 px-3 rounded-xl font-bold border-2 text-[9px] uppercase">Manage</Button></div>))}</div>) : (<div className="flex flex-col items-center justify-center py-24 opacity-20 grayscale"><CalendarIcon className="h-16 w-16 mb-4" /><p className="font-bold text-[10px] uppercase tracking-widest">No Records Found</p></div>)}</CardContent></Card>

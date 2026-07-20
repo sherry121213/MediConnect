@@ -66,6 +66,7 @@ export interface Appointment {
   paymentMethod?: string;
   doctorInRoom?: boolean;
   readyToStart?: boolean; // Signal from doctor to patient
+  isExtended?: boolean; // Threshold extension
 }
 
 export interface Review {

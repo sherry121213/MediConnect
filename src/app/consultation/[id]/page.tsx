@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -6,7 +7,7 @@ import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } fro
 import { collection, doc, setDoc, onSnapshot, addDoc, updateDoc, query } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, Clock, Siren, AlertTriangle, ClipboardCheck, CheckCircle2 } from 'lucide-react';
+import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, Clock, Siren, AlertTriangle, ClipboardCheck, CheckCircle2, MoreHorizontal } from 'lucide-react';
 import { isValid, addMinutes, isAfter, differenceInSeconds } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -19,6 +20,14 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 const servers = {
   iceServers: [
@@ -53,6 +62,7 @@ export default function ConsultationRoomPage() {
   const [timeRemaining, setTimeRemaining] = useState<string>('15:00'); 
   const [isExpired, setIsExpired] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
+  const [showExtensionDialog, setShowExtensionDialog] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
@@ -77,12 +87,15 @@ export default function ConsultationRoomPage() {
     },
   });
 
+  const isDoctor = userData?.role === 'doctor';
+
   // 1. Session Expiry & Timer Logic (Precision Clinical Session)
   useEffect(() => {
     if (!appointment?.appointmentDateTime || appointment?.status === 'completed') return;
 
     const startTime = new Date(appointment.appointmentDateTime);
-    const endTime = addMinutes(startTime, 15); 
+    // Standard is 15 mins, extension adds 10 mins
+    const endTime = addMinutes(startTime, appointment.isExtended ? 25 : 15); 
 
     const timer = setInterval(() => {
       const now = new Date();
@@ -100,23 +113,38 @@ export default function ConsultationRoomPage() {
         const secs = secondsLeft % 60;
         setTimeRemaining(`${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
         
-        if (secondsLeft === 300) { // 5-minute warning
+        // Threshold: 10 mins in, 5 mins remaining
+        if (secondsLeft === 300 && isDoctor && !appointment.isExtended) {
+          setShowExtensionDialog(true);
           toast({
             title: "5 Minutes Remaining",
-            description: "Precision Clinical Session window is concluding soon.",
+            description: "Extension protocol available if required.",
           });
         }
       }
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [appointment, toast]);
+  }, [appointment, toast, isDoctor]);
+
+  const handleExtendSession = () => {
+    if (!firestore || !appointmentId) return;
+    updateDocumentNonBlocking(doc(firestore, 'appointments', appointmentId), { 
+        isExtended: true,
+        updatedAt: new Date().toISOString()
+    });
+    setShowExtensionDialog(false);
+    toast({
+        title: "Session Extended",
+        description: "Clinical window increased by 10 minutes.",
+    });
+  };
 
   const handleAutoExpire = () => {
     if (isEnding || appointment?.status === 'completed') return;
     setIsEnding(true);
     
-    if (userData?.role === 'doctor' && firestore && appointment) {
+    if (isDoctor && firestore && appointment) {
         updateDocumentNonBlocking(doc(firestore, 'appointments', appointmentId), { 
             status: 'expired',
             doctorInRoom: false,
@@ -131,7 +159,7 @@ export default function ConsultationRoomPage() {
     });
 
     setTimeout(() => {
-        router.push(userData?.role === 'doctor' ? '/doctor-portal' : '/patient-portal');
+        router.push(isDoctor ? '/doctor-portal' : '/patient-portal');
     }, 3000);
   };
 
@@ -390,7 +418,7 @@ export default function ConsultationRoomPage() {
   };
 
   const handleEndSession = () => {
-    if (userData?.role === 'doctor' && appointment?.status !== 'completed') {
+    if (isDoctor && appointment?.status !== 'completed') {
         toast({
             title: "Finalization Required",
             description: "Please use the Clinical Notes tab to complete this session before leaving.",
@@ -399,10 +427,10 @@ export default function ConsultationRoomPage() {
     }
     
     setIsEnding(true);
-    if (userData?.role === 'doctor' && firestore && appointment) {
+    if (isDoctor && firestore && appointment) {
         updateDocumentNonBlocking(doc(firestore, 'appointments', appointmentId), { doctorInRoom: false, readyToStart: false });
     }
-    router.push(userData?.role === 'doctor' ? '/doctor-portal' : '/patient-portal');
+    router.push(isDoctor ? '/doctor-portal' : '/patient-portal');
   };
 
   const toggleMute = () => {
@@ -432,7 +460,6 @@ export default function ConsultationRoomPage() {
     return <div className="flex h-screen items-center justify-center bg-slate-950"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   }
 
-  const isDoctor = userData?.role === 'doctor';
   const isCompleted = appointment?.status === 'completed';
 
   return (
@@ -464,7 +491,7 @@ export default function ConsultationRoomPage() {
             )}
             <Badge variant="outline" className={cn("gap-1.5 px-3 py-1 text-[10px] font-bold hidden sm:flex", isCompleted ? "bg-green-50/10 text-green-400 border-green-500/20" : "bg-red-50/10 text-red-400 border-red-500/20")}>
               <div className={cn("h-1.5 w-1.5 rounded-full", isCompleted ? "bg-green-50" : "bg-red-50 animate-pulse")} /> 
-              {isCompleted ? "COMPLETED" : "LIVE SESSION"}
+              {isCompleted ? "COMPLETED" : appointment?.isExtended ? "EXTENDED" : "LIVE SESSION"}
             </Badge>
           </div>
         </div>
@@ -682,6 +709,21 @@ export default function ConsultationRoomPage() {
           </Tabs>
         </aside>
       </main>
+
+      <Dialog open={showExtensionDialog} onOpenChange={setShowExtensionDialog}>
+          <DialogContent className="sm:max-w-[425px] rounded-[2rem] border-none shadow-2xl">
+              <DialogHeader>
+                  <DialogTitle className="text-xl font-headline">Extend Consultation?</DialogTitle>
+                  <DialogDescription>
+                      Clinical window concludes in 5 minutes. Would you like to add 10 minutes of extra time?
+                  </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="gap-3 mt-4">
+                  <Button variant="ghost" onClick={() => setShowExtensionDialog(false)} className="rounded-xl">Ignore</Button>
+                  <Button onClick={handleExtendSession} className="bg-primary rounded-xl font-bold">Add 10 Minutes</Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
     </div>
   );
 }
