@@ -177,8 +177,8 @@ export default function AppHeader() {
                 <UserMenu />
             </>
           ) : (
-            <div className="flex items-center gap-2">
-                <Button asChild variant="ghost" className="font-bold h-10 px-4 rounded-xl hidden sm:inline-flex">
+            <div className="flex items-center gap-3">
+                <Button asChild variant="outline" className="border-2 border-primary text-primary hover:bg-primary/5 font-bold h-10 px-6 rounded-xl shadow-sm hidden sm:inline-flex">
                     <Link href="/login">Login</Link>
                 </Button>
                 <Button asChild className="bg-primary hover:bg-primary/90 text-white font-bold h-10 px-6 rounded-xl shadow-lg">
@@ -200,7 +200,7 @@ export default function AppHeader() {
                       </>
                   ) : (
                       <>
-                        <Button variant="outline" className="h-14 rounded-2xl font-bold" asChild onClick={() => setMobileMenuOpen(false)}>
+                        <Button variant="outline" className="h-14 rounded-2xl font-bold border-2" asChild onClick={() => setMobileMenuOpen(false)}>
                             <Link href="/login">Login</Link>
                         </Button>
                         <Button className="h-14 rounded-2xl font-bold shadow-lg" asChild onClick={() => setMobileMenuOpen(false)}>

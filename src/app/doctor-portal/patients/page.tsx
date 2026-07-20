@@ -108,7 +108,7 @@ export default function DoctorPatientsPage() {
                 <Card className="border-none shadow-2xl rounded-3xl overflow-hidden bg-white">
                     <CardHeader className="bg-primary/5 border-b p-6 sm:p-8">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                            <CardTitle className="text-xl flex items-center gap-3 text-slate-900"><History className="h-6 w-6 text-primary" /> Comprehensive Patient Pool</CardTitle>
+                            <CardTitle className="text-xl flex items-gap-3 text-slate-900"><History className="h-6 w-6 text-primary" /> Comprehensive Patient Pool</CardTitle>
                             <div className="relative w-full md:w-80">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input placeholder="Search record..." className="pl-9 h-11 border-2 rounded-xl bg-white" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
@@ -116,10 +116,19 @@ export default function DoctorPatientsPage() {
                         </div>
                     </CardHeader>
                     <CardContent className="p-0">
-                        {isLoading ? (<div className="flex justify-center py-24"><Loader2 className="h-10 w-10 animate-spin text-primary/30" /></div>) : filteredPatients.length > 0 ? (
+                        {isLoading ? (
+                            <div className="flex justify-center py-24"><Loader2 className="h-10 w-10 animate-spin text-primary/30" /></div>
+                        ) : filteredPatients.length > 0 ? (
                             <div className="overflow-x-auto custom-scrollbar">
                                 <Table>
-                                    <TableHeader className="bg-muted/10"><TableRow><TableHead className="py-5 pl-8 font-bold">Patient Profile</TableHead><TableHead className="font-bold">Total Visits</TableHead><TableHead className="font-bold">Last Interaction</TableHead><TableHead className="text-right pr-8 font-bold">Record Audit</TableHead></TableRow></TableHeader>
+                                    <TableHeader className="bg-muted/10">
+                                        <TableRow>
+                                            <TableHead className="py-5 pl-8 font-bold">Patient Profile</TableHead>
+                                            <TableHead className="font-bold">Total Visits</TableHead>
+                                            <TableHead className="font-bold">Last Interaction</TableHead>
+                                            <TableHead className="text-right pr-8 font-bold">Record Audit</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
                                     <TableBody>
                                         {filteredPatients.map((p) => p && p.id && (
                                             <TableRow key={p.id} className="hover:bg-primary/5 transition-all group">
@@ -132,7 +141,12 @@ export default function DoctorPatientsPage() {
                                     </TableBody>
                                 </Table>
                             </div>
-                        ) : (<div className="text-center py-32 text-muted-foreground italic"><AlertCircle className="h-16 w-16 mx-auto mb-4 opacity-10" /><p className="text-lg font-bold text-slate-400 tracking-tight">No clinical records matched.</p></div>)}
+                        ) : (
+                            <div className="text-center py-32 text-muted-foreground italic">
+                                <AlertCircle className="h-16 w-16 mx-auto mb-4 opacity-10" />
+                                <p className="text-lg font-bold text-slate-400 tracking-tight">No clinical records matched.</p>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
