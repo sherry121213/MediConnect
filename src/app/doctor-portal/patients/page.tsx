@@ -3,7 +3,7 @@
 import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Search, Loader2, User, CreditCard, ExternalLink, Filter, CheckCircle2, AlertCircle, Clock, History, ChevronRight } from "lucide-react";
+import { Search, Loader2, CreditCard, ExternalLink, Filter, CheckCircle2, AlertCircle, Clock, History, ChevronRight, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
 import { collection, query, where, doc } from "firebase/firestore";
@@ -24,7 +24,7 @@ const PatientProfileCell = ({ patientId }: { patientId: string }) => {
     return (
         <div className="flex items-center justify-between group">
             <div className="flex items-center gap-3">
-                <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shadow-sm">
+                <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shadow-sm shrink-0">
                     {patient?.firstName?.[0] || '...'}
                 </div>
                 <div className="min-w-0">
@@ -80,13 +80,15 @@ export default function DoctorPatientsPage() {
     return (
         <main className="min-h-screen flex flex-col bg-secondary/30 py-8 overflow-x-hidden overflow-y-auto overscroll-none">
             <div className="container mx-auto px-4 max-w-6xl space-y-8 flex-1 pb-20">
-                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
                     <div>
-                        <h1 className="text-3xl font-bold font-headline text-slate-900">Clinical Record</h1>
+                        <h1 className="text-3xl font-bold font-headline text-slate-900 tracking-tight">Clinical Record</h1>
                         <p className="text-muted-foreground mt-1">Review professional history and unique patient distribution.</p>
                     </div>
-                    <Button variant="outline" asChild className="rounded-xl border-2 font-bold shadow-sm h-11 px-6 bg-white">
-                        <Link href="/doctor-portal">Back to Dashboard</Link>
+                    <Button variant="outline" asChild className="rounded-xl border-2 font-bold shadow-sm h-11 px-6 bg-white w-full md:w-auto">
+                        <Link href="/doctor-portal">
+                            <ArrowLeft className="mr-2 h-4 w-4" /> Back to Dashboard
+                        </Link>
                     </Button>
                 </div>
 
@@ -108,7 +110,9 @@ export default function DoctorPatientsPage() {
                 <Card className="border-none shadow-2xl rounded-3xl overflow-hidden bg-white">
                     <CardHeader className="bg-primary/5 border-b p-6 sm:p-8">
                         <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                            <CardTitle className="text-xl flex items-gap-3 text-slate-900"><History className="h-6 w-6 text-primary" /> Comprehensive Patient Pool</CardTitle>
+                            <CardTitle className="text-xl flex items-center gap-3 text-slate-900">
+                                <History className="h-6 w-6 text-primary" /> Comprehensive Patient Pool
+                            </CardTitle>
                             <div className="relative w-full md:w-80">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                                 <Input placeholder="Search record..." className="pl-9 h-11 border-2 rounded-xl bg-white" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} />
@@ -123,7 +127,7 @@ export default function DoctorPatientsPage() {
                                 <Table>
                                     <TableHeader className="bg-muted/10">
                                         <TableRow>
-                                            <TableHead className="py-5 pl-8 font-bold">Patient Profile</TableHead>
+                                            <TableHead className="py-5 pl-8 font-bold min-w-[200px]">Patient Profile</TableHead>
                                             <TableHead className="font-bold">Total Visits</TableHead>
                                             <TableHead className="font-bold">Last Interaction</TableHead>
                                             <TableHead className="text-right pr-8 font-bold">Record Audit</TableHead>
@@ -134,7 +138,7 @@ export default function DoctorPatientsPage() {
                                             <TableRow key={p.id} className="hover:bg-primary/5 transition-all group">
                                                 <TableCell className="py-5 pl-8"><PatientProfileCell patientId={p.id} /></TableCell>
                                                 <TableCell><Badge variant="secondary" className="bg-primary/10 text-primary font-bold text-[10px] uppercase">{p.totalVisits} Consultations</Badge></TableCell>
-                                                <TableCell><div className="flex items-center gap-2 text-xs font-medium text-slate-600"><Clock className="h-3 w-3 text-muted-foreground" />{p.lastVisit ? format(new Date(p.lastVisit), "MMM dd, yyyy") : 'N/A'}</div></TableCell>
+                                                <TableCell><div className="flex items-center gap-2 text-xs font-medium text-slate-600 whitespace-nowrap"><Clock className="h-3 w-3 text-muted-foreground" />{p.lastVisit ? format(new Date(p.lastVisit), "MMM dd, yyyy") : 'N/A'}</div></TableCell>
                                                 <TableCell className="text-right pr-8"><Button variant="ghost" size="sm" asChild className="rounded-xl hover:bg-primary hover:text-white font-bold text-[10px] uppercase gap-2 h-9 px-4"><Link href={`/doctor-portal/records?patientId=${p.id}`}>Audit Records <ChevronRight className="h-3.5 w-3.5" /></Link></Button></TableCell>
                                             </TableRow>
                                         ))}
@@ -142,7 +146,7 @@ export default function DoctorPatientsPage() {
                                 </Table>
                             </div>
                         ) : (
-                            <div className="text-center py-32 text-muted-foreground italic">
+                            <div className="text-center py-32 text-muted-foreground italic px-6">
                                 <AlertCircle className="h-16 w-16 mx-auto mb-4 opacity-10" />
                                 <p className="text-lg font-bold text-slate-400 tracking-tight">No clinical records matched.</p>
                             </div>

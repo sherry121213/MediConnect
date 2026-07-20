@@ -199,14 +199,14 @@ export default function AppHeader() {
                         <Button variant="destructive" className="h-14 rounded-2xl font-bold mt-4" onClick={handleLogout}>Log Out</Button>
                       </>
                   ) : (
-                      <>
-                        <Button variant="outline" className="h-14 rounded-2xl font-bold border-2" asChild onClick={() => setMobileMenuOpen(false)}>
+                      <div className="flex flex-col gap-4 mt-4">
+                        <Button variant="outline" className="h-14 rounded-2xl font-bold border-2 border-primary text-primary" asChild onClick={() => setMobileMenuOpen(false)}>
                             <Link href="/login">Login</Link>
                         </Button>
-                        <Button className="h-14 rounded-2xl font-bold shadow-lg" asChild onClick={() => setMobileMenuOpen(false)}>
+                        <Button className="h-14 rounded-2xl font-bold shadow-lg bg-primary text-white" asChild onClick={() => setMobileMenuOpen(false)}>
                             <Link href="/signup">Sign Up</Link>
                         </Button>
-                      </>
+                      </div>
                   )}
               </div>
             </SheetContent>
