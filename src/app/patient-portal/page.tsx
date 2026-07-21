@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, RefreshCw, CalendarIcon, ShieldCheck, PhoneIncoming, X, HelpCircle, AlertCircle, CheckCircle2, XCircle, Siren, Layers, BellRing } from "lucide-react";
+import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, RefreshCw, CalendarIcon, ShieldCheck, PhoneIncoming, X, HelpCircle, AlertCircle, CheckCircle2, XCircle, Siren, Layers, BellRing, UserCheck } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -139,6 +139,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
             updatedAt: new Date().toISOString(),
             doctorInRoom: false,
             readyToStart: false,
+            patientCheckedIn: false,
             queueStatus: 'waiting'
         });
 
@@ -251,6 +252,9 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
 
 const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'default' }: { apt: any, isUpcoming: boolean, onPostpone: (a: any) => void, isMounted: boolean, variant?: 'default' | 'compact' }) => {
     const firestore = useFirestore();
+    const { toast } = useToast();
+    const [isCheckingIn, setIsCheckingIn] = useState(false);
+    
     const doctorDocRef = useMemoFirebase(() => {
         if (!firestore || !apt?.doctorId) return null;
         return doc(firestore, 'doctors', apt.doctorId);
@@ -266,12 +270,14 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
     }, [apt?.appointmentDateTime]);
     
     const now = isMounted ? Date.now() : 0;
+    const checkInBuffer = appointmentDate ? appointmentDate.getTime() - (15 * 60 * 1000) : 0;
     const bufferTime = appointmentDate ? appointmentDate.getTime() - (5 * 60 * 1000) : 0; 
     const startTime = appointmentDate ? appointmentDate.getTime() : 0; 
     const endTime = appointmentDate ? appointmentDate.getTime() + (15 * 60 * 1000) : 0; 
     
     const isLive = isMounted && now >= startTime && now < endTime;
     const isFlexibleBuffer = isMounted && now >= bufferTime && now < startTime;
+    const isCheckInAvailable = isMounted && now >= checkInBuffer && now < endTime;
     const isExpired = isMounted && now >= endTime;
 
     if (!apt || !appointmentDate) return null;
@@ -282,6 +288,22 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
         if (!isLive && !(isFlexibleBuffer && apt.readyToStart)) return;
         window.location.assign(`/consultation/${apt.id}`);
     };
+
+    const handleCheckIn = async () => {
+        if (!firestore || isCheckingIn) return;
+        setIsCheckingIn(true);
+        try {
+            await updateDoc(doc(firestore, 'appointments', apt.id), {
+                patientCheckedIn: true,
+                updatedAt: new Date().toISOString()
+            });
+            toast({ title: "Checked In!", description: "Doctor has been notified of your arrival." });
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Check-in Failed" });
+        } finally {
+            setIsCheckingIn(false);
+        }
+    }
 
     if (variant === 'compact') {
         return (
@@ -348,6 +370,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                                 {isLoadingDoctor ? 'Loading...' : `Dr. ${doctor?.firstName} ${doctor?.lastName}`}
                             </p>
                             {(isLive || (isFlexibleBuffer && apt.readyToStart)) && apt.status === 'scheduled' && apt.paymentStatus === 'approved' && <Badge className="bg-red-600 text-white animate-pulse h-4 text-[7px] px-1.5 uppercase font-bold">LIVE</Badge>}
+                            {apt.patientCheckedIn && <Badge className="bg-green-100 text-green-800 border-green-200 h-4 text-[7px] px-1.5 uppercase font-bold">Checked In</Badge>}
                         </div>
                         <p className="text-[10px] sm:text-xs text-primary font-bold uppercase tracking-wider opacity-80 truncate">{doctor?.specialty || 'Medical Specialist'}</p>
                         <div className="flex wrap items-center gap-1.5 sm:gap-2 pt-1">
@@ -369,37 +392,44 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                         </div>
                     ) : isUpcoming && !isExpired && apt.status === 'scheduled' ? (
                         <div className="flex flex-row sm:flex-col gap-2 w-full">
+                            {isCheckInAvailable && !apt.patientCheckedIn && (
+                                <Button onClick={handleCheckIn} disabled={isCheckingIn} className="bg-green-600 hover:bg-green-700 text-white font-bold h-9 flex-1 sm:w-auto text-[10px] uppercase shadow-lg shadow-green-100">
+                                    {isCheckingIn ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <UserCheck className="mr-1.5 h-3.5 w-3.5" />} Check-in Now
+                                </Button>
+                            )}
                             {(!isLive && !(isFlexibleBuffer && apt.readyToStart)) && (
                                 <Button variant="outline" size="sm" className="font-bold border-2 h-9 flex-1 sm:w-auto text-[10px]" onClick={() => onPostpone(apt)}>
                                     <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Reschedule
                                 </Button>
                             )}
-                            <Dialog>
-                                <DialogTrigger asChild>
-                                    <Button className={cn("font-bold h-9 flex-1 sm:w-auto transition-all", (isLive || (isFlexibleBuffer && apt.readyToStart)) ? "bg-red-600 hover:bg-red-700 animate-pulse" : "opacity-70 cursor-not-allowed")} disabled={!isLive && !(isFlexibleBuffer && apt.readyToStart)}>
-                                        {(isLive || (isFlexibleBuffer && apt.readyToStart)) ? "Join Clinical Room" : "Upcoming"}
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent className="w-[95vw] sm:max-w-lg rounded-3xl border-none shadow-2xl bg-white animate-in zoom-in-95 duration-200">
-                                    <DialogHeader>
-                                        <DialogTitle className="text-xl font-headline">Clinical Connection</DialogTitle>
-                                        <DialogDescription>
-                                            {isLive ? `Secure session closes at ${format(addMinutes(appointmentDate, 15), "p")}.` : `Secure session opens at ${format(appointmentDate, "p")}.`}
-                                        </DialogDescription>
-                                    </DialogHeader>
-                                    <div className="py-4">
-                                        <Button variant="outline" className="w-full justify-start h-20 border-2 hover:border-primary group bg-muted/5 rounded-2xl" onClick={handleJoin}>
-                                            <Video className="mr-4 h-6 w-6 text-primary shrink-0"/> <div className="text-left"><p className="font-bold text-foreground">Professional Consultation</p><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">HD Video Feed Active</p></div>
+                            {apt.patientCheckedIn && (
+                                <Dialog>
+                                    <DialogTrigger asChild>
+                                        <Button className={cn("font-bold h-9 flex-1 sm:w-auto transition-all", (isLive || (isFlexibleBuffer && apt.readyToStart)) ? "bg-red-600 hover:bg-red-700 animate-pulse" : "opacity-70 cursor-not-allowed")} disabled={!isLive && !(isFlexibleBuffer && apt.readyToStart)}>
+                                            {(isLive || (isFlexibleBuffer && apt.readyToStart)) ? "Join Clinical Room" : "Upcoming"}
                                         </Button>
-                                    </div>
-                                    {!isLive && isFlexibleBuffer && apt.readyToStart && (
-                                        <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 animate-pulse">
-                                            <Siren className="h-5 w-5 text-red-600 shrink-0" />
-                                            <p className="text-xs text-red-800 font-bold">Your doctor is ready to start early.</p>
+                                    </DialogTrigger>
+                                    <DialogContent className="w-[95vw] sm:max-w-lg rounded-3xl border-none shadow-2xl bg-white animate-in zoom-in-95 duration-200">
+                                        <DialogHeader>
+                                            <DialogTitle className="text-xl font-headline">Clinical Connection</DialogTitle>
+                                            <DialogDescription>
+                                                {isLive ? `Secure session closes at ${format(addMinutes(appointmentDate, 15), "p")}.` : `Secure session opens at ${format(appointmentDate, "p")}.`}
+                                            </DialogDescription>
+                                        </DialogHeader>
+                                        <div className="py-4">
+                                            <Button variant="outline" className="w-full justify-start h-20 border-2 hover:border-primary group bg-muted/5 rounded-2xl" onClick={handleJoin}>
+                                                <Video className="mr-4 h-6 w-6 text-primary shrink-0"/> <div className="text-left"><p className="font-bold text-foreground">Professional Consultation</p><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">HD Video Feed Active</p></div>
+                                            </Button>
                                         </div>
-                                    )}
-                                </DialogContent>
-                            </Dialog>
+                                        {!isLive && isFlexibleBuffer && apt.readyToStart && (
+                                            <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 animate-pulse">
+                                                <Siren className="h-5 w-5 text-red-600 shrink-0" />
+                                                <p className="text-xs text-red-800 font-bold">Your doctor is ready to start early.</p>
+                                            </div>
+                                        )}
+                                    </DialogContent>
+                                </Dialog>
+                            )}
                         </div>
                     ) : (
                         <div className="flex flex-row sm:flex-col gap-2 w-full">

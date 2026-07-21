@@ -70,6 +70,7 @@
         "sequencePosition": { "type": "number" },
         "queueStatus": { "type": "string", "enum": ["waiting", "in-consultation", "late", "shifted", "completed"] },
         "readyToStart": { "type": "boolean" },
+        "patientCheckedIn": { "type": "boolean" },
         "doctorInRoom": { "type": "boolean" },
         "isExtended": { "type": "boolean" },
         "paymentReceiptUrl": { "type": "string" },
@@ -121,6 +122,10 @@
       "schema": { "$ref": "#/backend/entities/Appointment" },
       "description": "Precision clinical booking and queue management data."
     },
+    "/contacts/{contactId}": {
+      "schema": { "$ref": "#/backend/entities/Contact" },
+      "description": "Global public inquiries."
+    },
     "/reviews/{reviewId}": {
       "schema": "object",
       "description": "Patient feedback and clinical standards audits."
@@ -144,10 +149,6 @@
     "/missedSessionAudits/{auditId}": {
       "schema": "object",
       "description": "Regulatory archive for untended clinical slots."
-    },
-    "/contacts/{contactId}": {
-      "schema": { "$ref": "#/backend/entities/Contact" },
-      "description": "Global public inquiries."
     },
     "/doctorUnavailabilityRequests/{requestId}": {
       "schema": "object",

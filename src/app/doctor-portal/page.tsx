@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, FileText, Zap, LayoutList, Siren, PhoneIncoming, UserCheck, AlertCircle, PlayCircle, UserMinus, Bell, BellRing } from "lucide-react";
+import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, FileText, Zap, LayoutList, Siren, PhoneIncoming, UserCheck, AlertCircle, PlayCircle, UserMinus, Bell, BellRing, LogIn } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -156,6 +156,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
             updatedAt: new Date().toISOString(),
             doctorInRoom: false,
             readyToStart: false,
+            patientCheckedIn: false,
             queueStatus: 'waiting'
         });
         toast({ title: "Clinical Session Rescheduled" });
@@ -213,9 +214,14 @@ const AppointmentRow = ({ apt, patient, onSelect, isMounted, onShift, isQueueMod
                         {apt.sequencePosition || '-'}
                     </div>
                 )}
-                <Avatar className="h-10 w-10 shrink-0"><AvatarFallback className="text-xs">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback></Avatar>
+                <Avatar className="h-10 w-10 shrink-0">
+                    <AvatarFallback className="text-xs bg-slate-100">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback>
+                </Avatar>
                 <div className="min-w-0">
-                    <p className="font-bold text-sm truncate">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
+                    <div className="flex items-center gap-2">
+                        <p className="font-bold text-sm truncate">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
+                        {apt.patientCheckedIn && <Badge className="bg-green-50 text-green-700 border-green-200 h-3.5 text-[6px] px-1.5 font-bold uppercase tracking-tighter shrink-0">In Waiting Room</Badge>}
+                    </div>
                     <p className="text-[10px] text-muted-foreground uppercase">{format(appointmentDate, "p")}</p>
                 </div>
             </div>
@@ -272,14 +278,43 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, nowTic
                     <div className="flex-1 overflow-y-auto bg-white p-4 sm:p-8 pb-32 max-h-[60dvh]">
                         <TabsContent value="overview" className="space-y-6 m-0">
                             <div className="flex items-center gap-4 p-4 border-2 rounded-[1.5rem] bg-muted/20">
-                                <Avatar className="h-12 w-12"><AvatarFallback className="text-sm font-bold">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback></Avatar>
+                                <Avatar className="h-12 w-12"><AvatarFallback className="text-sm font-bold bg-slate-200">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback></Avatar>
                                 {patient && <div className="min-w-0"><p className="font-bold text-lg truncate">{patient.firstName} {patient.lastName}</p></div>}
                             </div>
+                            
                             {!isCompleted && !isPast && (
-                                <Button onClick={() => window.location.assign(`/consultation/${appointment.id}`)} className="w-full h-14 sm:h-16 text-base font-bold rounded-2xl shadow-lg">
-                                    <Video className="mr-3 h-5 w-5" /> Join Session
-                                </Button>
+                                <div className="space-y-4">
+                                    {!appointment.patientCheckedIn && (
+                                        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-3 text-amber-800">
+                                            <AlertCircle className="h-5 w-5 shrink-0" />
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] font-bold uppercase">Patient Arrival Pending</p>
+                                                <p className="text-[9px] leading-tight">Patient has not checked into the digital waiting room yet.</p>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <Button 
+                                        onClick={() => window.location.assign(`/consultation/${appointment.id}`)} 
+                                        className={cn("w-full h-14 sm:h-16 text-base font-bold rounded-2xl shadow-lg transition-all", !appointment.patientCheckedIn && "opacity-50 grayscale cursor-not-allowed")}
+                                        disabled={!appointment.patientCheckedIn}
+                                    >
+                                        <Video className="mr-3 h-5 w-5" /> 
+                                        {appointment.patientCheckedIn ? "Start Consultation" : "Awaiting Check-in"}
+                                    </Button>
+
+                                    {!appointment.patientCheckedIn && (
+                                        <Button 
+                                            variant="ghost" 
+                                            className="w-full text-[10px] uppercase font-bold text-muted-foreground hover:text-primary h-10"
+                                            onClick={() => window.location.assign(`/consultation/${appointment.id}`)}
+                                        >
+                                            <LogIn className="mr-2 h-3.5 w-3.5" /> Force Entry (Emergency Only)
+                                        </Button>
+                                    )}
+                                </div>
                             )}
+
                             {isPast && !isCompleted && (
                                 <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 text-red-700">
                                     <AlertCircle className="h-5 w-5 shrink-0" />
@@ -362,12 +397,9 @@ export default function DoctorPortalPage() {
         
         const activeQ = [...allToday]
             .filter(apt => {
-                // Rule: Show if it's currently scheduled AND either upcoming or in-consultation.
-                // Exclude "Past Waiting" sessions that have expired their window by 30 mins.
                 if (apt.status !== 'scheduled') return false;
                 const startTime = new Date(apt.appointmentDateTime);
                 const expirationTime = addMinutes(startTime, 30);
-                
                 return apt.queueStatus === 'in-consultation' || isAfter(expirationTime, nowTicker);
             })
             .sort((a, b) => {
@@ -480,7 +512,10 @@ export default function DoctorPortalPage() {
                                             <div key={apt.id} className={cn("flex items-center justify-between p-4 sm:p-6 rounded-[1.5rem] border-2 transition-all", apt.status === 'completed' ? "border-green-100 bg-green-50/50" : "border-slate-100 bg-white shadow-sm")}>
                                                 <div className="flex items-center gap-4">
                                                     <div>
-                                                        <p className="font-bold text-sm sm:text-base">{patientsMap.get(apt.patientId)?.firstName} {patientsMap.get(apt.patientId)?.lastName || '...'}</p>
+                                                        <div className="flex items-center gap-2">
+                                                            <p className="font-bold text-sm sm:text-base">{patientsMap.get(apt.patientId)?.firstName} {patientsMap.get(apt.patientId)?.lastName || '...'}</p>
+                                                            {apt.patientCheckedIn && <Badge className="bg-green-100 text-green-700 h-3 text-[7px] uppercase font-bold tracking-widest border-green-200">Checked In</Badge>}
+                                                        </div>
                                                         <p className="text-[9px] text-muted-foreground uppercase">{apt.appointmentType} • {format(new Date(apt.appointmentDateTime), "p")}</p>
                                                     </div>
                                                 </div>

@@ -4,7 +4,7 @@
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Activity, Layers, Clock, User, ShieldCheck, Search, AlertCircle } from 'lucide-react';
+import { Loader2, Activity, Layers, Clock, User, ShieldCheck, Search, AlertCircle, UserCheck } from 'lucide-react';
 import { format, isValid, addMinutes, isAfter, subMinutes } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { useState, useMemo, useEffect } from 'react';
@@ -40,15 +40,12 @@ export default function AdminQueuesPage() {
   const queueBlocks = useMemo(() => {
     if (!appointmentsRaw || !now) return [];
     
-    // Filter for Approved and Scheduled sessions that aren't excessively past their window
     const activeApts = appointmentsRaw.filter(apt => {
         if (!apt || apt.paymentStatus !== 'approved' || apt.status !== 'scheduled' || !apt.appointmentDateTime) return false;
         
         const startTime = new Date(apt.appointmentDateTime);
-        const expirationTime = addMinutes(startTime, 30); // 30 min threshold for "Waiting" sessions
+        const expirationTime = addMinutes(startTime, 30); 
 
-        // Rule: Show if it's currently in consultation, OR if it's upcoming, 
-        // OR if it's within the 30-min late window.
         const isCurrentlyActive = apt.queueStatus === 'in-consultation';
         const isUpcoming = isAfter(startTime, subMinutes(now, 5));
         const isWithinLateWindow = isAfter(expirationTime, now);
@@ -137,7 +134,10 @@ export default function AdminQueuesPage() {
                                               #{apt.sequencePosition}
                                           </div>
                                           <div className="min-w-0">
-                                              <p className="text-sm font-bold text-slate-900 truncate">Patient ID: {apt.patientId.slice(0, 8)}</p>
+                                              <div className="flex items-center gap-2">
+                                                <p className="text-sm font-bold text-slate-900 truncate">Patient ID: {apt.patientId.slice(0, 8)}</p>
+                                                {apt.patientCheckedIn && <Badge className="bg-green-100 text-green-700 h-3.5 text-[6px] px-1.5 font-bold border-green-200 flex items-center gap-1 uppercase"><UserCheck className="h-2 w-2" /> Arrived</Badge>}
+                                              </div>
                                               <p className="text-[9px] text-slate-500 uppercase font-bold tracking-tighter">Assigned Sequence</p>
                                           </div>
                                       </div>

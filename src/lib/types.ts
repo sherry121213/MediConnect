@@ -68,6 +68,7 @@ export interface Appointment {
   paymentMethod?: string;
   doctorInRoom?: boolean;
   readyToStart?: boolean; 
+  patientCheckedIn?: boolean; // New: Patient signaled they are ready
   isExtended?: boolean; 
   // Queue Management Fields
   blockId?: string;
