@@ -1,14 +1,13 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, setDoc, onSnapshot, addDoc, updateDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, addDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, Clock, Siren, AlertTriangle, ClipboardCheck, CheckCircle2, Volume2, Calendar } from 'lucide-react';
-import { addMinutes, differenceInSeconds, isValid } from 'date-fns';
+import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, Clock, AlertTriangle, ClipboardCheck, CheckCircle2, Calendar } from 'lucide-react';
+import { addMinutes, differenceInSeconds } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -167,11 +166,16 @@ export default function ConsultationRoomPage() {
       try {
         // PRECISION AUDIO CONSTRAINTS FOR NOISE CANCELLATION
         const constraints = { 
-          video: isAudioOnly ? false : { width: 1280, height: 720 }, 
+          video: isAudioOnly ? false : { 
+            facingMode: "user",
+            width: { ideal: 640 }, 
+            height: { ideal: 480 } 
+          }, 
           audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
+            echoCancellation: { ideal: true },
+            noiseSuppression: { ideal: true },
+            autoGainControl: { ideal: true },
+            channelCount: 1
           } 
         };
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -202,6 +206,13 @@ export default function ConsultationRoomPage() {
       localStream.current?.getTracks().forEach(t => t.stop());
     };
   }, [appointmentId, isAudioOnly]);
+
+  // Ensure self-view is always bound when permission/stream is available
+  useEffect(() => {
+    if (localVideoRef.current && localStream.current && hasCameraPermission) {
+        localVideoRef.current.srcObject = localStream.current;
+    }
+  }, [hasCameraPermission]);
 
   useEffect(() => {
     if (!firestore || !appointmentId || !user || !hasCameraPermission || !userData || isExpired || isCompleted) return;
@@ -459,7 +470,7 @@ export default function ConsultationRoomPage() {
             )}
 
             {!isAudioOnly && !isCompleted && (
-              <div className="absolute top-4 right-4 w-28 sm:w-44 aspect-video rounded-xl overflow-hidden border border-white/10 shadow-2xl bg-slate-900 z-30">
+              <div className="absolute top-2 right-2 sm:top-4 sm:right-4 w-24 sm:w-44 aspect-video rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900 z-[40]">
                   <video 
                     ref={localVideoRef} 
                     className={cn("w-full h-full object-cover -scale-x-100", isVideoOff && "hidden")} 
