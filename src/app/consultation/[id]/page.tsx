@@ -19,7 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from 'react-hook-form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import {
   Dialog,
   DialogContent,
@@ -237,7 +237,6 @@ export default function ConsultationRoomPage() {
             if (isEffectActive) {
                 setIsPeerConnected(true);
                 setSignalingStatus("Live Connection");
-                // Explicitly play for some browsers
                 remoteVideoRef.current.play().catch(e => console.warn("Autoplay block:", e));
             }
           }
