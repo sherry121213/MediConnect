@@ -143,7 +143,7 @@ export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardPr
         {/* Action Footer */}
         <div className="pt-2">
             <Button className="w-full h-16 rounded-2xl bg-primary hover:bg-primary/90 text-white font-bold text-lg shadow-2xl shadow-primary/20 transition-all active:scale-95" onClick={handleBookAppointment}>
-                Request Consultation
+                Book Consultation
             </Button>
         </div>
       </CardContent>
