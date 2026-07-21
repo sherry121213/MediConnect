@@ -3,34 +3,31 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // MEDICONNECT - PROTOCOL V60
-    // Providing absolute access for rapid prototyping and clinical auditing.
-    // This allows all users (Patient, Doctor, Admin) to interact with every 
-    // segment of the clinical record, including appointments and chat tunnels.
+    /**
+     * MEDICONNECT - PROTOCOL V61
+     * 
+     * [CRITICAL] REDEPLOYMENT TRIGGER: V61 - Full Global Access Protocol.
+     * This ruleset provides absolute read/write clearance for all clinical 
+     * segments to resolve permission blocks during rapid prototyping.
+     */
     
+    // Global recursive wildcard: Matches all collections and documents at any depth.
     match /{document=**} {
       allow read, write: if true;
     }
 
-    // Explicit path registration to ensure Firestore list/query clarity
-    match /patients/{userId} { allow read, write: if true; }
-    match /doctors/{doctorId} { allow read, write: if true; }
-    match /appointments/{appointmentId} { allow read, write: if true; }
-    match /reviews/{reviewId} { allow read, write: if true; }
-    match /doctorCredentials/{credentialId} { allow read, write: if true; }
-    match /supportChatSessions/{sessionId} { allow read, write: if true; }
-    match /adminDoctorChatSessions/{sessionId} { allow read, write: if true; }
-    match /consultationSessions/{sessionId} { allow read, write: if true; }
-    match /calls/{callId} { allow read, write: if true; }
-    match /doctorUnavailabilityRequests/{requestId} { allow read, write: if true; }
-    match /missedSessionAudits/{auditId} { allow read, write: if true; }
-    match /contacts/{contactId} { allow read, write: if true; }
-    
-    // Subcollection recursive permissions
-    match /supportChatSessions/{sessionId}/messages/{msgId} { allow read, write: if true; }
-    match /adminDoctorChatSessions/{sessionId}/messages/{msgId} { allow read, write: if true; }
-    match /consultationSessions/{sessionId}/messages/{msgId} { allow read, write: if true; }
-    match /calls/{callId}/offerCandidates/{id} { allow read, write: if true; }
-    match /calls/{callId}/answerCandidates/{id} { allow read, write: if true; }
+    // Explicit root collection matches to ensure list/query compatibility
+    match /patients/{docId} { allow read, write: if true; }
+    match /doctors/{docId} { allow read, write: if true; }
+    match /appointments/{docId} { allow read, write: if true; }
+    match /reviews/{docId} { allow read, write: if true; }
+    match /doctorCredentials/{docId} { allow read, write: if true; }
+    match /supportChatSessions/{docId} { allow read, write: if true; }
+    match /adminDoctorChatSessions/{docId} { allow read, write: if true; }
+    match /consultationSessions/{docId} { allow read, write: if true; }
+    match /calls/{docId} { allow read, write: if true; }
+    match /doctorUnavailabilityRequests/{docId} { allow read, write: if true; }
+    match /missedSessionAudits/{docId} { allow read, write: if true; }
+    match /contacts/{docId} { allow read, write: if true; }
   }
 }
