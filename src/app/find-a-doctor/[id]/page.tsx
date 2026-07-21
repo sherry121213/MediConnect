@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -30,7 +31,7 @@ import { cn } from '@/lib/utils';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import { Label } from '@/components/ui/label';
-import { format, isSameDay, isBefore, isValid, parse, addMinutes } from 'date-fns';
+import { format, isSameDay, isBefore, isValid, parse, addMinutes, startOfDay } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const PAYMENT_METHODS = [
@@ -139,7 +140,7 @@ export default function DoctorDetailPage() {
     const timeValidation = useMemo(() => {
         if (!mounted || !existingAppointments || !selectedDate || !selectedTimeStr) return { isAvailable: true, message: '' };
 
-        const proposedStart = parse(selectedTimeStr, 'hh:mm a', selectedDate);
+        const proposedStart = parse(selectedTimeStr, 'hh:mm a', startOfDay(selectedDate));
         if (!isValid(proposedStart)) return { isAvailable: false, message: 'Select a valid time.' };
 
         if (isSameDay(selectedDate, nowTicker) && isBefore(proposedStart, nowTicker)) {
@@ -148,12 +149,10 @@ export default function DoctorDetailPage() {
 
         const proposedEnd = addMinutes(proposedStart, 20);
         const overlap = existingAppointments.find(apt => {
-            if (!apt || !apt.appointmentDateTime) return false;
-            // Only 'scheduled' appointments block a time slot window. 
-            // Completed, cancelled, or expired sessions are considered 'freed' capacity.
-            if (apt.status !== 'scheduled') return false;
+            if (!apt || !apt.appointmentDateTime || apt.status !== 'scheduled') return false;
             
             const aptStart = new Date(apt.appointmentDateTime);
+            if (!isValid(aptStart)) return false;
             const aptEnd = addMinutes(aptStart, 20);
             return proposedStart < aptEnd && proposedEnd > aptStart;
         });
@@ -165,20 +164,30 @@ export default function DoctorDetailPage() {
         return { isAvailable: true, message: '' };
     }, [selectedTimeStr, selectedDate, existingAppointments, mounted, nowTicker]);
 
-    const handleConfirmBooking = async () => {
+    const handleConfirmBooking = () => {
         if (isUserLoading || !user || !firestore || !doctor || !paymentReceipt) return;
         
+        const proposedTime = parse(selectedTimeStr, 'hh:mm a', startOfDay(selectedDate));
+        if (!isValid(proposedTime)) {
+            toast({ variant: 'destructive', title: 'Invalid Time', description: 'Please select a valid consultation time.' });
+            return;
+        }
+
         setIsBooking(true);
         try {
-            const appointmentDateTime = parse(selectedTimeStr, 'hh:mm a', selectedDate);
+            const appointmentDateTimeISO = proposedTime.toISOString();
+            const dayApts = (existingAppointments || []).filter(a => {
+                if (!a || !a.appointmentDateTime) return false;
+                const d = new Date(a.appointmentDateTime);
+                return isValid(d) && isSameDay(d, selectedDate);
+            });
             
-            const dayApts = (existingAppointments || []).filter(a => a && a.appointmentDateTime && isSameDay(new Date(a.appointmentDateTime), selectedDate));
-            const tokenRank = dayApts.filter(a => new Date(a.appointmentDateTime!) < appointmentDateTime).length + 1;
+            const tokenRank = dayApts.filter(a => new Date(a.appointmentDateTime!) < proposedTime).length + 1;
 
             const newAppointment = {
                 patientId: user.uid,
                 doctorId: doctor.id,
-                appointmentDateTime: appointmentDateTime.toISOString(),
+                appointmentDateTime: appointmentDateTimeISO,
                 appointmentType: appointmentType,
                 status: 'scheduled',
                 createdAt: new Date().toISOString(),
@@ -193,11 +202,10 @@ export default function DoctorDetailPage() {
                 doctorInRoom: false
             };
             
-            await addDocumentNonBlocking(collection(firestore, 'appointments'), newAppointment);
+            addDocumentNonBlocking(collection(firestore, 'appointments'), newAppointment);
             toast({ title: "Receipt Submitted", description: `Daily Token #${tokenRank} assigned. Awaiting audit.` });
             router.push('/patient-portal');
         } catch (e) {
-            console.error("Booking failed:", e);
             toast({ variant: 'destructive', title: "Booking Failed", description: "Could not finalize clinical record." });
         } finally {
             setIsBooking(false);
