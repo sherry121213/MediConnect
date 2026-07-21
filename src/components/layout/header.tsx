@@ -180,53 +180,66 @@ export default function AppHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur shadow-sm overflow-x-hidden">
-      <div className="w-full px-4 sm:px-8 flex h-20 items-center justify-between relative">
+    <header className={cn(
+        "sticky top-0 z-50 w-full border-b backdrop-blur-xl transition-all duration-300",
+        isDoctorPortal ? "h-24 bg-white/80 border-t-2 border-t-primary shadow-lg shadow-slate-200/50" : "h-20 bg-white/95 shadow-sm"
+    )}>
+      <div className="w-full h-full px-4 sm:px-8 flex items-center justify-between relative">
         {isDoctorPortal ? (
           <>
-            {/* Elegant Doctor Portal Layout - Center Logo */}
+            {/* Elegant Doctor Portal Layout - Centered Branding */}
             <div className="flex-1" /> 
             
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none">
-              <Logo />
+            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1 pointer-events-none group">
+              <div className="scale-110 sm:scale-125 transition-transform duration-500 group-hover:scale-135">
+                <Logo />
+              </div>
+              <span className="text-[8px] sm:text-[9px] font-bold text-primary uppercase tracking-[0.3em] opacity-60 leading-none animate-in fade-in slide-in-from-top-1 duration-700">
+                Professional Hub
+              </span>
             </div>
 
             <div className="flex items-center gap-3 shrink-0 relative z-10">
               <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full hover:bg-slate-50">
-                          <Bell className="h-5 w-5 text-slate-600" />
-                          {notifications.length > 0 && (<span className="absolute top-2 right-2 h-4 w-4 bg-red-500 border-2 border-white rounded-full flex items-center justify-center text-[8px] font-bold text-white animate-pulse">{notifications.length}</span>)}
+                      <Button variant="ghost" size="icon" className="relative h-11 w-11 rounded-2xl hover:bg-primary/5 transition-colors border border-transparent hover:border-primary/10">
+                          <Bell className="h-5 w-5 text-slate-700" />
+                          {notifications.length > 0 && (<span className="absolute top-2.5 right-2.5 h-3.5 w-3.5 bg-red-500 border-2 border-white rounded-full flex items-center justify-center text-[7px] font-black text-white animate-pulse">{notifications.length}</span>)}
                       </Button>
                   </DropdownMenuTrigger>
-                  <DropdownMenuContent className="w-80 p-0 rounded-2xl border-none shadow-2xl overflow-hidden" align="end">
-                      <div className="bg-slate-900 text-white p-4 flex items-center justify-between">
-                          <h4 className="text-sm font-bold">Signals</h4>
+                  <DropdownMenuContent className="w-80 p-0 rounded-[1.5rem] border-none shadow-2xl overflow-hidden mt-2" align="end">
+                      <div className="bg-slate-950 text-white p-5 flex items-center justify-between">
+                          <div className="space-y-0.5">
+                            <h4 className="text-xs font-bold uppercase tracking-widest text-primary">Signals</h4>
+                            <p className="text-[8px] text-slate-500 font-bold uppercase">Real-time alerts</p>
+                          </div>
                           {notifications.length > 0 && (
                               <Button variant="ghost" size="sm" onClick={handleClearLog} className="h-7 text-[9px] font-bold uppercase hover:bg-white/10 hover:text-white px-2">
-                                  <Trash2 className="h-3 w-3 mr-1" /> Clear All
+                                  <Trash2 className="h-3 w-3 mr-1" /> Clear Log
                               </Button>
                           )}
                       </div>
-                      <ScrollArea className="max-h-[400px]">
+                      <ScrollArea className="max-h-[400px] bg-white">
                           {notifications.length > 0 ? (
                               <div className="divide-y divide-slate-50">
                                   {notifications.map((n) => (
-                                      <DropdownMenuItem key={n.id} className="p-4 flex gap-4 cursor-pointer focus:bg-primary/5" onClick={() => n.link && router.push(n.link)}>
-                                          <div className={cn("p-2 rounded-xl bg-slate-100", n.color)}>
-                                              <n.icon className="h-4 w-4" />
+                                      <DropdownMenuItem key={n.id} className="p-4 flex gap-4 cursor-pointer focus:bg-primary/5 m-1 rounded-xl transition-colors" onClick={() => n.link && router.push(n.link)}>
+                                          <div className={cn("p-2.5 rounded-xl bg-slate-50 shrink-0", n.color)}>
+                                              <n.icon className="h-4.5 w-4.5" />
                                           </div>
-                                          <div className="space-y-0.5">
-                                              <p className={cn("font-bold text-[11px] uppercase", n.isUrgent ? "text-red-600" : "")}>{n.title}</p>
-                                              <p className="text-xs text-muted-foreground">{n.msg}</p>
+                                          <div className="space-y-0.5 min-w-0">
+                                              <p className={cn("font-bold text-[10px] uppercase truncate", n.isUrgent ? "text-red-600" : "text-slate-900")}>{n.title}</p>
+                                              <p className="text-[11px] text-slate-500 line-clamp-2 leading-relaxed">{n.msg}</p>
                                           </div>
                                       </DropdownMenuItem>
                                   ))}
                               </div>
                           ) : (
-                              <div className="py-20 text-center px-8">
-                                  <Bell className="h-10 w-10 text-slate-100 mx-auto" />
-                                  <p className="text-[10px] text-muted-foreground uppercase font-bold mt-2">No active signals</p>
+                              <div className="py-20 text-center px-8 bg-slate-50/50">
+                                  <div className="h-16 w-16 rounded-3xl bg-white shadow-sm flex items-center justify-center mx-auto mb-4">
+                                    <Bell className="h-8 w-8 text-slate-200" />
+                                  </div>
+                                  <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">Awaiting active signals</p>
                               </div>
                           )}
                       </ScrollArea>
