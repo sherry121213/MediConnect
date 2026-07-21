@@ -17,7 +17,6 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 
 const AppointmentCard = ({ apt, isUpcoming, isMounted }: { apt: any, isUpcoming: boolean, isMounted: boolean }) => {
     const firestore = useFirestore();
@@ -232,24 +231,13 @@ export default function PatientPortalPage() {
                             </div>
                             
                             {recentPastAppointments.length > 0 ? (
-                                <Carousel
-                                    opts={{ align: "start", loop: false }}
-                                    className="w-full relative group/carousel"
-                                >
-                                    <CarouselContent className="-ml-4">
-                                        {recentPastAppointments.map((apt) => (
-                                            <CarouselItem key={apt.id} className="pl-4 md:basis-1/2">
-                                                <div className="h-full">
-                                                    <AppointmentCard apt={apt} isUpcoming={false} isMounted={mounted} />
-                                                </div>
-                                            </CarouselItem>
-                                        ))}
-                                    </CarouselContent>
-                                    <div className="flex items-center justify-end gap-2 mt-4 sm:absolute sm:-top-12 sm:right-0 sm:mt-0">
-                                        <CarouselPrevious className="static translate-y-0 h-8 w-8 rounded-xl border-2 hover:bg-primary hover:text-white transition-all" />
-                                        <CarouselNext className="static translate-y-0 h-8 w-8 rounded-xl border-2 hover:bg-primary hover:text-white transition-all" />
-                                    </div>
-                                </Carousel>
+                                <div className="flex gap-4 overflow-x-auto pb-6 -mx-4 px-4 scrollbar-hide no-scrollbar custom-scrollbar snap-x">
+                                    {recentPastAppointments.map((apt) => (
+                                        <div key={apt.id} className="min-w-[280px] sm:min-w-[340px] flex-shrink-0 snap-start">
+                                            <AppointmentCard apt={apt} isUpcoming={false} isMounted={mounted} />
+                                        </div>
+                                    ))}
+                                </div>
                             ) : (
                                 <div className="py-24 text-center text-muted-foreground border-2 border-dashed rounded-[2rem] bg-white/40">
                                     <History className="h-10 w-10 mx-auto mb-3 opacity-10" />
