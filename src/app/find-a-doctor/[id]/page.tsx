@@ -149,12 +149,6 @@ export default function DoctorDetailPage() {
 
         const proposedEnd = addMinutes(proposedStart, 20);
         const overlap = existingAppointments.find(apt => {
-            /**
-             * PRECISION RELEASE LOGIC:
-             * Only block slots if the appointment is currently 'scheduled'.
-             * If the doctor is early free (status === 'completed' or 'expired'), 
-             * the time slot is immediately released for new patients.
-             */
             if (!apt || !apt.appointmentDateTime || apt.status !== 'scheduled') return false;
             
             const aptStart = new Date(apt.appointmentDateTime);

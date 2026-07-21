@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -98,7 +99,7 @@ export default function ConsultationRoomPage() {
               prescription: appointment.prescription || '',
           });
       }
-  }, [appointment?.id, form]); // Reset only if ID changes, keep manual edits
+  }, [appointment?.id, form]);
 
   useEffect(() => {
     if (!appointment?.appointmentDateTime || isCompleted) return;
@@ -164,7 +165,10 @@ export default function ConsultationRoomPage() {
     let isMounted = true;
     const acquireMedia = async () => {
       try {
-        const constraints = isAudioOnly ? { audio: true, video: false } : { video: true, audio: true };
+        const constraints = { 
+          video: isAudioOnly ? false : { width: 1280, height: 720 }, 
+          audio: true 
+        };
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         
         if (!isMounted) {
@@ -195,7 +199,6 @@ export default function ConsultationRoomPage() {
   }, [appointmentId, isAudioOnly]);
 
   useEffect(() => {
-    // CRITICAL: We only want to start signaling once hardware is ready and session is active
     if (!firestore || !appointmentId || !user || !hasCameraPermission || !userData || isExpired || isCompleted) return;
 
     let isEffectActive = true;
@@ -203,21 +206,18 @@ export default function ConsultationRoomPage() {
 
     const setupSignaling = async () => {
       try {
-        if (pc.current) {
-          pc.current.close();
-        }
+        if (pc.current) pc.current.close();
+        
         pc.current = new RTCPeerConnection(servers);
         isRemoteDescriptionSet.current = false;
         candidateQueue.current = [];
 
-        // Add local tracks to peer connection
         localStream.current?.getTracks().forEach((track) => {
           if (localStream.current && pc.current) {
             pc.current.addTrack(track, localStream.current);
           }
         });
 
-        // Listen for remote tracks
         pc.current.ontrack = (event) => {
           if (remoteVideoRef.current && event.streams[0]) {
             remoteVideoRef.current.srcObject = event.streams[0];
@@ -240,11 +240,15 @@ export default function ConsultationRoomPage() {
         };
 
         if (isDoctor) {
-          await setDoc(callDoc, { doctorJoinedAt: new Date().toISOString(), offer: null, answer: null }, { merge: true }); 
-          
+          // DOCTOR INITIATES
           const offerDescription = await pc.current.createOffer();
           await pc.current.setLocalDescription(offerDescription);
-          await setDoc(callDoc, { offer: { sdp: offerDescription.sdp, type: offerDescription.type }, doctorId: user.uid }, { merge: true });
+          
+          await setDoc(callDoc, { 
+            offer: { sdp: offerDescription.sdp, type: offerDescription.type },
+            doctorId: user.uid,
+            lastOfferAt: new Date().toISOString()
+          }, { merge: true });
 
           unsubs.push(onSnapshot(callDoc, async (snapshot) => {
             const data = snapshot.data();
@@ -253,7 +257,8 @@ export default function ConsultationRoomPage() {
               await pc.current.setRemoteDescription(answerDesc);
               isRemoteDescriptionSet.current = true;
               while (candidateQueue.current.length > 0) {
-                await pc.current.addIceCandidate(new RTCIceCandidate(candidateQueue.current.shift()));
+                const cand = candidateQueue.current.shift();
+                await pc.current.addIceCandidate(new RTCIceCandidate(cand));
               }
             }
           }));
@@ -269,6 +274,7 @@ export default function ConsultationRoomPage() {
           }));
           
         } else {
+          // PATIENT JOINS
           unsubs.push(onSnapshot(callDoc, async (snapshot) => {
             const data = snapshot.data();
             if (pc.current && !pc.current.currentRemoteDescription && data?.offer) {
@@ -281,7 +287,8 @@ export default function ConsultationRoomPage() {
               await setDoc(callDoc, { answer: { type: answer.type, sdp: answer.sdp }, patientId: user.uid }, { merge: true });
               
               while (candidateQueue.current.length > 0) {
-                await pc.current.addIceCandidate(new RTCIceCandidate(candidateQueue.current.shift()));
+                const cand = candidateQueue.current.shift();
+                await pc.current.addIceCandidate(new RTCIceCandidate(cand));
               }
             }
           }));
@@ -311,7 +318,7 @@ export default function ConsultationRoomPage() {
           pc.current = null; 
       }
     };
-  }, [firestore, appointmentId, user?.uid, hasCameraPermission, isDoctor, isAudioOnly, isExpired, isCompleted]);
+  }, [firestore, appointmentId, user?.uid, hasCameraPermission, isDoctor, isExpired, isCompleted]);
 
   const messagesQuery = useMemoFirebase(() => {
     if (!firestore || !appointmentId) return null;
@@ -370,7 +377,6 @@ export default function ConsultationRoomPage() {
 
   return (
     <div className="flex flex-col h-[100dvh] max-h-[100dvh] bg-slate-950 overflow-hidden text-white overscroll-none fixed inset-0 w-screen">
-      {/* Header */}
       <header className="shrink-0 h-16 p-4 border-b border-white/10 bg-slate-900/60 backdrop-blur-xl flex items-center justify-between z-50">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
@@ -400,10 +406,8 @@ export default function ConsultationRoomPage() {
           </div>
       </header>
 
-      {/* Main Content Area */}
       <main className="flex-1 relative flex flex-col lg:flex-row overflow-hidden min-h-0">
         <div className="flex-1 relative flex flex-col overflow-hidden bg-black">
-          {/* Video Display */}
           <div className="flex-1 relative overflow-hidden flex items-center justify-center">
             {isExpired && !isCompleted ? (
               <div className="text-center p-6 space-y-4 animate-in fade-in">
@@ -432,6 +436,8 @@ export default function ConsultationRoomPage() {
                             </p>
                         </div>
                     </div>
+                    {/* Audio sink for patient/doctor audio in voice mode */}
+                    <video ref={remoteVideoRef} autoPlay playsInline className="hidden" />
                 </div>
             ) : (
               <>
@@ -450,7 +456,6 @@ export default function ConsultationRoomPage() {
               </>
             )}
 
-            {/* Local Pip */}
             {!isAudioOnly && !isCompleted && (
               <div className="absolute top-4 right-4 w-28 sm:w-44 aspect-video rounded-xl overflow-hidden border border-white/10 shadow-2xl bg-slate-900 z-30">
                   <video 
@@ -465,7 +470,6 @@ export default function ConsultationRoomPage() {
             )}
           </div>
 
-          {/* Controls Bar */}
           <div className="shrink-0 h-20 border-t border-white/5 bg-slate-900/60 backdrop-blur-2xl flex items-center justify-center gap-4 px-4">
               <Button size="icon" variant={isMuted ? "destructive" : "secondary"} className="h-10 w-10 sm:h-12 sm:w-12 rounded-full transition-transform active:scale-95" onClick={() => { if(localStream.current) { localStream.current.getAudioTracks()[0].enabled = isMuted; setIsMuted(!isMuted); } }} disabled={isExpired || isCompleted}>
                   {isMuted ? <MicOff className="h-4 w-4 sm:h-5 sm:w-5" /> : <Mic className="h-4 w-4 sm:h-5 sm:w-5" />}
@@ -485,7 +489,6 @@ export default function ConsultationRoomPage() {
           </div>
         </div>
 
-        {/* Sidebar */}
         <aside className={cn(
             "shrink-0 w-full lg:w-[400px] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col z-20 bg-slate-900 transition-all duration-300",
             isSidebarOpen ? "h-[45dvh] lg:h-full" : "h-0 lg:w-0 overflow-hidden"
@@ -538,7 +541,6 @@ export default function ConsultationRoomPage() {
         </aside>
       </main>
 
-      {/* Extension Dialog */}
       <Dialog open={showExtensionDialog} onOpenChange={setShowExtensionDialog}>
           <DialogContent className="rounded-[2.5rem] border-none shadow-2xl p-8 text-center space-y-6 bg-white text-slate-900">
               <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto"><Clock className="h-8 w-8 text-primary" /></div>
