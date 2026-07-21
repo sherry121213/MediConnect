@@ -84,6 +84,17 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["patientId", "doctorId", "appointmentId", "rating"]
+    },
+    "Contact": {
+      "title": "Contact",
+      "description": "Information from the contact us form.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "message": { "type": "string" },
+        "submittedAt": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "auth": {
@@ -109,6 +120,10 @@
     "/reviews/{reviewId}": {
       "schema": { "$ref": "#/backend/entities/Review" },
       "description": "Public patient feedback records."
+    },
+    "/contacts/{contactId}": {
+      "schema": { "$ref": "#/backend/entities/Contact" },
+      "description": "Inquiry records."
     }
   }
 }
