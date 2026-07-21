@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -63,12 +64,12 @@ export default function ConsultationRoomPage() {
   const [isExpired, setIsExpired] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [showExtensionDialog, setShowExtensionDialog] = useState(false);
+  const [activeStream, setActiveStream] = useState<MediaStream | null>(null);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   const pc = useRef<RTCPeerConnection | null>(null);
-  const localStream = useRef<MediaStream | null>(null);
   const candidateQueue = useRef<any[]>([]);
   const isRemoteDescriptionSet = useRef(false);
 
@@ -159,12 +160,12 @@ export default function ConsultationRoomPage() {
     }, 3000);
   };
 
+  // HARDWARE ACQUISITION WITH NOISE CANCELLATION
   useEffect(() => {
     if (!appointmentId) return;
     let isMounted = true;
     const acquireMedia = async () => {
       try {
-        // PRECISION AUDIO CONSTRAINTS FOR NOISE CANCELLATION
         const constraints = { 
           video: isAudioOnly ? false : { 
             facingMode: "user",
@@ -184,14 +185,11 @@ export default function ConsultationRoomPage() {
             stream.getTracks().forEach(t => t.stop());
             return;
         }
-        localStream.current = stream;
+        
+        setActiveStream(stream);
         setHasCameraPermission(true);
         setSignalingStatus("Hardware Sync Complete");
         if (isAudioOnly) setIsVideoOff(true);
-        
-        if (localVideoRef.current && stream.getVideoTracks().length > 0) {
-            localVideoRef.current.srcObject = stream;
-        }
       } catch (err) {
         console.error("Hardware Entry Error:", err);
         if (isMounted) {
@@ -203,19 +201,20 @@ export default function ConsultationRoomPage() {
     acquireMedia();
     return () => {
       isMounted = false;
-      localStream.current?.getTracks().forEach(t => t.stop());
+      activeStream?.getTracks().forEach(t => t.stop());
     };
   }, [appointmentId, isAudioOnly]);
 
-  // Ensure self-view is always bound when permission/stream is available
+  // CONSISTENT LOCAL PREVIEW BINDING
   useEffect(() => {
-    if (localVideoRef.current && localStream.current && hasCameraPermission) {
-        localVideoRef.current.srcObject = localStream.current;
+    if (localVideoRef.current && activeStream) {
+        localVideoRef.current.srcObject = activeStream;
     }
-  }, [hasCameraPermission]);
+  }, [activeStream, isVideoOff]);
 
+  // STABLE SIGNALING ENGINE
   useEffect(() => {
-    if (!firestore || !appointmentId || !user || !hasCameraPermission || !userData || isExpired || isCompleted) return;
+    if (!firestore || !appointmentId || !user || !activeStream || !userData || isExpired || isCompleted) return;
 
     let isEffectActive = true;
     const unsubs: (() => void)[] = [];
@@ -228,10 +227,8 @@ export default function ConsultationRoomPage() {
         isRemoteDescriptionSet.current = false;
         candidateQueue.current = [];
 
-        localStream.current?.getTracks().forEach((track) => {
-          if (localStream.current && pc.current) {
-            pc.current.addTrack(track, localStream.current);
-          }
+        activeStream.getTracks().forEach((track) => {
+          if (pc.current) pc.current.addTrack(track, activeStream);
         });
 
         pc.current.ontrack = (event) => {
@@ -332,7 +329,7 @@ export default function ConsultationRoomPage() {
           pc.current = null; 
       }
     };
-  }, [firestore, appointmentId, user?.uid, hasCameraPermission, isDoctor, isExpired, isCompleted]);
+  }, [firestore, appointmentId, user?.uid, !!activeStream, isDoctor, isExpired, isCompleted]);
 
   const messagesQuery = useMemoFirebase(() => {
     if (!firestore || !appointmentId) return null;
@@ -470,7 +467,7 @@ export default function ConsultationRoomPage() {
             )}
 
             {!isAudioOnly && !isCompleted && (
-              <div className="absolute top-2 right-2 sm:top-4 sm:right-4 w-24 sm:w-44 aspect-video rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900 z-[40]">
+              <div className="absolute top-2 right-2 sm:top-4 sm:right-4 w-24 sm:w-44 aspect-video rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900 z-[60]">
                   <video 
                     ref={localVideoRef} 
                     className={cn("w-full h-full object-cover -scale-x-100", isVideoOff && "hidden")} 
@@ -484,13 +481,13 @@ export default function ConsultationRoomPage() {
           </div>
 
           <div className="shrink-0 h-20 border-t border-white/5 bg-slate-900/60 backdrop-blur-2xl flex items-center justify-center gap-4 px-4">
-              <Button size="icon" variant={isMuted ? "destructive" : "secondary"} className="h-10 w-10 sm:h-12 sm:w-12 rounded-full transition-transform active:scale-95" onClick={() => { if(localStream.current) { localStream.current.getAudioTracks()[0].enabled = isMuted; setIsMuted(!isMuted); } }} disabled={isExpired || isCompleted}>
+              <button className={cn("h-10 w-10 sm:h-12 sm:w-12 rounded-full flex items-center justify-center transition-all active:scale-95", isMuted ? "bg-red-500 text-white" : "bg-slate-800 text-slate-300")} onClick={() => { if(activeStream) { activeStream.getAudioTracks()[0].enabled = isMuted; setIsMuted(!isMuted); } }} disabled={isExpired || isCompleted}>
                   {isMuted ? <MicOff className="h-4 w-4 sm:h-5 sm:w-5" /> : <Mic className="h-4 w-4 sm:h-5 sm:w-5" />}
-              </Button>
+              </button>
               {!isAudioOnly && (
-                  <Button size="icon" variant={isVideoOff ? "destructive" : "secondary"} className="h-10 w-10 sm:h-12 sm:w-12 rounded-full transition-transform active:scale-95" onClick={() => { if(localStream.current) { localStream.current.getVideoTracks()[0].enabled = isVideoOff; setIsVideoOff(!isVideoOff); } }} disabled={isExpired || isCompleted}>
+                  <button className={cn("h-10 w-10 sm:h-12 sm:w-12 rounded-full flex items-center justify-center transition-all active:scale-95", isVideoOff ? "bg-red-500 text-white" : "bg-slate-800 text-slate-300")} onClick={() => { if(activeStream) { activeStream.getVideoTracks()[0].enabled = isVideoOff; setIsVideoOff(!isVideoOff); } }} disabled={isExpired || isCompleted}>
                     {isVideoOff ? <VideoOff className="h-4 w-4 sm:h-5 sm:w-5" /> : <Video className="h-4 w-4 sm:h-5 sm:w-5" />}
-                  </Button>
+                  </button>
               )}
               <div className="w-px h-8 bg-white/10 mx-2" />
               <Button variant="destructive" className="h-10 px-6 sm:h-12 sm:px-8 rounded-full font-bold uppercase text-[10px] tracking-widest shadow-xl shadow-red-900/20" onClick={handleEndSession} disabled={isEnding || isExpired}>
