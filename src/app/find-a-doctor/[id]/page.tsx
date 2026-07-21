@@ -3,13 +3,13 @@
 
 import { useParams, useRouter } from 'next/navigation';
 import { useDoc, useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, collection, query, where } from 'firebase/firestore';
 import type { Doctor, Appointment } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, CalendarDays, Loader2, MapPin, CheckCircle2, XCircle, Copy, Activity, Wallet, Landmark, Smartphone, Clock as ClockIcon } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Loader2, MapPin, CheckCircle2, XCircle, Copy, Wallet, Landmark, Smartphone, Clock as ClockIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -31,7 +31,7 @@ import { cn } from '@/lib/utils';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import { Label } from '@/components/ui/label';
-import { format, isSameDay, isBefore, isValid, parse, startOfDay, endOfDay, addMinutes } from 'date-fns';
+import { format, isSameDay, isBefore, isValid, parse, addMinutes } from 'date-fns';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const PAYMENT_METHODS = [
@@ -161,42 +161,40 @@ export default function DoctorDetailPage() {
         if (isUserLoading || !user || !firestore || !doctor || !paymentReceipt) return;
         
         setIsBooking(true);
-        const appointmentDateTime = parse(selectedTimeStr, 'hh:mm a', selectedDate);
+        try {
+            const appointmentDateTime = parse(selectedTimeStr, 'hh:mm a', selectedDate);
+            
+            // Calculate Token Rank locally using already-loaded existingAppointments to avoid index errors
+            const dayApts = (existingAppointments || []).filter(a => a && a.appointmentDateTime && isSameDay(new Date(a.appointmentDateTime), selectedDate));
+            const tokenRank = dayApts.filter(a => new Date(a.appointmentDateTime!) < appointmentDateTime).length + 1;
 
-        const start = startOfDay(selectedDate);
-        const end = endOfDay(selectedDate);
-        const dailySnap = await getDocs(query(
-            collection(firestore, 'appointments'), 
-            where('doctorId', '==', doctor.id),
-            where('appointmentDateTime', '>=', start.toISOString()),
-            where('appointmentDateTime', '<=', end.toISOString())
-        ));
-
-        const prevApts = dailySnap.docs.map(d => d.data() as Appointment);
-        const tokenRank = prevApts.filter(a => new Date(a.appointmentDateTime) < appointmentDateTime).length + 1;
-
-        const newAppointment = {
-            patientId: user.uid,
-            doctorId: doctor.id,
-            appointmentDateTime: appointmentDateTime.toISOString(),
-            appointmentType: appointmentType,
-            status: 'scheduled',
-            createdAt: new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            amount: 1500,
-            paymentReceiptUrl: paymentReceipt,
-            paymentStatus: 'pending',
-            paymentMethod: paymentMethod,
-            sequencePosition: tokenRank,
-            queueStatus: 'waiting',
-            patientCheckedIn: false,
-            doctorInRoom: false
-        };
-        
-        addDocumentNonBlocking(collection(firestore, 'appointments'), newAppointment);
-        toast({ title: "Receipt Submitted", description: `Daily Token #${tokenRank} assigned. Awaiting audit.` });
-        setIsBooking(false);
-        router.push('/patient-portal');
+            const newAppointment = {
+                patientId: user.uid,
+                doctorId: doctor.id,
+                appointmentDateTime: appointmentDateTime.toISOString(),
+                appointmentType: appointmentType,
+                status: 'scheduled',
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+                amount: 1500,
+                paymentReceiptUrl: paymentReceipt,
+                paymentStatus: 'pending',
+                paymentMethod: paymentMethod,
+                sequencePosition: tokenRank,
+                queueStatus: 'waiting',
+                patientCheckedIn: false,
+                doctorInRoom: false
+            };
+            
+            await addDocumentNonBlocking(collection(firestore, 'appointments'), newAppointment);
+            toast({ title: "Receipt Submitted", description: `Daily Token #${tokenRank} assigned. Awaiting audit.` });
+            router.push('/patient-portal');
+        } catch (e) {
+            console.error("Booking failed:", e);
+            toast({ variant: 'destructive', title: "Booking Failed", description: "Could not finalize clinical record." });
+        } finally {
+            setIsBooking(false);
+        }
     };
 
     if (isLoading || isUserLoading || !mounted) {
