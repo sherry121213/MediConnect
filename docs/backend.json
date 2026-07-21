@@ -147,7 +147,7 @@
     },
     "/calls/{callId}": {
       "schema": "object",
-      "description": "WebRTC signaling signaling metadata for precision sessions."
+      "description": "WebRTC signaling metadata for precision sessions."
     }
   }
 }
