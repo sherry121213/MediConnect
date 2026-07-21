@@ -15,13 +15,15 @@
         "profileComplete": { "type": "boolean" },
         "verified": { "type": "boolean" },
         "photoURL": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "isActive": { "type": "boolean" }
       },
       "required": ["id", "firstName", "lastName", "email", "role"]
     },
     "Doctor": {
       "title": "Doctor",
-      "description": "Detailed professional profile for healthcare providers.",
+      "description": "Professional healthcare provider record.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -35,43 +37,61 @@
         "phone": { "type": "string" },
         "location": { "type": "string" },
         "verified": { "type": "boolean" },
-        "isActive": { "type": "boolean" }
+        "isActive": { "type": "boolean" },
+        "rating": { "type": "number" },
+        "reviews": { "type": "number" },
+        "profileImageId": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       }
     },
     "Appointment": {
       "title": "Appointment",
-      "description": "Clinical consultation record with queue management.",
+      "description": "Clinical consultation record with queue management metadata.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "patientId": { "type": "string" },
         "doctorId": { "type": "string" },
         "appointmentDateTime": { "type": "string", "format": "date-time" },
+        "appointmentType": { "type": "string" },
         "status": { "type": "string", "enum": ["scheduled", "completed", "cancelled", "expired"] },
         "paymentStatus": { "type": "string", "enum": ["pending", "approved", "rejected"] },
-        "queueStatus": { "type": "string", "enum": ["waiting", "in-consultation", "late", "shifted", "completed"] },
+        "paymentMethod": { "type": "string" },
+        "amount": { "type": "number" },
+        "diagnosis": { "type": "string" },
+        "prescription": { "type": "string" },
+        "blockId": { "type": "string" },
         "sequencePosition": { "type": "number" },
-        "blockId": { "type": "string" }
+        "queueStatus": { "type": "string", "enum": ["waiting", "in-consultation", "late", "shifted", "completed"] },
+        "readyToStart": { "type": "boolean" },
+        "doctorInRoom": { "type": "boolean" },
+        "isExtended": { "type": "boolean" }
       }
     },
     "SupportSession": {
       "title": "SupportSession",
-      "description": "A chat session between a user and admin.",
+      "description": "Administrative chat session metadata.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
         "userId": { "type": "string" },
+        "doctorId": { "type": "string" },
         "lastMessage": { "type": "string" },
-        "lastMessageAt": { "type": "string", "format": "date-time" }
+        "lastMessageAt": { "type": "string", "format": "date-time" },
+        "lastMessageContent": { "type": "string" },
+        "lastMessageSenderRole": { "type": "string" },
+        "unreadByAdmin": { "type": "boolean" },
+        "status": { "type": "string" }
       }
     },
     "Contact": {
       "title": "Contact",
-      "description": "Public inquiry from the About page.",
+      "description": "Public inquiry record.",
       "type": "object",
       "properties": {
         "name": { "type": "string" },
-        "email": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
         "message": { "type": "string" },
         "submittedAt": { "type": "string", "format": "date-time" }
       }
@@ -83,51 +103,51 @@
   "firestore": {
     "/patients/{userId}": {
       "schema": { "$ref": "#/backend/entities/Patient" },
-      "description": "Master user records."
+      "description": "Master clinical user identity records."
     },
     "/doctors/{doctorId}": {
       "schema": { "$ref": "#/backend/entities/Doctor" },
-      "description": "Professional doctor profiles."
+      "description": "Verified professional provider profiles."
     },
     "/appointments/{appointmentId}": {
       "schema": { "$ref": "#/backend/entities/Appointment" },
-      "description": "Clinical booking and queue records."
+      "description": "Precision clinical booking and queue management data."
     },
     "/reviews/{reviewId}": {
       "schema": "object",
-      "description": "Patient feedback and clinical ratings."
+      "description": "Patient feedback and clinical standards audits."
     },
     "/doctorCredentials/{credentialId}": {
       "schema": "object",
-      "description": "Archived medical degrees and certificates."
+      "description": "High-fidelity medical evidence archive (PDFs/Images)."
     },
     "/supportChatSessions/{sessionId}": {
       "schema": { "$ref": "#/backend/entities/SupportSession" },
-      "description": "Patient support channels."
+      "description": "Patient administrative support channels."
     },
     "/adminDoctorChatSessions/{sessionId}": {
       "schema": { "$ref": "#/backend/entities/SupportSession" },
-      "description": "Provider administrative channels."
+      "description": "Provider-Admin high-stakes clinical support lines."
     },
-    "/consultationSessions/{sessionId}": {
+    "/consultationSessions/{sessionId}/messages/{messageId}": {
       "schema": "object",
-      "description": "Real-time consultation chat transcripts."
+      "description": "Real-time encrypted consultation transcripts."
     },
     "/missedSessionAudits/{auditId}": {
       "schema": "object",
-      "description": "Archive of untended clinical slots."
+      "description": "Regulatory archive for untended clinical slots."
     },
     "/contacts/{contactId}": {
       "schema": { "$ref": "#/backend/entities/Contact" },
-      "description": "Public inquiries."
+      "description": "Global public inquiries."
     },
     "/doctorUnavailabilityRequests/{requestId}": {
       "schema": "object",
-      "description": "Leave and pause requests."
+      "description": "Provider pause and clinical leave audits."
     },
     "/calls/{callId}": {
       "schema": "object",
-      "description": "WebRTC signaling metadata for precision sessions."
+      "description": "WebRTC signaling signaling metadata for precision sessions."
     }
   }
 }

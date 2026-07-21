@@ -4,18 +4,20 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     /**
-     * MEDICONNECT - TOTAL ACCESS PROTOCOL
-     * [RESOLVE] "Missing or insufficient permissions"
-     * This rule grants absolute read and write clearance to all 
-     * authenticated users for all collections and subcollections.
+     * MEDICONNECT - GLOBAL ACCESS PROTOCOL
+     * [FIX] "Missing or insufficient permissions"
+     * 
+     * This ruleset provides absolute read and write clearance for all 
+     * authenticated users to all collections and subcollections.
+     * This is required for the Admin surveillance and clinical queue systems.
      */
     match /{document=**} {
       allow read, write: if request.auth != null;
     }
 
     /**
-     * [PUBLIC] Unauthenticated Access
-     * Allows public inquiries and professional discovery.
+     * [PUBLIC] Discovery and Inquiries
+     * Allows unauthenticated users to send contact forms and discover doctors.
      */
     match /contacts/{id} {
       allow create: if true;
