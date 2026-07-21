@@ -14,7 +14,7 @@
         "gender": { "type": "string", "enum": ["male", "female", "other"] },
         "profileComplete": { "type": "boolean" },
         "verified": { "type": "boolean" },
-        "photoURL": { "type": "string", "description": "Cloud Storage URL for profile identification." },
+        "photoURL": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "firstName", "lastName", "email", "role"]
@@ -28,7 +28,6 @@
         "firstName": { "type": "string" },
         "lastName": { "type": "string" },
         "email": { "type": "string", "format": "email" },
-        "gender": { "type": "string", "enum": ["male", "female", "other"] },
         "specialty": { "type": "string" },
         "experience": { "type": "number" },
         "medicalSchool": { "type": "string" },
@@ -36,26 +35,12 @@
         "phone": { "type": "string" },
         "location": { "type": "string" },
         "verified": { "type": "boolean" },
-        "profileComplete": { "type": "boolean" },
-        "photoURL": { "type": "string" },
         "isActive": { "type": "boolean" }
-      }
-    },
-    "DoctorCredential": {
-      "title": "DoctorCredential",
-      "description": "A specific professional document (degree, cert) linked to a doctor.",
-      "type": "object",
-      "properties": {
-        "id": { "type": "string" },
-        "doctorId": { "type": "string" },
-        "fileUrl": { "type": "string" },
-        "fileName": { "type": "string" },
-        "uploadedAt": { "type": "string", "format": "date-time" }
       }
     },
     "Appointment": {
       "title": "Appointment",
-      "description": "Clinical consultation record.",
+      "description": "Clinical consultation record with queue management.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
@@ -64,36 +49,20 @@
         "appointmentDateTime": { "type": "string", "format": "date-time" },
         "status": { "type": "string", "enum": ["scheduled", "completed", "cancelled", "expired"] },
         "paymentStatus": { "type": "string", "enum": ["pending", "approved", "rejected"] },
-        "paymentReceiptUrl": { "type": "string" },
-        "diagnosis": { "type": "string" },
-        "prescription": { "type": "string" },
-        "doctorInRoom": { "type": "boolean" }
+        "queueStatus": { "type": "string", "enum": ["waiting", "in-consultation", "late", "shifted", "completed"] },
+        "sequencePosition": { "type": "number" },
+        "blockId": { "type": "string" }
       }
     },
-    "Review": {
-      "title": "Review",
-      "description": "Patient feedback and rating for a doctor.",
+    "SupportSession": {
+      "title": "SupportSession",
+      "description": "A chat session between a user and admin.",
       "type": "object",
       "properties": {
         "id": { "type": "string" },
-        "patientId": { "type": "string" },
-        "doctorId": { "type": "string" },
-        "appointmentId": { "type": "string" },
-        "rating": { "type": "number" },
-        "comment": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
-      },
-      "required": ["patientId", "doctorId", "appointmentId", "rating"]
-    },
-    "Contact": {
-      "title": "Contact",
-      "description": "Information from the contact us form.",
-      "type": "object",
-      "properties": {
-        "name": { "type": "string" },
-        "email": { "type": "string", "format": "email" },
-        "message": { "type": "string" },
-        "submittedAt": { "type": "string", "format": "date-time" }
+        "userId": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "lastMessageAt": { "type": "string", "format": "date-time" }
       }
     }
   },
@@ -109,21 +78,33 @@
       "schema": { "$ref": "#/backend/entities/Doctor" },
       "description": "Professional doctor profiles."
     },
-    "/doctorCredentials/{credentialId}": {
-      "schema": { "$ref": "#/backend/entities/DoctorCredential" },
-      "description": "Independently stored professional degrees and certs."
-    },
     "/appointments/{appointmentId}": {
       "schema": { "$ref": "#/backend/entities/Appointment" },
-      "description": "Clinical booking records."
+      "description": "Clinical booking and queue records."
     },
-    "/reviews/{reviewId}": {
-      "schema": { "$ref": "#/backend/entities/Review" },
-      "description": "Public patient feedback records."
+    "/supportChatSessions/{sessionId}": {
+      "schema": { "$ref": "#/backend/entities/SupportSession" },
+      "description": "Patient support channels."
+    },
+    "/adminDoctorChatSessions/{sessionId}": {
+      "schema": { "$ref": "#/backend/entities/SupportSession" },
+      "description": "Provider administrative channels."
+    },
+    "/consultationSessions/{sessionId}": {
+      "schema": "object",
+      "description": "Real-time consultation chat transcripts."
+    },
+    "/missedSessionAudits/{auditId}": {
+      "schema": "object",
+      "description": "Archive of untended clinical slots."
     },
     "/contacts/{contactId}": {
-      "schema": { "$ref": "#/backend/entities/Contact" },
-      "description": "Inquiry records."
+      "schema": "object",
+      "description": "Public inquiries."
+    },
+    "/doctorUnavailabilityRequests/{requestId}": {
+      "schema": "object",
+      "description": "Leave and pause requests."
     }
   }
 }

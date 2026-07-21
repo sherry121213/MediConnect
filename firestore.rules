@@ -3,15 +3,16 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // PRECISION CLINICAL SESSION - TOTAL ACCESS PROTOCOL V47
-    // Standardizing terminology: Registry -> Record.
-    // Explicit total access for high-fidelity prototype auditing.
+    // MEDICONNECT - CORE PERMISSION PROTOCOL V50
+    // Providing total access for high-fidelity prototyping and auditing.
+    // This allows the Admin (falakali1470@gmail.com) and all users to interact 
+    // with clinical records, appointments, and secure chat tunnels.
     
     match /{document=**} {
       allow read, write: if true;
     }
 
-    // Explicit collection rules for auditing
+    // Explicitly mapping top-level collections for deployment clarity
     match /patients/{userId} { allow read, write: if true; }
     match /doctors/{doctorId} { allow read, write: if true; }
     match /appointments/{appointmentId} { allow read, write: if true; }
@@ -19,14 +20,17 @@ service cloud.firestore {
     match /doctorCredentials/{credentialId} { allow read, write: if true; }
     match /supportChatSessions/{sessionId} { allow read, write: if true; }
     match /adminDoctorChatSessions/{sessionId} { allow read, write: if true; }
+    match /consultationSessions/{sessionId} { allow read, write: if true; }
     match /calls/{callId} { allow read, write: if true; }
     match /doctorUnavailabilityRequests/{requestId} { allow read, write: if true; }
     match /missedSessionAudits/{auditId} { allow read, write: if true; }
     match /contacts/{contactId} { allow read, write: if true; }
     
-    // Support nested message subcollections
+    // Ensure all nested subcollections (e.g., messages) inherit permissions
     match /supportChatSessions/{sessionId}/messages/{msgId} { allow read, write: if true; }
     match /adminDoctorChatSessions/{sessionId}/messages/{msgId} { allow read, write: if true; }
     match /consultationSessions/{sessionId}/messages/{msgId} { allow read, write: if true; }
+    match /calls/{callId}/offerCandidates/{id} { allow read, write: if true; }
+    match /calls/{callId}/answerCandidates/{id} { allow read, write: if true; }
   }
 }
