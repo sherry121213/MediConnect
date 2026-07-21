@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -9,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, CalendarDays, Loader2, MapPin, CheckCircle2, XCircle, Copy, Wallet, Landmark, Smartphone, Clock as ClockIcon, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Loader2, MapPin, CheckCircle2, XCircle, Copy, Wallet, Landmark, Smartphone, Clock as ClockIcon, ShieldCheck, Video, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -38,6 +37,11 @@ const PAYMENT_METHODS = [
     { id: 'Easypaisa', label: 'Easypaisa', icon: Smartphone, color: 'text-green-600', bg: 'bg-green-50' },
     { id: 'Jazz Cash', label: 'Jazz Cash', icon: Smartphone, color: 'text-red-600', bg: 'bg-red-50' },
     { id: 'UBL Bank', label: 'UBL Bank', icon: Landmark, color: 'text-blue-600', bg: 'bg-blue-50' }
+];
+
+const CONSULTATION_MODES = [
+    { id: 'Video Call', label: 'Video Call', icon: Video, color: 'text-primary', bg: 'bg-primary/10' },
+    { id: 'Audio Call', label: 'Audio Call', icon: Phone, color: 'text-blue-600', bg: 'bg-blue-50' }
 ];
 
 export default function DoctorDetailPage() {
@@ -325,16 +329,39 @@ export default function DoctorDetailPage() {
                                                         <span className="text-[10px] font-bold uppercase tracking-widest">Final Step</span>
                                                     </div>
                                                     <AlertDialogTitle className="text-2xl font-headline tracking-tight">Clinical Settlement</AlertDialogTitle>
-                                                    <AlertDialogDescription>Select your payment method and upload the verification receipt.</AlertDialogDescription>
+                                                    <AlertDialogDescription>Choose your consultation mode and upload the verification receipt.</AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 
                                                 <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10 text-center space-y-1">
                                                     <p className="text-[10px] uppercase font-bold text-primary tracking-widest">Standard Consultation Fee</p>
                                                     <p className="text-4xl md:text-5xl font-bold font-headline">PKR 1,500</p>
                                                 </div>
+
+                                                <div className="space-y-4">
+                                                    <Label className="text-[10px] font-bold uppercase tracking-widest ml-1 text-slate-500">1. Choose Consultation Mode</Label>
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        {CONSULTATION_MODES.map((mode) => (
+                                                            <button 
+                                                                key={mode.id}
+                                                                onClick={() => setAppointmentType(mode.id as any)}
+                                                                className={cn(
+                                                                    "flex items-center justify-center p-4 rounded-2xl border-2 transition-all gap-3 h-14",
+                                                                    appointmentType === mode.id 
+                                                                        ? "border-primary bg-primary/5 shadow-md scale-105" 
+                                                                        : "border-slate-100 bg-white hover:border-slate-200"
+                                                                )}
+                                                            >
+                                                                <div className={cn("p-1.5 rounded-lg shrink-0", mode.bg)}>
+                                                                    <mode.icon className={cn("h-4 w-4", mode.color)} />
+                                                                </div>
+                                                                <span className="text-[10px] font-bold uppercase">{mode.label}</span>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
                                                 
                                                 <div className="space-y-4">
-                                                    <Label className="text-[10px] font-bold uppercase tracking-widest ml-1 text-slate-500">1. Select Payment Method</Label>
+                                                    <Label className="text-[10px] font-bold uppercase tracking-widest ml-1 text-slate-500">2. Select Payment Method</Label>
                                                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                                                         {PAYMENT_METHODS.map((method) => (
                                                             <button 
@@ -358,7 +385,7 @@ export default function DoctorDetailPage() {
                                                 </div>
 
                                                 <div className="space-y-4">
-                                                    <Label className="text-[10px] font-bold uppercase tracking-widest ml-1 text-slate-500">2. Official Receiver Details</Label>
+                                                    <Label className="text-[10px] font-bold uppercase tracking-widest ml-1 text-slate-500">3. Official Receiver Details</Label>
                                                     <div className="p-6 bg-slate-900 text-white rounded-3xl space-y-4 shadow-xl">
                                                         <div className="flex justify-between items-center border-b border-white/5 pb-2">
                                                             <h4 className="text-lg font-bold flex items-center gap-2">
@@ -376,7 +403,7 @@ export default function DoctorDetailPage() {
                                                 </div>
 
                                                 <div className="space-y-4">
-                                                    <Label className="text-[10px] font-bold uppercase tracking-widest ml-1 text-slate-500">3. Verification Evidence</Label>
+                                                    <Label className="text-[10px] font-bold uppercase tracking-widest ml-1 text-slate-500">4. Verification Evidence</Label>
                                                     <label htmlFor="receipt-upload" className="group flex flex-col items-center justify-center w-full min-h-[160px] border-4 border-dashed rounded-[2.5rem] bg-slate-50 hover:bg-slate-100 border-slate-200 cursor-pointer transition-all p-6 text-center">
                                                         {paymentReceipt ? (
                                                             <div className="space-y-2 animate-in zoom-in-95">
