@@ -16,15 +16,14 @@ export const getNext7Days = () => {
 }
 
 /**
- * Generates granular clinical time slots.
- * Note: While slots are generated at 10-minute intervals for flexibility,
- * the booking engine enforces a 20-minute gap between different sessions.
+ * Generates granular clinical time slots for the selector.
+ * Now uses 1-minute intervals as requested.
  */
 export const generateAvailableTimes = () => {
     const times = [];
     for (let hour = 10; hour < 21; hour++) {
         if (hour === 13) continue; // Lunch break
-        for (let minute = 0; minute < 60; minute += 5) {
+        for (let minute = 0; minute < 60; minute++) {
             const period = hour >= 12 ? "PM" : "AM";
             const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
             const displayMinute = minute.toString().padStart(2, '0');

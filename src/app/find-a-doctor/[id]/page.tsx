@@ -4,12 +4,12 @@
 import { useParams, useRouter } from 'next/navigation';
 import { useDoc, useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
 import { doc, collection, query, where, getDocs } from 'firebase/firestore';
-import type { Doctor, Appointment, Review, Patient } from '@/lib/types';
+import type { Doctor, Appointment } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, CalendarDays, Clock, Loader2, MapPin, Star, Video, PhoneCall, Wallet, Landmark, CheckCircle2, XCircle, Copy, Activity } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Loader2, MapPin, CheckCircle2, XCircle, Copy, Activity, Wallet, Landmark, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -31,10 +31,14 @@ import { cn } from '@/lib/utils';
 import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
 import { format, isSameDay, isBefore, isValid, parse, startOfDay, endOfDay, addMinutes } from 'date-fns';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
+const PAYMENT_METHODS = [
+    { id: 'Easypaisa', label: 'Easypaisa', icon: Smartphone, color: 'text-green-600', bg: 'bg-green-50' },
+    { id: 'Jazz Cash', label: 'Jazz Cash', icon: Smartphone, color: 'text-red-600', bg: 'bg-red-50' },
+    { id: 'UBL Bank', label: 'UBL Bank', icon: Landmark, color: 'text-blue-600', bg: 'bg-blue-50' }
+];
 
 export default function DoctorDetailPage() {
     const params = useParams();
@@ -89,10 +93,10 @@ export default function DoctorDetailPage() {
         });
     }, [isToday, selectedPeriod, currentPeriod, currentHour12]);
 
-    // Flexible minutes: every 5 minutes
+    // 1-minute intervals for minutes
     const availableMinutes = useMemo(() => {
         const mins = [];
-        for (let i = 0; i < 60; i += 5) {
+        for (let i = 0; i < 60; i++) {
             mins.push(i.toString().padStart(2, '0'));
         }
         if (!isToday) return mins;
@@ -139,7 +143,7 @@ export default function DoctorDetailPage() {
             return { isAvailable: false, message: 'This time has already passed.' };
         }
 
-        // Overlap Check: Each session is 20 minutes (15m consult + 5m buffer)
+        // NO-OVERLAP RULE: 15m consultation + 5m break = 20m window
         const proposedEnd = addMinutes(proposedStart, 20);
         const overlap = existingAppointments.find(apt => {
             if (!apt || apt.status === 'cancelled' || !apt.appointmentDateTime) return false;
@@ -149,7 +153,7 @@ export default function DoctorDetailPage() {
         });
 
         if (overlap) {
-            return { isAvailable: false, message: 'This window overlaps with another session.' };
+            return { isAvailable: false, message: 'Window Occupied (Consultation + 5m Break).' };
         }
 
         return { isAvailable: true, message: '' };
@@ -161,7 +165,6 @@ export default function DoctorDetailPage() {
         setIsBooking(true);
         const appointmentDateTime = parse(selectedTimeStr, 'hh:mm a', selectedDate);
 
-        // Daily sequence rank (Token)
         const start = startOfDay(selectedDate);
         const end = endOfDay(selectedDate);
         const dailySnap = await getDocs(query(
@@ -259,7 +262,7 @@ export default function DoctorDetailPage() {
                                     </div>
 
                                     <div>
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-6">2. Precise Time</p>
+                                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-6">2. Precise Time (1-Min Intervals)</p>
                                         <div className="p-8 border-4 border-dashed rounded-[2rem] bg-slate-50/50 space-y-6">
                                             <div className="grid grid-cols-3 gap-4">
                                                 <div className="space-y-2">
@@ -273,7 +276,7 @@ export default function DoctorDetailPage() {
                                                     <Label className="text-[10px] font-bold uppercase ml-1">Minute</Label>
                                                     <Select value={selectedMinute} onValueChange={setSelectedMinute}>
                                                         <SelectTrigger className="h-14 rounded-2xl border-2 bg-white font-bold text-lg"><SelectValue /></SelectTrigger>
-                                                        <SelectContent className="max-h-[200px]">{availableMinutes.map(m => (<SelectItem key={m} value={m} className="font-bold">{m}</SelectItem>))}</SelectContent>
+                                                        <SelectContent className="max-h-[300px]">{availableMinutes.map(m => (<SelectItem key={m} value={m} className="font-bold">{m}</SelectItem>))}</SelectContent>
                                                     </Select>
                                                 </div>
                                                 <div className="space-y-2">
@@ -286,15 +289,7 @@ export default function DoctorDetailPage() {
                                             </div>
                                             {selectedTimeStr && !timeValidation.isAvailable ? (
                                                 <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3"><XCircle className="h-5 w-5 text-red-600" /><p className="text-xs text-red-800 font-bold">{timeValidation.message}</p></div>
-                                            ) : <div className="p-4 bg-green-50 border border-green-200 rounded-2xl flex items-center gap-3"><CheckCircle2 className="h-5 w-5 text-green-600" /><p className="text-xs text-green-800 font-bold">Slot is available</p></div>}
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-6">3. Mode</p>
-                                        <div className="flex gap-4">
-                                            <button onClick={() => setAppointmentType('Video Call')} className={cn("flex-1 p-6 rounded-[2rem] border-2 transition-all flex items-center gap-4", appointmentType === 'Video Call' ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 bg-white")}><Video className="h-5 w-5 text-primary" /><div className="text-left"><p className="font-bold text-sm">Video Call</p><p className="text-[8px] uppercase text-muted-foreground font-bold">HD Tunnel</p></div></button>
-                                            <button onClick={() => setAppointmentType('Audio Call')} className={cn("flex-1 p-6 rounded-[2rem] border-2 transition-all flex items-center gap-4", appointmentType === 'Audio Call' ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 bg-white")}><PhoneCall className="h-5 w-5 text-primary" /><div className="text-left"><p className="font-bold text-sm">Audio Call</p><p className="text-[8px] uppercase text-muted-foreground font-bold">Voice Link</p></div></button>
+                                            ) : <div className="p-4 bg-green-50 border border-green-200 rounded-2xl flex items-center gap-3"><CheckCircle2 className="h-5 w-5 text-green-600" /><p className="text-xs text-green-800 font-bold">Slot is available (Includes 5m Break)</p></div>}
                                         </div>
                                     </div>
 
@@ -304,20 +299,45 @@ export default function DoctorDetailPage() {
                                         </AlertDialogTrigger>
                                         <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-xl max-h-[90vh] overflow-y-auto p-0">
                                             <div className="p-8 sm:p-10 space-y-8">
-                                                <AlertDialogHeader><AlertDialogTitle className="text-2xl font-headline">Clinical Settlement</AlertDialogTitle><AlertDialogDescription>Complete payment to finalize your Daily Token assignment.</AlertDialogDescription></AlertDialogHeader>
+                                                <AlertDialogHeader><AlertDialogTitle className="text-2xl font-headline">Clinical Settlement</AlertDialogTitle><AlertDialogDescription>Select your payment method and upload the receipt.</AlertDialogDescription></AlertDialogHeader>
+                                                
                                                 <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10 text-center"><p className="text-[10px] uppercase font-bold text-primary tracking-widest">Standard Fee</p><p className="text-5xl font-bold font-headline">PKR 1,500</p></div>
+                                                
                                                 <div className="space-y-4">
-                                                    <Label className="text-[10px] font-bold uppercase tracking-widest ml-1">Transfer to account:</Label>
-                                                    <div className="p-6 bg-slate-900 text-white rounded-3xl space-y-4">
-                                                        <div className="flex justify-between items-center"><h4 className="text-xl font-bold">{paymentMethod}</h4><Copy className="h-4 w-4 text-slate-500 cursor-pointer" onClick={() => { navigator.clipboard.writeText('03120555772'); toast({ title: "Copied" }); }} /></div>
-                                                        <p className="text-2xl font-mono font-bold tracking-tight">03120555772</p>
-                                                    </div>
-                                                    <div className="flex gap-2">
-                                                        {['Easypaisa', 'Jazz Cash', 'UBL Bank'].map(m => (<Button key={m} variant="outline" size="sm" className={cn("flex-1 rounded-xl h-10 text-[10px] font-bold", paymentMethod === m ? "bg-primary/10 border-primary" : "border-slate-100")} onClick={() => setPaymentMethod(m)}>{m}</Button>))}
+                                                    <Label className="text-[10px] font-bold uppercase tracking-widest ml-1">1. Select Payment Method</Label>
+                                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                                                        {PAYMENT_METHODS.map((method) => (
+                                                            <button 
+                                                                key={method.id}
+                                                                onClick={() => setPaymentMethod(method.id)}
+                                                                className={cn(
+                                                                    "flex flex-col items-center justify-center p-4 rounded-2xl border-2 transition-all gap-2",
+                                                                    paymentMethod === method.id 
+                                                                        ? "border-primary bg-primary/5 shadow-md" 
+                                                                        : "border-slate-100 bg-white hover:border-slate-200"
+                                                                )}
+                                                            >
+                                                                <div className={cn("h-10 w-10 rounded-full flex items-center justify-center", method.bg)}>
+                                                                    <method.icon className={cn("h-5 w-5", method.color)} />
+                                                                </div>
+                                                                <span className="text-[10px] font-bold uppercase">{method.label}</span>
+                                                                {paymentMethod === method.id && <div className="h-1.5 w-1.5 rounded-full bg-primary" />}
+                                                            </button>
+                                                        ))}
                                                     </div>
                                                 </div>
+
                                                 <div className="space-y-4">
-                                                    <Label className="text-[10px] font-bold uppercase tracking-widest ml-1">Upload Receipt</Label>
+                                                    <Label className="text-[10px] font-bold uppercase tracking-widest ml-1">2. Transfer Details</Label>
+                                                    <div className="p-6 bg-slate-900 text-white rounded-3xl space-y-4">
+                                                        <div className="flex justify-between items-center"><h4 className="text-xl font-bold">{paymentMethod}</h4><Copy className="h-4 w-4 text-slate-500 cursor-pointer hover:text-white" onClick={() => { navigator.clipboard.writeText('03120555772'); toast({ title: "Copied" }); }} /></div>
+                                                        <p className="text-2xl font-mono font-bold tracking-tight">03120555772</p>
+                                                        <p className="text-[9px] text-slate-500 italic">Acc Holder: MediConnect Support</p>
+                                                    </div>
+                                                </div>
+
+                                                <div className="space-y-4">
+                                                    <Label className="text-[10px] font-bold uppercase tracking-widest ml-1">3. Upload Receipt</Label>
                                                     <label htmlFor="receipt-upload" className="flex flex-col items-center justify-center w-full h-40 border-4 border-dashed rounded-[2.5rem] bg-slate-50 hover:bg-slate-100 border-slate-200 cursor-pointer transition-all">
                                                         {paymentReceipt ? <CheckCircle2 className="h-10 w-10 text-green-500" /> : <Activity className="h-10 w-10 text-primary/30" />}
                                                         <p className="text-sm font-bold text-primary mt-2">{paymentReceipt ? "Receipt Attached" : "Click to Upload"}</p>
