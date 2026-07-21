@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -168,8 +167,8 @@ export default function ConsultationRoomPage() {
         const constraints = { 
           video: isAudioOnly ? false : { 
             facingMode: "user",
-            width: { ideal: 640 }, 
-            height: { ideal: 480 } 
+            width: { ideal: 1280 }, // Upgraded to 720p for mobile clarity
+            height: { ideal: 720 } 
           }, 
           audio: {
             echoCancellation: true,
@@ -476,7 +475,7 @@ export default function ConsultationRoomPage() {
             )}
 
             {!isAudioOnly && !isCompleted && (
-              <div className="absolute top-4 right-4 w-28 sm:w-44 aspect-video rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900 z-[70] shadow-black/50">
+              <div className="absolute top-4 right-4 w-28 sm:w-44 aspect-video rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900 z-[100] shadow-black/50">
                   <video 
                     ref={localVideoRef} 
                     className={cn("w-full h-full object-cover -scale-x-100", isVideoOff && "hidden")} 
