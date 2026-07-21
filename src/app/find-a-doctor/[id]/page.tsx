@@ -149,7 +149,12 @@ export default function DoctorDetailPage() {
 
         const proposedEnd = addMinutes(proposedStart, 20);
         const overlap = existingAppointments.find(apt => {
-            // ONLY block slots for active "Scheduled" appointments
+            /**
+             * PRECISION RELEASE LOGIC:
+             * Only block slots if the appointment is currently 'scheduled'.
+             * If the doctor is early free (status === 'completed' or 'expired'), 
+             * the time slot is immediately released for new patients.
+             */
             if (!apt || !apt.appointmentDateTime || apt.status !== 'scheduled') return false;
             
             const aptStart = new Date(apt.appointmentDateTime);
@@ -202,7 +207,6 @@ export default function DoctorDetailPage() {
             doctorInRoom: false
         };
         
-        // Non-blocking call ensures UI stays responsive
         addDocumentNonBlocking(collection(firestore, 'appointments'), newAppointment);
         
         toast({ title: "Receipt Submitted", description: `Daily Token #${tokenRank} assigned. Awaiting audit.` });
