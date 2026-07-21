@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, MessageSquare, PlusCircle, Loader2, History, ChevronRight, FileText, RefreshCw, CalendarIcon, ShieldCheck, Clock, BellRing, UserCheck, Layers, HelpCircle } from "lucide-react";
+import { Calendar, Video, MessageSquare, PlusCircle, Loader2, History, ChevronRight, FileText, RefreshCw, CalendarIcon, ShieldCheck, Clock, BellRing, UserCheck, Layers, HelpCircle, Siren } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -76,7 +76,7 @@ const AppointmentCard = ({ apt, isUpcoming, isMounted }: { apt: any, isUpcoming:
                     <div className="min-w-0 space-y-1">
                         <div className="flex items-center gap-2">
                             <p className="font-bold text-base truncate">Dr. {doctor?.firstName} {doctor?.lastName || '...'}</p>
-                            {apt.patientCheckedIn && <Badge className="bg-green-100 text-green-800 border-green-200 text-[8px] px-1.5 font-bold uppercase">Checked In</Badge>}
+                            {apt.patientCheckedIn && <Badge className="bg-green-100 text-green-700 border-green-200 text-[8px] px-1.5 font-bold uppercase">Checked In</Badge>}
                         </div>
                         <p className="text-[10px] text-primary font-bold uppercase tracking-wider">{doctor?.specialty || 'Professional'}</p>
                         <div className="flex flex-wrap gap-2 pt-1">
@@ -155,8 +155,8 @@ export default function PatientPortalPage() {
     }, [firestore, user]);
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    const { upcomingAppointments, recentPastAppointments, ringingApt, activeQueueApt } = useMemo(() => {
-        if (!mounted || !appointments || !nowState) return { upcomingAppointments: [], recentPastAppointments: [], ringingApt: null, activeQueueApt: null };
+    const { upcomingAppointments, recentPastAppointments, ringingApt, signalApt, activeQueueApt } = useMemo(() => {
+        if (!mounted || !appointments || !nowState) return { upcomingAppointments: [], recentPastAppointments: [], ringingApt: null, signalApt: null, activeQueueApt: null };
         const now = new Date(nowState);
         const valid = appointments.filter(apt => apt && apt.id && apt.appointmentDateTime);
         const upcoming = valid.filter(apt => {
@@ -167,9 +167,12 @@ export default function PatientPortalPage() {
             const d = new Date(apt.appointmentDateTime);
             return apt.status === 'completed' || nowState >= d.getTime() + (20 * 60 * 1000);
         }).sort((a, b) => b.appointmentDateTime.localeCompare(a.appointmentDateTime)).slice(0, 10);
+        
         const ringing = valid.find(apt => apt.doctorInRoom && apt.status === 'scheduled' && apt.paymentStatus === 'approved' && isSameDay(new Date(apt.appointmentDateTime), now));
+        const signaled = valid.find(apt => apt.readyToStart && !apt.doctorInRoom && apt.status === 'scheduled' && apt.paymentStatus === 'approved');
         const queue = valid.find(apt => apt.status === 'scheduled' && apt.paymentStatus === 'approved' && isSameDay(new Date(apt.appointmentDateTime), now) && apt.queueStatus !== 'completed');
-        return { upcomingAppointments: upcoming, recentPastAppointments: past, ringingApt: ringing, activeQueueApt: queue };
+        
+        return { upcomingAppointments: upcoming, recentPastAppointments: past, ringingApt: ringing, signalApt: signaled, activeQueueApt: queue };
     }, [appointments, mounted, nowState]);
 
     if (!mounted || isUserLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
@@ -177,6 +180,8 @@ export default function PatientPortalPage() {
     return (
         <main className="min-h-screen bg-secondary/30 py-10 px-4">
             <div className="max-w-7xl mx-auto space-y-10 pb-24">
+                
+                {/* LIVE CALL BANNER */}
                 {ringingApt && (
                     <Card className="bg-red-600 text-white border-none shadow-2xl rounded-3xl animate-in slide-in-from-top-4 duration-500">
                         <CardContent className="p-6 flex items-center justify-between gap-4">
@@ -185,6 +190,26 @@ export default function PatientPortalPage() {
                                 <div><p className="text-[10px] uppercase font-bold opacity-80">Consultation Live</p><p className="text-lg font-bold">Your doctor has entered the clinical room.</p></div>
                             </div>
                             <Button asChild className="bg-white text-red-600 hover:bg-slate-100 font-bold px-8 h-12 rounded-2xl shadow-lg"><Link href={`/consultation/${ringingApt.id}`}>Join Now</Link></Button>
+                        </CardContent>
+                    </Card>
+                )}
+
+                {/* EARLY SIGNAL BANNER (DOCTOR CLICKED RING) */}
+                {signalApt && !ringingApt && (
+                    <Card className="bg-primary text-white border-none shadow-2xl rounded-3xl animate-in slide-in-from-top-4 duration-500">
+                        <CardContent className="p-6 flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                                <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center"><Siren className="h-6 w-6 animate-pulse" /></div>
+                                <div>
+                                    <p className="text-[10px] uppercase font-bold opacity-80">Early Availability</p>
+                                    <p className="text-lg font-bold">Your doctor is ready to start earlier than scheduled.</p>
+                                </div>
+                            </div>
+                            <div className="flex gap-3">
+                                <Button asChild className="bg-white text-primary hover:bg-slate-100 font-bold px-8 h-12 rounded-2xl shadow-lg">
+                                    <Link href="/patient-portal">View Alert</Link>
+                                </Button>
+                            </div>
                         </CardContent>
                     </Card>
                 )}
