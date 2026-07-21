@@ -4,11 +4,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     /**
-     * MEDICONNECT - UNIVERSAL ACCESS PROTOCOL (V5.2)
-     * [DEPLOYMENT HEARTBEAT] 2024-06-01 14:45:00 UTC
+     * MEDICONNECT - UNIVERSAL ACCESS PROTOCOL (V6.0)
+     * [DEPLOYMENT HEARTBEAT] 2024-06-02 09:15:00 UTC
      * 
      * Grants absolute read/write clearance for all clinical collections.
-     * This explicitly resolves permission errors for appointments, doctors, and user records.
+     * This explicitly resolves permission errors for appointments, history, and queue tracking.
      */
     
     match /{document=**} {

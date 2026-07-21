@@ -65,11 +65,11 @@ const AppointmentCard = ({ apt, isUpcoming, isMounted }: { apt: any, isUpcoming:
 
     return (
         <Card className={cn(
-            "hover:shadow-lg transition-all border-l-4 bg-white/80 backdrop-blur-sm overflow-hidden rounded-2xl",
+            "hover:shadow-lg transition-all border-l-4 bg-white/80 backdrop-blur-sm overflow-hidden rounded-2xl h-full",
             (apt.doctorInRoom && apt.patientCheckedIn) ? "border-l-red-500 bg-red-50/5" : "border-l-primary/40",
             (isExpired || apt.status === 'expired') && "opacity-60 grayscale border-l-slate-200"
         )}>
-            <div className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="p-4 sm:p-6 flex flex-col justify-between h-full gap-4">
                 <div className="flex items-center gap-4 flex-1 min-w-0">
                     <div className="relative h-14 w-14 shrink-0 rounded-full overflow-hidden bg-slate-50">
                         {photoSrc ? <Image src={photoSrc} alt="Doctor" fill className="object-cover" /> : <div className="h-full w-full flex items-center justify-center font-bold text-primary">{doctor?.firstName?.[0]}</div>}
@@ -80,26 +80,26 @@ const AppointmentCard = ({ apt, isUpcoming, isMounted }: { apt: any, isUpcoming:
                             {apt.patientCheckedIn && <Badge className="bg-green-100 text-green-800 border-green-200 text-[8px] px-1.5 font-bold uppercase">Checked In</Badge>}
                         </div>
                         <p className="text-[10px] text-primary font-bold uppercase tracking-wider">{doctor?.specialty || 'Professional'}</p>
-                        <div className="flex gap-2 pt-1">
+                        <div className="flex flex-wrap gap-2 pt-1">
                             <Badge variant="outline" className="flex items-center gap-1 text-[9px] font-bold"><CalendarIcon className="w-2.5 h-2.5" /> {format(appointmentDate, "MMM dd")}</Badge>
                             <Badge variant="outline" className="flex items-center gap-1 text-[9px] font-bold"><Clock className="w-2.5 h-2.5" /> {format(appointmentDate, "p")}</Badge>
                         </div>
                     </div>
                 </div>
-                <div className="flex flex-row sm:flex-col gap-2 shrink-0">
+                <div className="flex flex-col gap-2 shrink-0">
                     {apt.paymentStatus === 'pending' ? (
-                        <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 px-3 py-2 font-bold text-[9px] uppercase">Audit Pending</Badge>
+                        <Badge variant="outline" className="bg-amber-50 text-amber-600 border-amber-200 px-3 py-2 font-bold text-[9px] uppercase w-full justify-center">Audit Pending</Badge>
                     ) : isUpcoming && !isExpired && apt.status === 'scheduled' ? (
                         <>
                             {isCheckInAvailable && !apt.patientCheckedIn && (
-                                <Button onClick={handleCheckIn} disabled={isCheckingIn} className="bg-green-600 hover:bg-green-700 text-white font-bold h-9 text-[10px] uppercase shadow-lg shadow-green-100">
+                                <Button onClick={handleCheckIn} disabled={isCheckingIn} className="bg-green-600 hover:bg-green-700 text-white font-bold h-9 text-[10px] uppercase shadow-lg shadow-green-100 w-full">
                                     {isCheckingIn ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <UserCheck className="mr-1.5 h-3.5 w-3.5" />} Check-in
                                 </Button>
                             )}
                             {apt.patientCheckedIn ? (
                                 <Dialog>
                                     <DialogTrigger asChild>
-                                        <Button className={cn("font-bold h-9 text-[10px] uppercase shadow-lg", apt.doctorInRoom ? "bg-red-600 hover:bg-red-700 animate-pulse" : "bg-slate-900")}>
+                                        <Button className={cn("font-bold h-9 text-[10px] uppercase shadow-lg w-full", apt.doctorInRoom ? "bg-red-600 hover:bg-red-700 animate-pulse" : "bg-slate-900")}>
                                             {apt.doctorInRoom ? "Join Clinical Room" : "Awaiting Doctor..."}
                                         </Button>
                                     </DialogTrigger>
@@ -123,11 +123,11 @@ const AppointmentCard = ({ apt, isUpcoming, isMounted }: { apt: any, isUpcoming:
                                     </DialogContent>
                                 </Dialog>
                             ) : !isCheckInAvailable && (
-                                <Button variant="outline" className="h-9 text-[10px] font-bold border-2" disabled>Pending Window</Button>
+                                <Button variant="outline" className="h-9 text-[10px] font-bold border-2 w-full" disabled>Pending Window</Button>
                             )}
                         </>
                     ) : (
-                        <Button asChild variant="ghost" className="text-primary font-bold text-[10px] uppercase gap-2">
+                        <Button asChild variant="ghost" className="text-primary font-bold text-[10px] uppercase gap-2 w-full justify-center">
                             <Link href={`/appointments/${apt.id}`}><FileText className="h-4 w-4" /> View Record</Link>
                         </Button>
                     )}
@@ -223,14 +223,39 @@ export default function PatientPortalPage() {
                             {isLoadingAppointments ? <div className="py-12 flex justify-center"><Loader2 className="animate-spin opacity-20" /></div> : upcomingAppointments.length === 0 ? <div className="p-20 text-center text-muted-foreground border-2 border-dashed rounded-3xl">No upcoming sessions.</div> : <div className="space-y-4">{upcomingAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={true} isMounted={mounted} />)}</div>}
                         </section>
 
-                        <section>
-                             <div className="flex items-center justify-between mb-6">
+                        <section className="space-y-6">
+                             <div className="flex items-center justify-between">
                                 <h2 className="text-xl font-bold font-headline flex items-center gap-4"><div className="h-8 w-1.5 bg-slate-300 rounded-full" /> Clinical History</h2>
-                                <Link href="/patient-portal/history" className="text-primary font-bold text-xs hover:underline flex items-center">View Archive <ChevronRight className="h-3 w-3" /></Link>
+                                <Link href="/patient-portal/history" className="text-primary font-bold text-xs hover:underline flex items-center gap-1 group">
+                                    View Full Archive <ChevronRight className="h-3 w-3 group-hover:translate-x-0.5 transition-transform" />
+                                </Link>
                             </div>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                {recentPastAppointments.map(apt => <AppointmentCard key={apt.id} apt={apt} isUpcoming={false} isMounted={mounted} />)}
-                            </div>
+                            
+                            {recentPastAppointments.length > 0 ? (
+                                <Carousel
+                                    opts={{ align: "start", loop: false }}
+                                    className="w-full relative group/carousel"
+                                >
+                                    <CarouselContent className="-ml-4">
+                                        {recentPastAppointments.map((apt) => (
+                                            <CarouselItem key={apt.id} className="pl-4 md:basis-1/2">
+                                                <div className="h-full">
+                                                    <AppointmentCard apt={apt} isUpcoming={false} isMounted={mounted} />
+                                                </div>
+                                            </CarouselItem>
+                                        ))}
+                                    </CarouselContent>
+                                    <div className="flex items-center justify-end gap-2 mt-4 sm:absolute sm:-top-12 sm:right-0 sm:mt-0">
+                                        <CarouselPrevious className="static translate-y-0 h-8 w-8 rounded-xl border-2 hover:bg-primary hover:text-white transition-all" />
+                                        <CarouselNext className="static translate-y-0 h-8 w-8 rounded-xl border-2 hover:bg-primary hover:text-white transition-all" />
+                                    </div>
+                                </Carousel>
+                            ) : (
+                                <div className="py-24 text-center text-muted-foreground border-2 border-dashed rounded-[2rem] bg-white/40">
+                                    <History className="h-10 w-10 mx-auto mb-3 opacity-10" />
+                                    <p className="text-xs font-bold uppercase tracking-widest">No History Indexed</p>
+                                </div>
+                            )}
                         </section>
                     </div>
                 </div>
