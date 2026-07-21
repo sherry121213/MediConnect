@@ -19,7 +19,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from 'react-hook-form';
 import {
   Dialog,
   DialogContent,
@@ -160,7 +160,6 @@ export default function ConsultationRoomPage() {
     }, 3000);
   };
 
-  // HARDWARE ACQUISITION WITH NOISE CANCELLATION
   useEffect(() => {
     if (!appointmentId) return;
     let isMounted = true;
@@ -173,10 +172,9 @@ export default function ConsultationRoomPage() {
             height: { ideal: 480 } 
           }, 
           audio: {
-            echoCancellation: { ideal: true },
-            noiseSuppression: { ideal: true },
-            autoGainControl: { ideal: true },
-            channelCount: 1
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
           } 
         };
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -188,7 +186,7 @@ export default function ConsultationRoomPage() {
         
         setActiveStream(stream);
         setHasCameraPermission(true);
-        setSignalingStatus("Hardware Sync Complete");
+        setSignalingStatus("Hardware Ready");
         if (isAudioOnly) setIsVideoOff(true);
       } catch (err) {
         console.error("Hardware Entry Error:", err);
@@ -205,14 +203,12 @@ export default function ConsultationRoomPage() {
     };
   }, [appointmentId, isAudioOnly]);
 
-  // CONSISTENT LOCAL PREVIEW BINDING
   useEffect(() => {
     if (localVideoRef.current && activeStream) {
         localVideoRef.current.srcObject = activeStream;
     }
   }, [activeStream, isVideoOff]);
 
-  // STABLE SIGNALING ENGINE
   useEffect(() => {
     if (!firestore || !appointmentId || !user || !activeStream || !userData || isExpired || isCompleted) return;
 
@@ -221,7 +217,10 @@ export default function ConsultationRoomPage() {
 
     const setupSignaling = async () => {
       try {
-        if (pc.current) pc.current.close();
+        if (pc.current) {
+            pc.current.close();
+            pc.current = null;
+        }
         
         pc.current = new RTCPeerConnection(servers);
         isRemoteDescriptionSet.current = false;
@@ -232,11 +231,14 @@ export default function ConsultationRoomPage() {
         });
 
         pc.current.ontrack = (event) => {
-          if (remoteVideoRef.current && event.streams[0]) {
-            remoteVideoRef.current.srcObject = event.streams[0];
+          const [remoteStream] = event.streams;
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.srcObject = remoteStream || new MediaStream([event.track]);
             if (isEffectActive) {
                 setIsPeerConnected(true);
                 setSignalingStatus("Live Connection");
+                // Explicitly play for some browsers
+                remoteVideoRef.current.play().catch(e => console.warn("Autoplay block:", e));
             }
           }
         };
@@ -270,7 +272,7 @@ export default function ConsultationRoomPage() {
               isRemoteDescriptionSet.current = true;
               while (candidateQueue.current.length > 0) {
                 const cand = candidateQueue.current.shift();
-                await pc.current.addIceCandidate(new RTCIceCandidate(cand));
+                await pc.current.addIceCandidate(new RTCIceCandidate(cand)).catch(e => console.warn("ICE error:", e));
               }
             }
           }));
@@ -279,7 +281,7 @@ export default function ConsultationRoomPage() {
             snapshot.docChanges().forEach(async (change) => {
               if (change.type === 'added' && pc.current && isEffectActive) {
                 const data = change.doc.data();
-                if (isRemoteDescriptionSet.current) await pc.current.addIceCandidate(new RTCIceCandidate(data));
+                if (isRemoteDescriptionSet.current) await pc.current.addIceCandidate(new RTCIceCandidate(data)).catch(e => console.warn("ICE error:", e));
                 else candidateQueue.current.push(data);
               }
             });
@@ -299,7 +301,7 @@ export default function ConsultationRoomPage() {
               
               while (candidateQueue.current.length > 0) {
                 const cand = candidateQueue.current.shift();
-                await pc.current.addIceCandidate(new RTCIceCandidate(cand));
+                await pc.current.addIceCandidate(new RTCIceCandidate(cand)).catch(e => console.warn("ICE error:", e));
               }
             }
           }));
@@ -308,7 +310,7 @@ export default function ConsultationRoomPage() {
             snapshot.docChanges().forEach(async (change) => {
               if (change.type === 'added' && pc.current && isEffectActive) {
                 const data = change.doc.data();
-                if (isRemoteDescriptionSet.current) await pc.current.addIceCandidate(new RTCIceCandidate(data));
+                if (isRemoteDescriptionSet.current) await pc.current.addIceCandidate(new RTCIceCandidate(data)).catch(e => console.warn("ICE error:", e));
                 else candidateQueue.current.push(data);
               }
             });
@@ -430,33 +432,36 @@ export default function ConsultationRoomPage() {
                   <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
                   <p className="font-bold uppercase text-xs">Clinical Record Secured</p>
               </div>
-            ) : isAudioOnly ? (
-                <div className="flex flex-col items-center justify-center gap-8 animate-in fade-in duration-1000">
-                    <div className="relative">
-                        <Avatar className="h-32 w-32 sm:h-40 sm:w-40 border-8 border-slate-900 shadow-2xl relative z-10">
-                            <AvatarFallback className="bg-primary/10 text-primary text-4xl font-bold">{peer?.firstName?.[0]}</AvatarFallback>
-                        </Avatar>
-                        {isPeerConnected && <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping z-0" />}
-                    </div>
-                    <div className="text-center space-y-2">
-                        <p className="text-xl font-bold tracking-tight">{peer ? `Dr. ${peer.firstName} ${peer.lastName}` : (isDoctor ? 'Awaiting Patient...' : 'Awaiting Doctor...')}</p>
-                        <div className="flex items-center justify-center gap-2">
-                            <div className={cn("h-2 w-2 rounded-full", isPeerConnected ? "bg-green-500 animate-pulse" : "bg-slate-700")} />
-                            <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                                {isPeerConnected ? 'Voice Link Established' : signalingStatus}
-                            </p>
-                        </div>
-                    </div>
-                    <video ref={remoteVideoRef} autoPlay playsInline className="hidden" />
-                </div>
             ) : (
               <>
                   <video 
                     ref={remoteVideoRef} 
-                    className={cn("w-full h-full object-cover transition-opacity duration-1000", isPeerConnected ? "opacity-100" : "opacity-0")} 
+                    className={cn(
+                        "w-full h-full object-cover transition-opacity duration-1000", 
+                        (isPeerConnected && !isAudioOnly) ? "opacity-100" : "opacity-0"
+                    )} 
                     autoPlay 
                     playsInline 
                   />
+                  
+                  {isAudioOnly && isPeerConnected && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-8 animate-in fade-in duration-1000">
+                        <div className="relative">
+                            <Avatar className="h-32 w-32 sm:h-40 sm:w-40 border-8 border-slate-900 shadow-2xl relative z-10">
+                                <AvatarFallback className="bg-primary/10 text-primary text-4xl font-bold">{peer?.firstName?.[0]}</AvatarFallback>
+                            </Avatar>
+                            <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping z-0" />
+                        </div>
+                        <div className="text-center space-y-2">
+                            <p className="text-xl font-bold tracking-tight">{peer ? `Dr. ${peer.firstName} ${peer.lastName}` : 'Awaiting Connection...'}</p>
+                            <div className="flex items-center justify-center gap-2">
+                                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Voice Link Established</p>
+                            </div>
+                        </div>
+                    </div>
+                  )}
+
                   {!isPeerConnected && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-950">
                           <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
