@@ -495,7 +495,7 @@ export default function PatientPortalPage() {
                             <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                                 <div className="flex items-center gap-4">
                                     <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-white/20 flex items-center justify-center animate-pulse">
-                                        <BellRing className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                                        <BellRing className="h-5 world-5 sm:h-6 sm:w-6 text-white" />
                                     </div>
                                     <div className="text-center sm:text-left">
                                         <p className="text-[10px] uppercase font-bold tracking-widest opacity-80">Early Signal Received</p>
@@ -525,43 +525,45 @@ export default function PatientPortalPage() {
                         </Card>
 
                         {activeQueueApt && (
-                            <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden rounded-[2rem]">
-                                <CardHeader className="bg-primary/10 border-b border-white/5 p-6">
-                                    <CardTitle className="text-[10px] uppercase font-bold tracking-widest text-primary flex items-center gap-2">
-                                        <Layers className="h-4 w-4" /> Live Queue Monitor
-                                    </CardTitle>
-                                </CardHeader>
-                                <CardContent className="p-6 space-y-4">
-                                    <div className="flex justify-between items-center">
-                                        <div>
-                                            <p className="text-[8px] uppercase font-bold text-slate-500">Your Position</p>
-                                            <p className="text-3xl font-bold text-white">#{activeQueueApt.sequencePosition}</p>
+                            <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden rounded-[2rem] cursor-pointer hover:bg-slate-800 transition-colors" asChild>
+                                <Link href={activeQueueApt.queueStatus === 'in-consultation' ? `/consultation/${activeQueueApt.id}` : '#'}>
+                                    <CardHeader className="bg-primary/10 border-b border-white/5 p-6">
+                                        <CardTitle className="text-[10px] uppercase font-bold tracking-widest text-primary flex items-center gap-2">
+                                            <Layers className="h-4 w-4" /> Live Queue Monitor
+                                        </CardTitle>
+                                    </CardHeader>
+                                    <CardContent className="p-6 space-y-4">
+                                        <div className="flex justify-between items-center">
+                                            <div>
+                                                <p className="text-[8px] uppercase font-bold text-slate-500">Your Position</p>
+                                                <p className="text-3xl font-bold text-white">#{activeQueueApt.sequencePosition}</p>
+                                            </div>
+                                            <Badge className={cn(
+                                                "h-6 px-3 rounded-full text-[8px] font-bold uppercase",
+                                                activeQueueApt.queueStatus === 'in-consultation' ? "bg-green-600 animate-pulse" :
+                                                activeQueueApt.queueStatus === 'shifted' ? "bg-amber-600" : "bg-primary"
+                                            )}>
+                                                {activeQueueApt.queueStatus?.replace('-', ' ')}
+                                            </Badge>
                                         </div>
-                                        <Badge className={cn(
-                                            "h-6 px-3 rounded-full text-[8px] font-bold uppercase",
-                                            activeQueueApt.queueStatus === 'in-consultation' ? "bg-green-600 animate-pulse" :
-                                            activeQueueApt.queueStatus === 'shifted' ? "bg-amber-600" : "bg-primary"
-                                        )}>
-                                            {activeQueueApt.queueStatus?.replace('-', ' ')}
-                                        </Badge>
-                                    </div>
-                                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
-                                        {activeQueueApt.queueStatus === 'shifted' ? (
-                                            <p className="text-[10px] text-amber-400 italic">"You were bypassed/late and shifted to the end of the current block."</p>
-                                        ) : activeQueueApt.queueStatus === 'in-consultation' ? (
-                                            <p className="text-[10px] text-green-400 font-bold uppercase">"It is your turn! Please join the clinical room now."</p>
-                                        ) : activeQueueApt.sequencePosition === 1 ? (
-                                            <p className="text-[10px] text-slate-300">"You are next in line. Please stay on this page."</p>
-                                        ) : (
-                                            <p className="text-[10px] text-slate-400">"Average wait: 5-10 mins per patient."</p>
+                                        <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+                                            {activeQueueApt.queueStatus === 'shifted' ? (
+                                                <p className="text-[10px] text-amber-400 italic">"You were bypassed/late and shifted to the end of the current block."</p>
+                                            ) : activeQueueApt.queueStatus === 'in-consultation' ? (
+                                                <p className="text-[10px] text-green-400 font-bold uppercase">"It is your turn! Please join the clinical room now."</p>
+                                            ) : activeQueueApt.sequencePosition === 1 ? (
+                                                <p className="text-[10px] text-slate-300">"You are next in line. Please stay on this page."</p>
+                                            ) : (
+                                                <p className="text-[10px] text-slate-400">"Average wait: 5-10 mins per patient."</p>
+                                            )}
+                                        </div>
+                                        {activeQueueApt.queueStatus === 'in-consultation' && (
+                                            <Button className="w-full h-12 rounded-xl font-bold bg-primary hover:bg-primary/90 text-white animate-pulse">
+                                                Join Active Session
+                                            </Button>
                                         )}
-                                    </div>
-                                    {activeQueueApt.queueStatus === 'in-consultation' && (
-                                        <Button asChild className="w-full h-12 rounded-xl font-bold bg-primary hover:bg-primary/90 text-white animate-pulse">
-                                            <Link href={`/consultation/${activeQueueApt.id}`}>Join Active Session</Link>
-                                        </Button>
-                                    )}
-                                </CardContent>
+                                    </CardContent>
+                                </Link>
                             </Card>
                         )}
 
