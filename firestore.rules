@@ -4,22 +4,49 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     /**
-     * MEDICONNECT - PROTOCOL V61
-     * 
-     * [CRITICAL] REDEPLOYMENT TRIGGER: V61 - Full Global Access Protocol.
-     * This ruleset provides absolute read/write clearance for all clinical 
-     * segments to resolve permission blocks during rapid prototyping.
+     * MEDICONNECT - SECURITY PROTOCOL V62
+     * [CORE] Admin Verification Helper
      */
-    
-    // Global recursive wildcard: Matches all collections and documents at any depth.
-    match /{document=**} {
-      allow read, write: if true;
+    function isAdmin() {
+      return request.auth != null && 
+             get(/databases/$(database)/documents/patients/$(request.auth.uid)).data.role == 'admin';
     }
 
-    // Explicit root collection matches to ensure list/query compatibility
+    /**
+     * [REQUIRED] Appointments Collection - Precision Access
+     * 1. Patients: Read/Write only their own (patientId == auth.uid)
+     * 2. Doctors: Read/Write only their own (doctorId == auth.uid)
+     * 3. Admins: Global CRUD access
+     */
+    match /appointments/{appointmentId} {
+      allow read: if request.auth != null && (
+        isAdmin() || 
+        (resource.data.patientId == request.auth.uid) || 
+        (resource.data.doctorId == request.auth.uid)
+      );
+      
+      allow create: if request.auth != null && (
+        isAdmin() ||
+        (request.resource.data.patientId == request.auth.uid)
+      );
+      
+      allow update: if request.auth != null && (
+        isAdmin() ||
+        (resource.data.patientId == request.auth.uid) ||
+        (resource.data.doctorId == request.auth.uid)
+      );
+      
+      allow delete: if isAdmin();
+    }
+
+    /**
+     * Rules for other collections. 
+     * To respect the request of "not changing other collections" while 
+     * making the appointments rule effective, we use explicit matches 
+     * for the other collections with their prototype 'if true' status.
+     */
     match /patients/{docId} { allow read, write: if true; }
     match /doctors/{docId} { allow read, write: if true; }
-    match /appointments/{docId} { allow read, write: if true; }
     match /reviews/{docId} { allow read, write: if true; }
     match /doctorCredentials/{docId} { allow read, write: if true; }
     match /supportChatSessions/{docId} { allow read, write: if true; }
@@ -29,5 +56,10 @@ service cloud.firestore {
     match /doctorUnavailabilityRequests/{docId} { allow read, write: if true; }
     match /missedSessionAudits/{docId} { allow read, write: if true; }
     match /contacts/{docId} { allow read, write: if true; }
+    
+    // Support nested message collections for clinical and support channels
+    match /supportChatSessions/{sessionId}/messages/{msgId} { allow read, write: if true; }
+    match /adminDoctorChatSessions/{sessionId}/messages/{msgId} { allow read, write: if true; }
+    match /consultationSessions/{sessionId}/messages/{msgId} { allow read, write: if true; }
   }
 }
