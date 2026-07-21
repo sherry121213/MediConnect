@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
@@ -110,10 +109,8 @@ export default function DoctorDetailPage() {
     const currentHour12 = currentHour24 > 12 ? currentHour24 - 12 : (currentHour24 === 0 ? 12 : currentHour24);
 
     const availablePeriods = useMemo(() => {
-        if (!isToday) return ["AM", "PM"];
-        if (currentPeriod === "PM") return ["PM"];
-        return ["AM", "PM"];
-    }, [isToday, currentPeriod]);
+        return ["AM", "PM"]; // Always show both for flexible UI
+    }, []);
 
     const availableHours = useMemo(() => {
         let filtered = [];
@@ -125,13 +122,21 @@ export default function DoctorDetailPage() {
 
         if (!isToday) return filtered;
 
+        // If it is today, we must ensure the user doesn't pick a past hour
         return filtered.filter(h => {
             const hNum = parseInt(h);
+            
+            // If current is PM and user selects AM, all AM hours are past
+            if (selectedPeriod === "AM" && currentPeriod === "PM") return false;
+            
+            // If user selects current period, check hour
             if (selectedPeriod === currentPeriod) {
                 const compareH = hNum === 12 ? 0 : hNum;
                 const currentCompareH = currentHour12 === 12 ? 0 : currentHour12;
                 return compareH >= currentCompareH;
             }
+            
+            // If current is AM and user selects PM, all PM hours are future
             return true;
         });
     }, [isToday, selectedPeriod, currentPeriod, currentHour12]);
@@ -149,11 +154,15 @@ export default function DoctorDetailPage() {
 
     useEffect(() => {
         if (mounted) {
-            if (!availablePeriods.includes(selectedPeriod)) setSelectedPeriod(availablePeriods[0]);
-            if (!availableHours.includes(selectedHour)) setSelectedHour(availableHours[0] || (selectedPeriod === 'AM' ? "10" : "12"));
-            if (!availableMinutes.includes(selectedMinute)) setSelectedMinute(availableMinutes[0] || "00");
+            // Only auto-reset hour/min if the current selection becomes invalid
+            if (!availableHours.includes(selectedHour)) {
+                if (availableHours.length > 0) setSelectedHour(availableHours[0]);
+            }
+            if (!availableMinutes.includes(selectedMinute)) {
+                if (availableMinutes.length > 0) setSelectedMinute(availableMinutes[0]);
+            }
         }
-    }, [isToday, availablePeriods, availableHours, availableMinutes, selectedPeriod, selectedHour, selectedMinute, mounted]);
+    }, [isToday, availableHours, availableMinutes, selectedPeriod, selectedHour, selectedMinute, mounted]);
 
     const doctorDocRef = useMemoFirebase(() => {
         if (!firestore || !doctorId) return null;
@@ -187,7 +196,8 @@ export default function DoctorDetailPage() {
         if (!mounted || !existingAppointments || !selectedDate || !selectedTimeStr) return { isAvailable: true, message: '' };
 
         const proposedStart = parse(selectedTimeStr, 'hh:mm a', selectedDate);
-        const proposedEnd = addMinutes(proposedStart, 20);
+        
+        if (!isValid(proposedStart)) return { isAvailable: false, message: 'Select a valid time.' };
 
         if (isSameDay(selectedDate, nowTicker) && isBefore(proposedStart, nowTicker)) {
             return { isAvailable: false, message: 'This time has already passed for today.' };

@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
@@ -19,7 +18,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
-import { format, isSameDay, addDays, subDays, isBefore, addMinutes, parse } from "date-fns";
+import { format, isSameDay, addDays, subDays, isBefore, addMinutes, parse, isValid } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { getNext7Days } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -84,18 +83,21 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
     const [selectedMinute, setSelectedMinute] = useState<string>("00");
     const [selectedPeriod, setSelectedPeriod] = useState<string>("AM");
     const [isSaving, setIsSaving] = useState(false);
+    const [nowTicker, setNowTicker] = useState(new Date());
     const availableDates = getNext7Days();
 
-    const isToday = isSameDay(selectedDate, new Date());
-    const currentHour24 = new Date().getHours();
+    useEffect(() => {
+        const interval = setInterval(() => setNowTicker(new Date()), 60000);
+        return () => clearInterval(interval);
+    }, []);
+
+    const isToday = isSameDay(selectedDate, nowTicker);
+    const currentHour24 = nowTicker.getHours();
+    const currentMin = nowTicker.getMinutes();
     const currentPeriod = currentHour24 >= 12 ? "PM" : "AM";
     const currentHour12 = currentHour24 > 12 ? currentHour24 - 12 : (currentHour24 === 0 ? 12 : currentHour24);
 
-    const availablePeriods = useMemo(() => {
-        if (!isToday) return ["AM", "PM"];
-        if (currentPeriod === "PM") return ["PM"];
-        return ["AM", "PM"];
-    }, [isToday, currentPeriod]);
+    const availablePeriods = useMemo(() => ["AM", "PM"], []);
 
     const availableHours = useMemo(() => {
         let filtered = [];
@@ -109,6 +111,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
 
         return filtered.filter(h => {
             const hNum = parseInt(h);
+            if (selectedPeriod === "AM" && currentPeriod === "PM") return false;
             if (selectedPeriod === currentPeriod) {
                 const compareH = hNum === 12 ? 0 : hNum;
                 const currentCompareH = currentHour12 === 12 ? 0 : currentHour12;
@@ -123,10 +126,10 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
         if (!isToday) return allMins;
         const hNum = parseInt(selectedHour);
         if (selectedPeriod === currentPeriod && hNum === currentHour12) {
-            return allMins.filter(m => parseInt(m) > new Date().getMinutes());
+            return allMins.filter(m => parseInt(m) > currentMin);
         }
         return allMins;
-    }, [isToday, selectedHour, selectedPeriod, currentPeriod, currentHour12]);
+    }, [isToday, selectedHour, selectedPeriod, currentPeriod, currentHour12, currentMin]);
 
     useEffect(() => {
         if (availableHours.length > 0 && !availableHours.includes(selectedHour)) {
@@ -139,12 +142,20 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
         setIsSaving(true);
         const selectedTimeStr = `${selectedHour}:${selectedMinute} ${selectedPeriod}`;
         const newDateTime = parse(selectedTimeStr, 'hh:mm a', selectedDate);
+        
+        if (!isValid(newDateTime)) {
+            toast({ variant: 'destructive', title: "Invalid Time" });
+            setIsSaving(false);
+            return;
+        }
+
         updateDocumentNonBlocking(doc(firestore, 'appointments', appointment.id), {
             appointmentDateTime: newDateTime.toISOString(),
             status: 'scheduled', 
             updatedAt: new Date().toISOString(),
             doctorInRoom: false,
-            readyToStart: false
+            readyToStart: false,
+            queueStatus: 'waiting'
         });
         toast({ title: "Clinical Session Rescheduled" });
         setIsSaving(false);

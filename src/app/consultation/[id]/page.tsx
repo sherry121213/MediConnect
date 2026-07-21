@@ -6,8 +6,8 @@ import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } fro
 import { collection, doc, setDoc, onSnapshot, addDoc, updateDoc } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, Clock, Siren, AlertTriangle, ClipboardCheck, CheckCircle2, Volume2 } from 'lucide-react';
-import { addMinutes, differenceInSeconds } from 'date-fns';
+import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, Clock, Siren, AlertTriangle, ClipboardCheck, CheckCircle2, Volume2, Calendar } from 'lucide-react';
+import { addMinutes, differenceInSeconds, isValid } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -27,6 +27,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { format } from 'date-fns';
 
 const servers = {
   iceServers: [
@@ -349,6 +350,7 @@ export default function ConsultationRoomPage() {
   if (isUserLoading || isLoadingAppointment) return <div className="flex h-[100dvh] items-center justify-center bg-slate-950"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
   const isCompleted = appointment?.status === 'completed';
+  const scheduledTime = appointment?.appointmentDateTime ? format(new Date(appointment.appointmentDateTime), "p") : '--:--';
 
   return (
     <div className="flex flex-col h-[100dvh] max-h-[100dvh] bg-slate-950 overflow-hidden text-white overscroll-none fixed inset-0 w-screen">
@@ -360,7 +362,13 @@ export default function ConsultationRoomPage() {
             </div>
             <div className="min-w-0">
               <h1 className="font-bold text-[10px] uppercase truncate">Precision Clinical Room</h1>
-              <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest truncate">{isAudioOnly ? 'Voice Only Link' : 'Secure Video Tunnel'}</p>
+              <div className="flex items-center gap-2">
+                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest truncate">{isAudioOnly ? 'Voice Only Link' : 'Secure Video Tunnel'}</p>
+                <div className="h-1 w-1 rounded-full bg-slate-700" />
+                <p className="text-[8px] text-primary font-bold uppercase tracking-widest flex items-center gap-1">
+                    <Calendar className="h-2 w-2" /> {scheduledTime}
+                </p>
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-2">

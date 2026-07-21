@@ -1,4 +1,3 @@
-
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -46,11 +45,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
     const currentPeriod = currentHour24 >= 12 ? "PM" : "AM";
     const currentHour12 = currentHour24 > 12 ? currentHour24 - 12 : (currentHour24 === 0 ? 12 : currentHour24);
 
-    const availablePeriods = useMemo(() => {
-        if (!isToday) return ["AM", "PM"];
-        if (currentPeriod === "PM") return ["PM"];
-        return ["AM", "PM"];
-    }, [isToday, currentPeriod]);
+    const availablePeriods = useMemo(() => ["AM", "PM"], []);
 
     const availableHours = useMemo(() => {
         let filtered = [];
@@ -64,6 +59,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
 
         return filtered.filter(h => {
             const hNum = parseInt(h);
+            if (selectedPeriod === "AM" && currentPeriod === "PM") return false;
             if (selectedPeriod === currentPeriod) {
                 const compareH = hNum === 12 ? 0 : hNum;
                 const currentCompareH = currentHour12 === 12 ? 0 : currentHour12;
@@ -108,6 +104,8 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
         if (!existingAppointments || !selectedDate || !selectedTimeStr) return { isAvailable: true, message: '' };
 
         const proposedStart = parse(selectedTimeStr, 'hh:mm a', selectedDate);
+        if (!isValid(proposedStart)) return { isAvailable: false, message: 'Invalid time selection.' };
+
         const proposedEnd = addMinutes(proposedStart, 20);
         const now = new Date();
 
