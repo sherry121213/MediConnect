@@ -165,9 +165,14 @@ export default function ConsultationRoomPage() {
     let isMounted = true;
     const acquireMedia = async () => {
       try {
+        // PRECISION AUDIO CONSTRAINTS FOR NOISE CANCELLATION
         const constraints = { 
           video: isAudioOnly ? false : { width: 1280, height: 720 }, 
-          audio: true 
+          audio: {
+            echoCancellation: true,
+            noiseSuppression: true,
+            autoGainControl: true,
+          } 
         };
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
         
@@ -240,7 +245,6 @@ export default function ConsultationRoomPage() {
         };
 
         if (isDoctor) {
-          // DOCTOR INITIATES
           const offerDescription = await pc.current.createOffer();
           await pc.current.setLocalDescription(offerDescription);
           
@@ -274,7 +278,6 @@ export default function ConsultationRoomPage() {
           }));
           
         } else {
-          // PATIENT JOINS
           unsubs.push(onSnapshot(callDoc, async (snapshot) => {
             const data = snapshot.data();
             if (pc.current && !pc.current.currentRemoteDescription && data?.offer) {
@@ -436,7 +439,6 @@ export default function ConsultationRoomPage() {
                             </p>
                         </div>
                     </div>
-                    {/* Audio sink for patient/doctor audio in voice mode */}
                     <video ref={remoteVideoRef} autoPlay playsInline className="hidden" />
                 </div>
             ) : (

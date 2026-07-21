@@ -148,6 +148,7 @@ export default function DoctorDetailPage() {
         }
 
         const proposedEnd = addMinutes(proposedStart, 20);
+        // PRECISION CONFLICT CHECK: Only block for "Scheduled" sessions. Concluded/Expired sessions are released.
         const overlap = existingAppointments.find(apt => {
             if (!apt || !apt.appointmentDateTime || apt.status !== 'scheduled') return false;
             
@@ -332,7 +333,7 @@ export default function DoctorDetailPage() {
                                             <div className="flex-1 overflow-y-auto custom-scrollbar p-6 sm:p-10 space-y-8">
                                                 <AlertDialogHeader>
                                                     <div className="flex items-center gap-3 text-primary mb-2">
-                                                        <Wallet className="h-5 w-5" />
+                                                        <ShieldCheck className="h-5 w-5" />
                                                         <span className="text-[10px] font-bold uppercase tracking-widest">Final Step</span>
                                                     </div>
                                                     <AlertDialogTitle className="text-2xl font-headline tracking-tight">Clinical Settlement</AlertDialogTitle>
