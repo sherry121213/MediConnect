@@ -81,6 +81,7 @@ export default function ConsultationRoomPage() {
 
   const isAudioOnly = appointment?.appointmentType === 'Audio Call';
   const isDoctor = userData?.role === 'doctor';
+  const isCompleted = appointment?.status === 'completed';
 
   const form = useForm({
     resolver: zodResolver(clinicalNotesSchema),
@@ -97,10 +98,10 @@ export default function ConsultationRoomPage() {
               prescription: appointment.prescription || '',
           });
       }
-  }, [appointment, form]);
+  }, [appointment?.id, form]); // Reset only if ID changes, keep manual edits
 
   useEffect(() => {
-    if (!appointment?.appointmentDateTime || appointment?.status === 'completed') return;
+    if (!appointment?.appointmentDateTime || isCompleted) return;
 
     const startTime = new Date(appointment.appointmentDateTime);
     const endTime = addMinutes(startTime, appointment.isExtended ? 25 : 15); 
@@ -111,7 +112,7 @@ export default function ConsultationRoomPage() {
 
       if (secondsLeft <= 0) {
         clearInterval(timer);
-        if (appointment.status !== 'completed') {
+        if (!isCompleted) {
             setIsExpired(true);
             setTimeRemaining('00:00');
             handleAutoExpire();
@@ -128,7 +129,7 @@ export default function ConsultationRoomPage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [appointment, isDoctor]);
+  }, [appointment?.appointmentDateTime, appointment?.isExtended, isCompleted, isDoctor]);
 
   const handleExtendSession = () => {
     if (!firestore || !appointmentId) return;
@@ -141,7 +142,7 @@ export default function ConsultationRoomPage() {
   };
 
   const handleAutoExpire = () => {
-    if (isEnding || appointment?.status === 'completed') return;
+    if (isEnding || isCompleted) return;
     setIsEnding(true);
     
     if (isDoctor && firestore && appointment) {
@@ -159,7 +160,7 @@ export default function ConsultationRoomPage() {
   };
 
   useEffect(() => {
-    if (!appointment) return;
+    if (!appointmentId) return;
     let isMounted = true;
     const acquireMedia = async () => {
       try {
@@ -172,17 +173,17 @@ export default function ConsultationRoomPage() {
         }
         localStream.current = stream;
         setHasCameraPermission(true);
-        setSignalingStatus("Secure Link Active");
+        setSignalingStatus("Hardware Sync Complete");
         if (isAudioOnly) setIsVideoOff(true);
         
         if (localVideoRef.current && stream.getVideoTracks().length > 0) {
             localVideoRef.current.srcObject = stream;
         }
       } catch (err) {
-        console.error("Media Error:", err);
+        console.error("Hardware Entry Error:", err);
         if (isMounted) {
-            setSignalingStatus("Hardware Error");
-            toast({ variant: "destructive", title: "Hardware Required", description: "Check permissions." });
+            setSignalingStatus("Hardware Blocked");
+            toast({ variant: "destructive", title: "Hardware Required", description: "Ensure camera/mic permissions are enabled." });
         }
       }
     };
@@ -191,31 +192,39 @@ export default function ConsultationRoomPage() {
       isMounted = false;
       localStream.current?.getTracks().forEach(t => t.stop());
     };
-  }, [appointment, isAudioOnly, toast]);
+  }, [appointmentId, isAudioOnly]);
 
   useEffect(() => {
-    if (!firestore || !appointmentId || !user || !hasCameraPermission || !userData || isExpired || appointment?.status === 'completed') return;
+    // CRITICAL: We only want to start signaling once hardware is ready and session is active
+    if (!firestore || !appointmentId || !user || !hasCameraPermission || !userData || isExpired || isCompleted) return;
 
     let isEffectActive = true;
     const unsubs: (() => void)[] = [];
 
     const setupSignaling = async () => {
       try {
-        if (pc.current) pc.current.close();
+        if (pc.current) {
+          pc.current.close();
+        }
         pc.current = new RTCPeerConnection(servers);
         isRemoteDescriptionSet.current = false;
         candidateQueue.current = [];
 
+        // Add local tracks to peer connection
         localStream.current?.getTracks().forEach((track) => {
           if (localStream.current && pc.current) {
             pc.current.addTrack(track, localStream.current);
           }
         });
 
+        // Listen for remote tracks
         pc.current.ontrack = (event) => {
           if (remoteVideoRef.current && event.streams[0]) {
             remoteVideoRef.current.srcObject = event.streams[0];
-            if (isEffectActive) setIsPeerConnected(true);
+            if (isEffectActive) {
+                setIsPeerConnected(true);
+                setSignalingStatus("Live Connection");
+            }
           }
         };
 
@@ -225,14 +234,13 @@ export default function ConsultationRoomPage() {
 
         pc.current.onicecandidate = (event) => {
           if (event.candidate && isEffectActive) {
-            const candidatesRef = userData.role === 'doctor' ? offerCandidates : answerCandidates;
+            const candidatesRef = isDoctor ? offerCandidates : answerCandidates;
             addDoc(candidatesRef, event.candidate.toJSON());
           }
         };
 
-        if (userData.role === 'doctor') {
-          await setDoc(callDoc, { doctorJoinedAt: new Date().toISOString(), offer: null, answer: null }); 
-          updateDoc(doc(firestore, 'appointments', appointmentId), { doctorInRoom: true });
+        if (isDoctor) {
+          await setDoc(callDoc, { doctorJoinedAt: new Date().toISOString(), offer: null, answer: null }, { merge: true }); 
           
           const offerDescription = await pc.current.createOffer();
           await pc.current.setLocalDescription(offerDescription);
@@ -241,7 +249,8 @@ export default function ConsultationRoomPage() {
           unsubs.push(onSnapshot(callDoc, async (snapshot) => {
             const data = snapshot.data();
             if (pc.current && !pc.current.currentRemoteDescription && data?.answer) {
-              await pc.current.setRemoteDescription(new RTCSessionDescription(data.answer));
+              const answerDesc = new RTCSessionDescription(data.answer);
+              await pc.current.setRemoteDescription(answerDesc);
               isRemoteDescriptionSet.current = true;
               while (candidateQueue.current.length > 0) {
                 await pc.current.addIceCandidate(new RTCIceCandidate(candidateQueue.current.shift()));
@@ -263,11 +272,14 @@ export default function ConsultationRoomPage() {
           unsubs.push(onSnapshot(callDoc, async (snapshot) => {
             const data = snapshot.data();
             if (pc.current && !pc.current.currentRemoteDescription && data?.offer) {
-              await pc.current.setRemoteDescription(new RTCSessionDescription(data.offer));
+              const offerDesc = new RTCSessionDescription(data.offer);
+              await pc.current.setRemoteDescription(offerDesc);
               isRemoteDescriptionSet.current = true;
+              
               const answer = await pc.current.createAnswer();
               await pc.current.setLocalDescription(answer);
               await setDoc(callDoc, { answer: { type: answer.type, sdp: answer.sdp }, patientId: user.uid }, { merge: true });
+              
               while (candidateQueue.current.length > 0) {
                 await pc.current.addIceCandidate(new RTCIceCandidate(candidateQueue.current.shift()));
               }
@@ -284,7 +296,9 @@ export default function ConsultationRoomPage() {
             });
           }));
         }
-      } catch (e) { console.error("Signaling Error:", e); }
+      } catch (e) { 
+          console.error("Signaling Tunnel Failure:", e); 
+      }
     };
 
     setupSignaling();
@@ -292,9 +306,12 @@ export default function ConsultationRoomPage() {
     return () => {
       isEffectActive = false;
       unsubs.forEach(unsub => unsub());
-      if (pc.current) { pc.current.close(); pc.current = null; }
+      if (pc.current) { 
+          pc.current.close(); 
+          pc.current = null; 
+      }
     };
-  }, [firestore, appointmentId, user, hasCameraPermission, userData, isExpired, appointment?.status]);
+  }, [firestore, appointmentId, user?.uid, hasCameraPermission, isDoctor, isAudioOnly, isExpired, isCompleted]);
 
   const messagesQuery = useMemoFirebase(() => {
     if (!firestore || !appointmentId) return null;
@@ -327,13 +344,13 @@ export default function ConsultationRoomPage() {
     updateDocumentNonBlocking(doc(firestore, 'appointments', appointmentId), { 
         ...values, status: 'completed', updatedAt: new Date().toISOString(), doctorInRoom: false, readyToStart: false 
     });
-    toast({ title: "Session Finalized" });
+    toast({ title: "Clinical Record Finalized" });
     setTimeout(() => router.push(isDoctor ? '/doctor-portal' : '/patient-portal'), 2000);
   };
 
   const handleEndSession = () => {
-    if (isDoctor && appointment?.status !== 'completed') {
-        toast({ title: "Notes Required", description: "Please finalize the record first." });
+    if (isDoctor && !isCompleted) {
+        toast({ title: "Clinical Note Required", description: "Please finalize the diagnosis before leaving." });
         return;
     }
     setIsEnding(true);
@@ -349,12 +366,11 @@ export default function ConsultationRoomPage() {
 
   if (isUserLoading || isLoadingAppointment) return <div className="flex h-[100dvh] items-center justify-center bg-slate-950"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
 
-  const isCompleted = appointment?.status === 'completed';
   const scheduledTime = appointment?.appointmentDateTime ? format(new Date(appointment.appointmentDateTime), "p") : '--:--';
 
   return (
     <div className="flex flex-col h-[100dvh] max-h-[100dvh] bg-slate-950 overflow-hidden text-white overscroll-none fixed inset-0 w-screen">
-      {/* Header - Fixed Height */}
+      {/* Header */}
       <header className="shrink-0 h-16 p-4 border-b border-white/10 bg-slate-900/60 backdrop-blur-xl flex items-center justify-between z-50">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
@@ -363,7 +379,7 @@ export default function ConsultationRoomPage() {
             <div className="min-w-0">
               <h1 className="font-bold text-[10px] uppercase truncate">Precision Clinical Room</h1>
               <div className="flex items-center gap-2">
-                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest truncate">{isAudioOnly ? 'Voice Only Link' : 'Secure Video Tunnel'}</p>
+                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest truncate">{isAudioOnly ? 'Secure Voice Link' : 'Secure Video Link'}</p>
                 <div className="h-1 w-1 rounded-full bg-slate-700" />
                 <p className="text-[8px] text-primary font-bold uppercase tracking-widest flex items-center gap-1">
                     <Calendar className="h-2 w-2" /> {scheduledTime}
@@ -384,20 +400,20 @@ export default function ConsultationRoomPage() {
           </div>
       </header>
 
-      {/* Main Content Area - Flexible height, handles internal scrolling only */}
+      {/* Main Content Area */}
       <main className="flex-1 relative flex flex-col lg:flex-row overflow-hidden min-h-0">
         <div className="flex-1 relative flex flex-col overflow-hidden bg-black">
-          {/* Video/AV Display */}
+          {/* Video Display */}
           <div className="flex-1 relative overflow-hidden flex items-center justify-center">
             {isExpired && !isCompleted ? (
               <div className="text-center p-6 space-y-4 animate-in fade-in">
                   <AlertTriangle className="h-12 w-12 text-red-500 mx-auto" />
-                  <p className="font-bold uppercase text-xs">Window Concluded</p>
+                  <p className="font-bold uppercase text-xs">Consultation Window Concluded</p>
               </div>
             ) : isCompleted ? (
               <div className="text-center p-6 space-y-4 animate-in zoom-in-95">
                   <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
-                  <p className="font-bold uppercase text-xs">Record Secured</p>
+                  <p className="font-bold uppercase text-xs">Clinical Record Secured</p>
               </div>
             ) : isAudioOnly ? (
                 <div className="flex flex-col items-center justify-center gap-8 animate-in fade-in duration-1000">
@@ -408,22 +424,27 @@ export default function ConsultationRoomPage() {
                         {isPeerConnected && <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping z-0" />}
                     </div>
                     <div className="text-center space-y-2">
-                        <p className="text-xl font-bold tracking-tight">{peer ? `${peer.firstName} ${peer.lastName}` : 'Connecting...'}</p>
+                        <p className="text-xl font-bold tracking-tight">{peer ? `Dr. ${peer.firstName} ${peer.lastName}` : (isDoctor ? 'Awaiting Patient...' : 'Awaiting Doctor...')}</p>
                         <div className="flex items-center justify-center gap-2">
                             <div className={cn("h-2 w-2 rounded-full", isPeerConnected ? "bg-green-500 animate-pulse" : "bg-slate-700")} />
                             <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">
-                                {isPeerConnected ? 'Voice Link Established' : 'Awaiting Connection'}
+                                {isPeerConnected ? 'Voice Link Established' : signalingStatus}
                             </p>
                         </div>
                     </div>
                 </div>
             ) : (
               <>
-                  <video ref={remoteVideoRef} className={cn("w-full h-full object-cover transition-opacity duration-1000", isPeerConnected ? "opacity-100" : "opacity-0")} autoPlay playsInline />
+                  <video 
+                    ref={remoteVideoRef} 
+                    className={cn("w-full h-full object-cover transition-opacity duration-1000", isPeerConnected ? "opacity-100" : "opacity-0")} 
+                    autoPlay 
+                    playsInline 
+                  />
                   {!isPeerConnected && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-950">
                           <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
-                          <p className="text-[10px] uppercase font-bold text-slate-500">Establishing Tunnel...</p>
+                          <p className="text-[10px] uppercase font-bold text-slate-500">{signalingStatus}</p>
                       </div>
                   )}
               </>
@@ -432,13 +453,19 @@ export default function ConsultationRoomPage() {
             {/* Local Pip */}
             {!isAudioOnly && !isCompleted && (
               <div className="absolute top-4 right-4 w-28 sm:w-44 aspect-video rounded-xl overflow-hidden border border-white/10 shadow-2xl bg-slate-900 z-30">
-                  <video ref={localVideoRef} className={cn("w-full h-full object-cover -scale-x-100", isVideoOff && "hidden")} autoPlay muted playsInline />
+                  <video 
+                    ref={localVideoRef} 
+                    className={cn("w-full h-full object-cover -scale-x-100", isVideoOff && "hidden")} 
+                    autoPlay 
+                    muted 
+                    playsInline 
+                  />
                   {isVideoOff && <div className="w-full h-full flex items-center justify-center bg-slate-800 text-slate-500"><VideoOff className="h-6 w-6" /></div>}
               </div>
             )}
           </div>
 
-          {/* Controls Bar - Bottom center */}
+          {/* Controls Bar */}
           <div className="shrink-0 h-20 border-t border-white/5 bg-slate-900/60 backdrop-blur-2xl flex items-center justify-center gap-4 px-4">
               <Button size="icon" variant={isMuted ? "destructive" : "secondary"} className="h-10 w-10 sm:h-12 sm:w-12 rounded-full transition-transform active:scale-95" onClick={() => { if(localStream.current) { localStream.current.getAudioTracks()[0].enabled = isMuted; setIsMuted(!isMuted); } }} disabled={isExpired || isCompleted}>
                   {isMuted ? <MicOff className="h-4 w-4 sm:h-5 sm:w-5" /> : <Mic className="h-4 w-4 sm:h-5 sm:w-5" />}
@@ -458,7 +485,7 @@ export default function ConsultationRoomPage() {
           </div>
         </div>
 
-        {/* Sidebar - Handles Chat and Notes with its own scrolling */}
+        {/* Sidebar */}
         <aside className={cn(
             "shrink-0 w-full lg:w-[400px] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col z-20 bg-slate-900 transition-all duration-300",
             isSidebarOpen ? "h-[45dvh] lg:h-full" : "h-0 lg:w-0 overflow-hidden"
@@ -466,7 +493,7 @@ export default function ConsultationRoomPage() {
           <Tabs defaultValue="chat" className="w-full h-full flex flex-col overflow-hidden">
             <TabsList className="shrink-0 bg-slate-950/40 p-1 flex h-12">
                 <TabsTrigger value="chat" className="flex-1 text-[10px] uppercase font-bold tracking-widest gap-2 py-2 rounded-xl"><MessageSquare className="h-3.5 w-3.5" /> Chat</TabsTrigger>
-                {isDoctor && <TabsTrigger value="notes" className="flex-1 text-[10px] uppercase font-bold tracking-widest gap-2 py-2 rounded-xl"><ClipboardCheck className="h-3.5 w-3.5" /> Records</TabsTrigger>}
+                {isDoctor && <TabsTrigger value="notes" className="flex-1 text-[10px] uppercase font-bold tracking-widest gap-2 py-2 rounded-xl"><ClipboardCheck className="h-3.5 w-3.5" /> Clinical Notes</TabsTrigger>}
             </TabsList>
             
             <TabsContent value="chat" className="flex-1 flex flex-col m-0 min-h-0 overflow-hidden">
@@ -485,7 +512,7 @@ export default function ConsultationRoomPage() {
                     <div ref={chatScrollRef} />
                 </div>
                 <form onSubmit={handleSendMessage} className="shrink-0 p-3 bg-slate-950/40 border-t border-white/5 flex gap-2">
-                    <Input placeholder={isCompleted ? "Archived..." : "Secure message..."} disabled={isCompleted} className="bg-white/5 border-white/10 h-11 text-xs rounded-xl focus-visible:ring-primary" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
+                    <Input placeholder={isCompleted ? "Consultation Archived" : "Secure clinical message..."} disabled={isCompleted} className="bg-white/5 border-white/10 h-11 text-xs rounded-xl focus-visible:ring-primary" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
                     <Button type="submit" disabled={!newMessage.trim() || isCompleted} className="bg-primary h-11 w-11 p-0 rounded-xl shrink-0"><Send className="h-4 w-4" /></Button>
                 </form>
             </TabsContent>
@@ -495,13 +522,13 @@ export default function ConsultationRoomPage() {
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(handleFinalizeClinicalNotes)} className="space-y-6">
                             <FormField control={form.control} name="diagnosis" render={({ field }) => (
-                                <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Diagnosis Summary</FormLabel><FormControl><Input placeholder="Primary findings..." className="bg-white/5 border-white/10 h-12 text-sm rounded-xl focus-visible:ring-primary" {...field} disabled={isCompleted || isFinalizing} /></FormControl><FormMessage className="text-[9px]" /></FormItem>
+                                <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Primary Diagnosis</FormLabel><FormControl><Input placeholder="Record clinical findings..." className="bg-white/5 border-white/10 h-12 text-sm rounded-xl focus-visible:ring-primary" {...field} disabled={isCompleted || isFinalizing} /></FormControl><FormMessage className="text-[9px]" /></FormItem>
                             )} />
                             <FormField control={form.control} name="prescription" render={({ field }) => (
-                                <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Treatment Advice</FormLabel><FormControl><Textarea placeholder="Details & Medications..." rows={6} className="bg-white/5 border-white/10 text-sm rounded-xl resize-none focus-visible:ring-primary" {...field} disabled={isCompleted || isFinalizing} /></FormControl><FormMessage className="text-[9px]" /></FormItem>
+                                <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Treatment & Dosage</FormLabel><FormControl><Textarea placeholder="List medications and instructions..." rows={6} className="bg-white/5 border-white/10 text-sm rounded-xl resize-none focus-visible:ring-primary" {...field} disabled={isCompleted || isFinalizing} /></FormControl><FormMessage className="text-[9px]" /></FormItem>
                             )} />
                             <Button type="submit" className="w-full h-14 font-bold rounded-2xl bg-primary hover:bg-primary/90 shadow-xl shadow-primary/10" disabled={isCompleted || isFinalizing}>
-                                {isFinalizing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Finalize Record"}
+                                {isFinalizing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Secure & Finalize Record"}
                             </Button>
                         </form>
                     </Form>
@@ -517,7 +544,7 @@ export default function ConsultationRoomPage() {
               <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto"><Clock className="h-8 w-8 text-primary" /></div>
               <div className="space-y-2">
                   <DialogTitle className="text-2xl font-headline">Extend Consultation?</DialogTitle>
-                  <p className="text-sm text-slate-500 font-medium">Session concludes in 5 minutes. Add 10 minutes buffer?</p>
+                  <p className="text-sm text-slate-500 font-medium">Session concludes in 5 minutes. Add 10 minutes professional buffer?</p>
               </div>
               <DialogFooter className="flex flex-col sm:flex-row gap-3">
                   <Button variant="ghost" onClick={() => setShowExtensionDialog(false)} className="flex-1 h-12 rounded-xl font-bold">Ignore</Button>
