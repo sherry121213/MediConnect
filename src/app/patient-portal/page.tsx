@@ -32,17 +32,18 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
     const [selectedMinute, setSelectedMinute] = useState<string>("00");
     const [selectedPeriod, setSelectedPeriod] = useState<string>("AM");
     const [isSaving, setIsSaving] = useState(false);
-    const [nowTicker, setNowTicker] = useState(new Date());
+    const [nowTicker, setNowTicker] = useState<Date | null>(null);
     const availableDates = getNext7Days();
 
     useEffect(() => {
+        setNowTicker(new Date());
         const interval = setInterval(() => setNowTicker(new Date()), 60000);
         return () => clearInterval(interval);
     }, []);
 
-    const isToday = isSameDay(selectedDate, nowTicker);
-    const currentHour24 = nowTicker.getHours();
-    const currentMin = nowTicker.getMinutes();
+    const isToday = nowTicker ? isSameDay(selectedDate, nowTicker) : false;
+    const currentHour24 = nowTicker?.getHours() ?? 10;
+    const currentMin = nowTicker?.getMinutes() ?? 0;
     const currentPeriod = currentHour24 >= 12 ? "PM" : "AM";
     const currentHour12 = currentHour24 > 12 ? currentHour24 - 12 : (currentHour24 === 0 ? 12 : currentHour24);
 
@@ -56,7 +57,7 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
             filtered = ["12", "02", "03", "04", "05", "06", "07", "08"];
         }
 
-        if (!isToday) return filtered;
+        if (!isToday || !nowTicker) return filtered;
 
         return filtered.filter(h => {
             const hNum = parseInt(h);
@@ -68,24 +69,24 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
             }
             return true;
         });
-    }, [isToday, selectedPeriod, currentPeriod, currentHour12]);
+    }, [isToday, selectedPeriod, currentPeriod, currentHour12, nowTicker]);
 
     const availableMinutes = useMemo(() => {
         const allMins = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
-        if (!isToday) return allMins;
+        if (!isToday || !nowTicker) return allMins;
 
         const hNum = parseInt(selectedHour);
         if (selectedPeriod === currentPeriod && hNum === currentHour12) {
             return allMins.filter(m => parseInt(m) > currentMin);
         }
         return allMins;
-    }, [isToday, selectedHour, selectedPeriod, currentPeriod, currentHour12, currentMin]);
+    }, [isToday, selectedHour, selectedPeriod, currentPeriod, currentHour12, currentMin, nowTicker]);
 
     useEffect(() => {
         if (availableHours.length > 0 && !availableHours.includes(selectedHour)) {
             setSelectedHour(availableHours[0]);
         }
-    }, [availableHours]);
+    }, [availableHours, selectedHour]);
 
     const doctorDocRef = useMemoFirebase(() => {
         if (!firestore || !appointment?.doctorId) return null;
@@ -419,10 +420,11 @@ export default function PatientPortalPage() {
     const [mounted, setMounted] = useState(false);
     const [selectedApt, setSelectedApt] = useState<any>(null);
     const [isPostponeOpen, setIsPostponeOpen] = useState(false);
-    const [nowState, setNowState] = useState(Date.now());
+    const [nowState, setNowState] = useState<number | null>(null);
 
     useEffect(() => {
         setMounted(true);
+        setNowState(Date.now());
         const timer = setInterval(() => setNowState(Date.now()), 15000);
         return () => clearInterval(timer);
     }, []);
@@ -434,12 +436,11 @@ export default function PatientPortalPage() {
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
     const { upcomingAppointments, recentPastAppointments, ringingApt, activeQueueApt } = useMemo(() => {
-        if (!mounted || !appointments) return { upcomingAppointments: [], recentPastAppointments: [], ringingApt: null, activeQueueApt: null };
+        if (!mounted || !appointments || !nowState) return { upcomingAppointments: [], recentPastAppointments: [], ringingApt: null, activeQueueApt: null };
         
-        const now = new Date();
+        const now = new Date(nowState);
         const validAppointments = appointments.filter(apt => apt !== null && apt.id && apt.appointmentDateTime);
 
-        // Active Queue Logic
         const queueApt = validAppointments.find(apt => 
             apt.status === 'scheduled' && 
             apt.paymentStatus === 'approved' &&
@@ -451,8 +452,8 @@ export default function PatientPortalPage() {
             (apt.doctorInRoom === true || apt.readyToStart === true) && 
             apt.status === 'scheduled' && 
             apt.paymentStatus === 'approved' &&
-            (now.getTime() >= new Date(apt.appointmentDateTime).getTime() - (15 * 60 * 1000)) &&
-            (now.getTime() < new Date(apt.appointmentDateTime).getTime() + (15 * 60 * 1000))
+            (nowState >= new Date(apt.appointmentDateTime).getTime() - (15 * 60 * 1000)) &&
+            (nowState < new Date(apt.appointmentDateTime).getTime() + (15 * 60 * 1000))
         );
 
         const upcoming = validAppointments
@@ -460,7 +461,7 @@ export default function PatientPortalPage() {
                 const d = new Date(apt.appointmentDateTime);
                 if (!isValid(d)) return false;
                 const endTime = d.getTime() + (15 * 60 * 1000); 
-                const isMissed = now.getTime() > endTime;
+                const isMissed = nowState > endTime;
                 return !isMissed && (apt.status === 'scheduled' || apt.status === 'expired');
             })
             .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
@@ -470,7 +471,7 @@ export default function PatientPortalPage() {
                 const d = new Date(apt.appointmentDateTime);
                 if (!isValid(d)) return false;
                 const endTime = d.getTime() + (15 * 60 * 1000); 
-                return now.getTime() > endTime || apt.status === 'completed' || apt.status === 'expired';
+                return nowState > endTime || apt.status === 'completed' || apt.status === 'expired';
             })
             .sort((a, b) => b.appointmentDateTime.localeCompare(a.appointmentDateTime))
             .slice(0, 10);
@@ -555,6 +556,11 @@ export default function PatientPortalPage() {
                                             <p className="text-[10px] text-slate-400">"Average wait: 5-10 mins per patient."</p>
                                         )}
                                     </div>
+                                    {activeQueueApt.queueStatus === 'in-consultation' && (
+                                        <Button asChild className="w-full h-12 rounded-xl font-bold bg-primary hover:bg-primary/90 text-white animate-pulse">
+                                            <Link href={`/consultation/${activeQueueApt.id}`}>Join Active Session</Link>
+                                        </Button>
+                                    )}
                                 </CardContent>
                             </Card>
                         )}

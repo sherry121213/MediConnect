@@ -5,7 +5,7 @@ import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, orderBy } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, Activity, Layers, Clock, User, ShieldCheck, Search } from 'lucide-react';
-import { format, isSameDay } from 'date-fns';
+import { format, isSameDay, isValid } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { useState, useMemo } from 'react';
 import { Input } from '@/components/ui/input';
@@ -41,6 +41,7 @@ export default function AdminQueuesPage() {
     const blocks: Record<string, Appointment[]> = {};
     
     appointments.forEach(apt => {
+        if (!apt.doctorId || !apt.appointmentDateTime) return;
         const blockKey = `${apt.doctorId}_${apt.blockId || apt.appointmentDateTime}`;
         if (!blocks[blockKey]) blocks[blockKey] = [];
         blocks[blockKey].push(apt);
@@ -49,11 +50,12 @@ export default function AdminQueuesPage() {
     return Object.entries(blocks).map(([key, list]) => {
         const doctorId = key.split('_')[0];
         const doctor = doctors?.find(d => d.id === doctorId);
+        const timeVal = list[0]?.appointmentDateTime;
         return {
             id: key,
             doctor,
             appointments: list.sort((a, b) => (a.sequencePosition || 0) - (b.sequencePosition || 0)),
-            time: list[0].appointmentDateTime
+            time: timeVal && isValid(new Date(timeVal)) ? timeVal : new Date().toISOString()
         };
     }).sort((a, b) => a.time.localeCompare(b.time));
   }, [appointments, doctors]);
