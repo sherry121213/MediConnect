@@ -168,7 +168,7 @@ export default function DoctorProfilePage() {
               toast({ title: "Verification Pending", description: "Please check your inbox." });
           }
       } catch (e) {
-          toast({ variant: 'destructive', title: "Error", description: "Could not refresh status." });
+          toast({ variant: 'destructive', title: 'Error', description: "Could not refresh status." });
       } finally {
           setIsRefreshing(false);
       }
@@ -379,7 +379,7 @@ export default function DoctorProfilePage() {
                                             <div key={cred.id} className="group relative p-3 rounded-2xl border bg-muted/10 flex items-center justify-between gap-4">
                                                 <div className="flex items-center gap-3 min-w-0">
                                                     <div className="h-10 w-10 rounded-xl bg-white border flex items-center justify-center text-primary shrink-0">
-                                                        <FileText className="h-5 v-5" />
+                                                        <FileText className="h-5 w-5" />
                                                     </div>
                                                     <div className="min-w-0">
                                                         <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-tighter truncate">{cred.fileName || `Asset-${idx + 1}`}</p>
@@ -400,7 +400,7 @@ export default function DoctorProfilePage() {
                         </CardContent>
                     </Card>
 
-                    <Button onClick={form.handleSubmit(onSubmit)} className="w-full h-16 text-lg font-bold rounded-[2rem] shadow-2xl shadow-primary/20" disabled={isSubmitting || isSyncing || !isEmailVerified}>
+                    <Button onClick={form.handleSubmit(onSubmit)} className="w-full h-16 text-lg md:text-xl font-bold rounded-[2rem] shadow-2xl shadow-primary/20" disabled={isSubmitting || isSyncing || !isEmailVerified}>
                         {isSubmitting ? <><Loader2 className="mr-3 h-5 w-5 animate-spin" /> Finalizing...</> : "Save Professional Information"}
                     </Button>
                 </div>

@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useFirestore, useUserData, useCollection, useMemoFirebase, useDoc } from '@/firebase';
@@ -192,7 +193,7 @@ export default function PatientMessagesPage() {
         
         <div className="bg-primary/5 p-6 rounded-2xl border border-primary/10 flex gap-4 items-start">
             <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
-                <History className="text-primary h-6 world-6" />
+                <History className="text-primary h-6 w-6" />
             </div>
             <div>
                 <h4 className="font-bold text-primary-dark">Confidentiality Shield</h4>

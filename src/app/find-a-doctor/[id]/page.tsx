@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, CalendarDays, Loader2, MapPin, CheckCircle2, XCircle, Copy, Wallet, Landmark, Smartphone, Clock as ClockIcon } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Loader2, MapPin, CheckCircle2, XCircle, Copy, Wallet, Landmark, Smartphone, Clock as ClockIcon, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -164,7 +164,6 @@ export default function DoctorDetailPage() {
         try {
             const appointmentDateTime = parse(selectedTimeStr, 'hh:mm a', selectedDate);
             
-            // Calculate Token Rank locally using already-loaded existingAppointments to avoid index errors
             const dayApts = (existingAppointments || []).filter(a => a && a.appointmentDateTime && isSameDay(new Date(a.appointmentDateTime), selectedDate));
             const tokenRank = dayApts.filter(a => new Date(a.appointmentDateTime!) < appointmentDateTime).length + 1;
 
