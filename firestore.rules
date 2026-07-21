@@ -4,63 +4,39 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     /**
-     * MEDICONNECT - UNIVERSAL ACCESS PROTOCOL (PROTOTYPE MODE)
-     * [TIMESTAMP] 2024-05-25 10:15:00 UTC
+     * MEDICONNECT - UNIVERSAL CLINICAL ACCESS PROTOCOL (PROTOTYPE MODE)
+     * [DEPLOYMENT HEARTBEAT] 2024-05-25 15:45:00 UTC
      * 
-     * This ruleset provides absolute read and write clearance to all authenticated 
-     * and unauthenticated users to resolve persistent "Missing or insufficient 
-     * permissions" errors during platform surveillance and clinical operations.
+     * This ruleset grants absolute read and write clearance to all authenticated 
+     * users to ensure that Admin surveillance and Provider portal logic 
+     * are completely unblocked from permission errors.
      */
     
     match /{document=**} {
-      allow read, write: if true;
+      allow read, write: if request.auth != null;
     }
 
     /**
-     * [EXPLICIT LISTING] 
-     * These match blocks ensure that collection-level "list" queries 
-     * (e.g., /appointments or /doctors) are explicitly cleared by the 
-     * Firestore evaluator.
+     * [PUBLIC ACCESS] 
+     * Allow unauthenticated visitors to submit contact forms.
      */
-    
-    match /appointments/{id} {
-      allow read, write: if true;
-    }
-
-    match /doctors/{id} {
-      allow read, write: if true;
-    }
-
-    match /patients/{id} {
-      allow read, write: if true;
-    }
-
     match /contacts/{id} {
-      allow read, write: if true;
+      allow create: if true;
+      allow read, update, delete: if request.auth != null;
     }
-
-    match /reviews/{id} {
-      allow read, write: if true;
-    }
-
-    match /doctorCredentials/{id} {
-      allow read, write: if true;
-    }
-
-    match /supportChatSessions/{id} {
-      allow read, write: if true;
-    }
-
-    match /adminDoctorChatSessions/{id} {
-      allow read, write: if true;
-    }
-
-    match /missedSessionAudits/{id} {
-      allow read, write: if true;
-    }
-
-    match /calls/{id} {
-      allow read, write: if true;
-    }
+    
+    /**
+     * [EXPLICIT LISTING FOR WATCHER SYNC]
+     * These blocks ensure collection-level "list" queries are prioritized.
+     */
+    match /appointments/{id} { allow read, write: if request.auth != null; }
+    match /doctors/{id} { allow read, write: if request.auth != null; }
+    match /patients/{id} { allow read, write: if request.auth != null; }
+    match /reviews/{id} { allow read, write: if request.auth != null; }
+    match /doctorCredentials/{id} { allow read, write: if request.auth != null; }
+    match /supportChatSessions/{id} { allow read, write: if request.auth != null; }
+    match /adminDoctorChatSessions/{id} { allow read, write: if request.auth != null; }
+    match /calls/{id} { allow read, write: if request.auth != null; }
+    match /missedSessionAudits/{id} { allow read, write: if request.auth != null; }
   }
 }

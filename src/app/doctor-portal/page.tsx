@@ -19,7 +19,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
-import { format, isSameDay, addDays, subDays, isBefore, addMinutes, parse, isValid } from "date-fns";
+import { format, isSameDay, addDays, subDays, isBefore, addMinutes, parse, isValid, isAfter, subMinutes } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { getNext7Days } from "@/lib/time";
 import { cn } from "@/lib/utils";
@@ -136,7 +136,7 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
         if (availableHours.length > 0 && !availableHours.includes(selectedHour)) {
             setSelectedHour(availableHours[0]);
         }
-    }, [availableHours]);
+    }, [availableHours, selectedHour]);
 
     const handleConfirm = async () => {
         if (!firestore || !appointment) return;
@@ -179,11 +179,11 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
     );
 }
 
-const AppointmentRow = ({ apt, patient, onSelect, isMounted, onShift, isQueueMode }: { apt: Appointment, patient?: Patient, onSelect: (a: Appointment) => void, isMounted: boolean, onShift: (a: Appointment, status: any) => void, isQueueMode: boolean }) => {
+const AppointmentRow = ({ apt, patient, onSelect, isMounted, onShift, isQueueMode, nowTicker }: { apt: Appointment, patient?: Patient, onSelect: (a: Appointment) => void, isMounted: boolean, onShift: (a: Appointment, status: any) => void, isQueueMode: boolean, nowTicker: Date | null }) => {
     const firestore = useFirestore();
     const { toast } = useToast();
     const appointmentDate = new Date(apt.appointmentDateTime);
-    const now = isMounted ? Date.now() : 0;
+    const now = nowTicker ? nowTicker.getTime() : 0;
     const startTime = appointmentDate.getTime();
     const endTime = startTime + (15*60*1000);
     const isLive = isMounted && now >= startTime && now < endTime;
@@ -239,16 +239,17 @@ const AppointmentRow = ({ apt, patient, onSelect, isMounted, onShift, isQueueMod
     );
 };
 
-function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMounted, onPostpone }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment | null, patient?: Patient, isMounted: boolean, onPostpone: (a: any) => void }) {
+function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, nowTicker, onPostpone }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment | null, patient?: Patient, nowTicker: Date | null, onPostpone: (a: any) => void }) {
     const firestore = useFirestore();
     const { toast } = useToast();
     const form = useForm({ resolver: zodResolver(z.object({ diagnosis: z.string().min(3), prescription: z.string().min(10) })), defaultValues: { diagnosis: appointment?.diagnosis || '', prescription: appointment?.prescription || '' } });
+    
     if (!appointment) return null;
     
     const isCompleted = appointment.status === 'completed';
     const appointmentDate = new Date(appointment.appointmentDateTime);
-    const now = isMounted ? Date.now() : 0;
-    const isPast = isMounted && now >= (appointmentDate.getTime() + 15*60*1000);
+    const now = nowTicker ? nowTicker.getTime() : 0;
+    const isPast = now >= (appointmentDate.getTime() + 15*60*1000);
 
     const onSubmit = (values: any) => {
         if (!firestore || isCompleted) return;
@@ -275,7 +276,7 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
                                 {patient && <div className="min-w-0"><p className="font-bold text-lg truncate">{patient.firstName} {patient.lastName}</p></div>}
                             </div>
                             {!isCompleted && !isPast && (
-                                <Button onClick={() => window.location.assign(`/consultation/${appointment.id}`)} className="w-full h-14 sm:h-16 text-base font-bold rounded-2xl">
+                                <Button onClick={() => window.location.assign(`/consultation/${appointment.id}`)} className="w-full h-14 sm:h-16 text-base font-bold rounded-2xl shadow-lg">
                                     <Video className="mr-3 h-5 w-5" /> Join Session
                                 </Button>
                             )}
@@ -322,8 +323,14 @@ export default function DoctorPortalPage() {
     const [viewDate, setViewDate] = useState(new Date());
     const [patientsMap, setPatientsMap] = useState<Map<string, Patient>>(new Map());
     const [isQueueMode, setIsQueueMode] = useState(true);
+    const [nowTicker, setNowTicker] = useState<Date | null>(null);
 
-    useEffect(() => { setMounted(true); }, []);
+    useEffect(() => { 
+        setMounted(true); 
+        setNowTicker(new Date());
+        const timer = setInterval(() => setNowTicker(new Date()), 30000);
+        return () => clearInterval(timer);
+    }, []);
 
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !user) return null;
@@ -348,13 +355,21 @@ export default function DoctorPortalPage() {
     }, [appointments, firestore]);
 
     const { activeQueue, timelineApts, stats } = useMemo(() => {
-        if (!mounted || !appointments) return { activeQueue: [], timelineApts: [], stats: { today: 0, todayRevenue: 0 } };
-        const now = new Date();
-        const allToday = appointments.filter(apt => apt && isSameDay(new Date(apt.appointmentDateTime), now));
+        if (!mounted || !appointments || !nowTicker) return { activeQueue: [], timelineApts: [], stats: { today: 0, todayRevenue: 0 } };
+        
+        const allToday = appointments.filter(apt => apt && isSameDay(new Date(apt.appointmentDateTime), nowTicker));
         const viewDayApts = appointments.filter(apt => apt && isSameDay(new Date(apt.appointmentDateTime), viewDate)).sort((a,b) => a.appointmentDateTime.localeCompare(b.appointmentDateTime));
         
         const activeQ = [...allToday]
-            .filter(apt => apt.status === 'scheduled')
+            .filter(apt => {
+                // Rule: Show if it's currently scheduled AND either upcoming or in-consultation.
+                // Exclude "Past Waiting" sessions that have expired their window by 30 mins.
+                if (apt.status !== 'scheduled') return false;
+                const startTime = new Date(apt.appointmentDateTime);
+                const expirationTime = addMinutes(startTime, 30);
+                
+                return apt.queueStatus === 'in-consultation' || isAfter(expirationTime, nowTicker);
+            })
             .sort((a, b) => {
                 if (isQueueMode && a.sequencePosition && b.sequencePosition) {
                     return a.sequencePosition - b.sequencePosition;
@@ -364,7 +379,7 @@ export default function DoctorPortalPage() {
 
         const todayRev = allToday.filter(a => a.paymentStatus === 'approved').reduce((sum, a) => sum + (a.amount || 1500), 0);
         return { activeQueue: activeQ, timelineApts: viewDayApts, stats: { today: allToday.length, todayRevenue: todayRev } };
-    }, [appointments, mounted, viewDate, isQueueMode]);
+    }, [appointments, mounted, viewDate, isQueueMode, nowTicker]);
 
     const handleQueueAction = async (apt: Appointment, newStatus: any) => {
         if (!firestore || !appointments) return;
@@ -383,7 +398,7 @@ export default function DoctorPortalPage() {
         }
     };
 
-    if (!mounted || isUserLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin" /></div>;
+    if (!mounted || isUserLoading) return <div className="min-h-screen flex items-center justify-center bg-slate-50"><Loader2 className="animate-spin text-primary" /></div>;
 
     return (
         <main className="min-h-screen bg-slate-50/50 py-4 sm:py-8 px-4">
@@ -400,7 +415,7 @@ export default function DoctorPortalPage() {
                             <Label htmlFor="queue-mode" className="text-[10px] font-bold uppercase text-slate-500">Back-to-Back Queue</Label>
                             <Switch id="queue-mode" checked={isQueueMode} onCheckedChange={setIsQueueMode} />
                         </div>
-                        <Card className="p-4 bg-primary text-white rounded-2xl w-fit">
+                        <Card className="p-4 bg-primary text-white rounded-2xl w-fit shadow-lg shadow-primary/20">
                             <p className="text-[10px] font-bold uppercase opacity-80">Revenue Today</p>
                             <p className="text-lg sm:text-xl font-bold">PKR {stats.todayRevenue.toLocaleString()}</p>
                         </Card>
@@ -408,17 +423,17 @@ export default function DoctorPortalPage() {
                 </div>
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
                     <div className="lg:col-span-4 space-y-6">
-                         <Card className="bg-slate-900 text-white rounded-[2rem] overflow-hidden"><CardHeader className="p-6 sm:p-8"><CardTitle className="text-lg flex items-center gap-3"><Zap className="h-6 w-6 text-primary" /> Management</CardTitle></CardHeader><CardContent className="p-6 sm:p-8 pt-0 space-y-3"><Button variant="outline" className="w-full justify-start h-12 rounded-2xl bg-white/5 text-xs" asChild><Link href="/doctor-portal/patients"><LayoutList className="h-4 w-4 mr-3" /> Record Pool</Link></Button><Button variant="outline" className="w-full justify-start h-12 rounded-2xl bg-white/5 text-xs" asChild><Link href="/doctor-portal/unavailability"><CalendarIcon className="h-4 w-4 mr-3" /> Clinical Pause</Link></Button></CardContent></Card>
-                        <Card className="bg-white rounded-3xl overflow-hidden">
+                         <Card className="bg-slate-900 text-white rounded-[2rem] overflow-hidden shadow-2xl"><CardHeader className="p-6 sm:p-8"><CardTitle className="text-lg flex items-center gap-3"><Zap className="h-6 w-6 text-primary" /> Management</CardTitle></CardHeader><CardContent className="p-6 sm:p-8 pt-0 space-y-3"><Button variant="outline" className="w-full justify-start h-12 rounded-2xl bg-white/5 text-xs hover:bg-white/10" asChild><Link href="/doctor-portal/patients"><LayoutList className="h-4 w-4 mr-3" /> Record Pool</Link></Button><Button variant="outline" className="w-full justify-start h-12 rounded-2xl bg-white/5 text-xs hover:bg-white/10" asChild><Link href="/doctor-portal/unavailability"><CalendarIcon className="h-4 w-4 mr-3" /> Clinical Pause</Link></Button></CardContent></Card>
+                        <Card className="bg-white rounded-3xl overflow-hidden shadow-xl">
                             <CardHeader className="bg-primary/5 p-4 sm:p-6 flex flex-row items-center justify-between">
                                 <CardTitle className="text-[10px] uppercase font-bold flex items-center gap-2">
-                                    <ClipboardCheck className="h-4 w-4 text-primary" /> {isQueueMode ? 'Live Queue' : 'Queue'}
+                                    <ClipboardCheck className="h-4 w-4 text-primary" /> {isQueueMode ? 'Live Sequence' : 'Queue'}
                                 </CardTitle>
                                 {isQueueMode && <Badge variant="secondary" className="bg-primary/10 text-primary text-[8px] h-4">Active Block</Badge>}
                             </CardHeader>
                             <CardContent className="p-0">
-                                {isLoadingAppointments ? (
-                                    <div className="p-12 text-center"><Loader2 className="animate-spin mx-auto opacity-20" /></div>
+                                {isLoadingAppointments || !nowTicker ? (
+                                    <div className="p-12 text-center"><Loader2 className="animate-spin mx-auto text-primary/30" /></div>
                                 ) : activeQueue.length > 0 ? (
                                     <div className="divide-y">
                                         {activeQueue.map(apt => (
@@ -430,17 +445,18 @@ export default function DoctorPortalPage() {
                                                 isMounted={mounted} 
                                                 onShift={handleQueueAction}
                                                 isQueueMode={isQueueMode}
+                                                nowTicker={nowTicker}
                                             />
                                         ))}
                                     </div>
                                 ) : (
-                                    <div className="p-12 text-center text-muted-foreground text-[10px] uppercase font-bold tracking-widest">No active sessions</div>
+                                    <div className="p-12 text-center text-muted-foreground text-[10px] uppercase font-bold tracking-widest bg-slate-50/30">No upcoming sequences</div>
                                 )}
                             </CardContent>
                         </Card>
                     </div>
                     <div className="lg:col-span-8 space-y-6">
-                        <Card className="rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden bg-white">
+                        <Card className="rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden bg-white shadow-xl">
                             <CardHeader className="border-b bg-slate-50 p-4 sm:p-8">
                                 <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
                                     <CardTitle className="text-lg sm:text-xl font-headline flex items-center gap-3">
@@ -461,14 +477,14 @@ export default function DoctorPortalPage() {
                                 {timelineApts.length > 0 ? (
                                     <div className="space-y-4">
                                         {timelineApts.map((apt) => (
-                                            <div key={apt.id} className={cn("flex items-center justify-between p-4 sm:p-6 rounded-[1.5rem] border-2 transition-all", apt.status === 'completed' ? "border-green-100 bg-green-50/50" : "border-slate-100 bg-white")}>
+                                            <div key={apt.id} className={cn("flex items-center justify-between p-4 sm:p-6 rounded-[1.5rem] border-2 transition-all", apt.status === 'completed' ? "border-green-100 bg-green-50/50" : "border-slate-100 bg-white shadow-sm")}>
                                                 <div className="flex items-center gap-4">
                                                     <div>
                                                         <p className="font-bold text-sm sm:text-base">{patientsMap.get(apt.patientId)?.firstName} {patientsMap.get(apt.patientId)?.lastName || '...'}</p>
                                                         <p className="text-[9px] text-muted-foreground uppercase">{apt.appointmentType} • {format(new Date(apt.appointmentDateTime), "p")}</p>
                                                     </div>
                                                 </div>
-                                                <Button variant="outline" size="sm" onClick={() => {setSelectedAppointment(apt);setIsConsultOpen(true)}} className="h-8 px-3 rounded-xl font-bold border-2 text-[9px] uppercase">
+                                                <Button variant="outline" size="sm" onClick={() => {setSelectedAppointment(apt);setIsConsultOpen(true)}} className="h-8 px-4 rounded-xl font-bold border-2 text-[9px] uppercase hover:bg-primary hover:text-white hover:border-primary transition-all">
                                                     Manage
                                                 </Button>
                                             </div>
@@ -484,7 +500,7 @@ export default function DoctorPortalPage() {
                         </Card>
                     </div>
                 </div>
-                {selectedAppointment && <ConsultationDialog isOpen={isConsultOpen} onOpenChange={setIsConsultOpen} appointment={selectedAppointment} patient={patientsMap.get(selectedAppointment.patientId)} isMounted={mounted} onPostpone={(a)=>{setSelectedAppointment(a);setIsConsultOpen(false);setIsPostponeOpen(true)}} />}
+                {selectedAppointment && <ConsultationDialog isOpen={isConsultOpen} onOpenChange={setIsConsultOpen} appointment={selectedAppointment} patient={patientsMap.get(selectedAppointment.patientId)} nowTicker={nowTicker} onPostpone={(a)=>{setSelectedAppointment(a);setIsConsultOpen(false);setIsPostponeOpen(true)}} />}
                 {selectedAppointment && <InternalPostponeDialog isOpen={isPostponeOpen} onOpenChange={setIsPostponeOpen} appointment={selectedAppointment} />}
             </div>
         </main>

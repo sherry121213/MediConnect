@@ -2,12 +2,12 @@
 'use client';
 
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
-import { collection, query, where, orderBy } from 'firebase/firestore';
+import { collection, query } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Activity, Layers, Clock, User, ShieldCheck, Search } from 'lucide-react';
-import { format, isSameDay, isValid } from 'date-fns';
+import { Loader2, Activity, Layers, Clock, User, ShieldCheck, Search, AlertCircle } from 'lucide-react';
+import { format, isValid, addMinutes, isAfter, subMinutes } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import type { Appointment, Doctor } from '@/lib/types';
 import { cn } from '@/lib/utils';
@@ -15,8 +15,15 @@ import { cn } from '@/lib/utils';
 export default function AdminQueuesPage() {
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
+  const [now, setNow] = useState<Date | null>(null);
 
-  // We simplify the query to avoid complex index requirements that might trigger permission errors
+  // Initialize ticker on client to prevent hydration mismatch
+  useEffect(() => {
+    setNow(new Date());
+    const interval = setInterval(() => setNow(new Date()), 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   const appointmentsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
     return collection(firestore, 'appointments');
@@ -30,24 +37,29 @@ export default function AdminQueuesPage() {
   }, [firestore]);
   const { data: doctors } = useCollection<Doctor>(doctorsQuery);
 
-  // Perform clinical filtering and sorting in-memory for stability
   const queueBlocks = useMemo(() => {
-    if (!appointmentsRaw) return [];
+    if (!appointmentsRaw || !now) return [];
     
-    // 1. Filter for Approved and Scheduled sessions
-    const activeApts = appointmentsRaw.filter(apt => 
-        apt && 
-        apt.paymentStatus === 'approved' && 
-        apt.status === 'scheduled' &&
-        apt.appointmentDateTime
-    );
+    // Filter for Approved and Scheduled sessions that aren't excessively past their window
+    const activeApts = appointmentsRaw.filter(apt => {
+        if (!apt || apt.paymentStatus !== 'approved' || apt.status !== 'scheduled' || !apt.appointmentDateTime) return false;
+        
+        const startTime = new Date(apt.appointmentDateTime);
+        const expirationTime = addMinutes(startTime, 30); // 30 min threshold for "Waiting" sessions
 
-    // 2. Group into blocks by Doctor ID + Time String (to identify concurrent sessions)
+        // Rule: Show if it's currently in consultation, OR if it's upcoming, 
+        // OR if it's within the 30-min late window.
+        const isCurrentlyActive = apt.queueStatus === 'in-consultation';
+        const isUpcoming = isAfter(startTime, subMinutes(now, 5));
+        const isWithinLateWindow = isAfter(expirationTime, now);
+
+        return isCurrentlyActive || isUpcoming || isWithinLateWindow;
+    });
+
     const blocks: Record<string, Appointment[]> = {};
     
     activeApts.forEach(apt => {
         if (!apt.doctorId || !apt.appointmentDateTime) return;
-        // Use blockId if available, fallback to appointmentDateTime
         const blockKey = `${apt.doctorId}_${apt.blockId || apt.appointmentDateTime}`;
         if (!blocks[blockKey]) blocks[blockKey] = [];
         blocks[blockKey].push(apt);
@@ -64,7 +76,7 @@ export default function AdminQueuesPage() {
             time: timeVal && isValid(new Date(timeVal)) ? timeVal : new Date().toISOString()
         };
     }).sort((a, b) => a.time.localeCompare(b.time));
-  }, [appointmentsRaw, doctors]);
+  }, [appointmentsRaw, doctors, now]);
 
   const filteredBlocks = queueBlocks.filter(b => {
       if (!searchTerm) return true;
@@ -94,7 +106,7 @@ export default function AdminQueuesPage() {
         </div>
       </div>
 
-      {isLoadingApts ? (
+      {isLoadingApts || !now ? (
           <div className="flex justify-center py-24"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>
       ) : filteredBlocks.length > 0 ? (
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-8">
@@ -121,7 +133,7 @@ export default function AdminQueuesPage() {
                               {block.appointments.map((apt) => (
                                   <div key={apt.id} className="p-4 sm:p-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
                                       <div className="flex items-center gap-4 min-w-0">
-                                          <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500 shrink-0">
+                                          <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500 shrink-0 shadow-inner">
                                               #{apt.sequencePosition}
                                           </div>
                                           <div className="min-w-0">
@@ -129,14 +141,19 @@ export default function AdminQueuesPage() {
                                               <p className="text-[9px] text-slate-500 uppercase font-bold tracking-tighter">Assigned Sequence</p>
                                           </div>
                                       </div>
-                                      <Badge className={cn(
-                                          "h-6 px-3 rounded-full text-[9px] font-bold uppercase",
-                                          apt.queueStatus === 'in-consultation' ? "bg-green-600 animate-pulse" :
-                                          apt.queueStatus === 'shifted' ? "bg-amber-600" :
-                                          apt.queueStatus === 'late' ? "bg-red-600" : "bg-primary"
-                                      )}>
-                                          {apt.queueStatus || 'waiting'}
-                                      </Badge>
+                                      <div className="flex items-center gap-2">
+                                          {apt.readyToStart && apt.queueStatus !== 'in-consultation' && (
+                                              <Badge variant="outline" className="h-6 px-2 text-[8px] font-bold text-primary border-primary/20 bg-primary/5 animate-pulse">Signal Sent</Badge>
+                                          )}
+                                          <Badge className={cn(
+                                              "h-6 px-3 rounded-full text-[9px] font-bold uppercase",
+                                              apt.queueStatus === 'in-consultation' ? "bg-green-600 animate-pulse" :
+                                              apt.queueStatus === 'shifted' ? "bg-amber-600" :
+                                              apt.queueStatus === 'late' ? "bg-red-600" : "bg-primary"
+                                          )}>
+                                              {apt.queueStatus || 'waiting'}
+                                          </Badge>
+                                      </div>
                                   </div>
                               ))}
                           </div>
@@ -147,7 +164,8 @@ export default function AdminQueuesPage() {
       ) : (
           <div className="text-center py-32 bg-white rounded-[3rem] border-4 border-dashed">
               <Activity className="h-16 w-16 mx-auto mb-4 text-slate-200" />
-              <p className="text-slate-400 font-bold">No active queue blocks detected.</p>
+              <p className="text-slate-400 font-bold">No active clinical sequences detected.</p>
+              <p className="text-xs text-muted-foreground mt-1">Past waiting sessions are automatically filtered to prioritize upcoming slots.</p>
           </div>
       )}
     </div>
