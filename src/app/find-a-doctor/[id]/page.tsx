@@ -149,6 +149,7 @@ export default function DoctorDetailPage() {
 
         const proposedEnd = addMinutes(proposedStart, 20);
         const overlap = existingAppointments.find(apt => {
+            // ONLY block slots for active "Scheduled" appointments
             if (!apt || !apt.appointmentDateTime || apt.status !== 'scheduled') return false;
             
             const aptStart = new Date(apt.appointmentDateTime);
@@ -174,42 +175,38 @@ export default function DoctorDetailPage() {
         }
 
         setIsBooking(true);
-        try {
-            const appointmentDateTimeISO = proposedTime.toISOString();
-            const dayApts = (existingAppointments || []).filter(a => {
-                if (!a || !a.appointmentDateTime) return false;
-                const d = new Date(a.appointmentDateTime);
-                return isValid(d) && isSameDay(d, selectedDate);
-            });
-            
-            const tokenRank = dayApts.filter(a => new Date(a.appointmentDateTime!) < proposedTime).length + 1;
+        const appointmentDateTimeISO = proposedTime.toISOString();
+        const dayApts = (existingAppointments || []).filter(a => {
+            if (!a || !a.appointmentDateTime) return false;
+            const d = new Date(a.appointmentDateTime);
+            return isValid(d) && isSameDay(d, selectedDate);
+        });
+        
+        const tokenRank = dayApts.filter(a => new Date(a.appointmentDateTime!) < proposedTime).length + 1;
 
-            const newAppointment = {
-                patientId: user.uid,
-                doctorId: doctor.id,
-                appointmentDateTime: appointmentDateTimeISO,
-                appointmentType: appointmentType,
-                status: 'scheduled',
-                createdAt: new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-                amount: 1500,
-                paymentReceiptUrl: paymentReceipt,
-                paymentStatus: 'pending',
-                paymentMethod: paymentMethod,
-                sequencePosition: tokenRank,
-                queueStatus: 'waiting',
-                patientCheckedIn: false,
-                doctorInRoom: false
-            };
-            
-            addDocumentNonBlocking(collection(firestore, 'appointments'), newAppointment);
-            toast({ title: "Receipt Submitted", description: `Daily Token #${tokenRank} assigned. Awaiting audit.` });
-            router.push('/patient-portal');
-        } catch (e) {
-            toast({ variant: 'destructive', title: "Booking Failed", description: "Could not finalize clinical record." });
-        } finally {
-            setIsBooking(false);
-        }
+        const newAppointment = {
+            patientId: user.uid,
+            doctorId: doctor.id,
+            appointmentDateTime: appointmentDateTimeISO,
+            appointmentType: appointmentType,
+            status: 'scheduled',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+            amount: 1500,
+            paymentReceiptUrl: paymentReceipt,
+            paymentStatus: 'pending',
+            paymentMethod: paymentMethod,
+            sequencePosition: tokenRank,
+            queueStatus: 'waiting',
+            patientCheckedIn: false,
+            doctorInRoom: false
+        };
+        
+        // Non-blocking call ensures UI stays responsive
+        addDocumentNonBlocking(collection(firestore, 'appointments'), newAppointment);
+        
+        toast({ title: "Receipt Submitted", description: `Daily Token #${tokenRank} assigned. Awaiting audit.` });
+        router.push('/patient-portal');
     };
 
     if (isLoading || isUserLoading || !mounted) {
