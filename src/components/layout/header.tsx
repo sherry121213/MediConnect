@@ -176,7 +176,7 @@ export default function AppHeader() {
     );
   };
 
-  const portalLabel = userData?.role === 'doctor' ? 'Professional Portal' : userData?.role === 'patient' ? 'Patient Hub' : '';
+  const portalLabel = userData?.role === 'doctor' ? 'Professional Hub' : userData?.role === 'patient' ? 'Patient Portal' : '';
 
   return (
     <header className={cn(
@@ -195,8 +195,8 @@ export default function AppHeader() {
              </div>
           </Link>
           
-          {/* NAVIGATION - HIDDEN ON PORTALS FOR CLEANLINESS */}
-          {!user && (
+          {/* NAVIGATION - HIDDEN ON ALL PORTALS FOR CLEANLINESS */}
+          {!isUserLoading && !user && (
             <nav className="hidden md:flex gap-4 lg:gap-8 ml-8">
               {navLinks.map((link) => (
                 <Link 
