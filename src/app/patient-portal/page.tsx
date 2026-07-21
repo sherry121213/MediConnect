@@ -169,7 +169,14 @@ export default function PatientPortalPage() {
         }).sort((a, b) => b.appointmentDateTime.localeCompare(a.appointmentDateTime)).slice(0, 10);
         
         const ringing = valid.find(apt => apt.doctorInRoom && apt.status === 'scheduled' && apt.paymentStatus === 'approved' && isSameDay(new Date(apt.appointmentDateTime), now));
-        const signaled = valid.find(apt => apt.readyToStart && !apt.doctorInRoom && apt.status === 'scheduled' && apt.paymentStatus === 'approved');
+        
+        // REFINED: Only show early signal if it is actually BEFORE session time
+        const signaled = valid.find(apt => {
+            if (!apt.readyToStart || apt.doctorInRoom || apt.status !== 'scheduled' || apt.paymentStatus !== 'approved') return false;
+            const startTime = new Date(apt.appointmentDateTime).getTime();
+            return nowState < startTime; // Trigger banner ONLY if early
+        });
+
         const queue = valid.find(apt => apt.status === 'scheduled' && apt.paymentStatus === 'approved' && isSameDay(new Date(apt.appointmentDateTime), now) && apt.queueStatus !== 'completed');
         
         return { upcomingAppointments: upcoming, recentPastAppointments: past, ringingApt: ringing, signalApt: signaled, activeQueueApt: queue };

@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -86,7 +87,8 @@ export default function AppHeader() {
 
         // PATIENT SPECIFIC ALERTS
         if (userData.role === 'patient') {
-            if (apt.readyToStart && !apt.doctorInRoom && apt.status === 'scheduled') {
+            // REFINED: Only show "Doctor Ready" early notification if currentTime is BEFORE session time
+            if (apt.readyToStart && !apt.doctorInRoom && apt.status === 'scheduled' && currentTime < startTime) {
                 alerts.push({ id: apt.id + '-ready', title: 'Doctor Ready', msg: 'Provider is available early.', icon: Siren, color: 'text-amber-600 animate-pulse', timestamp: Date.now(), link: '/patient-portal' });
             }
             if (apt.paymentStatus === 'approved' && apt.createdAt && isAfter(new Date(apt.createdAt), yesterday)) {
