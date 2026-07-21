@@ -37,6 +37,7 @@ export async function manageQueueShift(
         bypassedList.push({
           ...apt,
           queueStatus: 'shifted',
+          readyToStart: false, // Reset early start signal if bypassed
           updatedAt: now
         });
       } else {
@@ -65,6 +66,7 @@ export async function manageQueueShift(
     batch.update(aptRef, {
       sequencePosition: index + 1,
       queueStatus: apt.queueStatus || 'waiting',
+      readyToStart: apt.readyToStart ?? false,
       updatedAt: now,
       ...(apt.id === targetAptId && newStatus === 'in-consultation' ? { readyToStart: true } : {})
     });

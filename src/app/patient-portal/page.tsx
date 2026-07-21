@@ -1,14 +1,15 @@
+
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, RefreshCw, CalendarIcon, ShieldCheck, PhoneIncoming, X, HelpCircle, AlertCircle, CheckCircle2, XCircle, Siren, Layers } from "lucide-react";
+import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, RefreshCw, CalendarIcon, ShieldCheck, PhoneIncoming, X, HelpCircle, AlertCircle, CheckCircle2, XCircle, Siren, Layers, BellRing } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from "@/firebase";
-import { collection, query, where, doc } from "firebase/firestore";
+import { collection, query, where, doc, updateDoc } from "firebase/firestore";
 import type { Appointment, Doctor } from "@/lib/types";
 import { useMemo, useState, useEffect } from "react";
 import { format, isAfter, isSameDay, isBefore, isValid, addMinutes, parse } from "date-fns";
@@ -493,11 +494,11 @@ export default function PatientPortalPage() {
                             <CardContent className="p-4 sm:p-6 flex flex-col sm:flex-row items-center justify-between gap-4">
                                 <div className="flex items-center gap-4">
                                     <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-white/20 flex items-center justify-center animate-pulse">
-                                        <PhoneIncoming className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
+                                        <BellRing className="h-5 w-5 sm:h-6 sm:w-6 text-white" />
                                     </div>
                                     <div className="text-center sm:text-left">
-                                        <p className="text-[10px] uppercase font-bold tracking-widest opacity-80">Signal Received</p>
-                                        <p className="text-base sm:text-lg font-bold">Session is now live.</p>
+                                        <p className="text-[10px] uppercase font-bold tracking-widest opacity-80">Early Signal Received</p>
+                                        <p className="text-base sm:text-lg font-bold">Doctor is available to start early.</p>
                                     </div>
                                 </div>
                                 <Button asChild className="bg-white text-red-600 hover:bg-slate-100 font-bold px-8 h-10 sm:h-12 rounded-2xl w-full sm:w-auto shadow-lg">

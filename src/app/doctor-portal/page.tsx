@@ -1,14 +1,15 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, FileText, Zap, LayoutList, Siren, PhoneIncoming, UserCheck, AlertCircle, PlayCircle, UserMinus } from "lucide-react";
+import { Calendar as CalendarIcon, Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, FileText, Zap, LayoutList, Siren, PhoneIncoming, UserCheck, AlertCircle, PlayCircle, UserMinus, Bell, BellRing } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, query, where, doc, getDocs } from "firebase/firestore";
+import { collection, query, where, doc, getDocs, updateDoc } from "firebase/firestore";
 import type { Appointment, Patient, Doctor } from '@/lib/types';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Textarea } from "@/components/ui/textarea";
@@ -179,21 +180,33 @@ function InternalPostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen:
 }
 
 const AppointmentRow = ({ apt, patient, onSelect, isMounted, onShift, isQueueMode }: { apt: Appointment, patient?: Patient, onSelect: (a: Appointment) => void, isMounted: boolean, onShift: (a: Appointment, status: any) => void, isQueueMode: boolean }) => {
+    const firestore = useFirestore();
+    const { toast } = useToast();
     const appointmentDate = new Date(apt.appointmentDateTime);
     const now = isMounted ? Date.now() : 0;
     const startTime = appointmentDate.getTime();
-    const isLive = isMounted && now >= startTime && now < startTime + (15*60*1000);
+    const endTime = startTime + (15*60*1000);
+    const isLive = isMounted && now >= startTime && now < endTime;
+    const isPast = isMounted && now >= endTime;
+
+    const handleNotifyPatient = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        if (!firestore || !apt.id) return;
+        updateDoc(doc(firestore, 'appointments', apt.id), { readyToStart: true });
+        toast({ title: "Signal Sent", description: "Patient notified of early availability." });
+    };
 
     const getStatusBadge = () => {
         if (isLive) return <Badge className="bg-red-600 text-white animate-pulse text-[8px] h-4 uppercase">Live</Badge>;
         if (apt.queueStatus === 'in-consultation') return <Badge className="bg-green-600 text-white text-[8px] h-4 uppercase">Active</Badge>;
         if (apt.queueStatus === 'shifted') return <Badge variant="outline" className="text-[8px] h-4 uppercase border-amber-400 text-amber-600">Shifted</Badge>;
         if (apt.queueStatus === 'late') return <Badge variant="destructive" className="text-[8px] h-4 uppercase">Late</Badge>;
+        if (isPast && apt.status !== 'completed') return <Badge variant="destructive" className="text-[8px] h-4 uppercase">Expired</Badge>;
         return <Badge variant="outline" className="text-[8px] h-4 uppercase">{apt.status}</Badge>;
     };
 
     return (
-        <div className={cn("flex items-center justify-between p-4 hover:bg-muted/50 rounded-xl transition-all", (isLive || apt.queueStatus === 'in-consultation') && "bg-primary/5 border-primary/20 shadow-sm")}>
+        <div className={cn("flex items-center justify-between p-4 hover:bg-muted/50 rounded-xl transition-all", (isLive || apt.queueStatus === 'in-consultation') && "bg-primary/5 border-primary/20 shadow-sm", isPast && apt.status !== 'completed' && "opacity-50 grayscale")}>
             <div className="flex items-center gap-3 min-w-0 cursor-pointer" onClick={() => onSelect(apt)}>
                 {isQueueMode && (
                     <div className="h-6 w-6 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500 shrink-0 border border-slate-200">
@@ -208,8 +221,11 @@ const AppointmentRow = ({ apt, patient, onSelect, isMounted, onShift, isQueueMod
             </div>
             <div className="flex items-center gap-2">
                 {getStatusBadge()}
-                {isQueueMode && apt.queueStatus !== 'in-consultation' && apt.queueStatus !== 'completed' && (
+                {isQueueMode && apt.queueStatus !== 'in-consultation' && apt.queueStatus !== 'completed' && !isPast && (
                     <div className="flex gap-1 ml-2">
+                        <Button variant="ghost" size="icon" className={cn("h-8 w-8 rounded-full", apt.readyToStart ? "text-primary bg-primary/10" : "text-slate-400")} onClick={handleNotifyPatient}>
+                            {apt.readyToStart ? <BellRing className="h-4 w-4 animate-bounce" /> : <Bell className="h-4 w-4" />}
+                        </Button>
                         <Button variant="ghost" size="icon" className="h-8 w-8 text-primary hover:bg-primary/10" onClick={() => onShift(apt, 'in-consultation')}>
                             <PlayCircle className="h-4 w-4" />
                         </Button>
@@ -228,13 +244,19 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
     const { toast } = useToast();
     const form = useForm({ resolver: zodResolver(z.object({ diagnosis: z.string().min(3), prescription: z.string().min(10) })), defaultValues: { diagnosis: appointment?.diagnosis || '', prescription: appointment?.prescription || '' } });
     if (!appointment) return null;
+    
     const isCompleted = appointment.status === 'completed';
+    const appointmentDate = new Date(appointment.appointmentDateTime);
+    const now = isMounted ? Date.now() : 0;
+    const isPast = isMounted && now >= (appointmentDate.getTime() + 15*60*1000);
+
     const onSubmit = (values: any) => {
         if (!firestore || isCompleted) return;
         updateDocumentNonBlocking(doc(firestore, 'appointments', appointment.id), { ...values, status: 'completed', queueStatus: 'completed', updatedAt: new Date().toISOString() });
         toast({ title: "Record Logged" });
         onOpenChange(false);
     };
+
     return (
         <InternalDialog isOpen={isOpen} onOpenChange={onOpenChange}>
                 <Tabs defaultValue="overview" className="w-full flex-1 flex flex-col overflow-hidden">
@@ -252,11 +274,37 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, isMoun
                                 <Avatar className="h-12 w-12"><AvatarFallback className="text-sm font-bold">{patient?.firstName?.[0]}{patient?.lastName?.[0]}</AvatarFallback></Avatar>
                                 {patient && <div className="min-w-0"><p className="font-bold text-lg truncate">{patient.firstName} {patient.lastName}</p></div>}
                             </div>
-                            {!isCompleted && (<Button onClick={() => window.location.assign(`/consultation/${appointment.id}`)} className="w-full h-14 sm:h-16 text-base font-bold rounded-2xl"><Video className="mr-3 h-5 w-5" /> Join Session</Button>)}
-                            {!isCompleted && (<Button variant="outline" className="w-full h-12 rounded-2xl text-xs" onClick={() => onPostpone(appointment)}><History className="h-4 w-4 mr-2" /> Shift Session</Button>)}
+                            {!isCompleted && !isPast && (
+                                <Button onClick={() => window.location.assign(`/consultation/${appointment.id}`)} className="w-full h-14 sm:h-16 text-base font-bold rounded-2xl">
+                                    <Video className="mr-3 h-5 w-5" /> Join Session
+                                </Button>
+                            )}
+                            {isPast && !isCompleted && (
+                                <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 text-red-700">
+                                    <AlertCircle className="h-5 w-5 shrink-0" />
+                                    <p className="text-xs font-bold uppercase">Past appointment - read only</p>
+                                </div>
+                            )}
+                            {!isCompleted && !isPast && (
+                                <Button variant="outline" className="w-full h-12 rounded-2xl text-xs" onClick={() => onPostpone(appointment)}>
+                                    <History className="h-4 w-4 mr-2" /> Shift Session
+                                </Button>
+                            )}
                         </TabsContent>
                         <TabsContent value="history" className="m-0"><PatientHistoryTab patientId={appointment.patientId} /></TabsContent>
-                        <TabsContent value="notes" className="m-0"><Form {...form}><form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6"><FormField control={form.control} name="diagnosis" render={({ field }) => (<FormItem><FormLabel className="uppercase text-[9px]">Diagnosis</FormLabel><FormControl><Input className="h-10 text-sm" {...field} /></FormControl></FormItem>)} /><FormField control={form.control} name="prescription" render={({ field }) => (<FormItem><FormLabel className="uppercase text-[9px]">Advice</FormLabel><FormControl><Textarea className="text-sm" rows={6} {...field} /></FormControl></FormItem>)} />{!isCompleted && <Button type="submit" className="w-full h-12">Finalize Record</Button>}</form></Form></TabsContent>
+                        <TabsContent value="notes" className="m-0">
+                            <Form {...form}>
+                                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                                    <FormField control={form.control} name="diagnosis" render={({ field }) => (
+                                        <FormItem><FormLabel className="uppercase text-[9px]">Diagnosis</FormLabel><FormControl><Input className="h-10 text-sm" {...field} /></FormControl></FormItem>
+                                    )} />
+                                    <FormField control={form.control} name="prescription" render={({ field }) => (
+                                        <FormItem><FormLabel className="uppercase text-[9px]">Advice</FormLabel><FormControl><Textarea className="text-sm" rows={6} {...field} /></FormControl></FormItem>
+                                    )} />
+                                    {!isCompleted && <Button type="submit" className="w-full h-12">Finalize Record</Button>}
+                                </form>
+                            </Form>
+                        </TabsContent>
                     </div>
                 </Tabs>
         </InternalDialog>
@@ -305,7 +353,6 @@ export default function DoctorPortalPage() {
         const allToday = appointments.filter(apt => apt && isSameDay(new Date(apt.appointmentDateTime), now));
         const viewDayApts = appointments.filter(apt => apt && isSameDay(new Date(apt.appointmentDateTime), viewDate)).sort((a,b) => a.appointmentDateTime.localeCompare(b.appointmentDateTime));
         
-        // Sorting logic for Queue Mode vs Standard
         const activeQ = [...allToday]
             .filter(apt => apt.status === 'scheduled')
             .sort((a, b) => {
@@ -322,7 +369,6 @@ export default function DoctorPortalPage() {
     const handleQueueAction = async (apt: Appointment, newStatus: any) => {
         if (!firestore || !appointments) return;
         
-        // Group appointments by time block (same hour/minute) for "Back-to-Back" grouping
         const blockId = apt.blockId || apt.appointmentDateTime;
         const blockAppointments = appointments.filter(a => (a.blockId === blockId || a.appointmentDateTime === blockId) && a.status === 'scheduled');
 
@@ -394,7 +440,48 @@ export default function DoctorPortalPage() {
                         </Card>
                     </div>
                     <div className="lg:col-span-8 space-y-6">
-                        <Card className="rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden bg-white"><CardHeader className="border-b bg-slate-50 p-4 sm:p-8"><div className="flex flex-col sm:flex-row justify-between items-center gap-4"><CardTitle className="text-lg sm:text-xl font-headline flex items-center gap-3"><Clock className="h-6 w-6 text-primary" /> Timeline</CardTitle><div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border-2 shadow-sm"><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewDate(subDays(viewDate, 1))}><ChevronLeft className="h-4 w-4" /></Button><span className="px-2 text-[10px] font-bold uppercase">{format(viewDate, "MMM dd")}</span><Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewDate(addDays(viewDate, 1))}><ChevronRight className="h-4 w-4" /></Button></div></div></CardHeader><CardContent className="p-4 sm:p-10 min-h-[300px]">{timelineApts.length > 0 ? (<div className="space-y-4">{timelineApts.map((apt) => (<div key={apt.id} className={cn("flex items-center justify-between p-4 sm:p-6 rounded-[1.5rem] border-2 transition-all", apt.status === 'completed' ? "border-green-100 bg-green-50/50" : "border-slate-100 bg-white")}><div className="flex items-center gap-4"><div><p className="font-bold text-sm sm:text-base">{patientsMap.get(apt.patientId)?.firstName} {patientsMap.get(apt.patientId)?.lastName || '...'}</p><p className="text-[9px] text-muted-foreground uppercase">{apt.appointmentType} • {format(new Date(apt.appointmentDateTime), "p")}</p></div></div><Button variant="outline" size="sm" onClick={() => {setSelectedAppointment(apt);setIsConsultOpen(true)}} className="h-8 px-3 rounded-xl font-bold border-2 text-[9px] uppercase">Manage</Button></div>))}</div>) : (<div className="flex flex-col items-center justify-center py-24 opacity-20 grayscale"><CalendarIcon className="h-16 w-16 mb-4" /><p className="font-bold text-[10px] uppercase tracking-widest">No Records Found</p></div>)}</CardContent></Card>
+                        <Card className="rounded-[2rem] sm:rounded-[2.5rem] overflow-hidden bg-white">
+                            <CardHeader className="border-b bg-slate-50 p-4 sm:p-8">
+                                <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                                    <CardTitle className="text-lg sm:text-xl font-headline flex items-center gap-3">
+                                        <Clock className="h-6 w-6 text-primary" /> Timeline
+                                    </CardTitle>
+                                    <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border-2 shadow-sm">
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewDate(subDays(viewDate, 1))}>
+                                            <ChevronLeft className="h-4 w-4" />
+                                        </Button>
+                                        <span className="px-2 text-[10px] font-bold uppercase">{format(viewDate, "MMM dd")}</span>
+                                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewDate(addDays(viewDate, 1))}>
+                                            <ChevronRight className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                </div>
+                            </CardHeader>
+                            <CardContent className="p-4 sm:p-10 min-h-[300px]">
+                                {timelineApts.length > 0 ? (
+                                    <div className="space-y-4">
+                                        {timelineApts.map((apt) => (
+                                            <div key={apt.id} className={cn("flex items-center justify-between p-4 sm:p-6 rounded-[1.5rem] border-2 transition-all", apt.status === 'completed' ? "border-green-100 bg-green-50/50" : "border-slate-100 bg-white")}>
+                                                <div className="flex items-center gap-4">
+                                                    <div>
+                                                        <p className="font-bold text-sm sm:text-base">{patientsMap.get(apt.patientId)?.firstName} {patientsMap.get(apt.patientId)?.lastName || '...'}</p>
+                                                        <p className="text-[9px] text-muted-foreground uppercase">{apt.appointmentType} • {format(new Date(apt.appointmentDateTime), "p")}</p>
+                                                    </div>
+                                                </div>
+                                                <Button variant="outline" size="sm" onClick={() => {setSelectedAppointment(apt);setIsConsultOpen(true)}} className="h-8 px-3 rounded-xl font-bold border-2 text-[9px] uppercase">
+                                                    Manage
+                                                </Button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="flex flex-col items-center justify-center py-24 opacity-20 grayscale">
+                                        <CalendarIcon className="h-16 w-16 mb-4" />
+                                        <p className="font-bold text-[10px] uppercase tracking-widest">No Records Found</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
                     </div>
                 </div>
                 {selectedAppointment && <ConsultationDialog isOpen={isConsultOpen} onOpenChange={setIsConsultOpen} appointment={selectedAppointment} patient={patientsMap.get(selectedAppointment.patientId)} isMounted={mounted} onPostpone={(a)=>{setSelectedAppointment(a);setIsConsultOpen(false);setIsPostponeOpen(true)}} />}
