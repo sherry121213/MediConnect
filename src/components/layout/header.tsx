@@ -1,9 +1,8 @@
-
 'use client';
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, LogOut, Shield, LayoutDashboard, Bell, Siren, User as UserCircle, UserCog, Settings, CheckCircle2, CreditCard, Trash2 } from 'lucide-react';
+import { Menu, LogOut, Shield, LayoutDashboard, Bell, Siren, User as UserCircle, UserCog, Settings, CheckCircle2, CreditCard, Trash2, HeartPulse } from 'lucide-react';
 import Logo from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -128,7 +127,7 @@ export default function AppHeader() {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="relative h-10 w-10 rounded-full border-2 border-transparent hover:border-primary/20 transition-all p-0 overflow-hidden">
+          <Button variant="ghost" className="relative h-10 w-10 rounded-full border-2 border-transparent hover:border-white/20 transition-all p-0 overflow-hidden">
             <Avatar className="h-full w-full">
                <AvatarImage src={userData?.photoURL || user?.photoURL || undefined} alt={displayName} />
                <AvatarFallback className="bg-primary/10 text-primary font-bold">{displayEmail?.[0].toUpperCase() ?? 'U'}</AvatarFallback>
@@ -182,29 +181,30 @@ export default function AppHeader() {
   return (
     <header className={cn(
         "sticky top-0 z-50 w-full border-b backdrop-blur-xl transition-all duration-300",
-        isDoctorPortal ? "h-24 bg-white/80 border-t-2 border-t-primary shadow-lg shadow-slate-200/50" : "h-20 bg-white/95 shadow-sm"
+        isDoctorPortal ? "h-20 bg-primary text-primary-foreground border-primary/20 shadow-lg" : "h-20 bg-white/95 shadow-sm"
     )}>
-      <div className="w-full h-full px-4 sm:px-8 flex items-center justify-between relative">
+      <div className="w-full h-full px-4 sm:px-8 flex items-center justify-between">
         {isDoctorPortal ? (
           <>
-            {/* Elegant Doctor Portal Layout - Centered Branding */}
-            <div className="flex-1" /> 
-            
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center gap-1 pointer-events-none group">
-              <div className="scale-110 sm:scale-125 transition-transform duration-500 group-hover:scale-135">
-                <Logo />
+            {/* Elegant Doctor Portal Layout - Branding on Left */}
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2 group">
+                 <div className="bg-white rounded-md p-1 shadow-sm transition-transform group-hover:scale-110">
+                    <HeartPulse className="h-6 w-6 text-primary" />
+                 </div>
+                 <div className="flex flex-col">
+                    <span className="text-xl font-bold font-headline text-white leading-none">Mediconnect</span>
+                    <span className="text-[8px] font-bold text-white/70 uppercase tracking-[0.3em] mt-1 leading-none">Professional Hub</span>
+                 </div>
               </div>
-              <span className="text-[8px] sm:text-[9px] font-bold text-primary uppercase tracking-[0.3em] opacity-60 leading-none animate-in fade-in slide-in-from-top-1 duration-700">
-                Professional Hub
-              </span>
             </div>
 
-            <div className="flex items-center gap-3 shrink-0 relative z-10">
+            <div className="flex items-center gap-3">
               <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="relative h-11 w-11 rounded-2xl hover:bg-primary/5 transition-colors border border-transparent hover:border-primary/10">
-                          <Bell className="h-5 w-5 text-slate-700" />
-                          {notifications.length > 0 && (<span className="absolute top-2.5 right-2.5 h-3.5 w-3.5 bg-red-500 border-2 border-white rounded-full flex items-center justify-center text-[7px] font-black text-white animate-pulse">{notifications.length}</span>)}
+                      <Button variant="ghost" size="icon" className="relative h-11 w-11 rounded-2xl hover:bg-white/10 transition-colors border border-transparent hover:border-white/20">
+                          <Bell className="h-5 w-5 text-white" />
+                          {notifications.length > 0 && (<span className="absolute top-2.5 right-2.5 h-3.5 w-3.5 bg-red-500 border-2 border-primary rounded-full flex items-center justify-center text-[7px] font-black text-white animate-pulse">{notifications.length}</span>)}
                       </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-80 p-0 rounded-[1.5rem] border-none shadow-2xl overflow-hidden mt-2" align="end">
