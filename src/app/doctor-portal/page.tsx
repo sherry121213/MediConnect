@@ -248,6 +248,7 @@ const AppointmentRow = ({ apt, patient, onSelect, isMounted, onShift, isQueueMod
 function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, nowTicker, onPostpone }: { isOpen: boolean, onOpenChange: (open: boolean) => void, appointment: Appointment | null, patient?: Patient, nowTicker: Date | null, onPostpone: (a: any) => void }) {
     const firestore = useFirestore();
     const { toast } = useToast();
+    const [isStarting, setIsStarting] = useState(false);
     const form = useForm({ resolver: zodResolver(z.object({ diagnosis: z.string().min(3), prescription: z.string().min(10) })), defaultValues: { diagnosis: appointment?.diagnosis || '', prescription: appointment?.prescription || '' } });
     
     if (!appointment) return null;
@@ -262,6 +263,24 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, nowTic
         updateDocumentNonBlocking(doc(firestore, 'appointments', appointment.id), { ...values, status: 'completed', queueStatus: 'completed', updatedAt: new Date().toISOString() });
         toast({ title: "Record Logged" });
         onOpenChange(false);
+    };
+
+    const handleStartSession = async () => {
+        if (!firestore || isStarting || !appointment.patientCheckedIn) return;
+        setIsStarting(true);
+        try {
+            // Step 1: Mark room as active from doctor's side
+            await updateDoc(doc(firestore, 'appointments', appointment.id), {
+                doctorInRoom: true,
+                queueStatus: 'in-consultation',
+                updatedAt: new Date().toISOString()
+            });
+            // Step 2: Navigate
+            window.location.assign(`/consultation/${appointment.id}`);
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Start Failed" });
+            setIsStarting(false);
+        }
     };
 
     return (
@@ -284,23 +303,24 @@ function ConsultationDialog({ isOpen, onOpenChange, appointment, patient, nowTic
                             
                             {!isCompleted && !isPast && (
                                 <div className="space-y-4">
-                                    {!appointment.patientCheckedIn && (
-                                        <div className="p-4 bg-amber-50 border border-amber-200 rounded-2xl flex items-center gap-3 text-amber-800">
-                                            <AlertCircle className="h-5 w-5 shrink-0" />
-                                            <div className="space-y-1">
-                                                <p className="text-[10px] font-bold uppercase">Patient Arrival Pending</p>
-                                                <p className="text-[9px] leading-tight">Patient has not checked into the digital waiting room yet.</p>
-                                            </div>
+                                    <div className={cn(
+                                        "p-4 border rounded-2xl flex items-center gap-3 transition-all",
+                                        appointment.patientCheckedIn ? "bg-green-50 border-green-200 text-green-800" : "bg-amber-50 border-amber-200 text-amber-800"
+                                    )}>
+                                        {appointment.patientCheckedIn ? <CheckCircle2 className="h-5 w-5 shrink-0" /> : <AlertCircle className="h-5 w-5 shrink-0" />}
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] font-bold uppercase">{appointment.patientCheckedIn ? "Patient Active" : "Patient Awaiting Arrival"}</p>
+                                            <p className="text-[9px] leading-tight">{appointment.patientCheckedIn ? "The patient has checked into the digital waiting room and is ready." : "Doctor entry is gated until the patient completes their digital check-in."}</p>
                                         </div>
-                                    )}
+                                    </div>
 
                                     <Button 
-                                        onClick={() => window.location.assign(`/consultation/${appointment.id}`)} 
+                                        onClick={handleStartSession} 
                                         className={cn("w-full h-14 sm:h-16 text-base font-bold rounded-2xl shadow-lg transition-all", !appointment.patientCheckedIn && "opacity-50 grayscale cursor-not-allowed")}
-                                        disabled={!appointment.patientCheckedIn}
+                                        disabled={!appointment.patientCheckedIn || isStarting}
                                     >
-                                        <Video className="mr-3 h-5 w-5" /> 
-                                        {appointment.patientCheckedIn ? "Start Consultation" : "Awaiting Check-in"}
+                                        {isStarting ? <Loader2 className="animate-spin mr-3 h-5 w-5" /> : <Video className="mr-3 h-5 w-5" />} 
+                                        {appointment.patientCheckedIn ? "Start Consultation" : "Waiting for Patient Arrival"}
                                     </Button>
 
                                     {!appointment.patientCheckedIn && (
@@ -364,7 +384,7 @@ export default function DoctorPortalPage() {
         setMounted(true); 
         setNowTicker(new Date());
         const timer = setInterval(() => setNowTicker(new Date()), 30000);
-        return () => clearInterval(timer);
+        return () => clearInterval(interval);
     }, []);
 
     const appointmentsQuery = useMemoFirebase(() => {

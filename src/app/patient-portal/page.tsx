@@ -342,7 +342,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
     return (
         <Card className={cn(
             "hover:shadow-lg transition-all border-l-4 bg-card/50 backdrop-blur-sm overflow-hidden rounded-2xl",
-            (isLive || (isFlexibleBuffer && apt.readyToStart)) && apt.paymentStatus === 'approved' ? "border-l-red-500 bg-red-50/10 shadow-md scale-[1.01]" : "border-l-primary/40",
+            ((isLive || (isFlexibleBuffer && apt.readyToStart)) && apt.paymentStatus === 'approved' && apt.doctorInRoom) ? "border-l-red-500 bg-red-50/10 shadow-md scale-[1.01]" : "border-l-primary/40",
             (isExpired || apt.status === 'expired') && "opacity-80 border-l-destructive/40"
         )} asChild>
             <div className="p-4 sm:p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-8">
@@ -369,7 +369,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                             <p className="font-bold text-base sm:text-lg leading-tight tracking-tight truncate max-w-full">
                                 {isLoadingDoctor ? 'Loading...' : `Dr. ${doctor?.firstName} ${doctor?.lastName}`}
                             </p>
-                            {(isLive || (isFlexibleBuffer && apt.readyToStart)) && apt.status === 'scheduled' && apt.paymentStatus === 'approved' && <Badge className="bg-red-600 text-white animate-pulse h-4 text-[7px] px-1.5 uppercase font-bold">LIVE</Badge>}
+                            {(isLive || (isFlexibleBuffer && apt.readyToStart)) && apt.status === 'scheduled' && apt.paymentStatus === 'approved' && apt.doctorInRoom && <Badge className="bg-red-600 text-white animate-pulse h-4 text-[7px] px-1.5 uppercase font-bold">LIVE</Badge>}
                             {apt.patientCheckedIn && <Badge className="bg-green-100 text-green-800 border-green-200 h-4 text-[7px] px-1.5 uppercase font-bold">Checked In</Badge>}
                         </div>
                         <p className="text-[10px] sm:text-xs text-primary font-bold uppercase tracking-wider opacity-80 truncate">{doctor?.specialty || 'Medical Specialist'}</p>
@@ -397,7 +397,7 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                                     {isCheckingIn ? <Loader2 className="animate-spin h-3.5 w-3.5" /> : <UserCheck className="mr-1.5 h-3.5 w-3.5" />} Check-in Now
                                 </Button>
                             )}
-                            {(!isLive && !(isFlexibleBuffer && apt.readyToStart)) && (
+                            {(!isLive && !(isFlexibleBuffer && apt.readyToStart)) && !apt.patientCheckedIn && (
                                 <Button variant="outline" size="sm" className="font-bold border-2 h-9 flex-1 sm:w-auto text-[10px]" onClick={() => onPostpone(apt)}>
                                     <RefreshCw className="mr-1.5 h-3.5 w-3.5" /> Reschedule
                                 </Button>
@@ -405,26 +405,40 @@ const AppointmentCard = ({ apt, isUpcoming, onPostpone, isMounted, variant = 'de
                             {apt.patientCheckedIn && (
                                 <Dialog>
                                     <DialogTrigger asChild>
-                                        <Button className={cn("font-bold h-9 flex-1 sm:w-auto transition-all", (isLive || (isFlexibleBuffer && apt.readyToStart)) ? "bg-red-600 hover:bg-red-700 animate-pulse" : "opacity-70 cursor-not-allowed")} disabled={!isLive && !(isFlexibleBuffer && apt.readyToStart)}>
-                                            {(isLive || (isFlexibleBuffer && apt.readyToStart)) ? "Join Clinical Room" : "Upcoming"}
+                                        <Button className={cn("font-bold h-9 flex-1 sm:w-auto transition-all", (isLive || (isFlexibleBuffer && apt.readyToStart)) && apt.doctorInRoom ? "bg-red-600 hover:bg-red-700 animate-pulse" : "bg-slate-900 opacity-90 cursor-default")} disabled={!((isLive || (isFlexibleBuffer && apt.readyToStart)) && apt.doctorInRoom)}>
+                                            {apt.doctorInRoom ? "Join Clinical Room" : "Awaiting Doctor..."}
                                         </Button>
                                     </DialogTrigger>
                                     <DialogContent className="w-[95vw] sm:max-w-lg rounded-3xl border-none shadow-2xl bg-white animate-in zoom-in-95 duration-200">
                                         <DialogHeader>
                                             <DialogTitle className="text-xl font-headline">Clinical Connection</DialogTitle>
                                             <DialogDescription>
-                                                {isLive ? `Secure session closes at ${format(addMinutes(appointmentDate, 15), "p")}.` : `Secure session opens at ${format(appointmentDate, "p")}.`}
+                                                {apt.doctorInRoom ? "Doctor is in the room. You can join the secure tunnel now." : "The clinical room is assigned. Please wait for the provider to start the session."}
                                             </DialogDescription>
                                         </DialogHeader>
                                         <div className="py-4">
-                                            <Button variant="outline" className="w-full justify-start h-20 border-2 hover:border-primary group bg-muted/5 rounded-2xl" onClick={handleJoin}>
-                                                <Video className="mr-4 h-6 w-6 text-primary shrink-0"/> <div className="text-left"><p className="font-bold text-foreground">Professional Consultation</p><p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">HD Video Feed Active</p></div>
-                                            </Button>
+                                            {apt.doctorInRoom ? (
+                                                <Button variant="outline" className="w-full justify-start h-20 border-2 border-primary bg-primary/5 rounded-2xl group transition-all" onClick={handleJoin}>
+                                                    <Video className="mr-4 h-6 w-6 text-primary shrink-0 animate-pulse"/> 
+                                                    <div className="text-left">
+                                                        <p className="font-bold text-foreground">Join Consultation</p>
+                                                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">HD Video Feed Active</p>
+                                                    </div>
+                                                </Button>
+                                            ) : (
+                                                <div className="w-full p-8 border-4 border-dashed rounded-3xl bg-slate-50 flex flex-col items-center justify-center text-center space-y-4">
+                                                    <Loader2 className="h-10 w-10 text-primary/30 animate-spin" />
+                                                    <div className="space-y-1">
+                                                        <p className="font-bold text-slate-900">Awaiting Provider</p>
+                                                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">Do not close this window</p>
+                                                    </div>
+                                                </div>
+                                            )}
                                         </div>
-                                        {!isLive && isFlexibleBuffer && apt.readyToStart && (
+                                        {!isLive && isFlexibleBuffer && apt.readyToStart && !apt.doctorInRoom && (
                                             <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 animate-pulse">
                                                 <Siren className="h-5 w-5 text-red-600 shrink-0" />
-                                                <p className="text-xs text-red-800 font-bold">Your doctor is ready to start early.</p>
+                                                <p className="text-xs text-red-800 font-bold">Your doctor is ready. Room will open shortly.</p>
                                             </div>
                                         )}
                                     </DialogContent>
@@ -556,7 +570,7 @@ export default function PatientPortalPage() {
 
                         {activeQueueApt && (
                             <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden rounded-[2rem] cursor-pointer hover:bg-slate-800 transition-colors" asChild>
-                                <Link href={activeQueueApt.queueStatus === 'in-consultation' ? `/consultation/${activeQueueApt.id}` : '#'}>
+                                <Link href={activeQueueApt.queueStatus === 'in-consultation' && activeQueueApt.doctorInRoom ? `/consultation/${activeQueueApt.id}` : '#'}>
                                     <CardHeader className="bg-primary/10 border-b border-white/5 p-6">
                                         <CardTitle className="text-[10px] uppercase font-bold tracking-widest text-primary flex items-center gap-2">
                                             <Layers className="h-4 w-4" /> Live Queue Monitor
@@ -580,14 +594,14 @@ export default function PatientPortalPage() {
                                             {activeQueueApt.queueStatus === 'shifted' ? (
                                                 <p className="text-[10px] text-amber-400 italic">"You were bypassed/late and shifted to the end of the current block."</p>
                                             ) : activeQueueApt.queueStatus === 'in-consultation' ? (
-                                                <p className="text-[10px] text-green-400 font-bold uppercase">"It is your turn! Please join the clinical room now."</p>
+                                                <p className="text-[10px] text-green-400 font-bold uppercase">"It is your turn! Please wait for doctor entry."</p>
                                             ) : activeQueueApt.sequencePosition === 1 ? (
                                                 <p className="text-[10px] text-slate-300">"You are next in line. Please stay on this page."</p>
                                             ) : (
                                                 <p className="text-[10px] text-slate-400">"Average wait: 5-10 mins per patient."</p>
                                             )}
                                         </div>
-                                        {activeQueueApt.queueStatus === 'in-consultation' && (
+                                        {activeQueueApt.queueStatus === 'in-consultation' && activeQueueApt.doctorInRoom && (
                                             <Button className="w-full h-12 rounded-xl font-bold bg-primary hover:bg-primary/90 text-white animate-pulse">
                                                 Join Active Session
                                             </Button>
