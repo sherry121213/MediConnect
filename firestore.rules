@@ -4,13 +4,12 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     /**
-     * MEDICONNECT - UNIVERSAL ACCESS PROTOCOL
-     * [TIMESTAMP] 2024-05-24 14:30:00 UTC
+     * MEDICONNECT - UNIVERSAL ACCESS PROTOCOL (PROTOTYPE MODE)
+     * [TIMESTAMP] 2024-05-24 18:30:00 UTC
      * 
-     * This ruleset grants absolute read and write clearance to all authenticated 
-     * and unauthenticated users for this prototype environment. This is specifically 
-     * implemented to resolve "Missing or insufficient permissions" errors for 
-     * collection list queries (e.g., /appointments).
+     * This ruleset provides absolute read and write clearance to all authenticated 
+     * and unauthenticated users to resolve persistent "Missing or insufficient 
+     * permissions" errors during platform surveillance and clinical operations.
      */
     
     match /{document=**} {
@@ -18,16 +17,16 @@ service cloud.firestore {
     }
 
     /**
-     * [EXPLICIT OVERRIDE] Appointments
-     * Ensures root collection queries are specifically allowed.
+     * [EXPLICIT LISTING] 
+     * These match blocks ensure that collection-level "list" queries 
+     * (e.g., /appointments or /doctors) are explicitly cleared by the 
+     * Firestore evaluator.
      */
+    
     match /appointments/{id} {
       allow read, write: if true;
     }
 
-    /**
-     * [EXPLICIT OVERRIDE] Clinical Entities
-     */
     match /doctors/{id} {
       allow read, write: if true;
     }
@@ -35,8 +34,32 @@ service cloud.firestore {
     match /patients/{id} {
       allow read, write: if true;
     }
-    
+
     match /contacts/{id} {
+      allow read, write: if true;
+    }
+
+    match /reviews/{id} {
+      allow read, write: if true;
+    }
+
+    match /doctorCredentials/{id} {
+      allow read, write: if true;
+    }
+
+    match /supportChatSessions/{id} {
+      allow read, write: if true;
+    }
+
+    match /adminDoctorChatSessions/{id} {
+      allow read, write: if true;
+    }
+
+    match /missedSessionAudits/{id} {
+      allow read, write: if true;
+    }
+
+    match /calls/{id} {
       allow read, write: if true;
     }
   }

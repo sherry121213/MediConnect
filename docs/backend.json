@@ -17,7 +17,10 @@
         "photoURL": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" },
-        "isActive": { "type": "boolean" }
+        "isActive": { "type": "boolean" },
+        "phone": { "type": "string" },
+        "dateOfBirth": { "type": "string", "format": "date-time" },
+        "address": { "type": "string" }
       },
       "required": ["id", "firstName", "lastName", "email", "role"]
     },
@@ -41,8 +44,10 @@
         "rating": { "type": "number" },
         "reviews": { "type": "number" },
         "profileImageId": { "type": "string" },
+        "photoURL": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
-        "updatedAt": { "type": "string", "format": "date-time" }
+        "updatedAt": { "type": "string", "format": "date-time" },
+        "profileComplete": { "type": "boolean" }
       }
     },
     "Appointment": {
@@ -66,7 +71,10 @@
         "queueStatus": { "type": "string", "enum": ["waiting", "in-consultation", "late", "shifted", "completed"] },
         "readyToStart": { "type": "boolean" },
         "doctorInRoom": { "type": "boolean" },
-        "isExtended": { "type": "boolean" }
+        "isExtended": { "type": "boolean" },
+        "paymentReceiptUrl": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       }
     },
     "SupportSession": {
