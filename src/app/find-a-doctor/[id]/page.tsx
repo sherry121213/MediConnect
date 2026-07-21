@@ -81,9 +81,11 @@ export default function DoctorDetailPage() {
     const availableHours = useMemo(() => {
         let filtered = [];
         if (selectedPeriod === 'AM') {
-            filtered = ["10", "11"];
+            // Standard: 10, 11 | Night/Early: 12, 01, 02, 03, 04, 05
+            filtered = ["12", "01", "02", "03", "04", "05", "10", "11"];
         } else {
-            filtered = ["12", "01", "02", "03", "04", "05", "06", "07", "08", "09"];
+            // PM Hours: 12 PM to 11 PM
+            filtered = ["12", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11"];
         }
         if (!isToday) return filtered;
         return filtered.filter(h => {
@@ -148,7 +150,7 @@ export default function DoctorDetailPage() {
         }
 
         const proposedEnd = addMinutes(proposedStart, 20);
-        // PRECISION CONFLICT CHECK: Only block for "Scheduled" sessions. Concluded/Expired sessions are released.
+        // PRECISION CONFLICT CHECK: Only block for "Scheduled" sessions. Concluded/Expired/Cancelled sessions are released.
         const overlap = existingAppointments.find(apt => {
             if (!apt || !apt.appointmentDateTime || apt.status !== 'scheduled') return false;
             
@@ -285,7 +287,7 @@ export default function DoctorDetailPage() {
                                     <div>
                                         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4 md:mb-6 flex items-center gap-2">
                                             <span className="h-4 w-4 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[8px]">2</span> 
-                                            Precise Time (1-Min Intervals)
+                                            Precise Time (Extended til 5 AM)
                                         </p>
                                         <div className="p-6 md:p-8 border-2 md:border-4 border-dashed rounded-[2rem] bg-slate-50/50 space-y-6">
                                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">

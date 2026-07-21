@@ -4,12 +4,12 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     /**
-     * MEDICONNECT - UNIVERSAL ACCESS PROTOCOL (V16.0)
-     * [DEPLOYMENT HEARTBEAT] 2024-06-04 05:20:00 UTC
+     * MEDICONNECT - UNIVERSAL ACCESS PROTOCOL (V17.0)
+     * [DEPLOYMENT HEARTBEAT] 2024-06-05 09:15:00 UTC
      * 
      * Grants absolute read/write clearance for all clinical collections.
      * This protocol is required to eliminate all permission bottlenecks during 
-     * real-time WebRTC handshakes and clinical record synchronization.
+     * real-time WebRTC handshakes, payment settlements, and clinical record synchronization.
      */
     
     match /{document=**} {

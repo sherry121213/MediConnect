@@ -231,9 +231,14 @@ export default function ConsultationRoomPage() {
         });
 
         pc.current.ontrack = (event) => {
-          const [remoteStream] = event.streams;
           if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = remoteStream || new MediaStream([event.track]);
+            let stream = remoteVideoRef.current.srcObject as MediaStream;
+            if (!stream || !(stream instanceof MediaStream)) {
+                stream = new MediaStream();
+                remoteVideoRef.current.srcObject = stream;
+            }
+            stream.addTrack(event.track);
+
             if (isEffectActive) {
                 setIsPeerConnected(true);
                 setSignalingStatus("Live Connection");
