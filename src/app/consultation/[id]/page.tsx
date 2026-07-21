@@ -175,6 +175,7 @@ export default function ConsultationRoomPage() {
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
+            channelCount: 1 // Optimize for vocal processing
           } 
         };
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -204,8 +205,10 @@ export default function ConsultationRoomPage() {
   }, [appointmentId, isAudioOnly]);
 
   useEffect(() => {
-    if (localVideoRef.current && activeStream) {
+    if (localVideoRef.current && activeStream && !isVideoOff) {
         localVideoRef.current.srcObject = activeStream;
+        // Explicitly play for mobile Safari reliability
+        localVideoRef.current.play().catch(e => console.warn("Local auto-play issue:", e));
     }
   }, [activeStream, isVideoOff]);
 
@@ -232,17 +235,14 @@ export default function ConsultationRoomPage() {
 
         pc.current.ontrack = (event) => {
           if (remoteVideoRef.current) {
-            let stream = remoteVideoRef.current.srcObject as MediaStream;
-            if (!stream || !(stream instanceof MediaStream)) {
-                stream = new MediaStream();
-                remoteVideoRef.current.srcObject = stream;
-            }
-            stream.addTrack(event.track);
-
-            if (isEffectActive) {
-                setIsPeerConnected(true);
-                setSignalingStatus("Live Connection");
-                remoteVideoRef.current.play().catch(e => console.warn("Autoplay block:", e));
+            const [remoteStream] = event.streams;
+            if (remoteStream) {
+                remoteVideoRef.current.srcObject = remoteStream;
+                if (isEffectActive) {
+                    setIsPeerConnected(true);
+                    setSignalingStatus("Live Connection");
+                    remoteVideoRef.current.play().catch(e => console.warn("Remote auto-play issue:", e));
+                }
             }
           }
         };
@@ -442,7 +442,7 @@ export default function ConsultationRoomPage() {
                     ref={remoteVideoRef} 
                     className={cn(
                         "w-full h-full object-cover transition-opacity duration-1000", 
-                        (isPeerConnected && !isAudioOnly) ? "opacity-100" : "opacity-0"
+                        isPeerConnected ? "opacity-100" : "opacity-0"
                     )} 
                     autoPlay 
                     playsInline 
@@ -476,7 +476,7 @@ export default function ConsultationRoomPage() {
             )}
 
             {!isAudioOnly && !isCompleted && (
-              <div className="absolute top-2 right-2 sm:top-4 sm:right-4 w-24 sm:w-44 aspect-video rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900 z-[60]">
+              <div className="absolute top-4 right-4 w-28 sm:w-44 aspect-video rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900 z-[70] shadow-black/50">
                   <video 
                     ref={localVideoRef} 
                     className={cn("w-full h-full object-cover -scale-x-100", isVideoOff && "hidden")} 
