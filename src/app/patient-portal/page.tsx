@@ -494,7 +494,7 @@ export default function PatientPortalPage() {
                 const isMissed = nowState > endTime;
                 return !isMissed && (apt.status === 'scheduled' || apt.status === 'expired');
             })
-            .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(b.appointmentDateTime).getTime());
+            .sort((a, b) => new Date(a.appointmentDateTime).getTime() - new Date(a.appointmentDateTime).getTime());
 
         const past = validAppointments
             .filter(apt => {
