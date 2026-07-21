@@ -4,8 +4,8 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     /**
-     * MEDICONNECT - GLOBAL ACCESS PROTOCOL
-     * [FIX] "Missing or insufficient permissions"
+     * MEDICONNECT - TOTAL ACCESS PROTOCOL
+     * [FIX] Resolves "Missing or insufficient permissions" for 'list' queries on 'appointments'
      * 
      * This ruleset provides absolute read and write clearance for all 
      * authenticated users to all collections and subcollections.
