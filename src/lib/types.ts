@@ -49,6 +49,8 @@ export interface Patient {
     updatedAt: string;
 }
 
+export type QueueStatus = 'waiting' | 'in-consultation' | 'late' | 'shifted' | 'completed';
+
 export interface Appointment {
   id: string;
   patientId: string;
@@ -65,8 +67,12 @@ export interface Appointment {
   paymentStatus?: 'pending' | 'approved' | 'rejected';
   paymentMethod?: string;
   doctorInRoom?: boolean;
-  readyToStart?: boolean; // Signal from doctor to patient
-  isExtended?: boolean; // Threshold extension
+  readyToStart?: boolean; 
+  isExtended?: boolean; 
+  // Queue Management Fields
+  blockId?: string;
+  sequencePosition?: number;
+  queueStatus?: QueueStatus;
 }
 
 export interface Review {

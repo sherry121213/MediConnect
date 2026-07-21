@@ -1,8 +1,9 @@
+
 'use client';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, RefreshCw, CalendarIcon, ShieldCheck, PhoneIncoming, X, HelpCircle, AlertCircle, CheckCircle2, XCircle, Siren } from "lucide-react";
+import { Calendar, Video, MessageSquare, PlusCircle, Loader2, Stethoscope, Clock, History, ChevronRight, FileText, RefreshCw, CalendarIcon, ShieldCheck, PhoneIncoming, X, HelpCircle, AlertCircle, CheckCircle2, XCircle, Siren, Layers } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -137,7 +138,8 @@ function PostponeDialog({ isOpen, onOpenChange, appointment }: { isOpen: boolean
             status: 'scheduled',
             updatedAt: new Date().toISOString(),
             doctorInRoom: false,
-            readyToStart: false
+            readyToStart: false,
+            queueStatus: 'waiting'
         });
 
         toast({ title: "Clinical Session Rescheduled", description: `Your visit with Dr. ${doctor?.lastName} is now set for ${format(newDateTime, "PPP p")}.` });
@@ -432,17 +434,25 @@ export default function PatientPortalPage() {
     }, [firestore, user]);
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    const { upcomingAppointments, recentPastAppointments, ringingApt } = useMemo(() => {
-        if (!mounted || !appointments) return { upcomingAppointments: [], recentPastAppointments: [], ringingApt: null };
+    const { upcomingAppointments, recentPastAppointments, ringingApt, activeQueueApt } = useMemo(() => {
+        if (!mounted || !appointments) return { upcomingAppointments: [], recentPastAppointments: [], ringingApt: null, activeQueueApt: null };
         
         const now = new Date();
         const validAppointments = appointments.filter(apt => apt !== null && apt.id && apt.appointmentDateTime);
+
+        // Active Queue Logic
+        const queueApt = validAppointments.find(apt => 
+            apt.status === 'scheduled' && 
+            apt.paymentStatus === 'approved' &&
+            apt.queueStatus && apt.queueStatus !== 'completed' &&
+            isSameDay(new Date(apt.appointmentDateTime), now)
+        );
 
         const currentRinging = validAppointments.find(apt => 
             (apt.doctorInRoom === true || apt.readyToStart === true) && 
             apt.status === 'scheduled' && 
             apt.paymentStatus === 'approved' &&
-            (now.getTime() >= new Date(apt.appointmentDateTime).getTime() - (5 * 60 * 1000)) &&
+            (now.getTime() >= new Date(apt.appointmentDateTime).getTime() - (15 * 60 * 1000)) &&
             (now.getTime() < new Date(apt.appointmentDateTime).getTime() + (15 * 60 * 1000))
         );
 
@@ -466,7 +476,7 @@ export default function PatientPortalPage() {
             .sort((a, b) => b.appointmentDateTime.localeCompare(a.appointmentDateTime))
             .slice(0, 10);
 
-        return { upcomingAppointments: upcoming, recentPastAppointments: past, ringingApt: currentRinging };
+        return { upcomingAppointments: upcoming, recentPastAppointments: past, ringingApt: currentRinging, activeQueueApt: queueApt };
     }, [appointments, mounted, nowState]);
 
     const handlePostpone = (apt: any) => {
@@ -513,6 +523,42 @@ export default function PatientPortalPage() {
                                 <Button variant="outline" className="w-full justify-start h-14 sm:h-16 text-sm font-bold border-2 rounded-2xl hover:bg-primary/5 transition-all" asChild><Link href="/patient-portal/history"><History className="mr-3 h-5 w-5 text-primary" /> My History</Link></Button>
                             </CardContent>
                         </Card>
+
+                        {activeQueueApt && (
+                            <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden rounded-[2rem]">
+                                <CardHeader className="bg-primary/10 border-b border-white/5 p-6">
+                                    <CardTitle className="text-[10px] uppercase font-bold tracking-widest text-primary flex items-center gap-2">
+                                        <Layers className="h-4 w-4" /> Live Queue Monitor
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-6 space-y-4">
+                                    <div className="flex justify-between items-center">
+                                        <div>
+                                            <p className="text-[8px] uppercase font-bold text-slate-500">Your Position</p>
+                                            <p className="text-3xl font-bold text-white">#{activeQueueApt.sequencePosition}</p>
+                                        </div>
+                                        <Badge className={cn(
+                                            "h-6 px-3 rounded-full text-[8px] font-bold uppercase",
+                                            activeQueueApt.queueStatus === 'in-consultation' ? "bg-green-600 animate-pulse" :
+                                            activeQueueApt.queueStatus === 'shifted' ? "bg-amber-600" : "bg-primary"
+                                        )}>
+                                            {activeQueueApt.queueStatus?.replace('-', ' ')}
+                                        </Badge>
+                                    </div>
+                                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2">
+                                        {activeQueueApt.queueStatus === 'shifted' ? (
+                                            <p className="text-[10px] text-amber-400 italic">"You were bypassed/late and shifted to the end of the current block."</p>
+                                        ) : activeQueueApt.queueStatus === 'in-consultation' ? (
+                                            <p className="text-[10px] text-green-400 font-bold uppercase">"It is your turn! Please join the clinical room now."</p>
+                                        ) : activeQueueApt.sequencePosition === 1 ? (
+                                            <p className="text-[10px] text-slate-300">"You are next in line. Please stay on this page."</p>
+                                        ) : (
+                                            <p className="text-[10px] text-slate-400">"Average wait: 5-10 mins per patient."</p>
+                                        )}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        )}
 
                         <Card className="border-none shadow-xl bg-slate-900 text-white overflow-hidden rounded-[2rem] hidden lg:block">
                             <CardContent className="p-8 space-y-4 text-center">

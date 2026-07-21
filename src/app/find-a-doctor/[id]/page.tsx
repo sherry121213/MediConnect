@@ -1,8 +1,9 @@
+
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
 import { useDoc, useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection, query, where, orderBy, limit } from 'firebase/firestore';
+import { doc, collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import type { Doctor, Appointment, Review, Patient } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -192,18 +193,19 @@ export default function DoctorDetailPage() {
             return { isAvailable: false, message: 'This time has already passed for today.' };
         }
 
-        const overlap = existingAppointments.find(apt => {
+        // Logic refined: We now support back-to-back blocks.
+        // For simplicity, we limit to 5 concurrent patients in the exact same minute block.
+        const concurrentApts = existingAppointments.filter(apt => {
             if (!apt || apt.status === 'cancelled' || !apt.appointmentDateTime) return false;
-            const aptStart = new Date(apt.appointmentDateTime);
-            const aptEnd = addMinutes(aptStart, 20);
-            return proposedStart < aptEnd && proposedEnd > aptStart;
+            return isSameDay(new Date(apt.appointmentDateTime), proposedStart) && 
+                   format(new Date(apt.appointmentDateTime), "p") === selectedTimeStr;
         });
 
-        if (overlap) {
-            return { isAvailable: false, message: 'This precision clinical window is already booked.' };
+        if (concurrentApts.length >= 5) {
+            return { isAvailable: false, message: 'This precision clinical block is full.' };
         }
 
-        return { isAvailable: true, message: '' };
+        return { isAvailable: true, message: '', concurrentCount: concurrentApts.length };
     }, [selectedTimeStr, selectedDate, existingAppointments, mounted, nowTicker]);
 
     const averageRating = useMemo(() => {
@@ -212,7 +214,7 @@ export default function DoctorDetailPage() {
         return (sum / reviews.length).toFixed(1);
     }, [reviews]);
 
-    const handleConfirmBooking = () => {
+    const handleConfirmBooking = async () => {
         if (isUserLoading) return;
         if (!user) {
             toast({ title: "Login Required", description: "Please log in to book a session." });
@@ -231,6 +233,13 @@ export default function DoctorDetailPage() {
         setIsBooking(true);
         const appointmentDateTime = parse(selectedTimeStr, 'hh:mm a', selectedDate);
 
+        // Fetch current concurrent count for sequence assignment
+        const snap = await getDocs(query(
+            collection(firestore, 'appointments'), 
+            where('doctorId', '==', doctor.id),
+            where('appointmentDateTime', '==', appointmentDateTime.toISOString())
+        ));
+
         const newAppointment = {
             patientId: user.uid,
             doctorId: doctor.id,
@@ -243,6 +252,10 @@ export default function DoctorDetailPage() {
             paymentReceiptUrl: paymentReceipt,
             paymentStatus: 'pending',
             paymentMethod: paymentMethod,
+            // Queue Defaults
+            blockId: appointmentDateTime.toISOString(),
+            sequencePosition: snap.size + 1,
+            queueStatus: 'waiting' as any
         };
         
         addDocumentNonBlocking(collection(firestore, 'appointments'), newAppointment);
@@ -441,8 +454,8 @@ export default function DoctorDetailPage() {
                                                             <p className="text-xs text-green-800 font-bold uppercase">Clinical Session Window Valid</p>
                                                         </div>
                                                         <div className="text-right">
-                                                            <p className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Precision Window</p>
-                                                            <p className="text-sm font-bold text-green-800">{selectedTimeStr}</p>
+                                                            <p className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Next Available Rank</p>
+                                                            <p className="text-sm font-bold text-green-800">#{ (timeValidation.concurrentCount || 0) + 1 }</p>
                                                         </div>
                                                     </div>
                                                 </div>

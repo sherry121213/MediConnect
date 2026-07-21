@@ -1,3 +1,4 @@
+
 'use client';
 
 import Link from 'next/link';
@@ -21,6 +22,7 @@ import {
   Users,
   CalendarClock,
   AlertCircle,
+  Layers,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth, useUserData, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
@@ -50,6 +52,7 @@ export default function AdminSidebar() {
 
   const adminNavItems = [
     { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
+    { href: '/admin/queues', label: 'Queue Monitor', icon: Layers },
     { href: '/admin/doctors', label: 'Doctors', icon: Stethoscope },
     { href: '/admin/patients', label: 'Patients', icon: Users },
     { href: '/admin/requests', label: 'Clinical Requests', icon: CalendarClock, badge: pendingRequests?.length },
