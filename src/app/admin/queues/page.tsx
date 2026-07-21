@@ -16,17 +16,13 @@ export default function AdminQueuesPage() {
   const firestore = useFirestore();
   const [searchTerm, setSearchTerm] = useState('');
 
+  // We simplify the query to avoid complex index requirements that might trigger permission errors
   const appointmentsQuery = useMemoFirebase(() => {
     if (!firestore) return null;
-    return query(
-        collection(firestore, 'appointments'), 
-        where('paymentStatus', '==', 'approved'),
-        where('status', '==', 'scheduled'),
-        orderBy('appointmentDateTime', 'asc')
-    );
+    return collection(firestore, 'appointments');
   }, [firestore]);
 
-  const { data: appointments, isLoading: isLoadingApts } = useCollection<Appointment>(appointmentsQuery);
+  const { data: appointmentsRaw, isLoading: isLoadingApts } = useCollection<Appointment>(appointmentsQuery);
 
   const doctorsQuery = useMemoFirebase(() => {
       if (!firestore) return null;
@@ -34,14 +30,24 @@ export default function AdminQueuesPage() {
   }, [firestore]);
   const { data: doctors } = useCollection<Doctor>(doctorsQuery);
 
+  // Perform clinical filtering and sorting in-memory for stability
   const queueBlocks = useMemo(() => {
-    if (!appointments) return [];
+    if (!appointmentsRaw) return [];
     
-    // Group into blocks by Doctor ID + Time String (to identify concurrent sessions)
+    // 1. Filter for Approved and Scheduled sessions
+    const activeApts = appointmentsRaw.filter(apt => 
+        apt && 
+        apt.paymentStatus === 'approved' && 
+        apt.status === 'scheduled' &&
+        apt.appointmentDateTime
+    );
+
+    // 2. Group into blocks by Doctor ID + Time String (to identify concurrent sessions)
     const blocks: Record<string, Appointment[]> = {};
     
-    appointments.forEach(apt => {
+    activeApts.forEach(apt => {
         if (!apt.doctorId || !apt.appointmentDateTime) return;
+        // Use blockId if available, fallback to appointmentDateTime
         const blockKey = `${apt.doctorId}_${apt.blockId || apt.appointmentDateTime}`;
         if (!blocks[blockKey]) blocks[blockKey] = [];
         blocks[blockKey].push(apt);
@@ -58,7 +64,7 @@ export default function AdminQueuesPage() {
             time: timeVal && isValid(new Date(timeVal)) ? timeVal : new Date().toISOString()
         };
     }).sort((a, b) => a.time.localeCompare(b.time));
-  }, [appointments, doctors]);
+  }, [appointmentsRaw, doctors]);
 
   const filteredBlocks = queueBlocks.filter(b => {
       if (!searchTerm) return true;
