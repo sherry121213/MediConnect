@@ -16,6 +16,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Badge } from '@/components/ui/badge';
 
 const locations = ["Islamabad", "Rawalpindi", "Lahore", "Karachi", "Peshawar", "Faisalabad", "Multan", "Quetta"];
 
@@ -63,33 +64,67 @@ export default function FindADoctorPage() {
 
   const handleLocationClick = () => {
     setIsLocating(true);
-    navigator.geolocation.getCurrentPosition(
-      async (position) => {
+    
+    const matchCity = (cityName: string | undefined) => {
+        if (!cityName) return null;
+        return locations.find(loc => cityName.toLowerCase().includes(loc.toLowerCase()));
+    };
+
+    const fetchIPFallback = async () => {
         try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
-            const data = await response.json();
-            const city = data.address.city || data.address.town || data.address.village || data.address.state;
-            const matchedCity = locations.find(loc => city?.toLowerCase().includes(loc.toLowerCase()));
-            
-            if (matchedCity) {
-                 setDetectedCity(matchedCity);
-                 toast({ title: `Location Detected: ${matchedCity}`, description: "Clinical record filtered for your area." });
+            const res = await fetch('https://ipapi.co/json/');
+            const data = await res.json();
+            const matched = matchCity(data.city);
+            if (matched) {
+                setDetectedCity(matched);
+                setSelectedLocation('all');
+                toast({ title: `Location Detected (IP): ${matched}`, description: "Filtered by your region." });
             } else {
-                toast({ title: "Location Note", description: `Primary coverage for hub cities only. Showing all records.` });
+                toast({ title: "Global Location", description: `You are in ${data.city || 'a new area'}. Showing all records.` });
                 setDetectedCity(null);
+                setActiveFilterId(null);
             }
-        } catch (error) {
-            toast({ variant: "destructive", title: "Location Error", description: "Could not resolve your city." });
+        } catch (e) {
+            toast({ variant: "destructive", title: "Detection Failed", description: "Could not resolve global location." });
+            setActiveFilterId(null);
         } finally {
             setIsLocating(false);
         }
-      },
-      () => {
-        toast({ variant: "destructive", title: "Access Denied", description: "Enable location permissions to find doctors near you." });
-        setIsLocating(false);
-        setActiveFilterId(null);
-      }
-    );
+    };
+
+    if ("geolocation" in navigator) {
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                try {
+                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
+                    const data = await response.json();
+                    const addr = data.address;
+                    // Check multiple address fields for hub city names
+                    const cityValue = addr.city || addr.town || addr.village || addr.county || addr.state;
+                    const matched = matchCity(cityValue);
+                    
+                    if (matched) {
+                         setDetectedCity(matched);
+                         setSelectedLocation('all');
+                         toast({ title: `Location Detected: ${matched}`, description: "Clinical record filtered for your area." });
+                    } else {
+                        await fetchIPFallback();
+                    }
+                } catch (error) {
+                    await fetchIPFallback();
+                } finally {
+                    setIsLocating(false);
+                }
+            },
+            async () => {
+                // Fallback to IP if browser geolocation is denied or fails
+                await fetchIPFallback();
+            },
+            { timeout: 8000 }
+        );
+    } else {
+        fetchIPFallback();
+    }
   };
 
   const filteredDoctors = useMemo(() => {
@@ -186,7 +221,10 @@ export default function FindADoctorPage() {
                         <Select 
                             onValueChange={(val) => {
                                 setSelectedLocation(val);
-                                setActiveFilterId(null); // Clear "Near Me" if manual selection happens
+                                if (activeFilterId === 'near') {
+                                    setActiveFilterId(null);
+                                    setDetectedCity(null);
+                                }
                             }} 
                             value={activeFilterId === 'near' && detectedCity ? detectedCity : selectedLocation}
                         >
