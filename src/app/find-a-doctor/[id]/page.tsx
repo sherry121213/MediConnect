@@ -5,11 +5,10 @@ import { useDoc, useFirestore, useUser, useMemoFirebase, useCollection } from '@
 import { doc, collection, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import type { Doctor, Appointment, Review, Patient } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Skeleton } from '@/components/ui/skeleton';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, UserCheck, Video, PhoneCall, Moon, ShieldAlert, CreditCard, Wallet, Landmark, CheckCircle2, XCircle, Quote, User, Activity, BriefcaseMedical, Calendar as CalendarIcon, ChevronRight, AlertCircle, Eye, EyeOff, Info, Copy } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Clock, GraduationCap, Loader2, MapPin, Star, Video, PhoneCall, Wallet, Landmark, CheckCircle2, XCircle, Quote, Copy, Activity } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -32,10 +31,9 @@ import AppHeader from '@/components/layout/header';
 import AppFooter from '@/components/layout/footer';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { format, isSameDay, addMinutes, isBefore, isValid, parse, setHours, setMinutes } from 'date-fns';
+import { format, isSameDay, isBefore, isValid, parse, startOfDay, endOfDay } from 'date-fns';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 const ReviewItem = ({ review }: { review: Review }) => {
     const firestore = useFirestore();
@@ -108,9 +106,7 @@ export default function DoctorDetailPage() {
     const currentPeriod = currentHour24 >= 12 ? "PM" : "AM";
     const currentHour12 = currentHour24 > 12 ? currentHour24 - 12 : (currentHour24 === 0 ? 12 : currentHour24);
 
-    const availablePeriods = useMemo(() => {
-        return ["AM", "PM"]; // Always show both for flexible UI
-    }, []);
+    const availablePeriods = useMemo(() => ["AM", "PM"], []);
 
     const availableHours = useMemo(() => {
         let filtered = [];
@@ -122,47 +118,27 @@ export default function DoctorDetailPage() {
 
         if (!isToday) return filtered;
 
-        // If it is today, we must ensure the user doesn't pick a past hour
         return filtered.filter(h => {
             const hNum = parseInt(h);
-            
-            // If current is PM and user selects AM, all AM hours are past
             if (selectedPeriod === "AM" && currentPeriod === "PM") return false;
-            
-            // If user selects current period, check hour
             if (selectedPeriod === currentPeriod) {
                 const compareH = hNum === 12 ? 0 : hNum;
                 const currentCompareH = currentHour12 === 12 ? 0 : currentHour12;
                 return compareH >= currentCompareH;
             }
-            
-            // If current is AM and user selects PM, all PM hours are future
             return true;
         });
     }, [isToday, selectedPeriod, currentPeriod, currentHour12]);
 
-    const availableMinutes = useMemo(() => {
-        const allMins = Array.from({ length: 60 }, (_, i) => i.toString().padStart(2, '0'));
-        if (!isToday) return allMins;
-
-        const hNum = parseInt(selectedHour);
-        if (selectedPeriod === currentPeriod && hNum === currentHour12) {
-            return allMins.filter(m => parseInt(m) > currentMin);
-        }
-        return allMins;
-    }, [isToday, selectedHour, selectedPeriod, currentPeriod, currentHour12, currentMin]);
+    const availableMinutes = useMemo(() => ["00", "20", "40"], []);
 
     useEffect(() => {
         if (mounted) {
-            // Only auto-reset hour/min if the current selection becomes invalid
             if (!availableHours.includes(selectedHour)) {
                 if (availableHours.length > 0) setSelectedHour(availableHours[0]);
             }
-            if (!availableMinutes.includes(selectedMinute)) {
-                if (availableMinutes.length > 0) setSelectedMinute(availableMinutes[0]);
-            }
         }
-    }, [isToday, availableHours, availableMinutes, selectedPeriod, selectedHour, selectedMinute, mounted]);
+    }, [isToday, availableHours, selectedPeriod, selectedHour, mounted]);
 
     const doctorDocRef = useMemoFirebase(() => {
         if (!firestore || !doctorId) return null;
@@ -187,10 +163,7 @@ export default function DoctorDetailPage() {
     }, [firestore, doctorId]);
     const { data: existingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    const selectedTimeStr = useMemo(() => {
-        if (!selectedHour || !selectedMinute || !selectedPeriod) return "";
-        return `${selectedHour}:${selectedMinute} ${selectedPeriod}`;
-    }, [selectedHour, selectedMinute, selectedPeriod]);
+    const selectedTimeStr = useMemo(() => `${selectedHour}:${selectedMinute} ${selectedPeriod}`, [selectedHour, selectedMinute, selectedPeriod]);
 
     const timeValidation = useMemo(() => {
         if (!mounted || !existingAppointments || !selectedDate || !selectedTimeStr) return { isAvailable: true, message: '' };
@@ -203,26 +176,18 @@ export default function DoctorDetailPage() {
             return { isAvailable: false, message: 'This time has already passed for today.' };
         }
 
-        // Logic refined: We now support back-to-back blocks.
-        // For simplicity, we limit to 5 concurrent patients in the exact same minute block.
-        const concurrentApts = existingAppointments.filter(apt => {
+        const isOccupied = existingAppointments.some(apt => {
             if (!apt || apt.status === 'cancelled' || !apt.appointmentDateTime) return false;
-            return isSameDay(new Date(apt.appointmentDateTime), proposedStart) && 
-                   format(new Date(apt.appointmentDateTime), "p") === selectedTimeStr;
+            const aptDate = new Date(apt.appointmentDateTime);
+            return isSameDay(aptDate, proposedStart) && format(aptDate, "p") === selectedTimeStr;
         });
 
-        if (concurrentApts.length >= 5) {
-            return { isAvailable: false, message: 'This precision clinical block is full.' };
+        if (isOccupied) {
+            return { isAvailable: false, message: 'This precision slot is already occupied.' };
         }
 
-        return { isAvailable: true, message: '', concurrentCount: concurrentApts.length };
+        return { isAvailable: true, message: '' };
     }, [selectedTimeStr, selectedDate, existingAppointments, mounted, nowTicker]);
-
-    const averageRating = useMemo(() => {
-        if (!reviews || reviews.length === 0) return 0;
-        const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
-        return (sum / reviews.length).toFixed(1);
-    }, [reviews]);
 
     const handleConfirmBooking = async () => {
         if (isUserLoading) return;
@@ -243,12 +208,19 @@ export default function DoctorDetailPage() {
         setIsBooking(true);
         const appointmentDateTime = parse(selectedTimeStr, 'hh:mm a', selectedDate);
 
-        // Fetch current concurrent count for sequence assignment
-        const snap = await getDocs(query(
+        // Fetch daily sequence for token-wise ordering
+        const start = startOfDay(selectedDate);
+        const end = endOfDay(selectedDate);
+        const dailySnap = await getDocs(query(
             collection(firestore, 'appointments'), 
             where('doctorId', '==', doctor.id),
-            where('appointmentDateTime', '==', appointmentDateTime.toISOString())
+            where('appointmentDateTime', '>=', start.toISOString()),
+            where('appointmentDateTime', '<=', end.toISOString())
         ));
+
+        // Sort previous appointments to find token rank
+        const prevApts = dailySnap.docs.map(d => d.data() as Appointment);
+        const tokenRank = prevApts.filter(a => new Date(a.appointmentDateTime) < appointmentDateTime).length + 1;
 
         const newAppointment = {
             patientId: user.uid,
@@ -262,18 +234,23 @@ export default function DoctorDetailPage() {
             paymentReceiptUrl: paymentReceipt,
             paymentStatus: 'pending',
             paymentMethod: paymentMethod,
-            // Queue Defaults
             blockId: appointmentDateTime.toISOString(),
-            sequencePosition: snap.size + 1,
+            sequencePosition: tokenRank,
             queueStatus: 'waiting' as any
         };
         
         addDocumentNonBlocking(collection(firestore, 'appointments'), newAppointment);
-        toast({ title: "Receipt Submitted!", description: "Awaiting admin approval for your Precision Clinical Session." });
+        toast({ title: "Receipt Submitted!", description: "Daily Token #" + tokenRank + " assigned. Awaiting verification." });
         setIsBooking(false);
         router.push('/patient-portal');
     };
     
+    const averageRating = useMemo(() => {
+        if (!reviews || reviews.length === 0) return 4.8;
+        const sum = reviews.reduce((acc, r) => acc + r.rating, 0);
+        return (sum / reviews.length).toFixed(1);
+    }, [reviews]);
+
     if (isLoading || isUserLoading || !mounted) {
         return (
             <div className="flex flex-col min-h-screen">
@@ -321,37 +298,12 @@ export default function DoctorDetailPage() {
                                         </div>
                                     </div>
                                 </CardHeader>
-
-                                <div className="grid grid-cols-3 gap-2 border-y py-6 mx-8 border-slate-50">
-                                    <div className="text-center space-y-1 border-r border-slate-50">
-                                        <p className="text-sm font-bold text-slate-900">Clinical</p>
-                                        <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest">Protocol</p>
-                                    </div>
-                                    <div className="text-center space-y-1 border-r border-slate-50">
-                                        <p className="text-sm font-bold text-slate-900">{doctor?.experience || 12} Yrs</p>
-                                        <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest">Exp.</p>
-                                    </div>
-                                    <div className="text-center space-y-1">
-                                        <p className="text-sm font-bold text-slate-900 flex items-center justify-center gap-1">
-                                            <Star className="h-3 w-3 text-amber-400 fill-amber-400" /> {averageRating}
-                                        </p>
-                                        <p className="text-[9px] uppercase font-bold text-muted-foreground tracking-widest">{reviews?.length || 0} Reviews</p>
-                                    </div>
-                                </div>
-
                                 <CardContent className="text-sm text-muted-foreground space-y-6 p-8">
                                      <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
                                         <MapPin className="h-5 w-5 text-primary shrink-0" /> 
                                         <div>
                                             <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Hub City</p>
                                             <p className="font-bold text-slate-900">{doctor?.location}</p>
-                                        </div>
-                                     </div>
-                                     <div className="flex items-center gap-4 p-4 rounded-2xl bg-slate-50 border border-slate-100">
-                                        <GraduationCap className="h-5 w-5 text-primary shrink-0" /> 
-                                        <div>
-                                            <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Institution</p>
-                                            <p className="font-bold text-slate-900 line-clamp-1">{doctor?.medicalSchool || 'Verified Records'}</p>
                                         </div>
                                      </div>
                                 </CardContent>
@@ -361,26 +313,14 @@ export default function DoctorDetailPage() {
                         <div className="lg:col-span-8">
                              <Card className="rounded-[2.5rem] border-none shadow-2xl overflow-hidden bg-white">
                                 <CardHeader className="bg-primary/5 border-b p-8 sm:p-10">
-                                    <div className="flex items-center justify-between">
-                                        <div className="space-y-1">
-                                            <CardTitle className="text-2xl font-headline flex items-center gap-3">
-                                                <CalendarDays className="h-7 w-7 text-primary"/> Precision Scheduling
-                                            </CardTitle>
-                                            <p className="text-sm text-muted-foreground">Select your exact start time for a Precision Clinical Session.</p>
-                                        </div>
+                                    <div className="space-y-1">
+                                        <CardTitle className="text-2xl font-headline flex items-center gap-3">
+                                            <CalendarDays className="h-7 w-7 text-primary"/> Precision Scheduling
+                                        </CardTitle>
+                                        <p className="text-sm text-muted-foreground">Select your 20-minute clinical window (15m consult + 5m buffer).</p>
                                     </div>
                                 </CardHeader>
                                 <CardContent className="p-8 sm:p-12 space-y-12">
-                                    <div className="bg-amber-50 border-l-4 border-amber-400 p-4 rounded-r-2xl">
-                                        <div className="flex gap-3">
-                                            <Clock className="h-5 w-5 text-amber-600 shrink-0" />
-                                            <div>
-                                                <p className="text-xs font-bold text-amber-800 uppercase tracking-wider">Clinical Timing Notice</p>
-                                                <p className="text-[10px] text-amber-700 mt-1">Practice Hours: 10 AM - 9 PM. Lunch Break: 1 PM - 2 PM.</p>
-                                            </div>
-                                        </div>
-                                    </div>
-
                                     <div>
                                         <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6 flex items-center gap-3">
                                             <div className="h-1 w-6 bg-primary rounded-full" /> Step 1: Choose Clinical Date
@@ -406,7 +346,7 @@ export default function DoctorDetailPage() {
 
                                     <div>
                                         <h4 className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground mb-6 flex items-center gap-3">
-                                            <div className="h-1 w-6 bg-primary rounded-full" /> Step 2: Set Exact Start Time
+                                            <div className="h-1 w-6 bg-primary rounded-full" /> Step 2: Set Precise Slot
                                         </h4>
                                         <div className="flex flex-col gap-6 p-8 border-4 border-dashed rounded-[2rem] bg-slate-50/50">
                                             <div className="grid grid-cols-3 gap-4">
@@ -414,7 +354,7 @@ export default function DoctorDetailPage() {
                                                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Hour</Label>
                                                     <Select value={selectedHour} onValueChange={setSelectedHour}>
                                                         <SelectTrigger className="h-14 rounded-2xl border-2 bg-white font-bold text-lg">
-                                                            <SelectValue placeholder="--" />
+                                                            <SelectValue />
                                                         </SelectTrigger>
                                                         <SelectContent className="rounded-xl border-none shadow-2xl max-h-[250px]">
                                                             {availableHours.map(h => (
@@ -427,9 +367,9 @@ export default function DoctorDetailPage() {
                                                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Minute</Label>
                                                     <Select value={selectedMinute} onValueChange={setSelectedMinute}>
                                                         <SelectTrigger className="h-14 rounded-2xl border-2 bg-white font-bold text-lg">
-                                                            <SelectValue placeholder="--" />
+                                                            <SelectValue />
                                                         </SelectTrigger>
-                                                        <SelectContent className="rounded-xl border-none shadow-2xl max-h-[250px]">
+                                                        <SelectContent className="rounded-xl border-none shadow-2xl">
                                                             {availableMinutes.map(m => (
                                                                 <SelectItem key={m} value={m} className="font-bold">{m}</SelectItem>
                                                             ))}
@@ -440,7 +380,7 @@ export default function DoctorDetailPage() {
                                                     <Label className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground ml-1">Period</Label>
                                                     <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
                                                         <SelectTrigger className="h-14 rounded-2xl border-2 bg-white font-bold text-lg">
-                                                            <SelectValue placeholder="--" />
+                                                            <SelectValue />
                                                         </SelectTrigger>
                                                         <SelectContent className="rounded-xl border-none shadow-2xl">
                                                             {availablePeriods.map(p => (
@@ -457,17 +397,9 @@ export default function DoctorDetailPage() {
                                                     <p className="text-xs text-red-800 font-bold">{timeValidation.message}</p>
                                                 </div>
                                             ) : selectedTimeStr ? (
-                                                <div className="space-y-4">
-                                                    <div className="p-4 bg-green-50 border border-green-200 rounded-2xl flex items-center justify-between">
-                                                        <div className="flex items-center gap-3">
-                                                            <CheckCircle2 className="h-5 w-5 text-green-600" />
-                                                            <p className="text-xs text-green-800 font-bold uppercase">Clinical Session Window Valid</p>
-                                                        </div>
-                                                        <div className="text-right">
-                                                            <p className="text-[9px] font-bold text-green-600 uppercase tracking-widest">Next Available Rank</p>
-                                                            <p className="text-sm font-bold text-green-800">#{ (timeValidation.concurrentCount || 0) + 1 }</p>
-                                                        </div>
-                                                    </div>
+                                                <div className="p-4 bg-green-50 border border-green-200 rounded-2xl flex items-center gap-3">
+                                                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                                                    <p className="text-xs text-green-800 font-bold uppercase">Clinical Slot Available</p>
                                                 </div>
                                             ) : null}
                                         </div>
@@ -480,33 +412,17 @@ export default function DoctorDetailPage() {
                                         <div className="flex flex-col sm:flex-row gap-4">
                                             <button 
                                                 onClick={() => setAppointmentType('Video Call')}
-                                                className={cn(
-                                                    "flex-1 p-6 rounded-[2rem] border-2 transition-all flex items-center gap-4 group",
-                                                    appointmentType === 'Video Call' ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 bg-white hover:border-slate-200"
-                                                )}
+                                                className={cn("flex-1 p-6 rounded-[2rem] border-2 transition-all flex items-center gap-4", appointmentType === 'Video Call' ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 bg-white hover:border-slate-200")}
                                             >
-                                                <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center transition-colors", appointmentType === 'Video Call' ? "bg-primary text-white" : "bg-slate-100 text-slate-400 group-hover:bg-slate-200")}>
-                                                    <Video className="h-5 w-5" />
-                                                </div>
-                                                <div className="text-left">
-                                                    <p className="font-bold text-sm">Video Consultation</p>
-                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">HD Video Call</p>
-                                                </div>
+                                                <Video className="h-5 w-5 text-primary" />
+                                                <div className="text-left"><p className="font-bold text-sm">Video</p><p className="text-[9px] uppercase font-bold text-muted-foreground">HD Tunnel</p></div>
                                             </button>
                                             <button 
                                                 onClick={() => setAppointmentType('Audio Call')}
-                                                className={cn(
-                                                    "flex-1 p-6 rounded-[2rem] border-2 transition-all flex items-center gap-4 group",
-                                                    appointmentType === 'Audio Call' ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 bg-white hover:border-slate-200"
-                                                )}
+                                                className={cn("flex-1 p-6 rounded-[2rem] border-2 transition-all flex items-center gap-4", appointmentType === 'Audio Call' ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 bg-white hover:border-slate-200")}
                                             >
-                                                <div className={cn("h-10 w-10 rounded-xl flex items-center justify-center transition-colors", appointmentType === 'Audio Call' ? "bg-primary text-white" : "bg-slate-100 text-slate-400 group-hover:bg-slate-200")}>
-                                                    <PhoneCall className="h-5 w-5" />
-                                                </div>
-                                                <div className="text-left">
-                                                    <p className="font-bold text-sm">Audio Consultation</p>
-                                                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter">Voice Call Only</p>
-                                                </div>
+                                                <PhoneCall className="h-5 w-5 text-primary" />
+                                                <div className="text-left"><p className="font-bold text-sm">Audio</p><p className="text-[9px] uppercase font-bold text-muted-foreground">Voice Only</p></div>
                                             </button>
                                         </div>
                                     </div>
@@ -514,102 +430,50 @@ export default function DoctorDetailPage() {
                                     <div className="pt-6">
                                         <AlertDialog>
                                             <AlertDialogTrigger asChild>
-                                                <Button 
-                                                    className="w-full h-20 text-xl font-bold rounded-3xl shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90" 
-                                                    disabled={!timeValidation.isAvailable || !selectedTimeStr || isBooking}
-                                                >
-                                                    Book Session at {selectedTimeStr || '--:--'}
+                                                <Button className="w-full h-20 text-xl font-bold rounded-3xl shadow-2xl shadow-primary/20 bg-primary hover:bg-primary/90" disabled={!timeValidation.isAvailable || !selectedTimeStr || isBooking}>
+                                                    Secure Slot at {selectedTimeStr || '--:--'}
                                                 </Button>
                                             </AlertDialogTrigger>
-                                            <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-xl max-h-[95vh] overflow-y-auto custom-scrollbar p-0">
+                                            <AlertDialogContent className="rounded-[2.5rem] border-none shadow-2xl max-w-xl max-h-[95vh] overflow-y-auto p-0">
                                                 <div className="p-8 sm:p-10 space-y-8">
                                                     <AlertDialogHeader>
-                                                        <AlertDialogTitle className="text-2xl font-headline">Secure Payment</AlertDialogTitle>
-                                                        <AlertDialogDescription>Confirm your Precision Clinical Care Window via our trusted channels.</AlertDialogDescription>
+                                                        <AlertDialogTitle className="text-2xl font-headline">Clinical Settlement</AlertDialogTitle>
+                                                        <AlertDialogDescription>Complete payment to finalize your Daily Token assignment.</AlertDialogDescription>
                                                     </AlertDialogHeader>
                                                     
                                                     <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10 text-center">
-                                                        <p className="text-[10px] uppercase font-bold text-primary tracking-widest mb-1">Standard Session Fee</p>
+                                                        <p className="text-[10px] uppercase font-bold text-primary tracking-widest mb-1">Standard Fee</p>
                                                         <p className="text-5xl font-bold text-foreground font-headline">PKR 1,500</p>
                                                     </div>
 
-                                                    <div className="space-y-6">
-                                                        <Label className="text-[10px] font-bold uppercase tracking-widest ml-1">Step 1: Choose Payment Channel</Label>
-                                                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                                                            {paymentChannels.map((channel) => (
-                                                                <button
-                                                                    key={channel.id}
-                                                                    onClick={() => setPaymentMethod(channel.id)}
-                                                                    className={cn(
-                                                                        "p-4 rounded-2xl border-2 transition-all text-left flex flex-col gap-3 group",
-                                                                        paymentMethod === channel.id ? "border-primary bg-primary/5 shadow-md" : "border-slate-100 bg-white hover:border-slate-200"
-                                                                    )}
-                                                                >
-                                                                    <div className={cn("h-8 w-8 rounded-lg flex items-center justify-center text-white", channel.color)}>
-                                                                        <channel.icon className="h-4 w-4" />
-                                                                    </div>
-                                                                    <div>
-                                                                        <p className="text-[10px] font-bold uppercase text-slate-900">{channel.label}</p>
-                                                                        <p className="text-[8px] font-bold text-muted-foreground uppercase mt-0.5">Secure Channel</p>
-                                                                    </div>
-                                                                </button>
-                                                            ))}
-                                                        </div>
-
-                                                        {/* Dynamic Account Instruction Card */}
-                                                        <div className="p-6 bg-slate-900 text-white rounded-3xl space-y-4 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                                                            <div className="flex justify-between items-start">
-                                                                <div>
-                                                                    <p className="text-[9px] uppercase font-bold text-slate-400 tracking-widest mb-1">Transfer to account:</p>
-                                                                    <h4 className="text-xl font-bold font-headline">{paymentMethod}</h4>
-                                                                </div>
-                                                                <Badge className="bg-primary/20 text-primary border-none">ACTIVE</Badge>
+                                                    <div className="space-y-4">
+                                                        <Label className="text-[10px] font-bold uppercase tracking-widest ml-1">Transfer to account:</Label>
+                                                        <div className="p-6 bg-slate-900 text-white rounded-3xl space-y-4">
+                                                            <div className="flex justify-between items-center">
+                                                                <h4 className="text-xl font-bold font-headline">{paymentMethod}</h4>
+                                                                <Copy className="h-4 w-4 text-slate-500 cursor-pointer" onClick={() => { navigator.clipboard.writeText('03120555772'); toast({ title: "Copied" }); }} />
                                                             </div>
-                                                            <div className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/10 group cursor-pointer hover:bg-white/10 transition-colors" onClick={() => {
-                                                                const account = paymentChannels.find(c => c.id === paymentMethod)?.account || '';
-                                                                navigator.clipboard.writeText(account);
-                                                                toast({ title: "Account Copied" });
-                                                            }}>
-                                                                <span className="text-2xl font-mono font-bold tracking-tight">
-                                                                    {paymentChannels.find(c => c.id === paymentMethod)?.account}
-                                                                </span>
-                                                                <Copy className="h-5 w-5 text-slate-500 group-hover:text-primary transition-colors" />
-                                                            </div>
-                                                            <p className="text-[10px] text-slate-400 leading-relaxed italic">
-                                                                Please complete the transfer of <strong>PKR 1,500</strong> before uploading the receipt image below.
-                                                            </p>
+                                                            <p className="text-2xl font-mono font-bold tracking-tight">03120555772</p>
                                                         </div>
                                                     </div>
 
                                                     <div className="space-y-4">
-                                                        <Label className="text-[10px] font-bold uppercase tracking-widest ml-1">Step 2: Upload Proof of Transfer</Label>
-                                                        <label htmlFor="receipt-upload" className={cn(
-                                                            "flex flex-col items-center justify-center w-full h-40 border-4 border-dashed rounded-[2.5rem] cursor-pointer transition-all",
-                                                            paymentReceipt ? "bg-green-50 border-green-200" : "bg-slate-50 hover:bg-slate-100 border-slate-200"
-                                                        )}>
-                                                            <div className="flex flex-col items-center justify-center pt-4 pb-5 text-center px-4">
-                                                                {paymentReceipt ? <CheckCircle2 className="w-10 h-10 mb-3 text-green-500" /> : <Activity className="w-10 h-10 mb-3 text-primary/30" />}
-                                                                <p className="text-sm font-bold text-primary">{paymentReceipt ? "Receipt Attached" : "Click to Upload Receipt"}</p>
-                                                                <p className="text-[9px] text-muted-foreground uppercase font-bold tracking-tighter mt-1">{paymentReceipt ? "Verification in Queue" : "JPEG or PNG Image Only"}</p>
-                                                            </div>
-                                                            <Input 
-                                                                id="receipt-upload"
-                                                                type="file" 
-                                                                accept="image/*" 
-                                                                className="hidden" 
-                                                                onChange={(e) => {
-                                                                    const file = e.target.files?.[0];
-                                                                    if (!file) return;
-                                                                    const reader = new FileReader();
-                                                                    reader.onloadend = () => setPaymentReceipt(reader.result as string);
-                                                                    reader.readAsDataURL(file);
-                                                                }} 
-                                                            />
+                                                        <Label className="text-[10px] font-bold uppercase tracking-widest ml-1">Upload Receipt</Label>
+                                                        <label htmlFor="receipt-upload" className="flex flex-col items-center justify-center w-full h-40 border-4 border-dashed rounded-[2.5rem] bg-slate-50 hover:bg-slate-100 border-slate-200 cursor-pointer transition-all">
+                                                            {paymentReceipt ? <CheckCircle2 className="h-10 w-10 text-green-500" /> : <Activity className="h-10 w-10 text-primary/30" />}
+                                                            <p className="text-sm font-bold text-primary mt-2">{paymentReceipt ? "Receipt Attached" : "Click to Upload"}</p>
+                                                            <Input id="receipt-upload" type="file" accept="image/*" className="hidden" onChange={(e) => {
+                                                                const file = e.target.files?.[0];
+                                                                if (!file) return;
+                                                                const reader = new FileReader();
+                                                                reader.onloadend = () => setPaymentReceipt(reader.result as string);
+                                                                reader.readAsDataURL(file);
+                                                            }} />
                                                         </label>
                                                     </div>
 
                                                     <AlertDialogFooter className="flex flex-col sm:flex-row gap-3">
-                                                        <AlertDialogCancel className="rounded-2xl h-14 border-2 flex-1">Go Back</AlertDialogCancel>
+                                                        <AlertDialogCancel className="rounded-2xl h-14 border-2 flex-1">Back</AlertDialogCancel>
                                                         <AlertDialogAction onClick={handleConfirmBooking} disabled={!paymentReceipt || isBooking} className="rounded-2xl h-14 bg-primary font-bold shadow-2xl shadow-primary/20 flex-1">
                                                             {isBooking ? <Loader2 className="animate-spin mr-2 h-4 w-4" /> : null}
                                                             Finalize Booking

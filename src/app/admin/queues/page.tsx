@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query } from 'firebase/firestore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Loader2, Activity, Layers, Clock, User, ShieldCheck, Search, AlertCircle, UserCheck } from 'lucide-react';
+import { Loader2, Activity, Layers, Clock, User, ShieldCheck, Search, UserCheck } from 'lucide-react';
 import { format, isValid, addMinutes, isAfter, subMinutes } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { useState, useMemo, useEffect } from 'react';
@@ -17,7 +16,6 @@ export default function AdminQueuesPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [now, setNow] = useState<Date | null>(null);
 
-  // Initialize ticker on client to prevent hydration mismatch
   useEffect(() => {
     setNow(new Date());
     const interval = setInterval(() => setNow(new Date()), 30000);
@@ -57,7 +55,8 @@ export default function AdminQueuesPage() {
     
     activeApts.forEach(apt => {
         if (!apt.doctorId || !apt.appointmentDateTime) return;
-        const blockKey = `${apt.doctorId}_${apt.blockId || apt.appointmentDateTime}`;
+        const blockDate = format(new Date(apt.appointmentDateTime), 'yyyy-MM-dd');
+        const blockKey = `${apt.doctorId}_${blockDate}`;
         if (!blocks[blockKey]) blocks[blockKey] = [];
         blocks[blockKey].push(apt);
     });
@@ -65,14 +64,13 @@ export default function AdminQueuesPage() {
     return Object.entries(blocks).map(([key, list]) => {
         const doctorId = key.split('_')[0];
         const doctor = doctors?.find(d => d.id === doctorId);
-        const timeVal = list[0]?.appointmentDateTime;
         return {
             id: key,
             doctor,
-            appointments: list.sort((a, b) => (a.sequencePosition || 0) - (b.sequencePosition || 0)),
-            time: timeVal && isValid(new Date(timeVal)) ? timeVal : new Date().toISOString()
+            appointments: list.sort((a, b) => a.appointmentDateTime.localeCompare(b.appointmentDateTime) || (a.sequencePosition || 0) - (b.sequencePosition || 0)),
+            time: list[0]?.appointmentDateTime
         };
-    }).sort((a, b) => a.time.localeCompare(b.time));
+    }).sort((a, b) => (a.time || '').localeCompare(b.time || ''));
   }, [appointmentsRaw, doctors, now]);
 
   const filteredBlocks = queueBlocks.filter(b => {
@@ -89,7 +87,7 @@ export default function AdminQueuesPage() {
         <div>
             <h1 className="text-3xl font-bold font-headline tracking-tight text-slate-900">Queue Monitor</h1>
             <p className="text-muted-foreground text-sm flex items-center gap-2">
-              <Layers className="h-4 w-4 text-primary" /> Live Back-to-Back Session Surveillance
+              <Layers className="h-4 w-4 text-primary" /> Daily Precision Tracking
             </p>
         </div>
         <div className="relative w-full md:w-80">
@@ -121,7 +119,7 @@ export default function AdminQueuesPage() {
                                   </div>
                               </div>
                               <Badge variant="outline" className="border-white/20 text-white text-[10px] font-bold px-3 py-1 flex items-center gap-2">
-                                  <Clock className="h-3 w-3" /> {format(new Date(block.time), "p")}
+                                  <Clock className="h-3 w-3" /> {format(new Date(), "PP")}
                               </Badge>
                           </div>
                       </CardHeader>
@@ -131,19 +129,19 @@ export default function AdminQueuesPage() {
                                   <div key={apt.id} className="p-4 sm:p-6 flex items-center justify-between hover:bg-slate-50 transition-colors">
                                       <div className="flex items-center gap-4 min-w-0">
                                           <div className="h-8 w-8 rounded-full bg-slate-100 flex items-center justify-center text-[10px] font-bold text-slate-500 shrink-0 shadow-inner">
-                                              #{apt.sequencePosition}
+                                              Token #{apt.sequencePosition}
                                           </div>
                                           <div className="min-w-0">
                                               <div className="flex items-center gap-2">
                                                 <p className="text-sm font-bold text-slate-900 truncate">Patient ID: {apt.patientId.slice(0, 8)}</p>
                                                 {apt.patientCheckedIn && <Badge className="bg-green-100 text-green-700 h-3.5 text-[6px] px-1.5 font-bold border-green-200 flex items-center gap-1 uppercase"><UserCheck className="h-2 w-2" /> Arrived</Badge>}
                                               </div>
-                                              <p className="text-[9px] text-slate-500 uppercase font-bold tracking-tighter">Assigned Sequence</p>
+                                              <p className="text-[9px] text-slate-500 uppercase font-bold tracking-tighter">Slot: {format(new Date(apt.appointmentDateTime), "p")}</p>
                                           </div>
                                       </div>
                                       <div className="flex items-center gap-2">
                                           {apt.readyToStart && apt.queueStatus !== 'in-consultation' && (
-                                              <Badge variant="outline" className="h-6 px-2 text-[8px] font-bold text-primary border-primary/20 bg-primary/5 animate-pulse">Signal Sent</Badge>
+                                              <Badge variant="outline" className="h-6 px-2 text-[8px] font-bold text-primary border-primary/20 bg-primary/5 animate-pulse">Early Signal</Badge>
                                           )}
                                           <Badge className={cn(
                                               "h-6 px-3 rounded-full text-[9px] font-bold uppercase",
@@ -165,7 +163,6 @@ export default function AdminQueuesPage() {
           <div className="text-center py-32 bg-white rounded-[3rem] border-4 border-dashed">
               <Activity className="h-16 w-16 mx-auto mb-4 text-slate-200" />
               <p className="text-slate-400 font-bold">No active clinical sequences detected.</p>
-              <p className="text-xs text-muted-foreground mt-1">Past waiting sessions are automatically filtered to prioritize upcoming slots.</p>
           </div>
       )}
     </div>

@@ -1,4 +1,3 @@
-
 export type Specialty = 'Psychiatrist' | 'Cardiologist' | 'General Physician' | 'Gynecologist' | 'Dermatology' | 'Orthopedics';
 
 export interface DoctorAvailability {
@@ -68,9 +67,8 @@ export interface Appointment {
   paymentMethod?: string;
   doctorInRoom?: boolean;
   readyToStart?: boolean; 
-  patientCheckedIn?: boolean; // New: Patient signaled they are ready
+  patientCheckedIn?: boolean; 
   isExtended?: boolean; 
-  // Queue Management Fields
   blockId?: string;
   sequencePosition?: number;
   queueStatus?: QueueStatus;

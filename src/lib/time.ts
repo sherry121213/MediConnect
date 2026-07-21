@@ -15,10 +15,10 @@ export const getNext7Days = () => {
 }
 
 /**
- * Generates granular 15-minute start times for a continuous clinical schedule.
+ * Generates granular 20-minute start times for a precision clinical schedule.
+ * Protocol: 15-minute consultation + 5-minute administrative buffer.
  * Shift: 10:00 AM - 09:00 PM
  * Break: 01:00 PM - 02:00 PM
- * Last session must end by 9:00 PM, so last start is 08:45 PM.
  */
 export const generateAvailableTimes = () => {
     const times = [];
@@ -28,7 +28,8 @@ export const generateAvailableTimes = () => {
         // Skip Break: 01:00 PM - 02:00 PM (Hour 13)
         if (hour === 13) continue;
 
-        for (let minute = 0; minute < 60; minute += 15) {
+        // Intervals of 20 minutes: 00, 20, 40
+        for (let minute = 0; minute < 60; minute += 20) {
             const period = hour >= 12 ? "PM" : "AM";
             const displayHour = hour > 12 ? hour - 12 : (hour === 0 ? 12 : hour);
             const displayMinute = minute.toString().padStart(2, '0');
@@ -39,7 +40,6 @@ export const generateAvailableTimes = () => {
     return times;
 }
 
-// Legacy slots kept for compatibility but updated to new shift parameters
 const allTimes = generateAvailableTimes();
 export const timeSlots = {
     morning: allTimes.filter(t => t.includes('AM')),
