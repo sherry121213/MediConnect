@@ -148,7 +148,11 @@ export default function DoctorDetailPage() {
 
         const proposedEnd = addMinutes(proposedStart, 20);
         const overlap = existingAppointments.find(apt => {
-            if (!apt || apt.status === 'cancelled' || !apt.appointmentDateTime) return false;
+            if (!apt || !apt.appointmentDateTime) return false;
+            // Only 'scheduled' appointments block a time slot window. 
+            // Completed, cancelled, or expired sessions are considered 'freed' capacity.
+            if (apt.status !== 'scheduled') return false;
+            
             const aptStart = new Date(apt.appointmentDateTime);
             const aptEnd = addMinutes(aptStart, 20);
             return proposedStart < aptEnd && proposedEnd > aptStart;
