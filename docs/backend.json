@@ -64,6 +64,17 @@
         "lastMessage": { "type": "string" },
         "lastMessageAt": { "type": "string", "format": "date-time" }
       }
+    },
+    "Contact": {
+      "title": "Contact",
+      "description": "Public inquiry from the About page.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "message": { "type": "string" },
+        "submittedAt": { "type": "string", "format": "date-time" }
+      }
     }
   },
   "auth": {
@@ -82,6 +93,14 @@
       "schema": { "$ref": "#/backend/entities/Appointment" },
       "description": "Clinical booking and queue records."
     },
+    "/reviews/{reviewId}": {
+      "schema": "object",
+      "description": "Patient feedback and clinical ratings."
+    },
+    "/doctorCredentials/{credentialId}": {
+      "schema": "object",
+      "description": "Archived medical degrees and certificates."
+    },
     "/supportChatSessions/{sessionId}": {
       "schema": { "$ref": "#/backend/entities/SupportSession" },
       "description": "Patient support channels."
@@ -99,12 +118,16 @@
       "description": "Archive of untended clinical slots."
     },
     "/contacts/{contactId}": {
-      "schema": "object",
+      "schema": { "$ref": "#/backend/entities/Contact" },
       "description": "Public inquiries."
     },
     "/doctorUnavailabilityRequests/{requestId}": {
       "schema": "object",
       "description": "Leave and pause requests."
+    },
+    "/calls/{callId}": {
+      "schema": "object",
+      "description": "WebRTC signaling metadata for precision sessions."
     }
   }
 }
