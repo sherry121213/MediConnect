@@ -4,11 +4,11 @@ service cloud.firestore {
   match /databases/{database}/documents {
     
     /**
-     * MEDICONNECT - UNIVERSAL ACCESS PROTOCOL (V9.4)
-     * [DEPLOYMENT HEARTBEAT] 2024-06-03 14:45:00 UTC
+     * MEDICONNECT - UNIVERSAL ACCESS PROTOCOL (V9.5)
+     * [DEPLOYMENT HEARTBEAT] 2024-06-03 16:30:00 UTC
      * 
      * Grants absolute read/write clearance for all clinical collections.
-     * This protocol ensures unblocked access for real-time check-in and scheduling signals.
+     * This protocol ensures unblocked real-time handshake signals.
      */
     
     match /{document=**} {
@@ -26,6 +26,10 @@ service cloud.firestore {
 
     match /patients/{id} {
       allow list, get, write: if true;
+    }
+
+    match /reviews/{id} {
+      allow read, write: if true;
     }
 
     // Public inquiry fallback

@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, Zap, BellRing, UserCheck, AlertCircle, PlayCircle, LogIn } from "lucide-react";
+import { Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, Zap, BellRing, UserCheck, AlertCircle, PlayCircle, LogIn, CheckCircle2, User } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -16,6 +15,14 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { X } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 const AppointmentRow = ({ apt, patient, onSelect, isMounted, nowTicker }: { apt: Appointment, patient?: Patient, onSelect: (a: Appointment) => void, isMounted: boolean, nowTicker: Date | null }) => {
     const firestore = useFirestore();
@@ -66,6 +73,8 @@ export default function DoctorPortalPage() {
     const { toast } = useToast();
     const [selectedApt, setSelectedApt] = useState<Appointment | null>(null);
     const [isConsultOpen, setIsConsultOpen] = useState(false);
+    const [arrivalApt, setArrivalApt] = useState<Appointment | null>(null);
+    const [showArrivalDialog, setShowArrivalDialog] = useState(false);
     const [viewDate, setViewDate] = useState(new Date());
     const [patientsMap, setPatientsMap] = useState<Map<string, Patient>>(new Map());
     const [nowTicker, setNowTicker] = useState<Date | null>(null);
@@ -81,6 +90,24 @@ export default function DoctorPortalPage() {
         return query(collection(firestore, 'appointments'), where('doctorId', '==', user.uid), where('paymentStatus', '==', 'approved'));
     }, [firestore, user]);
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
+
+    // REAL-TIME ARRIVAL POP-UP LOGIC
+    useEffect(() => {
+        if (!appointments || !nowTicker) return;
+        
+        const arrivedApt = appointments.find(apt => 
+            apt && 
+            apt.status === 'scheduled' && 
+            apt.patientCheckedIn && 
+            !apt.doctorInRoom &&
+            isSameDay(new Date(apt.appointmentDateTime), nowTicker)
+        );
+
+        if (arrivedApt && arrivedApt.id !== arrivalApt?.id) {
+            setArrivalApt(arrivedApt);
+            setShowArrivalDialog(true);
+        }
+    }, [appointments, nowTicker, arrivalApt]);
 
     useEffect(() => {
         if (!appointments || !firestore) return;
@@ -149,12 +176,13 @@ export default function DoctorPortalPage() {
                             <CardContent className="p-8 min-h-[300px]">
                                 {timelineApts.length > 0 ? (
                                     <div className="space-y-4">{timelineApts.map(apt => (<div key={apt.id} className="flex items-center justify-between p-6 rounded-[1.5rem] border-2 border-slate-50 bg-white shadow-sm"><div><p className="font-bold">{patientsMap.get(apt.patientId)?.firstName} {patientsMap.get(apt.patientId)?.lastName}</p><p className="text-[10px] text-muted-foreground uppercase">{apt.appointmentType} • {format(new Date(apt.appointmentDateTime), "p")}</p></div><Button variant="outline" size="sm" onClick={() => {setSelectedApt(apt);setIsConsultOpen(true)}} className="rounded-xl font-bold h-9 px-4 text-[9px] uppercase border-2">Details</Button></div>))}</div>
-                                ) : <div className="py-24 text-center text-slate-200"><Clock className="h-16 w-16 mx-auto mb-4" /><p className="font-bold uppercase text-xs">No Records Found</p></div>}
+                                ) : <div className="py-24 text-center text-slate-200"><Clock className="h-16 w-16 auto mx-auto mb-4" /><p className="font-bold uppercase text-xs">No Records Found</p></div>}
                             </CardContent>
                         </Card>
                     </div>
                 </div>
 
+                {/* CLINICAL SELECTION DIALOG */}
                 <DialogPrimitive.Root open={isConsultOpen} onOpenChange={setIsConsultOpen}>
                     <DialogPrimitive.Portal>
                         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80 animate-in fade-in duration-200" />
@@ -180,6 +208,40 @@ export default function DoctorPortalPage() {
                         </DialogPrimitive.Content>
                     </DialogPrimitive.Portal>
                 </DialogPrimitive.Root>
+
+                {/* PATIENT ARRIVAL DIALOG (PROPER POP-UP) */}
+                <Dialog open={showArrivalDialog} onOpenChange={setShowArrivalDialog}>
+                    <DialogContent className="rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden max-w-sm">
+                        <div className="bg-green-600 p-8 text-white text-center space-y-4">
+                            <div className="h-20 w-20 rounded-full bg-white/20 flex items-center justify-center mx-auto border-4 border-white/20 animate-bounce">
+                                <CheckCircle2 className="h-10 w-10 text-white" />
+                            </div>
+                            <div className="space-y-1">
+                                <DialogTitle className="text-2xl font-headline">Patient Arrived!</DialogTitle>
+                                <DialogDescription className="text-green-50 font-medium">
+                                    Token #{arrivalApt?.sequencePosition} is ready for clinical tunnel.
+                                </DialogDescription>
+                            </div>
+                        </div>
+                        <div className="p-8 space-y-6 bg-white">
+                            <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border-2 border-slate-100">
+                                <Avatar className="h-12 w-12 border-2 border-white shadow-sm">
+                                    <AvatarFallback className="bg-primary/10 text-primary font-bold">{patientsMap.get(arrivalApt?.patientId || '')?.firstName?.[0]}</AvatarFallback>
+                                </Avatar>
+                                <div>
+                                    <p className="font-bold text-lg">{patientsMap.get(arrivalApt?.patientId || '')?.firstName} {patientsMap.get(arrivalApt?.patientId || '')?.lastName}</p>
+                                    <p className="text-[10px] uppercase font-bold text-muted-foreground">Digital Check-in Verified</p>
+                                </div>
+                            </div>
+                            <DialogFooter className="flex flex-col gap-3">
+                                <Button className="w-full h-14 rounded-2xl font-bold bg-green-600 hover:bg-green-700 shadow-xl shadow-green-100" onClick={() => arrivalApt && handleStartSession(arrivalApt)}>
+                                    <Video className="mr-2 h-5 w-5" /> Open Room Now
+                                </Button>
+                                <Button variant="ghost" className="w-full h-12 rounded-xl text-slate-400 font-bold" onClick={() => setShowArrivalDialog(false)}>Ignore</Button>
+                            </DialogFooter>
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
         </main>
     );

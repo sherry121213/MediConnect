@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { Menu, LogOut, Shield, LayoutDashboard, Bell, Siren, User as UserCircle, UserCog, Settings } from 'lucide-react';
+import { Menu, LogOut, Shield, LayoutDashboard, Bell, Siren, User as UserCircle, UserCog, Settings, CheckCircle2, CreditCard, Trash2 } from 'lucide-react';
 import Logo from '@/components/logo';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger, SheetHeader, SheetTitle } from '@/components/ui/sheet';
@@ -37,21 +37,31 @@ export default function AppHeader() {
   const firestore = useFirestore();
   const auth = useAuth();
   const [now, setNow] = useState(Date.now());
+  const [dismissedIds, setDismissedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 15000);
+    const savedDismissed = localStorage.getItem('mediconnect_dismissed_alerts');
+    if (savedDismissed) {
+      try {
+        setDismissedIds(new Set(JSON.parse(savedDismissed)));
+      } catch (e) {
+        console.error("Failed to load dismissed alerts");
+      }
+    }
     return () => clearInterval(timer);
   }, []);
 
   const appointmentsQuery = useMemoFirebase(() => {
-    if (!firestore || !user || !userData || userData.role !== 'doctor') return null;
-    return query(collection(firestore, 'appointments'), where('doctorId', '==', user.uid));
+    if (!firestore || !user || !userData) return null;
+    const field = userData.role === 'doctor' ? 'doctorId' : 'patientId';
+    return query(collection(firestore, 'appointments'), where(field, '==', user.uid));
   }, [firestore, user, userData?.role]);
   
   const { data: appointmentsRaw } = useCollection<any>(appointmentsQuery);
 
   const notifications = useMemo(() => {
-    if (!appointmentsRaw) return [];
+    if (!appointmentsRaw || !userData) return [];
     const alerts: any[] = [];
     const currentTime = now;
     const yesterday = subHours(new Date(), 24);
@@ -62,19 +72,47 @@ export default function AppHeader() {
         if (!isValid(aptDate)) return;
 
         const startTime = aptDate.getTime();
-        const endTime = startTime + (15 * 60 * 1000); 
+        const endTime = startTime + (20 * 60 * 1000); 
 
-        if (apt.createdAt && isAfter(new Date(apt.createdAt), yesterday) && apt.status === 'scheduled') {
-            alerts.push({ id: apt.id + '-new', title: 'New Booking', msg: `${format(aptDate, "MMM dd, p")}`, icon: UserCircle, color: 'text-primary', timestamp: new Date(apt.createdAt).getTime(), link: '/doctor-portal' });
+        // DOCTOR SPECIFIC ALERTS
+        if (userData.role === 'doctor') {
+            if (apt.createdAt && isAfter(new Date(apt.createdAt), yesterday) && apt.status === 'scheduled') {
+                alerts.push({ id: apt.id + '-new', title: 'New Booking', msg: `Patient booked: ${format(aptDate, "MMM dd, p")}`, icon: UserCircle, color: 'text-primary', timestamp: new Date(apt.createdAt).getTime(), link: '/doctor-portal' });
+            }
+            if (apt.patientCheckedIn && apt.status === 'scheduled') {
+                alerts.push({ id: apt.id + '-arrived', title: 'Patient Arrived', msg: 'Patient is waiting in room.', icon: CheckCircle2, color: 'text-green-600', timestamp: Date.now(), link: '/doctor-portal' });
+            }
         }
 
-        if (currentTime >= startTime && currentTime < endTime && apt.status === 'scheduled' && apt.paymentStatus === 'approved') {
-            alerts.push({ id: apt.id + '-live', title: 'Session Live', msg: 'Secure video feed active.', icon: Siren, color: 'text-red-600 animate-pulse', timestamp: startTime, isUrgent: true, link: `/consultation/${apt.id}` });
+        // PATIENT SPECIFIC ALERTS
+        if (userData.role === 'patient') {
+            if (apt.readyToStart && !apt.doctorInRoom && apt.status === 'scheduled') {
+                alerts.push({ id: apt.id + '-ready', title: 'Doctor Ready', msg: 'Provider is available early.', icon: Siren, color: 'text-amber-600 animate-pulse', timestamp: Date.now(), link: '/patient-portal' });
+            }
+            if (apt.paymentStatus === 'approved' && apt.createdAt && isAfter(new Date(apt.createdAt), yesterday)) {
+                alerts.push({ id: apt.id + '-paid', title: 'Payment Approved', msg: 'Receipt verified by admin.', icon: CreditCard, color: 'text-primary', timestamp: Date.now(), link: '/patient-portal' });
+            }
+        }
+
+        // SHARED LIVE ALERT
+        if (currentTime >= startTime && currentTime < endTime && apt.status === 'scheduled' && apt.paymentStatus === 'approved' && (userData.role === 'doctor' || apt.doctorInRoom)) {
+            alerts.push({ id: apt.id + '-live', title: 'Session Live', msg: 'Secure tunnel active.', icon: Siren, color: 'text-red-600 animate-pulse', timestamp: startTime, isUrgent: true, link: `/consultation/${apt.id}` });
         }
     });
 
-    return alerts.sort((a, b) => b.timestamp - a.timestamp).slice(0, 10);
-  }, [appointmentsRaw, now]);
+    return alerts
+        .filter(n => !dismissedIds.has(n.id))
+        .sort((a, b) => b.timestamp - a.timestamp)
+        .slice(0, 10);
+  }, [appointmentsRaw, now, userData, dismissedIds]);
+
+  const handleClearLog = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const newDismissed = new Set(dismissedIds);
+    notifications.forEach(n => newDismissed.add(n.id));
+    setDismissedIds(newDismissed);
+    localStorage.setItem('mediconnect_dismissed_alerts', JSON.stringify(Array.from(newDismissed)));
+  };
 
   const handleLogout = () => {
     if (auth) {
@@ -144,7 +182,6 @@ export default function AppHeader() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-white/95 backdrop-blur shadow-sm overflow-x-hidden">
       <div className="w-full px-4 sm:px-8 flex h-20 items-center justify-between">
-        {/* Left side: Logo and Navigation */}
         <div className="flex items-center gap-4 md:gap-12 min-w-0">
           <Logo />
           <nav className="hidden md:flex gap-4 lg:gap-10 shrink-0">
@@ -163,11 +200,10 @@ export default function AppHeader() {
           </nav>
         </div>
 
-        {/* Right side: Auth buttons / User Menu - Rightmost position */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           {isUserLoading ? null : user ? (
             <>
-                {userData?.role === 'doctor' && (
+                {(userData?.role === 'doctor' || userData?.role === 'patient') && (
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" size="icon" className="relative h-10 w-10 rounded-full hover:bg-slate-50">
@@ -176,9 +212,35 @@ export default function AppHeader() {
                             </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent className="w-80 p-0 rounded-2xl border-none shadow-2xl overflow-hidden" align="end">
-                            <div className="bg-slate-900 text-white p-4"><h4 className="text-sm font-bold">Signals</h4></div>
+                            <div className="bg-slate-900 text-white p-4 flex items-center justify-between">
+                                <h4 className="text-sm font-bold">Signals</h4>
+                                {notifications.length > 0 && (
+                                    <Button variant="ghost" size="sm" onClick={handleClearLog} className="h-7 text-[9px] font-bold uppercase hover:bg-white/10 hover:text-white px-2">
+                                        <Trash2 className="h-3 w-3 mr-1" /> Clear All
+                                    </Button>
+                                )}
+                            </div>
                             <ScrollArea className="max-h-[400px]">
-                                {notifications.length > 0 ? (<div className="divide-y divide-slate-50">{notifications.map((n) => (<DropdownMenuItem key={n.id} className="p-4 flex gap-4 cursor-pointer" onClick={() => n.link && router.push(n.link)}><div className={cn("p-2 rounded-xl bg-slate-100", n.color)}><n.icon className="h-4 w-4" /></div><div className="space-y-0.5"><p className={cn("font-bold text-[11px] uppercase", n.isUrgent ? "text-red-600" : "")}>{n.title}</p><p className="text-xs text-muted-foreground">{n.msg}</p></div></DropdownMenuItem>))}</div>) : (<div className="py-20 text-center px-8"><Bell className="h-10 w-10 text-slate-100 mx-auto" /><p className="text-[10px] text-muted-foreground uppercase font-bold mt-2">No active signals</p></div>)}
+                                {notifications.length > 0 ? (
+                                    <div className="divide-y divide-slate-50">
+                                        {notifications.map((n) => (
+                                            <DropdownMenuItem key={n.id} className="p-4 flex gap-4 cursor-pointer focus:bg-primary/5" onClick={() => n.link && router.push(n.link)}>
+                                                <div className={cn("p-2 rounded-xl bg-slate-100", n.color)}>
+                                                    <n.icon className="h-4 w-4" />
+                                                </div>
+                                                <div className="space-y-0.5">
+                                                    <p className={cn("font-bold text-[11px] uppercase", n.isUrgent ? "text-red-600" : "")}>{n.title}</p>
+                                                    <p className="text-xs text-muted-foreground">{n.msg}</p>
+                                                </div>
+                                            </DropdownMenuItem>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="py-20 text-center px-8">
+                                        <Bell className="h-10 w-10 text-slate-100 mx-auto" />
+                                        <p className="text-[10px] text-muted-foreground uppercase font-bold mt-2">No active signals</p>
+                                    </div>
+                                )}
                             </ScrollArea>
                         </DropdownMenuContent>
                     </DropdownMenu>
