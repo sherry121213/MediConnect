@@ -1,13 +1,12 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, setDoc, onSnapshot, addDoc, query, orderBy, getDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, addDoc, query, orderBy } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, Clock, AlertTriangle, ClipboardCheck, CheckCircle2, Calendar, RefreshCw } from 'lucide-react';
+import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, Clock, AlertTriangle, ClipboardCheck, CheckCircle2, Calendar } from 'lucide-react';
 import { addMinutes, differenceInSeconds } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -159,7 +158,7 @@ export default function ConsultationRoomPage() {
     }, 3000);
   };
 
-  // 1. Acquire Media
+  // 1. Hardware Initialization
   useEffect(() => {
     if (!appointmentId || isCompleted) return;
     let isMounted = true;
@@ -192,7 +191,7 @@ export default function ConsultationRoomPage() {
         console.error("Hardware Blocked:", err);
         if (isMounted) {
             setSignalingStatus("Hardware Error");
-            toast({ variant: "destructive", title: "Access Blocked", description: "Camera/Mic permissions are mandatory." });
+            toast({ variant: "destructive", title: "Access Blocked", description: "Camera/Mic permissions are mandatory for clinical sessions." });
         }
       }
     };
@@ -205,7 +204,7 @@ export default function ConsultationRoomPage() {
     };
   }, [appointmentId, isAudioOnly, isCompleted]);
 
-  // 2. Peer Connection Lifecycle
+  // 2. Peer Connection & Signaling Lifecycle
   useEffect(() => {
     if (!firestore || !appointmentId || !user || !activeStream || !userData || isExpired || isCompleted) return;
 
@@ -214,16 +213,14 @@ export default function ConsultationRoomPage() {
 
     const initializeConnection = async () => {
       try {
-        if (pc.current) {
-          pc.current.close();
-        }
-        
+        if (pc.current) pc.current.close();
         pc.current = new RTCPeerConnection(servers);
         
         activeStream.getTracks().forEach(track => {
           pc.current?.addTrack(track, activeStream);
         });
 
+        // Remote Media Handshake
         pc.current.ontrack = (event) => {
           if (!isEffectActive || !remoteVideoRef.current) return;
           
@@ -233,9 +230,9 @@ export default function ConsultationRoomPage() {
           }
           
           remoteVideoRef.current.srcObject = remoteStream;
-          remoteVideoRef.current.play().catch(err => {
-              console.warn("Autoplay interaction required", err);
-          });
+          remoteVideoRef.current.onloadedmetadata = () => {
+             remoteVideoRef.current?.play().catch(e => console.warn("Auto-play blocked", e));
+          };
           
           setIsPeerConnected(true);
           setSignalingStatus("Secure Link Established");
@@ -248,8 +245,7 @@ export default function ConsultationRoomPage() {
             setIsPeerConnected(true);
             setSignalingStatus("Connected");
           } else if (state === 'failed' || state === 'disconnected') {
-            // Don't loop, just alert
-            setSignalingStatus("Signal Fragile...");
+            setSignalingStatus("Reconnecting...");
           }
         };
 
@@ -268,7 +264,7 @@ export default function ConsultationRoomPage() {
           while (candidatesQueue.current.length > 0) {
             const candidate = candidatesQueue.current.shift();
             try {
-              if (pc.current?.remoteDescription) {
+              if (pc.current?.remoteDescription && pc.current.remoteDescription.type) {
                   await pc.current.addIceCandidate(new RTCIceCandidate(candidate));
               }
             } catch (e) {
@@ -312,7 +308,6 @@ export default function ConsultationRoomPage() {
           unsubscribes.push(unsubRemoteCands);
 
         } else {
-          // Patient logic: Wait for offer, then answer
           const unsubCall = onSnapshot(callDoc, async (snap) => {
             const data = snap.data();
             if (data?.offer && !pc.current?.currentRemoteDescription) {
@@ -365,11 +360,11 @@ export default function ConsultationRoomPage() {
     };
   }, [firestore, appointmentId, user?.uid, !!activeStream, isDoctor, isExpired, isCompleted]);
 
-  // Handle local video playback
+  // Local View Sync
   useEffect(() => {
     if (localVideoRef.current && activeStream) {
       localVideoRef.current.srcObject = activeStream;
-      localVideoRef.current.play().catch(err => console.warn("Local play error:", err));
+      localVideoRef.current.play().catch(err => console.warn("Local preview blocked", err));
     }
   }, [activeStream]);
 
@@ -400,13 +395,13 @@ export default function ConsultationRoomPage() {
     updateDocumentNonBlocking(doc(firestore, 'appointments', appointmentId), { 
         ...values, status: 'completed', updatedAt: new Date().toISOString(), doctorInRoom: false, readyToStart: false 
     });
-    toast({ title: "Session Finalized", description: "Clinical record secured." });
+    toast({ title: "Session Finalized", description: "Medical record secured." });
     setTimeout(() => router.push(isDoctor ? '/doctor-portal' : '/patient-portal'), 1500);
   };
 
   const handleEndSession = () => {
     if (isDoctor && !isCompleted) {
-        toast({ title: "Finalize Record", description: "Record clinical notes before ending session." });
+        toast({ title: "Finalize Record", description: "Please record clinical notes before ending session." });
         return;
     }
     setIsEnding(true);
@@ -461,7 +456,7 @@ export default function ConsultationRoomPage() {
             {isExpired && !isCompleted ? (
               <div className="text-center p-6 space-y-4 animate-in fade-in">
                   <AlertTriangle className="h-12 w-12 text-red-500 mx-auto" />
-                  <p className="font-bold uppercase text-xs text-white tracking-widest">Window Expired</p>
+                  <p className="font-bold uppercase text-xs text-white tracking-widest">Clinical Window Expired</p>
               </div>
             ) : isCompleted ? (
               <div className="text-center p-6 space-y-4 animate-in zoom-in-95">
@@ -473,7 +468,7 @@ export default function ConsultationRoomPage() {
                   <video 
                     ref={remoteVideoRef} 
                     className={cn(
-                        "w-full h-full object-cover transition-opacity duration-700", 
+                        "w-full h-full object-cover transition-opacity duration-700 bg-slate-900", 
                         isPeerConnected ? "opacity-100" : "opacity-0"
                     )} 
                     autoPlay 
@@ -481,14 +476,14 @@ export default function ConsultationRoomPage() {
                   />
                   
                   {!isPeerConnected && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-950/90 backdrop-blur-md">
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-950/90 backdrop-blur-md z-10">
                           <Loader2 className="h-10 w-10 animate-spin text-primary/40" />
                           <p className="text-[10px] uppercase font-bold text-slate-500 tracking-[0.2em]">{signalingStatus}</p>
                       </div>
                   )}
 
                   {isAudioOnly && isPeerConnected && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-8 animate-in fade-in duration-1000">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-8 animate-in fade-in duration-1000 z-20">
                         <div className="relative">
                             <Avatar className="h-32 w-32 sm:h-40 sm:w-40 border-8 border-slate-900 shadow-2xl relative z-10">
                                 <AvatarFallback className="bg-primary/10 text-primary text-4xl font-bold">{peer?.firstName?.[0]}</AvatarFallback>
@@ -521,7 +516,7 @@ export default function ConsultationRoomPage() {
             )}
           </div>
 
-          <div className="shrink-0 h-20 border-t border-white/5 bg-slate-900/80 backdrop-blur-2xl flex items-center justify-center gap-4 px-4">
+          <div className="shrink-0 h-20 border-t border-white/5 bg-slate-900/80 backdrop-blur-2xl flex items-center justify-center gap-4 px-4 z-50">
               <button className={cn("h-11 w-11 sm:h-12 sm:w-12 rounded-full flex items-center justify-center transition-all active:scale-95", isMuted ? "bg-red-500 text-white" : "bg-slate-800 text-slate-300")} onClick={() => { if(activeStream) { activeStream.getAudioTracks()[0].enabled = isMuted; setIsMuted(!isMuted); } }} disabled={isExpired || isCompleted}>
                   {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
               </button>
@@ -541,7 +536,7 @@ export default function ConsultationRoomPage() {
         </div>
 
         <aside className={cn(
-            "shrink-0 w-full lg:w-[420px] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col z-20 bg-slate-900 transition-all duration-300",
+            "shrink-0 w-full lg:w-[420px] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col z-[60] bg-slate-900 transition-all duration-300",
             isSidebarOpen ? "h-[45dvh] lg:h-full" : "h-0 lg:w-0 overflow-hidden"
         )}>
           <Tabs defaultValue="chat" className="w-full h-full flex flex-col overflow-hidden">
