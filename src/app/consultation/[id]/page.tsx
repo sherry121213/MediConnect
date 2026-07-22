@@ -32,6 +32,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { format } from 'date-fns';
+import { errorEmitter } from '@/firebase/error-emitter';
+import { FirestorePermissionError } from '@/firebase/errors';
 
 const servers = {
   iceServers: [
@@ -66,7 +68,7 @@ export default function ConsultationRoomPage() {
   const [newMessage, setNewMessage] = useState('');
   const [isEnding, setIsEnding] = useState(false);
   const [isPeerConnected, setIsPeerConnected] = useState(false);
-  const [signalingStatus, setSignalingStatus] = useState('Initializing Tunnel...');
+  const [signalingStatus, setSignalingStatus] = useState('Initiating Tunnel...');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [timeRemaining, setTimeRemaining] = useState<string>('15:00'); 
   const [isExpired, setIsExpired] = useState(false);
@@ -223,16 +225,19 @@ export default function ConsultationRoomPage() {
     let isEffectActive = true;
     const unsubscribes: (() => void)[] = [];
     
+    // Increased timeout to 45 seconds for robustness
     const connectionTimeout = setTimeout(() => {
       if (isEffectActive && !isPeerConnected) {
         setSignalingStatus("Handshake Failed");
-        setConnectionError("The secure clinical tunnel could not be established. Please ensure both parties have entered the room.");
+        setConnectionError("The secure clinical tunnel could not be established. Ensure both parties have entered the room and check your network firewall.");
       }
-    }, 15000);
+    }, 45000);
 
     const initializeConnection = async () => {
       try {
-        if (pc.current) pc.current.close();
+        if (pc.current) {
+          pc.current.close();
+        }
         pc.current = new RTCPeerConnection(servers);
         
         activeStream.getTracks().forEach(track => {
@@ -243,7 +248,10 @@ export default function ConsultationRoomPage() {
           if (!isEffectActive || !remoteVideoRef.current) return;
           
           event.streams[0].getTracks().forEach(track => {
-            remoteStream.current.addTrack(track);
+            // Avoid duplicates
+            if (!remoteStream.current.getTrackById(track.id)) {
+              remoteStream.current.addTrack(track);
+            }
           });
           
           remoteVideoRef.current.srcObject = remoteStream.current;
@@ -258,10 +266,14 @@ export default function ConsultationRoomPage() {
         pc.current.oniceconnectionstatechange = () => {
           if (!isEffectActive) return;
           const state = pc.current?.iceConnectionState;
+          console.log(`ICE Connection State: ${state}`);
           if (state === 'connected' || state === 'completed') {
             setIsPeerConnected(true);
             setSignalingStatus("Connected");
             setConnectionError(null);
+          } else if (state === 'failed') {
+            setSignalingStatus("Tunnel Disrupted");
+            setConnectionError("P2P Tunnel failed. This usually happens on restrictive corporate networks. Refreshing may help.");
           }
         };
 
@@ -272,7 +284,12 @@ export default function ConsultationRoomPage() {
         pc.current.onicecandidate = (event) => {
           if (event.candidate && isEffectActive) {
             const col = isDoctor ? offerCandidates : answerCandidates;
-            addDoc(col, event.candidate.toJSON());
+            addDoc(col, event.candidate.toJSON()).catch(async (err) => {
+              errorEmitter.emit('permission-error', new FirestorePermissionError({
+                path: col.path,
+                operation: 'create'
+              }));
+            });
           }
         };
 
@@ -297,6 +314,8 @@ export default function ConsultationRoomPage() {
               await pc.current?.setRemoteDescription(answerDesc);
               await processCandidateQueue();
             }
+          }, async (err) => {
+             errorEmitter.emit('permission-error', new FirestorePermissionError({ operation: 'get', path: callDoc.path }));
           });
           unsubscribes.push(unsubCall);
 
@@ -311,6 +330,8 @@ export default function ConsultationRoomPage() {
                 }
               }
             });
+          }, async (err) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ operation: 'list', path: answerCandidates.path }));
           });
           unsubscribes.push(unsubRemoteCands);
 
@@ -340,6 +361,8 @@ export default function ConsultationRoomPage() {
                 await processCandidateQueue();
               }
             }
+          }, async (err) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ operation: 'get', path: callDoc.path }));
           });
           unsubscribes.push(unsubCall);
 
@@ -354,6 +377,8 @@ export default function ConsultationRoomPage() {
                 }
               }
             });
+          }, async (err) => {
+            errorEmitter.emit('permission-error', new FirestorePermissionError({ operation: 'list', path: offerCandidates.path }));
           });
           unsubscribes.push(unsubRemoteCands);
         }
