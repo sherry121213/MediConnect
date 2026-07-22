@@ -7,7 +7,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, setDoc, onSnapshot, addDoc, query, orderBy, getDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, addDoc, query, orderBy } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, Clock, AlertTriangle, ClipboardCheck, CheckCircle2, RefreshCcw } from 'lucide-react';
@@ -36,7 +36,7 @@ const ICE_SERVERS = {
   iceServers: [
     { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
     { urls: ['stun:stun3.l.google.com:19302', 'stun:stun4.l.google.com:19302'] },
-    { urls: ['stun:global.stun.twilio.com:3478?transport=udp'] },
+    { urls: ['stun:global.stun.twilio.com:3478'] }, // Corrected: removed invalid ?transport=udp
   ],
   iceCandidatePoolSize: 10,
 };
@@ -168,16 +168,17 @@ export default function ConsultationRoomPage() {
         const peerConnection = new RTCPeerConnection(ICE_SERVERS);
         pc.current = peerConnection;
 
-        // Unified Remote Stream Setup
-        remoteStream.current = new MediaStream();
+        // Initialize persistent remote stream immediately
+        const rStream = new MediaStream();
+        remoteStream.current = rStream;
         if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = remoteStream.current;
+          remoteVideoRef.current.srcObject = rStream;
         }
 
         stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
         peerConnection.ontrack = (event) => {
-          console.log("Remote track received:", event.track.kind);
+          console.log("Remote track detected:", event.track.kind);
           event.streams[0].getTracks().forEach(track => {
             if (remoteStream.current && !remoteStream.current.getTrackById(track.id)) {
               remoteStream.current.addTrack(track);
@@ -185,18 +186,18 @@ export default function ConsultationRoomPage() {
           });
           
           if (remoteVideoRef.current) {
-            remoteVideoRef.current.play().catch(e => console.warn("Remote play interaction required", e));
+            remoteVideoRef.current.play().catch(e => console.warn("Remote auto-play blocked, interaction required", e));
           }
         };
 
         peerConnection.oniceconnectionstatechange = () => {
-          console.log("ICE State:", peerConnection.iceConnectionState);
+          console.log("ICE Connection State:", peerConnection.iceConnectionState);
           if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
             setIsPeerConnected(true);
-            setSignalingStatus("Secure Tunnel Established");
+            setSignalingStatus("Tunnel Secured");
             setConnectionError(null);
           } else if (peerConnection.iceConnectionState === 'failed') {
-            setConnectionError("Clinical Tunnel Fault. Please refresh the room.");
+            setConnectionError("Tunnel Fault: Handshake timed out.");
           } else if (peerConnection.iceConnectionState === 'disconnected') {
             setIsPeerConnected(false);
             setSignalingStatus("Signal Weak...");
@@ -214,7 +215,6 @@ export default function ConsultationRoomPage() {
           }
         };
 
-        // Candidate Application Helper
         const applyBufferedCandidates = async () => {
           if (!peerConnection.remoteDescription) return;
           while (candidateBuffer.current.length > 0) {
@@ -222,25 +222,24 @@ export default function ConsultationRoomPage() {
             try {
               await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
             } catch (e) {
-              console.error("Candidate apply failed:", e);
+              console.error("Candidate apply fault:", e);
             }
           }
         };
 
         if (isDoctor) {
-          setSignalingStatus("Syncing Protocol...");
+          setSignalingStatus("Synchronizing Protocol...");
           
-          // Doctor listens for Answer
+          // Attach listeners BEFORE creating offer
           unsubscribes.push(onSnapshot(callDoc, async (snap) => {
             const data = snap.data();
             if (data?.answer && !peerConnection.currentRemoteDescription) {
-              console.log("Applying Answer");
+              console.log("Applying Patient Answer");
               await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
               await applyBufferedCandidates();
             }
           }));
 
-          // Doctor listens for Patient candidates
           unsubscribes.push(onSnapshot(answerCandidates, (snap) => {
             snap.docChanges().forEach(async (change) => {
               if (change.type === 'added') {
@@ -254,7 +253,10 @@ export default function ConsultationRoomPage() {
             });
           }));
 
-          const offer = await peerConnection.createOffer();
+          const offer = await peerConnection.createOffer({
+            offerToReceiveAudio: true,
+            offerToReceiveVideo: !isAudioOnly
+          });
           await peerConnection.setLocalDescription(offer);
 
           await setDoc(callDoc, { 
@@ -264,13 +266,26 @@ export default function ConsultationRoomPage() {
           }, { merge: true });
 
         } else {
-          setSignalingStatus("Handshaking...");
+          setSignalingStatus("Establishing Handshake...");
           
-          // Patient listens for Offer
+          // Attach listeners BEFORE waiting for offer
+          unsubscribes.push(onSnapshot(offerCandidates, (snap) => {
+            snap.docChanges().forEach(async (change) => {
+              if (change.type === 'added') {
+                const data = change.doc.data();
+                if (peerConnection.remoteDescription) {
+                  await peerConnection.addIceCandidate(new RTCIceCandidate(data));
+                } else {
+                  candidateBuffer.current.push(data);
+                }
+              }
+            });
+          }));
+
           unsubscribes.push(onSnapshot(callDoc, async (snap) => {
             const data = snap.data();
             if (data?.offer && !peerConnection.currentRemoteDescription) {
-              console.log("Applying Offer");
+              console.log("Applying Doctor Offer");
               await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
               
               const answer = await peerConnection.createAnswer();
@@ -284,32 +299,18 @@ export default function ConsultationRoomPage() {
               await applyBufferedCandidates();
             }
           }));
-
-          // Patient listens for Doctor candidates
-          unsubscribes.push(onSnapshot(offerCandidates, (snap) => {
-            snap.docChanges().forEach(async (change) => {
-              if (change.type === 'added') {
-                const data = change.doc.data();
-                if (peerConnection.remoteDescription) {
-                  await peerConnection.addIceCandidate(new RTCIceCandidate(data));
-                } else {
-                  candidateBuffer.current.push(data);
-                }
-              }
-            });
-          }));
         }
 
-        // Timeout handler
+        // 60-second absolute timeout for establishing the tunnel
         setTimeout(() => {
           if (isMounted && !peerConnection.remoteDescription && !isPeerConnected) {
-            setConnectionError("Tunnel Timeout: Peer not detected. Ensure both users are active in the room.");
+            setConnectionError("Tunnel Timeout: Patient/Doctor not detected. Please ensure both are active.");
           }
         }, 60000);
 
       } catch (err: any) {
-        console.error("Signaling Error:", err);
-        setConnectionError("Hardware Error: " + (err.message || "Unknown failure"));
+        console.error("Hardware/Signaling Error:", err);
+        setConnectionError("Hardware or Tunnel Error: " + (err.message || "Unknown failure"));
       }
     };
 
