@@ -36,7 +36,7 @@ const ICE_SERVERS = {
   iceServers: [
     { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
     { urls: ['stun:stun3.l.google.com:19302', 'stun:stun4.l.google.com:19302'] },
-    { urls: ['stun:global.stun.twilio.com:3478'] }, // Corrected: removed invalid ?transport=udp
+    { urls: ['stun:global.stun.twilio.com:3478'] },
   ],
   iceCandidatePoolSize: 10,
 };
@@ -149,10 +149,24 @@ export default function ConsultationRoomPage() {
 
     const startCall = async () => {
       try {
-        setSignalingStatus("Requesting Camera...");
+        setSignalingStatus("Requesting Hardware...");
+        
+        /**
+         * CLINICAL AUDIO REINFORCEMENT
+         * Explicitly requesting echo cancellation and noise suppression
+         * for high-stakes medical consultations.
+         */
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: isAudioOnly ? false : { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
-          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+          video: isAudioOnly ? false : { 
+            facingMode: "user", 
+            width: { ideal: 1280 }, 
+            height: { ideal: 720 } 
+          },
+          audio: { 
+            echoCancellation: true, 
+            noiseSuppression: true, 
+            autoGainControl: true 
+          }
         });
 
         if (!isMounted) {
@@ -168,7 +182,6 @@ export default function ConsultationRoomPage() {
         const peerConnection = new RTCPeerConnection(ICE_SERVERS);
         pc.current = peerConnection;
 
-        // Initialize persistent remote stream immediately
         const rStream = new MediaStream();
         remoteStream.current = rStream;
         if (remoteVideoRef.current) {
@@ -186,12 +199,11 @@ export default function ConsultationRoomPage() {
           });
           
           if (remoteVideoRef.current) {
-            remoteVideoRef.current.play().catch(e => console.warn("Remote auto-play blocked, interaction required", e));
+            remoteVideoRef.current.play().catch(e => console.warn("Auto-play enforcement active", e));
           }
         };
 
         peerConnection.oniceconnectionstatechange = () => {
-          console.log("ICE Connection State:", peerConnection.iceConnectionState);
           if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
             setIsPeerConnected(true);
             setSignalingStatus("Tunnel Secured");
@@ -230,11 +242,9 @@ export default function ConsultationRoomPage() {
         if (isDoctor) {
           setSignalingStatus("Synchronizing Protocol...");
           
-          // Attach listeners BEFORE creating offer
           unsubscribes.push(onSnapshot(callDoc, async (snap) => {
             const data = snap.data();
             if (data?.answer && !peerConnection.currentRemoteDescription) {
-              console.log("Applying Patient Answer");
               await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
               await applyBufferedCandidates();
             }
@@ -268,7 +278,6 @@ export default function ConsultationRoomPage() {
         } else {
           setSignalingStatus("Establishing Handshake...");
           
-          // Attach listeners BEFORE waiting for offer
           unsubscribes.push(onSnapshot(offerCandidates, (snap) => {
             snap.docChanges().forEach(async (change) => {
               if (change.type === 'added') {
@@ -285,7 +294,6 @@ export default function ConsultationRoomPage() {
           unsubscribes.push(onSnapshot(callDoc, async (snap) => {
             const data = snap.data();
             if (data?.offer && !peerConnection.currentRemoteDescription) {
-              console.log("Applying Doctor Offer");
               await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
               
               const answer = await peerConnection.createAnswer();
@@ -301,16 +309,15 @@ export default function ConsultationRoomPage() {
           }));
         }
 
-        // 60-second absolute timeout for establishing the tunnel
         setTimeout(() => {
           if (isMounted && !peerConnection.remoteDescription && !isPeerConnected) {
-            setConnectionError("Tunnel Timeout: Patient/Doctor not detected. Please ensure both are active.");
+            setConnectionError("Tunnel Timeout: Handshake failed. Please re-initiate tunnel.");
           }
         }, 60000);
 
       } catch (err: any) {
         console.error("Hardware/Signaling Error:", err);
-        setConnectionError("Hardware or Tunnel Error: " + (err.message || "Unknown failure"));
+        setConnectionError("Hardware Error: " + (err.message || "Unknown failure"));
       }
     };
 
@@ -398,7 +405,7 @@ export default function ConsultationRoomPage() {
                     <AlertTriangle className="h-16 w-16 text-red-500 mx-auto" />
                     <h3 className="text-lg font-bold">Tunnel Error</h3>
                     <p className="text-xs text-slate-400 leading-relaxed italic">{connectionError}</p>
-                    <Button onClick={() => window.location.reload()} variant="outline" className="rounded-xl border-white/20 hover:bg-white/10 gap-2">
+                    <Button onClick={() => window.location.reload()} variant="outline" className="rounded-xl border-white/20 hover:bg-white/10 gap-2 text-white">
                         <RefreshCcw className="h-4 w-4" /> Re-initiate Tunnel
                     </Button>
                 </div>
