@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, setDoc, onSnapshot, addDoc, deleteDoc, getDocs, query, orderBy } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, addDoc, query, orderBy } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, Clock, AlertTriangle, ClipboardCheck, CheckCircle2, Calendar } from 'lucide-react';
@@ -71,8 +70,6 @@ export default function ConsultationRoomPage() {
   
   const pc = useRef<RTCPeerConnection | null>(null);
   const remoteStream = useRef<MediaStream | null>(null);
-  const isRemoteDescriptionSet = useRef(false);
-  const bufferedCandidates = useRef<any[]>([]);
 
   const appointmentDocRef = useMemoFirebase(() => {
     if (!firestore || !appointmentId) return null;
@@ -212,11 +209,11 @@ export default function ConsultationRoomPage() {
   useEffect(() => {
     if (localVideoRef.current && activeStream) {
       localVideoRef.current.srcObject = activeStream;
-      localVideoRef.current.play().catch(console.warn);
+      localVideoRef.current.play().catch(err => console.warn("Local play error:", err));
     }
   }, [activeStream]);
 
-  // WebRTC Signaling Engine
+  // WebRTC Signaling Engine - Robust implementation
   useEffect(() => {
     if (!firestore || !appointmentId || !user || !activeStream || !userData || isExpired || isCompleted) return;
 
@@ -228,12 +225,13 @@ export default function ConsultationRoomPage() {
         if (pc.current) pc.current.close();
         pc.current = new RTCPeerConnection(servers);
         
+        // Setup remote stream object early
         remoteStream.current = new MediaStream();
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = remoteStream.current;
         }
 
-        // Add local tracks
+        // Add local tracks BEFORE creating offer
         activeStream.getTracks().forEach(track => {
           pc.current?.addTrack(track, activeStream);
         });
@@ -243,36 +241,30 @@ export default function ConsultationRoomPage() {
           if (!isEffectActive) return;
           console.log("Remote track received:", event.track.kind);
           
-          if (event.streams && event.streams[0]) {
-            event.streams[0].getTracks().forEach(track => {
-                remoteStream.current?.addTrack(track);
-            });
-          } else {
-            remoteStream.current?.addTrack(event.track);
-          }
+          event.streams[0].getTracks().forEach(track => {
+            if (remoteStream.current && !remoteStream.current.getTracks().includes(track)) {
+              remoteStream.current.addTrack(track);
+            }
+          });
 
           setIsPeerConnected(true);
           setSignalingStatus("Tunnel Active");
           
           if (remoteVideoRef.current) {
-            remoteVideoRef.current.play().catch(err => console.warn("Remote play error:", err));
+            remoteVideoRef.current.play().catch(err => {
+              console.warn("Remote play attempt failed (expected for audio-only):", err);
+            });
           }
         };
 
         pc.current.oniceconnectionstatechange = () => {
           if (!isEffectActive) return;
           const state = pc.current?.iceConnectionState;
-          console.log("ICE Connection State:", state);
-          
           if (state === 'connected' || state === 'completed') {
             setIsPeerConnected(true);
             setSignalingStatus("Tunnel Active");
-          } else if (state === 'disconnected') {
-            // Don't immediately drop, could be temporary
+          } else if (state === 'disconnected' || state === 'failed') {
             setSignalingStatus("Connection Fragile");
-          } else if (state === 'failed' || state === 'closed') {
-            setIsPeerConnected(false);
-            setSignalingStatus("Connection Lost");
           }
         };
 
@@ -304,14 +296,6 @@ export default function ConsultationRoomPage() {
             if (data?.answer && !pc.current?.currentRemoteDescription) {
               const answerDesc = new RTCSessionDescription(data.answer);
               await pc.current?.setRemoteDescription(answerDesc);
-              isRemoteDescriptionSet.current = true;
-              console.log("Doctor: Remote description set (Answer)");
-              
-              // Apply buffered candidates
-              while (bufferedCandidates.current.length > 0) {
-                const cand = bufferedCandidates.current.shift();
-                await pc.current?.addIceCandidate(new RTCIceCandidate(cand));
-              }
             }
           });
           unsubscribes.push(unsubCall);
@@ -319,13 +303,11 @@ export default function ConsultationRoomPage() {
           // Listen for Patient Candidates
           const unsubRemoteCands = onSnapshot(answerCandidates, (snap) => {
             snap.docChanges().forEach(async (change) => {
-              if (change.type === 'added') {
+              if (change.type === 'added' && pc.current?.remoteDescription) {
                 const data = change.doc.data();
-                if (isRemoteDescriptionSet.current) {
+                try {
                   await pc.current?.addIceCandidate(new RTCIceCandidate(data));
-                } else {
-                  bufferedCandidates.current.push(data);
-                }
+                } catch (e) { console.error("Error adding answer candidate", e); }
               }
             });
           });
@@ -338,8 +320,6 @@ export default function ConsultationRoomPage() {
             if (data?.offer && !pc.current?.currentRemoteDescription) {
               const offerDesc = new RTCSessionDescription(data.offer);
               await pc.current?.setRemoteDescription(offerDesc);
-              isRemoteDescriptionSet.current = true;
-              console.log("Patient: Remote description set (Offer)");
 
               const answer = await pc.current?.createAnswer();
               if (answer) {
@@ -349,12 +329,6 @@ export default function ConsultationRoomPage() {
                   patientId: user.uid 
                 }, { merge: true });
               }
-
-              // Apply buffered candidates
-              while (bufferedCandidates.current.length > 0) {
-                const cand = bufferedCandidates.current.shift();
-                await pc.current?.addIceCandidate(new RTCIceCandidate(cand));
-              }
             }
           });
           unsubscribes.push(unsubCall);
@@ -362,13 +336,11 @@ export default function ConsultationRoomPage() {
           // Listen for Doctor Candidates
           const unsubRemoteCands = onSnapshot(offerCandidates, (snap) => {
             snap.docChanges().forEach(async (change) => {
-              if (change.type === 'added') {
+              if (change.type === 'added' && pc.current?.remoteDescription) {
                 const data = change.doc.data();
-                if (isRemoteDescriptionSet.current) {
+                try {
                   await pc.current?.addIceCandidate(new RTCIceCandidate(data));
-                } else {
-                  bufferedCandidates.current.push(data);
-                }
+                } catch (e) { console.error("Error adding offer candidate", e); }
               }
             });
           });
@@ -445,17 +417,17 @@ export default function ConsultationRoomPage() {
 
   return (
     <div className="flex flex-col h-[100dvh] max-h-[100dvh] bg-slate-950 overflow-hidden text-white overscroll-none fixed inset-0 w-screen">
-      <header className="shrink-0 h-16 p-4 border-b border-white/10 bg-slate-900/60 backdrop-blur-xl flex items-center justify-between z-50">
+      <header className="shrink-0 h-16 p-4 bg-primary border-b border-white/10 flex items-center justify-between z-50 shadow-lg">
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-full bg-primary/20 flex items-center justify-center">
-              <ShieldCheck className="text-primary h-4 w-4" />
+            <div className="h-8 w-8 rounded-full bg-white/20 flex items-center justify-center">
+              <ShieldCheck className="text-white h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <h1 className="font-bold text-[10px] uppercase truncate">Precision Clinical Room</h1>
+              <h1 className="font-bold text-[10px] uppercase truncate text-white">Precision Clinical Room</h1>
               <div className="flex items-center gap-2">
-                <p className="text-[8px] text-slate-400 font-bold uppercase tracking-widest truncate">{isAudioOnly ? 'Secure Voice Link' : 'Secure Video Link'}</p>
-                <div className="h-1 w-1 rounded-full bg-slate-700" />
-                <p className="text-[8px] text-primary font-bold uppercase tracking-widest flex items-center gap-1">
+                <p className="text-[8px] text-white/70 font-bold uppercase tracking-widest truncate">{isAudioOnly ? 'Secure Voice Link' : 'Secure Video Link'}</p>
+                <div className="h-1 w-1 rounded-full bg-white/30" />
+                <p className="text-[8px] text-white font-bold uppercase tracking-widest flex items-center gap-1">
                     <Calendar className="h-2 w-2" /> {scheduledTime}
                 </p>
               </div>
@@ -463,12 +435,12 @@ export default function ConsultationRoomPage() {
           </div>
           <div className="flex items-center gap-2">
             {!isCompleted && (
-                <div className="bg-slate-800/80 px-3 py-1 rounded-full border border-white/10 flex items-center gap-2 shrink-0">
-                    <Clock className="h-3 w-3 text-primary" />
-                    <span className={cn("font-mono text-xs font-bold", parseInt(timeRemaining.split(':')[0]) < 5 ? "text-red-500 animate-pulse" : "text-white")}>{timeRemaining}</span>
+                <div className="bg-white/10 px-3 py-1 rounded-full border border-white/20 flex items-center gap-2 shrink-0">
+                    <Clock className="h-3 w-3 text-white" />
+                    <span className={cn("font-mono text-xs font-bold text-white", parseInt(timeRemaining.split(':')[0]) < 5 && "animate-pulse")}>{timeRemaining}</span>
                 </div>
             )}
-            <Badge variant="outline" className={cn("px-2 py-0.5 text-[8px] font-bold shrink-0", isCompleted ? "bg-green-50/10 text-green-400" : "bg-red-50/10 text-red-400")}>
+            <Badge variant="outline" className={cn("px-2 py-0.5 text-[8px] font-bold shrink-0 border-white/20", isCompleted ? "bg-white/20 text-white" : "bg-white/10 text-white")}>
               {isCompleted ? "ARCHIVED" : "LIVE"}
             </Badge>
           </div>
@@ -480,12 +452,12 @@ export default function ConsultationRoomPage() {
             {isExpired && !isCompleted ? (
               <div className="text-center p-6 space-y-4 animate-in fade-in">
                   <AlertTriangle className="h-12 w-12 text-red-500 mx-auto" />
-                  <p className="font-bold uppercase text-xs">Consultation Window Concluded</p>
+                  <p className="font-bold uppercase text-xs text-white">Consultation Window Concluded</p>
               </div>
             ) : isCompleted ? (
               <div className="text-center p-6 space-y-4 animate-in zoom-in-95">
                   <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
-                  <p className="font-bold uppercase text-xs">Clinical Record Secured</p>
+                  <p className="font-bold uppercase text-xs text-white">Clinical Record Secured</p>
               </div>
             ) : (
               <>
@@ -515,7 +487,7 @@ export default function ConsultationRoomPage() {
                             <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping z-0" />
                         </div>
                         <div className="text-center space-y-2">
-                            <p className="text-xl font-bold tracking-tight">{peer ? `Dr. ${peer.firstName} ${peer.lastName}` : 'Awaiting Connection...'}</p>
+                            <p className="text-xl font-bold tracking-tight text-white">{peer ? `Dr. ${peer.firstName} ${peer.lastName}` : 'Awaiting Connection...'}</p>
                             <div className="flex items-center justify-center gap-2">
                                 <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
                                 <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Voice Link Established</p>
@@ -527,7 +499,7 @@ export default function ConsultationRoomPage() {
             )}
 
             {!isAudioOnly && !isCompleted && (
-              <div className="absolute top-4 right-4 w-28 sm:w-44 aspect-video rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900 z-[100] shadow-black/50">
+              <div className="absolute top-4 right-4 w-28 sm:w-44 aspect-video rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900 z-[100]">
                   <video 
                     ref={localVideoRef} 
                     className={cn("w-full h-full object-cover -scale-x-100", isVideoOff && "hidden")} 
