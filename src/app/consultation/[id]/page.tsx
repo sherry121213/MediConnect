@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -70,6 +71,7 @@ export default function ConsultationRoomPage() {
   
   const pc = useRef<RTCPeerConnection | null>(null);
   const remoteStream = useRef<MediaStream | null>(null);
+  const candidatesQueue = useRef<any[]>([]);
 
   const appointmentDocRef = useMemoFirebase(() => {
     if (!firestore || !appointmentId) return null;
@@ -213,7 +215,7 @@ export default function ConsultationRoomPage() {
     }
   }, [activeStream]);
 
-  // WebRTC Signaling Engine - Robust implementation
+  // WebRTC Signaling Engine - Overhauled for reliability
   useEffect(() => {
     if (!firestore || !appointmentId || !user || !activeStream || !userData || isExpired || isCompleted) return;
 
@@ -222,25 +224,25 @@ export default function ConsultationRoomPage() {
 
     const initializeConnection = async () => {
       try {
-        if (pc.current) pc.current.close();
+        if (pc.current) {
+          pc.current.close();
+        }
         pc.current = new RTCPeerConnection(servers);
         
-        // Setup remote stream object early
+        // Prepare Remote Stream object
         remoteStream.current = new MediaStream();
         if (remoteVideoRef.current) {
           remoteVideoRef.current.srcObject = remoteStream.current;
         }
 
-        // Add local tracks BEFORE creating offer
+        // Add local tracks
         activeStream.getTracks().forEach(track => {
           pc.current?.addTrack(track, activeStream);
         });
 
-        // Handle incoming tracks
+        // Incoming Track Listener
         pc.current.ontrack = (event) => {
           if (!isEffectActive) return;
-          console.log("Remote track received:", event.track.kind);
-          
           event.streams[0].getTracks().forEach(track => {
             if (remoteStream.current && !remoteStream.current.getTracks().includes(track)) {
               remoteStream.current.addTrack(track);
@@ -252,7 +254,7 @@ export default function ConsultationRoomPage() {
           
           if (remoteVideoRef.current) {
             remoteVideoRef.current.play().catch(err => {
-              console.warn("Remote play attempt failed (expected for audio-only):", err);
+              console.warn("Remote play attempt caught:", err);
             });
           }
         };
@@ -263,7 +265,7 @@ export default function ConsultationRoomPage() {
           if (state === 'connected' || state === 'completed') {
             setIsPeerConnected(true);
             setSignalingStatus("Tunnel Active");
-          } else if (state === 'disconnected' || state === 'failed') {
+          } else if (state === 'failed' || state === 'disconnected') {
             setSignalingStatus("Connection Fragile");
           }
         };
@@ -279,8 +281,20 @@ export default function ConsultationRoomPage() {
           }
         };
 
+        // CANDIDATE PROCESSING UTILITY
+        const processCandidateQueue = async () => {
+          while (candidatesQueue.current.length > 0) {
+            const candidate = candidatesQueue.current.shift();
+            try {
+              await pc.current?.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (e) {
+              console.error("Queue process error:", e);
+            }
+          }
+        };
+
         if (isDoctor) {
-          // Doctor Role: Create Offer
+          // DOCTOR (OFFEROR)
           const offer = await pc.current.createOffer();
           await pc.current.setLocalDescription(offer);
           
@@ -296,25 +310,28 @@ export default function ConsultationRoomPage() {
             if (data?.answer && !pc.current?.currentRemoteDescription) {
               const answerDesc = new RTCSessionDescription(data.answer);
               await pc.current?.setRemoteDescription(answerDesc);
+              await processCandidateQueue();
             }
           });
           unsubscribes.push(unsubCall);
 
-          // Listen for Patient Candidates
+          // Listen for Remote Candidates (Patient)
           const unsubRemoteCands = onSnapshot(answerCandidates, (snap) => {
             snap.docChanges().forEach(async (change) => {
-              if (change.type === 'added' && pc.current?.remoteDescription) {
+              if (change.type === 'added' && isEffectActive) {
                 const data = change.doc.data();
-                try {
-                  await pc.current?.addIceCandidate(new RTCIceCandidate(data));
-                } catch (e) { console.error("Error adding answer candidate", e); }
+                if (pc.current?.remoteDescription) {
+                  await pc.current.addIceCandidate(new RTCIceCandidate(data));
+                } else {
+                  candidatesQueue.current.push(data);
+                }
               }
             });
           });
           unsubscribes.push(unsubRemoteCands);
 
         } else {
-          // Patient Role: Listen for Offer
+          // PATIENT (ANSWERER)
           const unsubCall = onSnapshot(callDoc, async (snap) => {
             const data = snap.data();
             if (data?.offer && !pc.current?.currentRemoteDescription) {
@@ -328,19 +345,22 @@ export default function ConsultationRoomPage() {
                   answer: { type: answer.type, sdp: answer.sdp },
                   patientId: user.uid 
                 }, { merge: true });
+                await processCandidateQueue();
               }
             }
           });
           unsubscribes.push(unsubCall);
 
-          // Listen for Doctor Candidates
+          // Listen for Remote Candidates (Doctor)
           const unsubRemoteCands = onSnapshot(offerCandidates, (snap) => {
             snap.docChanges().forEach(async (change) => {
-              if (change.type === 'added' && pc.current?.remoteDescription) {
+              if (change.type === 'added' && isEffectActive) {
                 const data = change.doc.data();
-                try {
-                  await pc.current?.addIceCandidate(new RTCIceCandidate(data));
-                } catch (e) { console.error("Error adding offer candidate", e); }
+                if (pc.current?.remoteDescription) {
+                  await pc.current.addIceCandidate(new RTCIceCandidate(data));
+                } else {
+                  candidatesQueue.current.push(data);
+                }
               }
             });
           });
@@ -348,7 +368,7 @@ export default function ConsultationRoomPage() {
         }
 
       } catch (err) {
-        console.error("Signaling Tunnel Failure:", err);
+        console.error("Critical Signaling Error:", err);
       }
     };
 
