@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, Zap, BellRing, UserCheck, AlertCircle, PlayCircle, LogIn, CheckCircle2, User } from "lucide-react";
+import { Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, Zap, BellRing, UserCheck, AlertCircle, PlayCircle, LogIn, CheckCircle2, User, FileText } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -196,14 +196,34 @@ export default function DoctorPortalPage() {
                                     <Avatar className="h-12 w-12"><AvatarFallback className="bg-primary/10 text-primary font-bold">{patientsMap.get(selectedApt?.patientId || '')?.firstName?.[0]}</AvatarFallback></Avatar>
                                     <div><p className="font-bold text-lg">{patientsMap.get(selectedApt?.patientId || '')?.firstName} {patientsMap.get(selectedApt?.patientId || '')?.lastName}</p><p className="text-[10px] uppercase font-bold text-muted-foreground">Patient Identity Verified</p></div>
                                 </div>
-                                <div className={cn("p-4 rounded-2xl flex items-center gap-3 border-2 transition-all", selectedApt?.patientCheckedIn ? "bg-green-50 border-green-200 text-green-800" : "bg-amber-50 border-amber-200 text-amber-800")}>
-                                    {selectedApt?.patientCheckedIn ? <UserCheck className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
-                                    <div className="space-y-1"><p className="text-[10px] font-bold uppercase">{selectedApt?.patientCheckedIn ? "Presence Confirmed" : "Patient Not Arrived"}</p><p className="text-[9px] leading-tight">Gated entry: Start is only enabled once the patient completes their digital check-in.</p></div>
-                                </div>
-                                <Button className="w-full h-16 rounded-2xl font-bold text-lg shadow-xl shadow-primary/20" disabled={!selectedApt?.patientCheckedIn} onClick={() => selectedApt && handleStartSession(selectedApt)}>
-                                    {selectedApt?.patientCheckedIn ? <><Video className="mr-3 h-6 w-6" /> Start Consultation</> : "Waiting for Check-in..."}
-                                </Button>
-                                {!selectedApt?.patientCheckedIn && <Button variant="ghost" className="w-full text-[10px] uppercase font-bold text-muted-foreground hover:text-primary h-10" onClick={() => selectedApt && window.location.assign(`/consultation/${selectedApt.id}`)}><LogIn className="mr-2 h-3.5 w-3.5" /> Emergency Bypass</Button>}
+
+                                {selectedApt?.status === 'completed' ? (
+                                    <div className="p-8 bg-green-50 border-2 border-green-100 rounded-3xl flex flex-col items-center text-center space-y-4 animate-in fade-in zoom-in-95 duration-500">
+                                        <div className="h-14 w-14 rounded-full bg-green-100 flex items-center justify-center">
+                                            <CheckCircle2 className="h-8 w-8 text-green-600" />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <p className="font-bold text-green-800 text-lg">Consultation Completed</p>
+                                            <p className="text-[10px] text-green-600 uppercase font-bold tracking-widest">Medical Record Finalized</p>
+                                        </div>
+                                        <Button variant="outline" className="w-full rounded-xl border-2 h-12 font-bold bg-white text-green-700 shadow-sm" asChild>
+                                            <Link href={`/appointments/${selectedApt.id}`}>
+                                                <FileText className="mr-2 h-5 w-5" /> View Clinical Summary
+                                            </Link>
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <div className={cn("p-4 rounded-2xl flex items-center gap-3 border-2 transition-all", selectedApt?.patientCheckedIn ? "bg-green-50 border-green-200 text-green-800" : "bg-amber-50 border-amber-200 text-amber-800")}>
+                                            {selectedApt?.patientCheckedIn ? <UserCheck className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
+                                            <div className="space-y-1"><p className="text-[10px] font-bold uppercase">{selectedApt?.patientCheckedIn ? "Presence Confirmed" : "Patient Not Arrived"}</p><p className="text-[9px] leading-tight">Gated entry: Start is only enabled once the patient completes their digital check-in.</p></div>
+                                        </div>
+                                        <Button className="w-full h-16 rounded-2xl font-bold text-lg shadow-xl shadow-primary/20" disabled={!selectedApt?.patientCheckedIn} onClick={() => selectedApt && handleStartSession(selectedApt)}>
+                                            {selectedApt?.patientCheckedIn ? <><Video className="mr-3 h-6 w-6" /> Start Consultation</> : "Waiting for Check-in..."}
+                                        </Button>
+                                        {!selectedApt?.patientCheckedIn && <Button variant="ghost" className="w-full text-[10px] uppercase font-bold text-muted-foreground hover:text-primary h-10" onClick={() => selectedApt && window.location.assign(`/consultation/${selectedApt.id}`)}><LogIn className="mr-2 h-3.5 w-3.5" /> Emergency Bypass</Button>}
+                                    </>
+                                )}
                             </div>
                         </DialogPrimitive.Content>
                     </DialogPrimitive.Portal>
