@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, setDoc, onSnapshot, addDoc, deleteDoc, getDocs } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, addDoc, deleteDoc, getDocs, query, orderBy } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, Clock, AlertTriangle, ClipboardCheck, CheckCircle2, Calendar } from 'lucide-react';
@@ -51,7 +51,6 @@ export default function ConsultationRoomPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
 
-  const [hasCameraPermission, setHasCameraPermission] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [newMessage, setNewMessage] = useState('');
@@ -68,9 +67,11 @@ export default function ConsultationRoomPage() {
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  
   const pc = useRef<RTCPeerConnection | null>(null);
-  const candidateQueue = useRef<any[]>([]);
+  const remoteStream = useRef<MediaStream | null>(null);
   const isRemoteDescriptionSet = useRef(false);
+  const bufferedCandidates = useRef<any[]>([]);
 
   const appointmentDocRef = useMemoFirebase(() => {
     if (!firestore || !appointmentId) return null;
@@ -92,14 +93,15 @@ export default function ConsultationRoomPage() {
   });
 
   useEffect(() => {
-      if (appointment) {
-          form.reset({
-              diagnosis: appointment.diagnosis || '',
-              prescription: appointment.prescription || '',
-          });
-      }
+    if (appointment) {
+      form.reset({
+        diagnosis: appointment.diagnosis || '',
+        prescription: appointment.prescription || '',
+      });
+    }
   }, [appointment?.id, form]);
 
+  // Session Timer
   useEffect(() => {
     if (!appointment?.appointmentDateTime || isCompleted) return;
 
@@ -138,7 +140,7 @@ export default function ConsultationRoomPage() {
         updatedAt: new Date().toISOString()
     });
     setShowExtensionDialog(false);
-    toast({ title: "Session Extended", description: "Window increased by 10 minutes." });
+    toast({ title: "Session Extended" });
   };
 
   const handleAutoExpire = () => {
@@ -153,15 +155,17 @@ export default function ConsultationRoomPage() {
         });
     }
 
-    toast({ variant: "destructive", title: "Window Concluded", description: "Record finalization required." });
+    toast({ variant: "destructive", title: "Window Concluded", description: "Finalizing clinical record..." });
     setTimeout(() => {
         router.push(isDoctor ? '/doctor-portal' : '/patient-portal');
     }, 3000);
   };
 
+  // Hardware Acquisition
   useEffect(() => {
-    if (!appointmentId) return;
+    if (!appointmentId || isCompleted) return;
     let isMounted = true;
+    
     const acquireMedia = async () => {
       try {
         const constraints = { 
@@ -184,70 +188,74 @@ export default function ConsultationRoomPage() {
         }
         
         setActiveStream(stream);
-        setHasCameraPermission(true);
         setSignalingStatus("Hardware Ready");
         if (isAudioOnly) setIsVideoOff(true);
       } catch (err) {
         console.error("Hardware Entry Error:", err);
         if (isMounted) {
             setSignalingStatus("Hardware Blocked");
-            toast({ variant: "destructive", title: "Hardware Required", description: "Ensure camera/mic permissions are enabled." });
+            toast({ variant: "destructive", title: "Permission Required", description: "Camera and Microphone access are needed for the clinical room." });
         }
       }
     };
+    
     acquireMedia();
+    
     return () => {
       isMounted = false;
       activeStream?.getTracks().forEach(t => t.stop());
     };
-  }, [appointmentId, isAudioOnly]);
+  }, [appointmentId, isAudioOnly, isCompleted]);
 
+  // Bind local stream
   useEffect(() => {
-    if (localVideoRef.current && activeStream && !isVideoOff) {
-        localVideoRef.current.srcObject = activeStream;
-        localVideoRef.current.play().catch(e => console.warn("Local auto-play issue:", e));
+    if (localVideoRef.current && activeStream) {
+      localVideoRef.current.srcObject = activeStream;
+      localVideoRef.current.play().catch(console.warn);
     }
-  }, [activeStream, isVideoOff]);
+  }, [activeStream]);
 
+  // WebRTC Signaling Engine
   useEffect(() => {
     if (!firestore || !appointmentId || !user || !activeStream || !userData || isExpired || isCompleted) return;
 
     let isEffectActive = true;
-    const unsubs: (() => void)[] = [];
+    const unsubscribes: (() => void)[] = [];
 
-    const setupSignaling = async () => {
+    const initializeConnection = async () => {
       try {
-        if (pc.current) {
-            pc.current.close();
-        }
-        
+        if (pc.current) pc.current.close();
         pc.current = new RTCPeerConnection(servers);
-        isRemoteDescriptionSet.current = false;
-        candidateQueue.current = [];
+        
+        remoteStream.current = new MediaStream();
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = remoteStream.current;
+        }
 
-        activeStream.getTracks().forEach((track) => {
-          pc.current!.addTrack(track, activeStream);
+        // Add local tracks
+        activeStream.getTracks().forEach(track => {
+          pc.current?.addTrack(track, activeStream);
         });
 
+        // Handle incoming tracks
         pc.current.ontrack = (event) => {
-          if (!isEffectActive || !remoteVideoRef.current) return;
-          
-          let remoteStream = event.streams[0];
-          if (!remoteStream) {
-            remoteStream = new MediaStream([event.track]);
-          }
-          
-          remoteVideoRef.current.srcObject = remoteStream;
+          if (!isEffectActive) return;
+          event.streams[0].getTracks().forEach(track => {
+            remoteStream.current?.addTrack(track);
+          });
           setIsPeerConnected(true);
-          setSignalingStatus("Live Connection");
-          remoteVideoRef.current.play().catch(e => console.warn("Remote auto-play issue:", e));
+          setSignalingStatus("Tunnel Active");
+          if (remoteVideoRef.current) {
+            remoteVideoRef.current.play().catch(console.warn);
+          }
         };
 
         pc.current.oniceconnectionstatechange = () => {
-           if (pc.current?.iceConnectionState === 'disconnected') {
-               setSignalingStatus("Connection Lost");
-               setIsPeerConnected(false);
-           }
+          if (!isEffectActive) return;
+          if (pc.current?.iceConnectionState === 'disconnected') {
+            setIsPeerConnected(false);
+            setSignalingStatus("Connection Lost");
+          }
         };
 
         const callDoc = doc(firestore, 'calls', appointmentId);
@@ -256,110 +264,117 @@ export default function ConsultationRoomPage() {
 
         pc.current.onicecandidate = (event) => {
           if (event.candidate && isEffectActive) {
-            const candidatesRef = isDoctor ? offerCandidates : answerCandidates;
-            addDoc(candidatesRef, event.candidate.toJSON());
+            const col = isDoctor ? offerCandidates : answerCandidates;
+            addDoc(col, event.candidate.toJSON());
           }
         };
 
         if (isDoctor) {
-          const offerDescription = await pc.current.createOffer();
-          await pc.current.setLocalDescription(offerDescription);
+          // Doctor Role: Create Offer
+          const offer = await pc.current.createOffer();
+          await pc.current.setLocalDescription(offer);
           
           await setDoc(callDoc, { 
-            offer: { sdp: offerDescription.sdp, type: offerDescription.type },
+            offer: { sdp: offer.sdp, type: offer.type },
             doctorId: user.uid,
-            lastOfferAt: new Date().toISOString()
+            updatedAt: new Date().toISOString()
           }, { merge: true });
 
-          const unsubCall = onSnapshot(callDoc, async (snapshot) => {
-            const data = snapshot.data();
-            if (pc.current && !pc.current.currentRemoteDescription && data?.answer) {
+          // Listen for Answer
+          const unsubCall = onSnapshot(callDoc, async (snap) => {
+            const data = snap.data();
+            if (data?.answer && !pc.current?.currentRemoteDescription) {
               const answerDesc = new RTCSessionDescription(data.answer);
-              await pc.current.setRemoteDescription(answerDesc);
+              await pc.current?.setRemoteDescription(answerDesc);
               isRemoteDescriptionSet.current = true;
-              while (candidateQueue.current.length > 0) {
-                const cand = candidateQueue.current.shift();
-                await pc.current.addIceCandidate(new RTCIceCandidate(cand)).catch(e => console.warn("ICE error:", e));
+              while (bufferedCandidates.current.length > 0) {
+                const cand = bufferedCandidates.current.shift();
+                await pc.current?.addIceCandidate(new RTCIceCandidate(cand));
               }
             }
           });
-          unsubs.push(unsubCall);
+          unsubscribes.push(unsubCall);
 
-          const unsubAnswers = onSnapshot(answerCandidates, (snapshot) => {
-            snapshot.docChanges().forEach(async (change) => {
-              if (change.type === 'added' && pc.current && isEffectActive) {
+          // Listen for Patient Candidates
+          const unsubRemoteCands = onSnapshot(answerCandidates, (snap) => {
+            snap.docChanges().forEach(async (change) => {
+              if (change.type === 'added') {
                 const data = change.doc.data();
                 if (isRemoteDescriptionSet.current) {
-                    await pc.current.addIceCandidate(new RTCIceCandidate(data)).catch(e => console.warn("ICE error:", e));
+                  await pc.current?.addIceCandidate(new RTCIceCandidate(data));
                 } else {
-                    candidateQueue.current.push(data);
+                  bufferedCandidates.current.push(data);
                 }
               }
             });
           });
-          unsubs.push(unsubAnswers);
-          
+          unsubscribes.push(unsubRemoteCands);
+
         } else {
-          const unsubCall = onSnapshot(callDoc, async (snapshot) => {
-            const data = snapshot.data();
-            if (pc.current && !pc.current.currentRemoteDescription && data?.offer) {
+          // Patient Role: Listen for Offer
+          const unsubCall = onSnapshot(callDoc, async (snap) => {
+            const data = snap.data();
+            if (data?.offer && !pc.current?.currentRemoteDescription) {
               const offerDesc = new RTCSessionDescription(data.offer);
-              await pc.current.setRemoteDescription(offerDesc);
+              await pc.current?.setRemoteDescription(offerDesc);
               isRemoteDescriptionSet.current = true;
-              
-              const answer = await pc.current.createAnswer();
-              await pc.current.setLocalDescription(answer);
-              await setDoc(callDoc, { answer: { type: answer.type, sdp: answer.sdp }, patientId: user.uid }, { merge: true });
-              
-              while (candidateQueue.current.length > 0) {
-                const cand = candidateQueue.current.shift();
-                await pc.current.addIceCandidate(new RTCIceCandidate(cand)).catch(e => console.warn("ICE error:", e));
+
+              const answer = await pc.current?.createAnswer();
+              if (answer) {
+                await pc.current?.setLocalDescription(answer);
+                await setDoc(callDoc, { 
+                  answer: { type: answer.type, sdp: answer.sdp },
+                  patientId: user.uid 
+                }, { merge: true });
+              }
+
+              while (bufferedCandidates.current.length > 0) {
+                const cand = bufferedCandidates.current.shift();
+                await pc.current?.addIceCandidate(new RTCIceCandidate(cand));
               }
             }
           });
-          unsubs.push(unsubCall);
+          unsubscribes.push(unsubCall);
 
-          const unsubOffers = onSnapshot(offerCandidates, (snapshot) => {
-            snapshot.docChanges().forEach(async (change) => {
-              if (change.type === 'added' && pc.current && isEffectActive) {
+          // Listen for Doctor Candidates
+          const unsubRemoteCands = onSnapshot(offerCandidates, (snap) => {
+            snap.docChanges().forEach(async (change) => {
+              if (change.type === 'added') {
                 const data = change.doc.data();
                 if (isRemoteDescriptionSet.current) {
-                    await pc.current.addIceCandidate(new RTCIceCandidate(data)).catch(e => console.warn("ICE error:", e));
+                  await pc.current?.addIceCandidate(new RTCIceCandidate(data));
                 } else {
-                    candidateQueue.current.push(data);
+                  bufferedCandidates.current.push(data);
                 }
               }
             });
           });
-          unsubs.push(unsubOffers);
+          unsubscribes.push(unsubRemoteCands);
         }
-      } catch (e) { 
-          console.error("Signaling Tunnel Failure:", e); 
+
+      } catch (err) {
+        console.error("Signaling Tunnel Failure:", err);
       }
     };
 
-    setupSignaling();
+    initializeConnection();
 
     return () => {
       isEffectActive = false;
-      unsubs.forEach(unsub => unsub());
-      if (pc.current) { 
-          pc.current.close(); 
-          pc.current = null; 
+      unsubscribes.forEach(u => u());
+      if (pc.current) {
+        pc.current.close();
+        pc.current = null;
       }
     };
   }, [firestore, appointmentId, user?.uid, !!activeStream, isDoctor, isExpired, isCompleted]);
 
   const messagesQuery = useMemoFirebase(() => {
     if (!firestore || !appointmentId) return null;
-    return collection(firestore, 'consultationSessions', appointmentId, 'messages');
+    return query(collection(firestore, 'consultationSessions', appointmentId, 'messages'), orderBy('timestamp', 'asc'));
   }, [firestore, appointmentId]);
 
-  const { data: messagesData } = useCollection<any>(messagesQuery);
-  const messages = useMemo(() => {
-    if (!messagesData) return [];
-    return [...messagesData].sort((a, b) => (new Date(a.timestamp || 0).getTime() - new Date(b.timestamp || 0).getTime()));
-  }, [messagesData]);
+  const { data: messages } = useCollection<any>(messagesQuery);
 
   useEffect(() => { chatScrollRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
@@ -382,12 +397,12 @@ export default function ConsultationRoomPage() {
         ...values, status: 'completed', updatedAt: new Date().toISOString(), doctorInRoom: false, readyToStart: false 
     });
     toast({ title: "Clinical Record Finalized" });
-    setTimeout(() => router.push(isDoctor ? '/doctor-portal' : '/patient-portal'), 2000);
+    setTimeout(() => router.push(isDoctor ? '/doctor-portal' : '/patient-portal'), 1500);
   };
 
   const handleEndSession = () => {
     if (isDoctor && !isCompleted) {
-        toast({ title: "Clinical Note Required", description: "Please finalize the diagnosis before leaving." });
+        toast({ title: "Clinical Note Required", description: "Please finalize the diagnosis record before ending the session." });
         return;
     }
     setIsEnding(true);
@@ -533,21 +548,21 @@ export default function ConsultationRoomPage() {
             
             <TabsContent value="chat" className="flex-1 flex flex-col m-0 min-h-0 overflow-hidden">
                 <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar overscroll-contain">
-                    {messages.map((msg: any) => {
+                    {messages?.map((msg: any) => {
                         const isMe = msg.senderId === user?.uid;
                         return (
                             <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
                                 <div className={cn("max-w-[85%] p-3 rounded-2xl text-xs shadow-lg", isMe ? "bg-primary text-white rounded-br-none" : "bg-white/5 border border-white/10 text-slate-200 rounded-bl-none")}>
                                     <p className="leading-relaxed">{msg.content}</p>
                                 </div>
-                                <span className="text-[7px] text-slate-500 mt-1 uppercase font-bold">{isMe ? 'You' : (peer?.firstName || 'Participant')} • {format(new Date(msg.timestamp), "p")}</span>
+                                <span className="text-[7px] text-slate-500 mt-1 uppercase font-bold">{isMe ? 'You' : (peer?.firstName || 'Participant')} • {msg.timestamp ? format(new Date(msg.timestamp), "p") : ''}</span>
                             </div>
                         );
                     })}
                     <div ref={chatScrollRef} />
                 </div>
                 <form onSubmit={handleSendMessage} className="shrink-0 p-3 bg-slate-950/40 border-t border-white/5 flex gap-2">
-                    <Input placeholder={isCompleted ? "Consultation Archived" : "Secure clinical message..."} disabled={isCompleted} className="bg-white/5 border-white/10 h-11 text-xs rounded-xl focus-visible:ring-primary" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
+                    <Input placeholder={isCompleted ? "Consultation Archived" : "Secure clinical message..."} disabled={isCompleted} className="bg-white/5 border-white/10 h-11 text-xs rounded-xl focus-visible:ring-primary text-white" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
                     <Button type="submit" disabled={!newMessage.trim() || isCompleted} className="bg-primary h-11 w-11 p-0 rounded-xl shrink-0"><Send className="h-4 w-4" /></Button>
                 </form>
             </TabsContent>
@@ -557,10 +572,10 @@ export default function ConsultationRoomPage() {
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(handleFinalizeClinicalNotes)} className="space-y-6">
                             <FormField control={form.control} name="diagnosis" render={({ field }) => (
-                                <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Primary Diagnosis</FormLabel><FormControl><Input placeholder="Record clinical findings..." className="bg-white/5 border-white/10 h-12 text-sm rounded-xl focus-visible:ring-primary" {...field} disabled={isCompleted || isFinalizing} /></FormControl><FormMessage className="text-[9px]" /></FormItem>
+                                <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Primary Diagnosis</FormLabel><FormControl><Input placeholder="Record clinical findings..." className="bg-white/5 border-white/10 h-12 text-sm rounded-xl focus-visible:ring-primary text-white" {...field} disabled={isCompleted || isFinalizing} /></FormControl><FormMessage className="text-[9px]" /></FormItem>
                             )} />
                             <FormField control={form.control} name="prescription" render={({ field }) => (
-                                <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Treatment & Dosage</FormLabel><FormControl><Textarea placeholder="List medications and instructions..." rows={6} className="bg-white/5 border-white/10 text-sm rounded-xl resize-none focus-visible:ring-primary" {...field} disabled={isCompleted || isFinalizing} /></FormControl><FormMessage className="text-[9px]" /></FormItem>
+                                <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Treatment & Dosage</FormLabel><FormControl><Textarea placeholder="List medications and instructions..." rows={6} className="bg-white/5 border-white/10 text-sm rounded-xl resize-none focus-visible:ring-primary text-white" {...field} disabled={isCompleted || isFinalizing} /></FormControl><FormMessage className="text-[9px]" /></FormItem>
                             )} />
                             <Button type="submit" className="w-full h-14 font-bold rounded-2xl bg-primary hover:bg-primary/90 shadow-xl shadow-primary/10" disabled={isCompleted || isFinalizing}>
                                 {isFinalizing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Secure & Finalize Record"}
