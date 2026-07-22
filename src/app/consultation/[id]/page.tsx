@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, doc, setDoc, onSnapshot, addDoc, query, orderBy } from 'firebase/firestore';
@@ -57,7 +57,7 @@ export default function ConsultationRoomPage() {
   const [newMessage, setNewMessage] = useState('');
   const [isEnding, setIsEnding] = useState(false);
   const [isPeerConnected, setIsPeerConnected] = useState(false);
-  const [signalingStatus, setSignalingStatus] = useState('Initializing Secure Channel...');
+  const [signalingStatus, setSignalingStatus] = useState('Initializing Tunnel...');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [timeRemaining, setTimeRemaining] = useState<string>('15:00'); 
   const [isExpired, setIsExpired] = useState(false);
@@ -70,7 +70,6 @@ export default function ConsultationRoomPage() {
   const chatScrollRef = useRef<HTMLDivElement>(null);
   
   const pc = useRef<RTCPeerConnection | null>(null);
-  const remoteStream = useRef<MediaStream | null>(null);
   const candidatesQueue = useRef<any[]>([]);
 
   const appointmentDocRef = useMemoFirebase(() => {
@@ -101,7 +100,6 @@ export default function ConsultationRoomPage() {
     }
   }, [appointment?.id, form]);
 
-  // Session Timer
   useEffect(() => {
     if (!appointment?.appointmentDateTime || isCompleted) return;
 
@@ -161,7 +159,6 @@ export default function ConsultationRoomPage() {
     }, 3000);
   };
 
-  // Hardware Acquisition
   useEffect(() => {
     if (!appointmentId || isCompleted) return;
     let isMounted = true;
@@ -188,13 +185,13 @@ export default function ConsultationRoomPage() {
         }
         
         setActiveStream(stream);
-        setSignalingStatus("Hardware Ready");
+        setSignalingStatus("Vision & Voice Ready");
         if (isAudioOnly) setIsVideoOff(true);
       } catch (err) {
-        console.error("Hardware Entry Error:", err);
+        console.error("Hardware Blocked:", err);
         if (isMounted) {
             setSignalingStatus("Hardware Blocked");
-            toast({ variant: "destructive", title: "Permission Required", description: "Camera and Microphone access are needed for the clinical room." });
+            toast({ variant: "destructive", title: "Hardware Error", description: "Camera/Mic access is required for clinical consultations." });
         }
       }
     };
@@ -207,7 +204,6 @@ export default function ConsultationRoomPage() {
     };
   }, [appointmentId, isAudioOnly, isCompleted]);
 
-  // Bind local stream
   useEffect(() => {
     if (localVideoRef.current && activeStream) {
       localVideoRef.current.srcObject = activeStream;
@@ -215,7 +211,6 @@ export default function ConsultationRoomPage() {
     }
   }, [activeStream]);
 
-  // WebRTC Signaling Engine - Overhauled for reliability
   useEffect(() => {
     if (!firestore || !appointmentId || !user || !activeStream || !userData || isExpired || isCompleted) return;
 
@@ -224,39 +219,29 @@ export default function ConsultationRoomPage() {
 
     const initializeConnection = async () => {
       try {
-        if (pc.current) {
-          pc.current.close();
-        }
+        if (pc.current) pc.current.close();
         pc.current = new RTCPeerConnection(servers);
         
-        // Prepare Remote Stream object
-        remoteStream.current = new MediaStream();
-        if (remoteVideoRef.current) {
-          remoteVideoRef.current.srcObject = remoteStream.current;
-        }
-
-        // Add local tracks
         activeStream.getTracks().forEach(track => {
           pc.current?.addTrack(track, activeStream);
         });
 
-        // Incoming Track Listener
         pc.current.ontrack = (event) => {
-          if (!isEffectActive) return;
-          event.streams[0].getTracks().forEach(track => {
-            if (remoteStream.current && !remoteStream.current.getTracks().includes(track)) {
-              remoteStream.current.addTrack(track);
-            }
-          });
-
-          setIsPeerConnected(true);
-          setSignalingStatus("Tunnel Active");
+          if (!isEffectActive || !remoteVideoRef.current) return;
           
-          if (remoteVideoRef.current) {
-            remoteVideoRef.current.play().catch(err => {
-              console.warn("Remote play attempt caught:", err);
-            });
+          if (event.streams && event.streams[0]) {
+            remoteVideoRef.current.srcObject = event.streams[0];
+          } else {
+            const inboundStream = new MediaStream([event.track]);
+            remoteVideoRef.current.srcObject = inboundStream;
           }
+
+          remoteVideoRef.current.play().then(() => {
+             setIsPeerConnected(true);
+             setSignalingStatus("Tunnel Established");
+          }).catch(err => {
+            console.warn("Remote auto-play blocked, retrying...", err);
+          });
         };
 
         pc.current.oniceconnectionstatechange = () => {
@@ -264,9 +249,9 @@ export default function ConsultationRoomPage() {
           const state = pc.current?.iceConnectionState;
           if (state === 'connected' || state === 'completed') {
             setIsPeerConnected(true);
-            setSignalingStatus("Tunnel Active");
+            setSignalingStatus("Connected");
           } else if (state === 'failed' || state === 'disconnected') {
-            setSignalingStatus("Connection Fragile");
+            setSignalingStatus("Reconnecting...");
           }
         };
 
@@ -281,20 +266,18 @@ export default function ConsultationRoomPage() {
           }
         };
 
-        // CANDIDATE PROCESSING UTILITY
-        const processCandidateQueue = async () => {
+        const processQueue = async () => {
           while (candidatesQueue.current.length > 0) {
             const candidate = candidatesQueue.current.shift();
             try {
               await pc.current?.addIceCandidate(new RTCIceCandidate(candidate));
             } catch (e) {
-              console.error("Queue process error:", e);
+              console.error("ICE Queue failure:", e);
             }
           }
         };
 
         if (isDoctor) {
-          // DOCTOR (OFFEROR)
           const offer = await pc.current.createOffer();
           await pc.current.setLocalDescription(offer);
           
@@ -304,18 +287,16 @@ export default function ConsultationRoomPage() {
             updatedAt: new Date().toISOString()
           }, { merge: true });
 
-          // Listen for Answer
           const unsubCall = onSnapshot(callDoc, async (snap) => {
             const data = snap.data();
             if (data?.answer && !pc.current?.currentRemoteDescription) {
               const answerDesc = new RTCSessionDescription(data.answer);
               await pc.current?.setRemoteDescription(answerDesc);
-              await processCandidateQueue();
+              await processQueue();
             }
           });
           unsubscribes.push(unsubCall);
 
-          // Listen for Remote Candidates (Patient)
           const unsubRemoteCands = onSnapshot(answerCandidates, (snap) => {
             snap.docChanges().forEach(async (change) => {
               if (change.type === 'added' && isEffectActive) {
@@ -331,7 +312,6 @@ export default function ConsultationRoomPage() {
           unsubscribes.push(unsubRemoteCands);
 
         } else {
-          // PATIENT (ANSWERER)
           const unsubCall = onSnapshot(callDoc, async (snap) => {
             const data = snap.data();
             if (data?.offer && !pc.current?.currentRemoteDescription) {
@@ -345,13 +325,12 @@ export default function ConsultationRoomPage() {
                   answer: { type: answer.type, sdp: answer.sdp },
                   patientId: user.uid 
                 }, { merge: true });
-                await processCandidateQueue();
+                await processQueue();
               }
             }
           });
           unsubscribes.push(unsubCall);
 
-          // Listen for Remote Candidates (Doctor)
           const unsubRemoteCands = onSnapshot(offerCandidates, (snap) => {
             snap.docChanges().forEach(async (change) => {
               if (change.type === 'added' && isEffectActive) {
@@ -368,7 +347,7 @@ export default function ConsultationRoomPage() {
         }
 
       } catch (err) {
-        console.error("Critical Signaling Error:", err);
+        console.error("P2P Engine Failure:", err);
       }
     };
 
@@ -411,13 +390,13 @@ export default function ConsultationRoomPage() {
     updateDocumentNonBlocking(doc(firestore, 'appointments', appointmentId), { 
         ...values, status: 'completed', updatedAt: new Date().toISOString(), doctorInRoom: false, readyToStart: false 
     });
-    toast({ title: "Clinical Record Finalized" });
+    toast({ title: "Clinical Record Secured" });
     setTimeout(() => router.push(isDoctor ? '/doctor-portal' : '/patient-portal'), 1500);
   };
 
   const handleEndSession = () => {
     if (isDoctor && !isCompleted) {
-        toast({ title: "Clinical Note Required", description: "Please finalize the diagnosis record before ending the session." });
+        toast({ title: "Clinical Record Required", description: "Finalize diagnosis before concluding." });
         return;
     }
     setIsEnding(true);
@@ -443,7 +422,7 @@ export default function ConsultationRoomPage() {
               <ShieldCheck className="text-white h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <h1 className="font-bold text-[10px] uppercase truncate text-white">Precision Clinical Room</h1>
+              <h1 className="font-bold text-[10px] uppercase truncate text-white tracking-widest">Precision Clinical Room</h1>
               <div className="flex items-center gap-2">
                 <p className="text-[8px] text-white/70 font-bold uppercase tracking-widest truncate">{isAudioOnly ? 'Secure Voice Link' : 'Secure Video Link'}</p>
                 <div className="h-1 w-1 rounded-full bg-white/30" />
@@ -472,19 +451,19 @@ export default function ConsultationRoomPage() {
             {isExpired && !isCompleted ? (
               <div className="text-center p-6 space-y-4 animate-in fade-in">
                   <AlertTriangle className="h-12 w-12 text-red-500 mx-auto" />
-                  <p className="font-bold uppercase text-xs text-white">Consultation Window Concluded</p>
+                  <p className="font-bold uppercase text-xs text-white">Consultation Concluded</p>
               </div>
             ) : isCompleted ? (
               <div className="text-center p-6 space-y-4 animate-in zoom-in-95">
                   <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
-                  <p className="font-bold uppercase text-xs text-white">Clinical Record Secured</p>
+                  <p className="font-bold uppercase text-xs text-white">Record Secured</p>
               </div>
             ) : (
               <>
                   <video 
                     ref={remoteVideoRef} 
                     className={cn(
-                        "w-full h-full object-cover transition-opacity duration-1000", 
+                        "w-full h-full object-cover transition-opacity duration-700", 
                         isPeerConnected ? "opacity-100" : "opacity-0"
                     )} 
                     autoPlay 
@@ -492,8 +471,8 @@ export default function ConsultationRoomPage() {
                   />
                   
                   {!isPeerConnected && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-950/80 backdrop-blur-sm">
-                          <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-950/90 backdrop-blur-md">
+                          <Loader2 className="h-10 w-10 animate-spin text-primary/40" />
                           <p className="text-[10px] uppercase font-bold text-slate-500 tracking-[0.2em]">{signalingStatus}</p>
                       </div>
                   )}
@@ -507,10 +486,10 @@ export default function ConsultationRoomPage() {
                             <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping z-0" />
                         </div>
                         <div className="text-center space-y-2">
-                            <p className="text-xl font-bold tracking-tight text-white">{peer ? `Dr. ${peer.firstName} ${peer.lastName}` : 'Awaiting Connection...'}</p>
+                            <p className="text-xl font-bold tracking-tight text-white">{peer ? `Dr. ${peer.firstName} ${peer.lastName}` : 'Awaiting Peer...'}</p>
                             <div className="flex items-center justify-center gap-2">
                                 <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Voice Link Established</p>
+                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Audio Link Active</p>
                             </div>
                         </div>
                     </div>
@@ -519,7 +498,7 @@ export default function ConsultationRoomPage() {
             )}
 
             {!isAudioOnly && !isCompleted && (
-              <div className="absolute top-4 right-4 w-28 sm:w-44 aspect-video rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900 z-[100]">
+              <div className="absolute top-4 right-4 w-28 sm:w-44 aspect-video rounded-xl overflow-hidden border-2 border-white/20 shadow-2xl bg-slate-900 z-[100] transform-gpu">
                   <video 
                     ref={localVideoRef} 
                     className={cn("w-full h-full object-cover -scale-x-100", isVideoOff && "hidden")} 
@@ -532,33 +511,33 @@ export default function ConsultationRoomPage() {
             )}
           </div>
 
-          <div className="shrink-0 h-20 border-t border-white/5 bg-slate-900/60 backdrop-blur-2xl flex items-center justify-center gap-4 px-4">
-              <button className={cn("h-10 w-10 sm:h-12 sm:w-12 rounded-full flex items-center justify-center transition-all active:scale-95", isMuted ? "bg-red-500 text-white" : "bg-slate-800 text-slate-300")} onClick={() => { if(activeStream) { activeStream.getAudioTracks()[0].enabled = isMuted; setIsMuted(!isMuted); } }} disabled={isExpired || isCompleted}>
-                  {isMuted ? <MicOff className="h-4 w-4 sm:h-5 sm:w-5" /> : <Mic className="h-4 w-4 sm:h-5 sm:w-5" />}
+          <div className="shrink-0 h-20 border-t border-white/5 bg-slate-900/80 backdrop-blur-2xl flex items-center justify-center gap-4 px-4">
+              <button className={cn("h-11 w-11 sm:h-12 sm:w-12 rounded-full flex items-center justify-center transition-all active:scale-95", isMuted ? "bg-red-500 text-white" : "bg-slate-800 text-slate-300")} onClick={() => { if(activeStream) { activeStream.getAudioTracks()[0].enabled = isMuted; setIsMuted(!isMuted); } }} disabled={isExpired || isCompleted}>
+                  {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
               </button>
               {!isAudioOnly && (
-                  <button className={cn("h-10 w-10 sm:h-12 sm:w-12 rounded-full flex items-center justify-center transition-all active:scale-95", isVideoOff ? "bg-red-500 text-white" : "bg-slate-800 text-slate-300")} onClick={() => { if(activeStream) { activeStream.getVideoTracks()[0].enabled = isVideoOff; setIsVideoOff(!isVideoOff); } }} disabled={isExpired || isCompleted}>
-                    {isVideoOff ? <VideoOff className="h-4 w-4 sm:h-5 sm:w-5" /> : <Video className="h-4 w-4 sm:h-5 sm:w-5" />}
+                  <button className={cn("h-11 w-11 sm:h-12 sm:w-12 rounded-full flex items-center justify-center transition-all active:scale-95", isVideoOff ? "bg-red-500 text-white" : "bg-slate-800 text-slate-300")} onClick={() => { if(activeStream) { activeStream.getVideoTracks()[0].enabled = isVideoOff; setIsVideoOff(!isVideoOff); } }} disabled={isExpired || isCompleted}>
+                    {isVideoOff ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
                   </button>
               )}
               <div className="w-px h-8 bg-white/10 mx-2" />
-              <Button variant="destructive" className="h-10 px-6 sm:h-12 sm:px-8 rounded-full font-bold uppercase text-[10px] tracking-widest shadow-xl shadow-red-900/20" onClick={handleEndSession} disabled={isEnding || isExpired}>
+              <Button variant="destructive" className="h-11 px-6 sm:h-12 sm:px-8 rounded-full font-bold uppercase text-[10px] tracking-widest shadow-xl shadow-red-900/20" onClick={handleEndSession} disabled={isEnding || isExpired}>
                   <PhoneOff className="h-4 w-4 mr-2" /> End
               </Button>
-              <Button variant="ghost" size="icon" className="lg:hidden h-10 w-10 text-slate-400" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
+              <Button variant="ghost" size="icon" className="lg:hidden h-11 w-11 text-slate-400" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
                   <MessageSquare className="h-5 w-5" />
               </Button>
           </div>
         </div>
 
         <aside className={cn(
-            "shrink-0 w-full lg:w-[400px] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col z-20 bg-slate-900 transition-all duration-300",
+            "shrink-0 w-full lg:w-[420px] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col z-20 bg-slate-900 transition-all duration-300",
             isSidebarOpen ? "h-[45dvh] lg:h-full" : "h-0 lg:w-0 overflow-hidden"
         )}>
           <Tabs defaultValue="chat" className="w-full h-full flex flex-col overflow-hidden">
-            <TabsList className="shrink-0 bg-slate-950/40 p-1 flex h-12">
-                <TabsTrigger value="chat" className="flex-1 text-[10px] uppercase font-bold tracking-widest gap-2 py-2 rounded-xl"><MessageSquare className="h-3.5 w-3.5" /> Chat</TabsTrigger>
-                {isDoctor && <TabsTrigger value="notes" className="flex-1 text-[10px] uppercase font-bold tracking-widest gap-2 py-2 rounded-xl"><ClipboardCheck className="h-3.5 w-3.5" /> Clinical Notes</TabsTrigger>}
+            <TabsList className="shrink-0 bg-slate-950/40 p-1.5 flex h-14">
+                <TabsTrigger value="chat" className="flex-1 text-[10px] uppercase font-bold tracking-widest gap-2 py-2.5 rounded-xl data-[state=active]:bg-white/10"><MessageSquare className="h-3.5 w-3.5" /> Chat</TabsTrigger>
+                {isDoctor && <TabsTrigger value="notes" className="flex-1 text-[10px] uppercase font-bold tracking-widest gap-2 py-2.5 rounded-xl data-[state=active]:bg-white/10"><ClipboardCheck className="h-3.5 w-3.5" /> Clinical Records</TabsTrigger>}
             </TabsList>
             
             <TabsContent value="chat" className="flex-1 flex flex-col m-0 min-h-0 overflow-hidden">
@@ -567,18 +546,18 @@ export default function ConsultationRoomPage() {
                         const isMe = msg.senderId === user?.uid;
                         return (
                             <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
-                                <div className={cn("max-w-[85%] p-3 rounded-2xl text-xs shadow-lg", isMe ? "bg-primary text-white rounded-br-none" : "bg-white/5 border border-white/10 text-slate-200 rounded-bl-none")}>
+                                <div className={cn("max-w-[85%] p-3.5 rounded-2xl text-xs shadow-lg", isMe ? "bg-primary text-white rounded-br-none" : "bg-white/5 border border-white/10 text-slate-200 rounded-bl-none")}>
                                     <p className="leading-relaxed">{msg.content}</p>
                                 </div>
-                                <span className="text-[7px] text-slate-500 mt-1 uppercase font-bold">{isMe ? 'You' : (peer?.firstName || 'Participant')} • {msg.timestamp ? format(new Date(msg.timestamp), "p") : ''}</span>
+                                <span className="text-[7px] text-slate-500 mt-1 uppercase font-bold">{isMe ? 'You' : (peer?.firstName || 'User')} • {msg.timestamp ? format(new Date(msg.timestamp), "p") : ''}</span>
                             </div>
                         );
                     })}
                     <div ref={chatScrollRef} />
                 </div>
-                <form onSubmit={handleSendMessage} className="shrink-0 p-3 bg-slate-950/40 border-t border-white/5 flex gap-2">
-                    <Input placeholder={isCompleted ? "Consultation Archived" : "Secure clinical message..."} disabled={isCompleted} className="bg-white/5 border-white/10 h-11 text-xs rounded-xl focus-visible:ring-primary text-white" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
-                    <Button type="submit" disabled={!newMessage.trim() || isCompleted} className="bg-primary h-11 w-11 p-0 rounded-xl shrink-0"><Send className="h-4 w-4" /></Button>
+                <form onSubmit={handleSendMessage} className="shrink-0 p-3 bg-slate-950/60 border-t border-white/5 flex gap-2">
+                    <Input placeholder={isCompleted ? "Session Concluded" : "Secure clinical message..."} disabled={isCompleted} className="bg-white/5 border-white/10 h-12 text-xs rounded-xl focus-visible:ring-primary text-white" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
+                    <Button type="submit" disabled={!newMessage.trim() || isCompleted} className="bg-primary h-12 w-12 p-0 rounded-xl shrink-0"><Send className="h-4 w-4" /></Button>
                 </form>
             </TabsContent>
 
@@ -587,13 +566,13 @@ export default function ConsultationRoomPage() {
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(handleFinalizeClinicalNotes)} className="space-y-6">
                             <FormField control={form.control} name="diagnosis" render={({ field }) => (
-                                <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Primary Diagnosis</FormLabel><FormControl><Input placeholder="Record clinical findings..." className="bg-white/5 border-white/10 h-12 text-sm rounded-xl focus-visible:ring-primary text-white" {...field} disabled={isCompleted || isFinalizing} /></FormControl><FormMessage className="text-[9px]" /></FormItem>
+                                <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Clinical Diagnosis</FormLabel><FormControl><Input placeholder="Record findings..." className="bg-white/5 border-white/10 h-14 text-sm rounded-xl focus-visible:ring-primary text-white" {...field} disabled={isCompleted || isFinalizing} /></FormControl><FormMessage className="text-[9px]" /></FormItem>
                             )} />
                             <FormField control={form.control} name="prescription" render={({ field }) => (
-                                <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Treatment & Dosage</FormLabel><FormControl><Textarea placeholder="List medications and instructions..." rows={6} className="bg-white/5 border-white/10 text-sm rounded-xl resize-none focus-visible:ring-primary text-white" {...field} disabled={isCompleted || isFinalizing} /></FormControl><FormMessage className="text-[9px]" /></FormItem>
+                                <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Medications & Advice</FormLabel><FormControl><Textarea placeholder="Detail instructions..." rows={8} className="bg-white/5 border-white/10 text-sm rounded-xl resize-none focus-visible:ring-primary text-white" {...field} disabled={isCompleted || isFinalizing} /></FormControl><FormMessage className="text-[9px]" /></FormItem>
                             )} />
-                            <Button type="submit" className="w-full h-14 font-bold rounded-2xl bg-primary hover:bg-primary/90 shadow-xl shadow-primary/10" disabled={isCompleted || isFinalizing}>
-                                {isFinalizing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Secure & Finalize Record"}
+                            <Button type="submit" className="w-full h-16 font-bold rounded-2xl bg-primary hover:bg-primary/90 shadow-xl shadow-primary/10" disabled={isCompleted || isFinalizing}>
+                                {isFinalizing ? <Loader2 className="h-5 w-5 animate-spin" /> : "Finalize Professional Record"}
                             </Button>
                         </form>
                     </Form>
@@ -607,12 +586,12 @@ export default function ConsultationRoomPage() {
           <DialogContent className="rounded-[2.5rem] border-none shadow-2xl p-8 text-center space-y-6 bg-white text-slate-900">
               <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto"><Clock className="h-8 w-8 text-primary" /></div>
               <div className="space-y-2">
-                  <DialogTitle className="text-2xl font-headline">Extend Consultation?</DialogTitle>
-                  <p className="text-sm text-slate-500 font-medium">Session concludes in 5 minutes. Add 10 minutes professional buffer?</p>
+                  <DialogTitle className="text-2xl font-headline tracking-tight">Extend Session?</DialogTitle>
+                  <p className="text-sm text-slate-500 font-medium">Professional window concludes in 5 minutes. Apply 10m clinical buffer?</p>
               </div>
               <DialogFooter className="flex flex-col sm:flex-row gap-3">
-                  <Button variant="ghost" onClick={() => setShowExtensionDialog(false)} className="flex-1 h-12 rounded-xl font-bold">Ignore</Button>
-                  <Button onClick={handleExtendSession} className="flex-1 h-12 rounded-xl bg-primary text-white font-bold">Add 10 Minutes</Button>
+                  <Button variant="ghost" onClick={() => setShowExtensionDialog(false)} className="flex-1 h-12 rounded-xl font-bold">Dismiss</Button>
+                  <Button onClick={handleExtendSession} className="flex-1 h-12 rounded-xl bg-primary text-white font-bold shadow-lg">Extend 10 Min</Button>
               </DialogFooter>
           </DialogContent>
       </Dialog>
