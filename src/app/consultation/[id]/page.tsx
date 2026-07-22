@@ -1,9 +1,8 @@
-'use server';
+'use client';
 /**
  * @fileOverview Precision Clinical Consultation Room with WebRTC P2P signaling.
+ * Handles production-grade peer-to-peer media sessions with signaling via Firestore.
  */
-
-'use client';
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
@@ -43,15 +42,8 @@ const servers = {
         'stun:global.stun.twilio.com:3478'
       ],
     },
-    // PRODUCTION NOTE: For environments with symmetric NAT/Firewalls, 
-    // add TURN server credentials here.
-    /*
-    {
-      urls: 'turn:YOUR_TURN_DOMAIN:3478',
-      username: 'YOUR_USERNAME',
-      credential: 'YOUR_PASSWORD'
-    }
-    */
+    // PRODUCTION NOTE: For real-world deployment, add TURN server credentials here:
+    // { urls: 'turn:global.turn.twilio.com:3478?transport=udp', username: '...', credential: '...' }
   ],
   iceCandidatePoolSize: 10,
 };
@@ -231,18 +223,15 @@ export default function ConsultationRoomPage() {
     let isEffectActive = true;
     const unsubscribes: (() => void)[] = [];
     
-    // Timeout for connection failure
     const connectionTimeout = setTimeout(() => {
       if (isEffectActive && !isPeerConnected) {
-        console.warn("ICE Connection Timeout triggered after 20s");
         setSignalingStatus("Handshake Failed");
-        setConnectionError("The secure tunnel could not be established. This is often due to restrictive network firewalls. Please try refreshing or switching to a different network (e.g., 4G/LTE).");
+        setConnectionError("The secure clinical tunnel could not be established. Please ensure both parties have entered the room.");
       }
-    }, 20000);
+    }, 15000);
 
     const initializeConnection = async () => {
       try {
-        console.log("Initializing RTCPeerConnection...");
         if (pc.current) pc.current.close();
         pc.current = new RTCPeerConnection(servers);
         
@@ -250,9 +239,7 @@ export default function ConsultationRoomPage() {
           pc.current?.addTrack(track, activeStream);
         });
 
-        // Track Handling
         pc.current.ontrack = (event) => {
-          console.log("Remote track received:", event.track.kind);
           if (!isEffectActive || !remoteVideoRef.current) return;
           
           event.streams[0].getTracks().forEach(track => {
@@ -261,52 +248,35 @@ export default function ConsultationRoomPage() {
           
           remoteVideoRef.current.srcObject = remoteStream.current;
           remoteVideoRef.current.onloadedmetadata = () => {
-             console.log("Remote media playing...");
              remoteVideoRef.current?.play().catch(e => console.warn("Auto-play blocked", e));
           };
           
           setIsPeerConnected(true);
-          setSignalingStatus("Secure Link Established");
+          setSignalingStatus("Connected");
         };
 
-        // State Monitoring
         pc.current.oniceconnectionstatechange = () => {
           if (!isEffectActive) return;
           const state = pc.current?.iceConnectionState;
-          console.log("ICE Connection State:", state);
           if (state === 'connected' || state === 'completed') {
             setIsPeerConnected(true);
             setSignalingStatus("Connected");
             setConnectionError(null);
-          } else if (state === 'failed' || state === 'disconnected') {
-            setSignalingStatus("Reconnecting...");
           }
-        };
-
-        pc.current.onconnectionstatechange = () => {
-          console.log("Connection State:", pc.current?.connectionState);
-        };
-
-        pc.current.onicecandidateerror = (e) => {
-          console.error("ICE Candidate Error:", e);
         };
 
         const callDoc = doc(firestore, 'calls', appointmentId);
         const offerCandidates = collection(callDoc, 'offerCandidates');
         const answerCandidates = collection(callDoc, 'answerCandidates');
 
-        // Candidate Generation
         pc.current.onicecandidate = (event) => {
           if (event.candidate && isEffectActive) {
-            console.log("Generated local ICE candidate");
             const col = isDoctor ? offerCandidates : answerCandidates;
             addDoc(col, event.candidate.toJSON());
           }
         };
 
-        // Process Queue Logic
         const processCandidateQueue = async () => {
-          console.log(`Processing candidate queue: ${candidatesQueue.current.length} items`);
           while (candidatesQueue.current.length > 0) {
             const candidate = candidatesQueue.current.shift();
             try {
@@ -320,21 +290,9 @@ export default function ConsultationRoomPage() {
         };
 
         if (isDoctor) {
-          console.log("Doctor: Creating Offer...");
-          const offer = await pc.current.createOffer();
-          await pc.current.setLocalDescription(offer);
-          
-          await setDoc(callDoc, { 
-            offer: { sdp: offer.sdp, type: offer.type },
-            doctorId: user.uid,
-            updatedAt: new Date().toISOString()
-          }, { merge: true });
-
-          // Listen for Answer
           const unsubCall = onSnapshot(callDoc, async (snap) => {
             const data = snap.data();
             if (data?.answer && !pc.current?.currentRemoteDescription) {
-              console.log("Doctor: Received Answer from Patient");
               const answerDesc = new RTCSessionDescription(data.answer);
               await pc.current?.setRemoteDescription(answerDesc);
               await processCandidateQueue();
@@ -342,7 +300,6 @@ export default function ConsultationRoomPage() {
           });
           unsubscribes.push(unsubCall);
 
-          // Listen for Patient Candidates
           const unsubRemoteCands = onSnapshot(answerCandidates, (snap) => {
             snap.docChanges().forEach(async (change) => {
               if (change.type === 'added' && isEffectActive) {
@@ -357,12 +314,19 @@ export default function ConsultationRoomPage() {
           });
           unsubscribes.push(unsubRemoteCands);
 
+          const offer = await pc.current.createOffer();
+          await pc.current.setLocalDescription(offer);
+          
+          await setDoc(callDoc, { 
+            offer: { sdp: offer.sdp, type: offer.type },
+            doctorId: user.uid,
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+
         } else {
-          console.log("Patient: Listening for Offer...");
           const unsubCall = onSnapshot(callDoc, async (snap) => {
             const data = snap.data();
             if (data?.offer && !pc.current?.currentRemoteDescription) {
-              console.log("Patient: Received Offer from Doctor");
               const offerDesc = new RTCSessionDescription(data.offer);
               await pc.current?.setRemoteDescription(offerDesc);
 
@@ -379,7 +343,6 @@ export default function ConsultationRoomPage() {
           });
           unsubscribes.push(unsubCall);
 
-          // Listen for Doctor Candidates
           const unsubRemoteCands = onSnapshot(offerCandidates, (snap) => {
             snap.docChanges().forEach(async (change) => {
               if (change.type === 'added' && isEffectActive) {
