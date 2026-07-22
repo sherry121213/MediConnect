@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, setDoc, onSnapshot, addDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, addDoc, deleteDoc, getDocs } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, Clock, AlertTriangle, ClipboardCheck, CheckCircle2, Calendar } from 'lucide-react';
@@ -167,14 +167,13 @@ export default function ConsultationRoomPage() {
         const constraints = { 
           video: isAudioOnly ? false : { 
             facingMode: "user",
-            width: { ideal: 1280 }, // Upgraded to 720p for mobile clarity
+            width: { ideal: 1280 }, 
             height: { ideal: 720 } 
           }, 
           audio: {
             echoCancellation: true,
             noiseSuppression: true,
             autoGainControl: true,
-            channelCount: 1 // Optimize for vocal processing
           } 
         };
         const stream = await navigator.mediaDevices.getUserMedia(constraints);
@@ -206,7 +205,6 @@ export default function ConsultationRoomPage() {
   useEffect(() => {
     if (localVideoRef.current && activeStream && !isVideoOff) {
         localVideoRef.current.srcObject = activeStream;
-        // Explicitly play for mobile Safari reliability
         localVideoRef.current.play().catch(e => console.warn("Local auto-play issue:", e));
     }
   }, [activeStream, isVideoOff]);
@@ -221,7 +219,6 @@ export default function ConsultationRoomPage() {
       try {
         if (pc.current) {
             pc.current.close();
-            pc.current = null;
         }
         
         pc.current = new RTCPeerConnection(servers);
@@ -229,21 +226,28 @@ export default function ConsultationRoomPage() {
         candidateQueue.current = [];
 
         activeStream.getTracks().forEach((track) => {
-          if (pc.current) pc.current.addTrack(track, activeStream);
+          pc.current!.addTrack(track, activeStream);
         });
 
         pc.current.ontrack = (event) => {
-          if (remoteVideoRef.current) {
-            const [remoteStream] = event.streams;
-            if (remoteStream) {
-                remoteVideoRef.current.srcObject = remoteStream;
-                if (isEffectActive) {
-                    setIsPeerConnected(true);
-                    setSignalingStatus("Live Connection");
-                    remoteVideoRef.current.play().catch(e => console.warn("Remote auto-play issue:", e));
-                }
-            }
+          if (!isEffectActive || !remoteVideoRef.current) return;
+          
+          let remoteStream = event.streams[0];
+          if (!remoteStream) {
+            remoteStream = new MediaStream([event.track]);
           }
+          
+          remoteVideoRef.current.srcObject = remoteStream;
+          setIsPeerConnected(true);
+          setSignalingStatus("Live Connection");
+          remoteVideoRef.current.play().catch(e => console.warn("Remote auto-play issue:", e));
+        };
+
+        pc.current.oniceconnectionstatechange = () => {
+           if (pc.current?.iceConnectionState === 'disconnected') {
+               setSignalingStatus("Connection Lost");
+               setIsPeerConnected(false);
+           }
         };
 
         const callDoc = doc(firestore, 'calls', appointmentId);
@@ -267,7 +271,7 @@ export default function ConsultationRoomPage() {
             lastOfferAt: new Date().toISOString()
           }, { merge: true });
 
-          unsubs.push(onSnapshot(callDoc, async (snapshot) => {
+          const unsubCall = onSnapshot(callDoc, async (snapshot) => {
             const data = snapshot.data();
             if (pc.current && !pc.current.currentRemoteDescription && data?.answer) {
               const answerDesc = new RTCSessionDescription(data.answer);
@@ -278,20 +282,25 @@ export default function ConsultationRoomPage() {
                 await pc.current.addIceCandidate(new RTCIceCandidate(cand)).catch(e => console.warn("ICE error:", e));
               }
             }
-          }));
+          });
+          unsubs.push(unsubCall);
 
-          unsubs.push(onSnapshot(answerCandidates, (snapshot) => {
+          const unsubAnswers = onSnapshot(answerCandidates, (snapshot) => {
             snapshot.docChanges().forEach(async (change) => {
               if (change.type === 'added' && pc.current && isEffectActive) {
                 const data = change.doc.data();
-                if (isRemoteDescriptionSet.current) await pc.current.addIceCandidate(new RTCIceCandidate(data)).catch(e => console.warn("ICE error:", e));
-                else candidateQueue.current.push(data);
+                if (isRemoteDescriptionSet.current) {
+                    await pc.current.addIceCandidate(new RTCIceCandidate(data)).catch(e => console.warn("ICE error:", e));
+                } else {
+                    candidateQueue.current.push(data);
+                }
               }
             });
-          }));
+          });
+          unsubs.push(unsubAnswers);
           
         } else {
-          unsubs.push(onSnapshot(callDoc, async (snapshot) => {
+          const unsubCall = onSnapshot(callDoc, async (snapshot) => {
             const data = snapshot.data();
             if (pc.current && !pc.current.currentRemoteDescription && data?.offer) {
               const offerDesc = new RTCSessionDescription(data.offer);
@@ -307,17 +316,22 @@ export default function ConsultationRoomPage() {
                 await pc.current.addIceCandidate(new RTCIceCandidate(cand)).catch(e => console.warn("ICE error:", e));
               }
             }
-          }));
+          });
+          unsubs.push(unsubCall);
 
-          unsubs.push(onSnapshot(offerCandidates, (snapshot) => {
+          const unsubOffers = onSnapshot(offerCandidates, (snapshot) => {
             snapshot.docChanges().forEach(async (change) => {
               if (change.type === 'added' && pc.current && isEffectActive) {
                 const data = change.doc.data();
-                if (isRemoteDescriptionSet.current) await pc.current.addIceCandidate(new RTCIceCandidate(data)).catch(e => console.warn("ICE error:", e));
-                else candidateQueue.current.push(data);
+                if (isRemoteDescriptionSet.current) {
+                    await pc.current.addIceCandidate(new RTCIceCandidate(data)).catch(e => console.warn("ICE error:", e));
+                } else {
+                    candidateQueue.current.push(data);
+                }
               }
             });
-          }));
+          });
+          unsubs.push(unsubOffers);
         }
       } catch (e) { 
           console.error("Signaling Tunnel Failure:", e); 
@@ -447,6 +461,13 @@ export default function ConsultationRoomPage() {
                     playsInline 
                   />
                   
+                  {!isPeerConnected && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-950/80 backdrop-blur-sm">
+                          <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
+                          <p className="text-[10px] uppercase font-bold text-slate-500 tracking-[0.2em]">{signalingStatus}</p>
+                      </div>
+                  )}
+
                   {isAudioOnly && isPeerConnected && (
                     <div className="absolute inset-0 flex flex-col items-center justify-center gap-8 animate-in fade-in duration-1000">
                         <div className="relative">
@@ -463,13 +484,6 @@ export default function ConsultationRoomPage() {
                             </div>
                         </div>
                     </div>
-                  )}
-
-                  {!isPeerConnected && (
-                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-950">
-                          <Loader2 className="h-8 w-8 animate-spin text-primary/40" />
-                          <p className="text-[10px] uppercase font-bold text-slate-500">{signalingStatus}</p>
-                      </div>
                   )}
               </>
             )}
