@@ -44,8 +44,6 @@ const servers = {
         'stun:global.stun.twilio.com:3478'
       ],
     },
-    // PRODUCTION NOTE: For real-world deployment, add TURN server credentials here:
-    // { urls: 'turn:global.turn.twilio.com:3478?transport=udp', username: '...', credential: '...' }
   ],
   iceCandidatePoolSize: 10,
 };
@@ -225,7 +223,6 @@ export default function ConsultationRoomPage() {
     let isEffectActive = true;
     const unsubscribes: (() => void)[] = [];
     
-    // Increased timeout to 45 seconds for robustness
     const connectionTimeout = setTimeout(() => {
       if (isEffectActive && !isPeerConnected) {
         setSignalingStatus("Handshake Failed");
@@ -235,37 +232,37 @@ export default function ConsultationRoomPage() {
 
     const initializeConnection = async () => {
       try {
-        if (pc.current) {
-          pc.current.close();
-        }
-        pc.current = new RTCPeerConnection(servers);
+        const peerConnection = new RTCPeerConnection(servers);
+        pc.current = peerConnection;
         
         activeStream.getTracks().forEach(track => {
-          pc.current?.addTrack(track, activeStream);
+          peerConnection.addTrack(track, activeStream);
         });
 
-        pc.current.ontrack = (event) => {
+        peerConnection.ontrack = (event) => {
           if (!isEffectActive || !remoteVideoRef.current) return;
           
-          event.streams[0].getTracks().forEach(track => {
-            // Avoid duplicates
+          const incomingStream = event.streams[0];
+          incomingStream.getTracks().forEach(track => {
             if (!remoteStream.current.getTrackById(track.id)) {
               remoteStream.current.addTrack(track);
             }
           });
           
-          remoteVideoRef.current.srcObject = remoteStream.current;
-          remoteVideoRef.current.onloadedmetadata = () => {
-             remoteVideoRef.current?.play().catch(e => console.warn("Auto-play blocked", e));
-          };
+          if (remoteVideoRef.current.srcObject !== remoteStream.current) {
+            remoteVideoRef.current.srcObject = remoteStream.current;
+          }
+
+          // Force play on track arrival
+          remoteVideoRef.current.play().catch(e => console.warn("Remote auto-play restricted", e));
           
           setIsPeerConnected(true);
           setSignalingStatus("Connected");
         };
 
-        pc.current.oniceconnectionstatechange = () => {
+        peerConnection.oniceconnectionstatechange = () => {
           if (!isEffectActive) return;
-          const state = pc.current?.iceConnectionState;
+          const state = peerConnection.iceConnectionState;
           console.log(`ICE Connection State: ${state}`);
           if (state === 'connected' || state === 'completed') {
             setIsPeerConnected(true);
@@ -273,7 +270,7 @@ export default function ConsultationRoomPage() {
             setConnectionError(null);
           } else if (state === 'failed') {
             setSignalingStatus("Tunnel Disrupted");
-            setConnectionError("P2P Tunnel failed. This usually happens on restrictive corporate networks. Refreshing may help.");
+            setConnectionError("P2P Tunnel failed. Refreshing may help.");
           }
         };
 
@@ -281,27 +278,23 @@ export default function ConsultationRoomPage() {
         const offerCandidates = collection(callDoc, 'offerCandidates');
         const answerCandidates = collection(callDoc, 'answerCandidates');
 
-        pc.current.onicecandidate = (event) => {
+        peerConnection.onicecandidate = (event) => {
           if (event.candidate && isEffectActive) {
             const col = isDoctor ? offerCandidates : answerCandidates;
-            addDoc(col, event.candidate.toJSON()).catch(async (err) => {
-              errorEmitter.emit('permission-error', new FirestorePermissionError({
-                path: col.path,
-                operation: 'create'
-              }));
+            addDoc(col, event.candidate.toJSON()).catch(err => {
+              console.error("Signal Write Error", err);
             });
           }
         };
 
         const processCandidateQueue = async () => {
+          if (!peerConnection.remoteDescription) return;
           while (candidatesQueue.current.length > 0) {
             const candidate = candidatesQueue.current.shift();
             try {
-              if (pc.current?.remoteDescription) {
-                  await pc.current.addIceCandidate(new RTCIceCandidate(candidate));
-              }
+              await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
             } catch (e) {
-              console.error("ICE Add Error:", e);
+              console.error("ICE Delayed Add Error:", e);
             }
           }
         };
@@ -309,13 +302,10 @@ export default function ConsultationRoomPage() {
         if (isDoctor) {
           const unsubCall = onSnapshot(callDoc, async (snap) => {
             const data = snap.data();
-            if (data?.answer && !pc.current?.currentRemoteDescription) {
-              const answerDesc = new RTCSessionDescription(data.answer);
-              await pc.current?.setRemoteDescription(answerDesc);
+            if (data?.answer && !peerConnection.currentRemoteDescription) {
+              await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
               await processCandidateQueue();
             }
-          }, async (err) => {
-             errorEmitter.emit('permission-error', new FirestorePermissionError({ operation: 'get', path: callDoc.path }));
           });
           unsubscribes.push(unsubCall);
 
@@ -323,20 +313,18 @@ export default function ConsultationRoomPage() {
             snap.docChanges().forEach(async (change) => {
               if (change.type === 'added' && isEffectActive) {
                 const data = change.doc.data();
-                if (pc.current?.remoteDescription) {
-                  await pc.current.addIceCandidate(new RTCIceCandidate(data));
+                if (peerConnection.remoteDescription) {
+                  await peerConnection.addIceCandidate(new RTCIceCandidate(data));
                 } else {
                   candidatesQueue.current.push(data);
                 }
               }
             });
-          }, async (err) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({ operation: 'list', path: answerCandidates.path }));
           });
           unsubscribes.push(unsubRemoteCands);
 
-          const offer = await pc.current.createOffer();
-          await pc.current.setLocalDescription(offer);
+          const offer = await peerConnection.createOffer();
+          await peerConnection.setLocalDescription(offer);
           
           await setDoc(callDoc, { 
             offer: { sdp: offer.sdp, type: offer.type },
@@ -347,22 +335,16 @@ export default function ConsultationRoomPage() {
         } else {
           const unsubCall = onSnapshot(callDoc, async (snap) => {
             const data = snap.data();
-            if (data?.offer && !pc.current?.currentRemoteDescription) {
-              const offerDesc = new RTCSessionDescription(data.offer);
-              await pc.current?.setRemoteDescription(offerDesc);
-
-              const answer = await pc.current?.createAnswer();
-              if (answer) {
-                await pc.current?.setLocalDescription(answer);
-                await setDoc(callDoc, { 
-                  answer: { type: answer.type, sdp: answer.sdp },
-                  patientId: user.uid 
-                }, { merge: true });
-                await processCandidateQueue();
-              }
+            if (data?.offer && !peerConnection.currentRemoteDescription) {
+              await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+              const answer = await peerConnection.createAnswer();
+              await peerConnection.setLocalDescription(answer);
+              await setDoc(callDoc, { 
+                answer: { type: answer.type, sdp: answer.sdp },
+                patientId: user.uid 
+              }, { merge: true });
+              await processCandidateQueue();
             }
-          }, async (err) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({ operation: 'get', path: callDoc.path }));
           });
           unsubscribes.push(unsubCall);
 
@@ -370,15 +352,13 @@ export default function ConsultationRoomPage() {
             snap.docChanges().forEach(async (change) => {
               if (change.type === 'added' && isEffectActive) {
                 const data = change.doc.data();
-                if (pc.current?.remoteDescription) {
-                  await pc.current.addIceCandidate(new RTCIceCandidate(data));
+                if (peerConnection.remoteDescription) {
+                  await peerConnection.addIceCandidate(new RTCIceCandidate(data));
                 } else {
                   candidatesQueue.current.push(data);
                 }
               }
             });
-          }, async (err) => {
-            errorEmitter.emit('permission-error', new FirestorePermissionError({ operation: 'list', path: offerCandidates.path }));
           });
           unsubscribes.push(unsubRemoteCands);
         }
