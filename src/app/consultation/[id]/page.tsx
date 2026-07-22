@@ -32,18 +32,11 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { format } from 'date-fns';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
-const servers = {
+const ICE_SERVERS = {
   iceServers: [
-    {
-      urls: [
-        'stun:stun1.l.google.com:19302',
-        'stun:stun2.l.google.com:19302',
-        'stun:global.stun.twilio.com:3478'
-      ],
-    },
+    { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
+    { urls: ['stun:global.stun.twilio.com:3478?transport=udp'] },
   ],
   iceCandidatePoolSize: 10,
 };
@@ -66,13 +59,12 @@ export default function ConsultationRoomPage() {
   const [newMessage, setNewMessage] = useState('');
   const [isEnding, setIsEnding] = useState(false);
   const [isPeerConnected, setIsPeerConnected] = useState(false);
-  const [signalingStatus, setSignalingStatus] = useState('Initiating Tunnel...');
+  const [signalingStatus, setSignalingStatus] = useState('Initiating...');
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [timeRemaining, setTimeRemaining] = useState<string>('15:00'); 
   const [isExpired, setIsExpired] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [showExtensionDialog, setShowExtensionDialog] = useState(false);
-  const [activeStream, setActiveStream] = useState<MediaStream | null>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
@@ -80,8 +72,9 @@ export default function ConsultationRoomPage() {
   const chatScrollRef = useRef<HTMLDivElement>(null);
   
   const pc = useRef<RTCPeerConnection | null>(null);
+  const localStream = useRef<MediaStream | null>(null);
   const remoteStream = useRef<MediaStream>(new MediaStream());
-  const candidatesQueue = useRef<any[]>([]);
+  const iceCandidatesQueue = useRef<RTCIceCandidate[]>([]);
 
   const appointmentDocRef = useMemoFirebase(() => {
     if (!firestore || !appointmentId) return null;
@@ -113,14 +106,11 @@ export default function ConsultationRoomPage() {
 
   useEffect(() => {
     if (!appointment?.appointmentDateTime || isCompleted) return;
-
     const startTime = new Date(appointment.appointmentDateTime);
     const endTime = addMinutes(startTime, appointment.isExtended ? 25 : 15); 
-
     const timer = setInterval(() => {
       const now = new Date();
       const secondsLeft = differenceInSeconds(endTime, now);
-
       if (secondsLeft <= 0) {
         clearInterval(timer);
         if (!isCompleted) {
@@ -132,30 +122,15 @@ export default function ConsultationRoomPage() {
         const mins = Math.floor(secondsLeft / 60);
         const secs = secondsLeft % 60;
         setTimeRemaining(`${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`);
-        
-        if (secondsLeft === 300 && isDoctor && !appointment.isExtended) {
-          setShowExtensionDialog(true);
-        }
+        if (secondsLeft === 300 && isDoctor && !appointment.isExtended) setShowExtensionDialog(true);
       }
     }, 1000);
-
     return () => clearInterval(timer);
   }, [appointment?.appointmentDateTime, appointment?.isExtended, isCompleted, isDoctor]);
-
-  const handleExtendSession = () => {
-    if (!firestore || !appointmentId) return;
-    updateDocumentNonBlocking(doc(firestore, 'appointments', appointmentId), { 
-        isExtended: true,
-        updatedAt: new Date().toISOString()
-    });
-    setShowExtensionDialog(false);
-    toast({ title: "Session Extended" });
-  };
 
   const handleAutoExpire = () => {
     if (isEnding || isCompleted) return;
     setIsEnding(true);
-    
     if (isDoctor && firestore && appointment) {
         updateDocumentNonBlocking(doc(firestore, 'appointments', appointmentId), { 
             status: 'expired',
@@ -163,114 +138,60 @@ export default function ConsultationRoomPage() {
             readyToStart: false 
         });
     }
-
     toast({ variant: "destructive", title: "Window Concluded", description: "Finalizing clinical record..." });
-    setTimeout(() => {
-        router.push(isDoctor ? '/doctor-portal' : '/patient-portal');
-    }, 3000);
+    setTimeout(() => router.push(isDoctor ? '/doctor-portal' : '/patient-portal'), 3000);
   };
 
-  // Hardware Initialization
   useEffect(() => {
-    if (!appointmentId || isCompleted) return;
+    if (!firestore || !appointmentId || !user || isCompleted) return;
+
     let isMounted = true;
-    
-    const acquireMedia = async () => {
-      try {
-        const constraints = { 
-          video: isAudioOnly ? false : { 
-            facingMode: "user",
-            width: { ideal: 1280 }, 
-            height: { ideal: 720 } 
-          }, 
-          audio: {
-            echoCancellation: true,
-            noiseSuppression: true,
-            autoGainControl: true,
-          } 
-        };
-        const stream = await navigator.mediaDevices.getUserMedia(constraints);
-        
-        if (!isMounted) {
-            stream.getTracks().forEach(t => t.stop());
-            return;
-        }
-        
-        setActiveStream(stream);
-        setSignalingStatus("Hardware Activated");
-        if (isAudioOnly) setIsVideoOff(true);
-      } catch (err) {
-        console.error("Hardware Blocked:", err);
-        if (isMounted) {
-            setSignalingStatus("Hardware Error");
-            setConnectionError("Camera or Microphone access was denied. Clinical sessions require media permissions.");
-        }
-      }
-    };
-    
-    acquireMedia();
-    
-    return () => {
-      isMounted = false;
-      activeStream?.getTracks().forEach(t => t.stop());
-    };
-  }, [appointmentId, isAudioOnly, isCompleted]);
-
-  // Peer Connection & Signaling Lifecycle
-  useEffect(() => {
-    if (!firestore || !appointmentId || !user || !activeStream || !userData || isExpired || isCompleted) return;
-
-    let isEffectActive = true;
     const unsubscribes: (() => void)[] = [];
-    
-    const connectionTimeout = setTimeout(() => {
-      if (isEffectActive && !isPeerConnected) {
-        setSignalingStatus("Handshake Failed");
-        setConnectionError("The secure clinical tunnel could not be established. Ensure both parties have entered the room and check your network firewall.");
-      }
-    }, 45000);
 
-    const initializeConnection = async () => {
+    const initializeMediaAndSignaling = async () => {
       try {
-        const peerConnection = new RTCPeerConnection(servers);
-        pc.current = peerConnection;
-        
-        activeStream.getTracks().forEach(track => {
-          peerConnection.addTrack(track, activeStream);
+        setSignalingStatus("Accessing Hardware...");
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: isAudioOnly ? false : { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
+          audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
         });
 
+        if (!isMounted) {
+          stream.getTracks().forEach(t => t.stop());
+          return;
+        }
+
+        localStream.current = stream;
+        if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+        if (isAudioOnly) setIsVideoOff(true);
+
+        const peerConnection = new RTCPeerConnection(ICE_SERVERS);
+        pc.current = peerConnection;
+
+        stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+
         peerConnection.ontrack = (event) => {
-          if (!isEffectActive || !remoteVideoRef.current) return;
-          
-          const incomingStream = event.streams[0];
-          incomingStream.getTracks().forEach(track => {
+          console.log("Remote track received");
+          event.streams[0].getTracks().forEach(track => {
             if (!remoteStream.current.getTrackById(track.id)) {
               remoteStream.current.addTrack(track);
             }
           });
-          
-          if (remoteVideoRef.current.srcObject !== remoteStream.current) {
+          if (remoteVideoRef.current) {
             remoteVideoRef.current.srcObject = remoteStream.current;
+            remoteVideoRef.current.play().catch(e => console.warn("Remote play error", e));
           }
-
-          // Force play on track arrival
-          remoteVideoRef.current.play().catch(e => console.warn("Remote auto-play restricted", e));
-          
           setIsPeerConnected(true);
           setSignalingStatus("Connected");
         };
 
         peerConnection.oniceconnectionstatechange = () => {
-          if (!isEffectActive) return;
-          const state = peerConnection.iceConnectionState;
-          console.log(`ICE Connection State: ${state}`);
-          if (state === 'connected' || state === 'completed') {
+          console.log("ICE State:", peerConnection.iceConnectionState);
+          if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
             setIsPeerConnected(true);
             setSignalingStatus("Connected");
-            setConnectionError(null);
-          } else if (state === 'failed') {
-            setSignalingStatus("Tunnel Disrupted");
-            setConnectionError("P2P Tunnel failed. Refreshing may help.");
+          } else if (peerConnection.iceConnectionState === 'disconnected' || peerConnection.iceConnectionState === 'failed') {
+            setSignalingStatus("Reconnecting...");
           }
         };
 
@@ -279,61 +200,59 @@ export default function ConsultationRoomPage() {
         const answerCandidates = collection(callDoc, 'answerCandidates');
 
         peerConnection.onicecandidate = (event) => {
-          if (event.candidate && isEffectActive) {
+          if (event.candidate && isMounted) {
             const col = isDoctor ? offerCandidates : answerCandidates;
-            addDoc(col, event.candidate.toJSON()).catch(err => {
-              console.error("Signal Write Error", err);
-            });
+            addDoc(col, event.candidate.toJSON());
           }
         };
 
-        const processCandidateQueue = async () => {
+        const processQueuedCandidates = async () => {
           if (!peerConnection.remoteDescription) return;
-          while (candidatesQueue.current.length > 0) {
-            const candidate = candidatesQueue.current.shift();
+          while (iceCandidatesQueue.current.length > 0) {
+            const candidate = iceCandidatesQueue.current.shift();
             try {
-              await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+              await peerConnection.addIceCandidate(new RTCIceCandidate(candidate!));
             } catch (e) {
-              console.error("ICE Delayed Add Error:", e);
+              console.error("Delayed ICE Error:", e);
             }
           }
         };
 
         if (isDoctor) {
-          const unsubCall = onSnapshot(callDoc, async (snap) => {
-            const data = snap.data();
-            if (data?.answer && !peerConnection.currentRemoteDescription) {
-              await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
-              await processCandidateQueue();
-            }
-          });
-          unsubscribes.push(unsubCall);
-
-          const unsubRemoteCands = onSnapshot(answerCandidates, (snap) => {
-            snap.docChanges().forEach(async (change) => {
-              if (change.type === 'added' && isEffectActive) {
-                const data = change.doc.data();
-                if (peerConnection.remoteDescription) {
-                  await peerConnection.addIceCandidate(new RTCIceCandidate(data));
-                } else {
-                  candidatesQueue.current.push(data);
-                }
-              }
-            });
-          });
-          unsubscribes.push(unsubRemoteCands);
-
+          setSignalingStatus("Calling Patient...");
           const offer = await peerConnection.createOffer();
           await peerConnection.setLocalDescription(offer);
-          
+
           await setDoc(callDoc, { 
             offer: { sdp: offer.sdp, type: offer.type },
             doctorId: user.uid,
             updatedAt: new Date().toISOString()
           }, { merge: true });
 
+          unsubscribes.push(onSnapshot(callDoc, async (snap) => {
+            const data = snap.data();
+            if (data?.answer && !peerConnection.currentRemoteDescription) {
+              await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
+              await processQueuedCandidates();
+            }
+          }));
+
+          unsubscribes.push(onSnapshot(answerCandidates, (snap) => {
+            snap.docChanges().forEach(async (change) => {
+              if (change.type === 'added') {
+                const data = change.doc.data();
+                if (peerConnection.remoteDescription) {
+                  await peerConnection.addIceCandidate(new RTCIceCandidate(data));
+                } else {
+                  iceCandidatesQueue.current.push(data as any);
+                }
+              }
+            });
+          }));
+
         } else {
-          const unsubCall = onSnapshot(callDoc, async (snap) => {
+          setSignalingStatus("Entering Room...");
+          unsubscribes.push(onSnapshot(callDoc, async (snap) => {
             const data = snap.data();
             if (data?.offer && !peerConnection.currentRemoteDescription) {
               await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
@@ -343,52 +262,39 @@ export default function ConsultationRoomPage() {
                 answer: { type: answer.type, sdp: answer.sdp },
                 patientId: user.uid 
               }, { merge: true });
-              await processCandidateQueue();
+              await processQueuedCandidates();
             }
-          });
-          unsubscribes.push(unsubCall);
+          }));
 
-          const unsubRemoteCands = onSnapshot(offerCandidates, (snap) => {
+          unsubscribes.push(onSnapshot(offerCandidates, (snap) => {
             snap.docChanges().forEach(async (change) => {
-              if (change.type === 'added' && isEffectActive) {
+              if (change.type === 'added') {
                 const data = change.doc.data();
                 if (peerConnection.remoteDescription) {
                   await peerConnection.addIceCandidate(new RTCIceCandidate(data));
                 } else {
-                  candidatesQueue.current.push(data);
+                  iceCandidatesQueue.current.push(data as any);
                 }
               }
             });
-          });
-          unsubscribes.push(unsubRemoteCands);
+          }));
         }
 
       } catch (err) {
-        console.error("Critical Tunnel Failure:", err);
-        setSignalingStatus("Handshake Failed");
+        console.error("Signaling Failure:", err);
+        setConnectionError("Could not establish secure tunnel. Please check camera permissions and refresh.");
       }
     };
 
-    initializeConnection();
+    initializeMediaAndSignaling();
 
     return () => {
-      isEffectActive = false;
-      clearTimeout(connectionTimeout);
+      isMounted = false;
       unsubscribes.forEach(u => u());
-      if (pc.current) {
-        pc.current.close();
-        pc.current = null;
-      }
+      if (pc.current) pc.current.close();
+      localStream.current?.getTracks().forEach(t => t.stop());
     };
-  }, [firestore, appointmentId, user?.uid, !!activeStream, isDoctor, isExpired, isCompleted]);
-
-  // Local View Sync
-  useEffect(() => {
-    if (localVideoRef.current && activeStream) {
-      localVideoRef.current.srcObject = activeStream;
-      localVideoRef.current.play().catch(err => console.warn("Local preview blocked", err));
-    }
-  }, [activeStream]);
+  }, [firestore, appointmentId, user?.uid, isDoctor, isAudioOnly, isCompleted]);
 
   const messagesQuery = useMemoFirebase(() => {
     if (!firestore || !appointmentId) return null;
@@ -396,7 +302,6 @@ export default function ConsultationRoomPage() {
   }, [firestore, appointmentId]);
 
   const { data: messages } = useCollection<any>(messagesQuery);
-
   useEffect(() => { chatScrollRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
   const handleSendMessage = (e: React.FormEvent) => {
@@ -430,16 +335,7 @@ export default function ConsultationRoomPage() {
     router.push(isDoctor ? '/doctor-portal' : '/patient-portal');
   };
 
-  const peerId = appointment ? (user?.uid === appointment.patientId ? appointment.doctorId : appointment.patientId) : null;
-  const peerDocRef = useMemoFirebase(() => {
-    if (!firestore || !peerId) return null;
-    return doc(firestore, 'patients', peerId);
-  }, [firestore, peerId]);
-  const { data: peer } = useDoc<any>(peerDocRef);
-
   if (isUserLoading || isLoadingAppointment) return <div className="flex h-[100dvh] items-center justify-center bg-slate-950"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-
-  const scheduledTime = appointment?.appointmentDateTime ? format(new Date(appointment.appointmentDateTime), "p") : '--:--';
 
   return (
     <div className="flex flex-col h-[100dvh] max-h-[100dvh] bg-slate-950 overflow-hidden text-white overscroll-none fixed inset-0 w-screen">
@@ -449,14 +345,8 @@ export default function ConsultationRoomPage() {
               <ShieldCheck className="text-white h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <h1 className="font-bold text-[10px] uppercase truncate text-white tracking-widest">Precision Clinical Room</h1>
-              <div className="flex items-center gap-2">
-                <p className="text-[8px] text-white/70 font-bold uppercase tracking-widest truncate">{isAudioOnly ? 'Voice Tunnel' : 'Video Tunnel'}</p>
-                <div className="h-1 w-1 rounded-full bg-white/30" />
-                <p className="text-[8px] text-white font-bold uppercase tracking-widest flex items-center gap-1">
-                    <Calendar className="h-2 w-2" /> {scheduledTime}
-                </p>
-              </div>
+              <h1 className="font-bold text-[10px] uppercase truncate text-white tracking-widest">Clinical Consultation Tunnel</h1>
+              <p className="text-[8px] text-white/70 font-bold uppercase tracking-widest truncate">{appointment?.appointmentType}</p>
             </div>
           </div>
           <div className="flex items-center gap-2">
@@ -478,19 +368,12 @@ export default function ConsultationRoomPage() {
             {connectionError ? (
                 <div className="text-center p-8 space-y-6 max-w-md animate-in fade-in zoom-in-95 duration-500 bg-slate-900/50 backdrop-blur rounded-[2rem] border border-white/5 mx-4">
                     <AlertTriangle className="h-16 w-16 text-red-500 mx-auto" />
-                    <div className="space-y-2">
-                        <h3 className="text-lg font-bold">Tunnel Error</h3>
-                        <p className="text-xs text-slate-400 leading-relaxed italic">{connectionError}</p>
-                    </div>
+                    <h3 className="text-lg font-bold">Tunnel Fault</h3>
+                    <p className="text-xs text-slate-400 leading-relaxed italic">{connectionError}</p>
                     <Button onClick={() => window.location.reload()} variant="outline" className="rounded-xl border-white/20 hover:bg-white/10 gap-2">
                         <RefreshCcw className="h-4 w-4" /> Re-initiate Tunnel
                     </Button>
                 </div>
-            ) : isExpired && !isCompleted ? (
-              <div className="text-center p-6 space-y-4 animate-in fade-in">
-                  <AlertTriangle className="h-12 w-12 text-red-500 mx-auto" />
-                  <p className="font-bold uppercase text-xs text-white tracking-widest">Clinical Window Expired</p>
-              </div>
             ) : isCompleted ? (
               <div className="text-center p-6 space-y-4 animate-in zoom-in-95">
                   <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
@@ -500,37 +383,15 @@ export default function ConsultationRoomPage() {
               <>
                   <video 
                     ref={remoteVideoRef} 
-                    className={cn(
-                        "w-full h-full object-cover transition-opacity duration-700 bg-slate-900", 
-                        isPeerConnected ? "opacity-100" : "opacity-0"
-                    )} 
+                    className={cn("w-full h-full object-cover transition-opacity duration-700 bg-slate-900", isPeerConnected ? "opacity-100" : "opacity-0")} 
                     autoPlay 
                     playsInline 
                   />
-                  
                   {!isPeerConnected && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 bg-slate-950/90 backdrop-blur-md z-10">
                           <Loader2 className="h-10 w-10 animate-spin text-primary/40" />
                           <p className="text-[10px] uppercase font-bold text-slate-500 tracking-[0.2em]">{signalingStatus}</p>
                       </div>
-                  )}
-
-                  {isAudioOnly && isPeerConnected && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-8 animate-in fade-in duration-1000 z-20">
-                        <div className="relative">
-                            <Avatar className="h-32 w-32 sm:h-40 sm:w-40 border-8 border-slate-900 shadow-2xl relative z-10">
-                                <AvatarFallback className="bg-primary/10 text-primary text-4xl font-bold">{peer?.firstName?.[0]}</AvatarFallback>
-                            </Avatar>
-                            <div className="absolute inset-0 rounded-full bg-primary/20 animate-ping z-0" />
-                        </div>
-                        <div className="text-center space-y-2">
-                            <p className="text-xl font-bold tracking-tight text-white">{peer ? `Dr. ${peer.firstName} ${peer.lastName}` : 'Linking...'}</p>
-                            <div className="flex items-center justify-center gap-2">
-                                <div className="h-2 w-2 rounded-full bg-green-500 animate-pulse" />
-                                <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Secure Audio Tunnel</p>
-                            </div>
-                        </div>
-                    </div>
                   )}
               </>
             )}
@@ -550,20 +411,17 @@ export default function ConsultationRoomPage() {
           </div>
 
           <div className="shrink-0 h-20 border-t border-white/5 bg-slate-900/80 backdrop-blur-2xl flex items-center justify-center gap-4 px-4 z-50">
-              <button className={cn("h-11 w-11 sm:h-12 sm:w-12 rounded-full flex items-center justify-center transition-all active:scale-95", isMuted ? "bg-red-500 text-white" : "bg-slate-800 text-slate-300")} onClick={() => { if(activeStream) { activeStream.getAudioTracks()[0].enabled = isMuted; setIsMuted(!isMuted); } }} disabled={isExpired || isCompleted}>
+              <button className={cn("h-11 w-11 sm:h-12 sm:w-12 rounded-full flex items-center justify-center transition-all active:scale-95", isMuted ? "bg-red-500 text-white" : "bg-slate-800 text-slate-300")} onClick={() => { if(localStream.current) { localStream.current.getAudioTracks()[0].enabled = isMuted; setIsMuted(!isMuted); } }} disabled={isExpired || isCompleted}>
                   {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
               </button>
               {!isAudioOnly && (
-                  <button className={cn("h-11 w-11 sm:h-12 sm:w-12 rounded-full flex items-center justify-center transition-all active:scale-95", isVideoOff ? "bg-red-500 text-white" : "bg-slate-800 text-slate-300")} onClick={() => { if(activeStream) { activeStream.getVideoTracks()[0].enabled = isVideoOff; setIsVideoOff(!isVideoOff); } }} disabled={isExpired || isCompleted}>
+                  <button className={cn("h-11 w-11 sm:h-12 sm:w-12 rounded-full flex items-center justify-center transition-all active:scale-95", isVideoOff ? "bg-red-500 text-white" : "bg-slate-800 text-slate-300")} onClick={() => { if(localStream.current) { localStream.current.getVideoTracks()[0].enabled = isVideoOff; setIsVideoOff(!isVideoOff); } }} disabled={isExpired || isCompleted}>
                     {isVideoOff ? <VideoOff className="h-5 w-5" /> : <Video className="h-5 w-5" />}
                   </button>
               )}
               <div className="w-px h-8 bg-white/10 mx-2" />
               <Button variant="destructive" className="h-11 px-6 sm:h-12 sm:px-8 rounded-full font-bold uppercase text-[10px] tracking-widest shadow-xl shadow-red-900/20" onClick={handleEndSession} disabled={isEnding || isExpired}>
                   <PhoneOff className="h-4 w-4 mr-2" /> End
-              </Button>
-              <Button variant="ghost" size="icon" className="lg:hidden h-11 w-11 text-slate-400" onClick={() => setIsSidebarOpen(!isSidebarOpen)}>
-                  <MessageSquare className="h-5 w-5" />
               </Button>
           </div>
         </div>
@@ -574,12 +432,11 @@ export default function ConsultationRoomPage() {
         )}>
           <Tabs defaultValue="chat" className="w-full h-full flex flex-col overflow-hidden">
             <TabsList className="shrink-0 bg-slate-950/40 p-1.5 flex h-14">
-                <TabsTrigger value="chat" className="flex-1 text-[10px] uppercase font-bold tracking-widest gap-2 py-2.5 rounded-xl data-[state=active]:bg-white/10"><MessageSquare className="h-3.5 w-3.5" /> Chat</TabsTrigger>
-                {isDoctor && <TabsTrigger value="notes" className="flex-1 text-[10px] uppercase font-bold tracking-widest gap-2 py-2.5 rounded-xl data-[state=active]:bg-white/10"><ClipboardCheck className="h-3.5 w-3.5" /> Clinical Records</TabsTrigger>}
+                <TabsTrigger value="chat" className="flex-1 text-[10px] uppercase font-bold tracking-widest gap-2 py-2.5 rounded-xl"><MessageSquare className="h-3.5 w-3.5" /> Chat</TabsTrigger>
+                {isDoctor && <TabsTrigger value="notes" className="flex-1 text-[10px] uppercase font-bold tracking-widest gap-2 py-2.5 rounded-xl"><ClipboardCheck className="h-3.5 w-3.5" /> Clinical Records</TabsTrigger>}
             </TabsList>
-            
             <TabsContent value="chat" className="flex-1 flex flex-col m-0 min-h-0 overflow-hidden">
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar overscroll-contain">
+                <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
                     {messages?.map((msg: any) => {
                         const isMe = msg.senderId === user?.uid;
                         return (
@@ -587,7 +444,7 @@ export default function ConsultationRoomPage() {
                                 <div className={cn("max-w-[85%] p-3.5 rounded-2xl text-xs shadow-lg", isMe ? "bg-primary text-white rounded-br-none" : "bg-white/5 border border-white/10 text-slate-200 rounded-bl-none")}>
                                     <p className="leading-relaxed">{msg.content}</p>
                                 </div>
-                                <span className="text-[7px] text-slate-500 mt-1 uppercase font-bold">{isMe ? 'You' : (peer?.firstName || 'User')} • {msg.timestamp ? format(new Date(msg.timestamp), "p") : ''}</span>
+                                <span className="text-[7px] text-slate-500 mt-1 uppercase font-bold">{isMe ? 'You' : 'Participant'} • {msg.timestamp ? format(new Date(msg.timestamp), "p") : ''}</span>
                             </div>
                         );
                     })}
@@ -598,9 +455,8 @@ export default function ConsultationRoomPage() {
                     <Button type="submit" disabled={!newMessage.trim() || isCompleted} className="bg-primary h-12 w-12 p-0 rounded-xl shrink-0"><Send className="h-4 w-4" /></Button>
                 </form>
             </TabsContent>
-
             {isDoctor && (
-                <TabsContent value="notes" className="flex-1 overflow-y-auto p-6 m-0 custom-scrollbar overscroll-contain bg-slate-950/20">
+                <TabsContent value="notes" className="flex-1 overflow-y-auto p-6 m-0 bg-slate-950/20">
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(handleFinalizeClinicalNotes)} className="space-y-6">
                             <FormField control={form.control} name="diagnosis" render={({ field }) => (
@@ -609,7 +465,7 @@ export default function ConsultationRoomPage() {
                             <FormField control={form.control} name="prescription" render={({ field }) => (
                                 <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Medications & Advice</FormLabel><FormControl><Textarea placeholder="Detail instructions..." rows={8} className="bg-white/5 border-white/10 text-sm rounded-xl resize-none focus-visible:ring-primary text-white" {...field} disabled={isCompleted || isFinalizing} /></FormControl><FormMessage className="text-[9px]" /></FormItem>
                             )} />
-                            <Button type="submit" className="w-full h-16 font-bold rounded-2xl bg-primary hover:bg-primary/90 shadow-xl shadow-primary/10" disabled={isCompleted || isFinalizing}>
+                            <Button type="submit" className="w-full h-16 font-bold rounded-2xl bg-primary hover:bg-primary/90 shadow-xl" disabled={isCompleted || isFinalizing}>
                                 {isFinalizing ? <Loader2 className="h-5 w-5 animate-spin" /> : "Finalize Clinical Record"}
                             </Button>
                         </form>
@@ -629,7 +485,7 @@ export default function ConsultationRoomPage() {
               </div>
               <DialogFooter className="flex flex-col sm:flex-row gap-3">
                   <Button variant="ghost" onClick={() => setShowExtensionDialog(false)} className="flex-1 h-12 rounded-xl font-bold">Dismiss</Button>
-                  <Button onClick={handleExtendSession} className="flex-1 h-12 rounded-xl bg-primary text-white font-bold shadow-lg">Extend 10 Min</Button>
+                  <Button onClick={() => { if (!firestore || !appointmentId) return; updateDocumentNonBlocking(doc(firestore, 'appointments', appointmentId), { isExtended: true }); setShowExtensionDialog(false); }} className="flex-1 h-12 rounded-xl bg-primary text-white font-bold shadow-lg">Extend 10 Min</Button>
               </DialogFooter>
           </DialogContent>
       </Dialog>
