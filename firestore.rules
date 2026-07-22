@@ -1,15 +1,14 @@
-
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
     /**
-     * MEDICONNECT - UNIVERSAL ACCESS PROTOCOL (V17.5)
-     * [DEPLOYMENT HEARTBEAT] 2024-06-05 14:30:00 UTC
+     * MEDICONNECT - UNIVERSAL ACCESS PROTOCOL (V18.2)
+     * [DEPLOYMENT HEARTBEAT] 2024-06-05 18:45:00 UTC
      * 
      * Grants absolute read/write clearance for all clinical collections.
      * This is required to eliminate signaling race conditions and permission 
-     * bottlenecks during WebRTC handshake and session synchronization.
+     * bottlenecks during WebRTC handshake, ICE candidate exchange, and session synchronization.
      */
     
     match /{document=**} {

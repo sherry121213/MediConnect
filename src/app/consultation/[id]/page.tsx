@@ -1,3 +1,8 @@
+'use server';
+/**
+ * @fileOverview Precision Clinical Consultation Room with WebRTC P2P signaling.
+ */
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -6,7 +11,7 @@ import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } fro
 import { collection, doc, setDoc, onSnapshot, addDoc, query, orderBy } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, Clock, AlertTriangle, ClipboardCheck, CheckCircle2, Calendar } from 'lucide-react';
+import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, Clock, AlertTriangle, ClipboardCheck, CheckCircle2, Calendar, RefreshCcw } from 'lucide-react';
 import { addMinutes, differenceInSeconds } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -32,8 +37,21 @@ import { format } from 'date-fns';
 const servers = {
   iceServers: [
     {
-      urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'],
+      urls: [
+        'stun:stun1.l.google.com:19302',
+        'stun:stun2.l.google.com:19302',
+        'stun:global.stun.twilio.com:3478'
+      ],
     },
+    // PRODUCTION NOTE: For environments with symmetric NAT/Firewalls, 
+    // add TURN server credentials here.
+    /*
+    {
+      urls: 'turn:YOUR_TURN_DOMAIN:3478',
+      username: 'YOUR_USERNAME',
+      credential: 'YOUR_PASSWORD'
+    }
+    */
   ],
   iceCandidatePoolSize: 10,
 };
@@ -63,12 +81,14 @@ export default function ConsultationRoomPage() {
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [showExtensionDialog, setShowExtensionDialog] = useState(false);
   const [activeStream, setActiveStream] = useState<MediaStream | null>(null);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
   
   const pc = useRef<RTCPeerConnection | null>(null);
+  const remoteStream = useRef<MediaStream>(new MediaStream());
   const candidatesQueue = useRef<any[]>([]);
 
   const appointmentDocRef = useMemoFirebase(() => {
@@ -158,7 +178,7 @@ export default function ConsultationRoomPage() {
     }, 3000);
   };
 
-  // 1. Hardware Initialization
+  // Hardware Initialization
   useEffect(() => {
     if (!appointmentId || isCompleted) return;
     let isMounted = true;
@@ -191,7 +211,7 @@ export default function ConsultationRoomPage() {
         console.error("Hardware Blocked:", err);
         if (isMounted) {
             setSignalingStatus("Hardware Error");
-            toast({ variant: "destructive", title: "Access Blocked", description: "Camera/Mic permissions are mandatory for clinical sessions." });
+            setConnectionError("Camera or Microphone access was denied. Clinical sessions require media permissions.");
         }
       }
     };
@@ -204,15 +224,25 @@ export default function ConsultationRoomPage() {
     };
   }, [appointmentId, isAudioOnly, isCompleted]);
 
-  // 2. Peer Connection & Signaling Lifecycle
+  // Peer Connection & Signaling Lifecycle
   useEffect(() => {
     if (!firestore || !appointmentId || !user || !activeStream || !userData || isExpired || isCompleted) return;
 
     let isEffectActive = true;
     const unsubscribes: (() => void)[] = [];
+    
+    // Timeout for connection failure
+    const connectionTimeout = setTimeout(() => {
+      if (isEffectActive && !isPeerConnected) {
+        console.warn("ICE Connection Timeout triggered after 20s");
+        setSignalingStatus("Handshake Failed");
+        setConnectionError("The secure tunnel could not be established. This is often due to restrictive network firewalls. Please try refreshing or switching to a different network (e.g., 4G/LTE).");
+      }
+    }, 20000);
 
     const initializeConnection = async () => {
       try {
+        console.log("Initializing RTCPeerConnection...");
         if (pc.current) pc.current.close();
         pc.current = new RTCPeerConnection(servers);
         
@@ -220,17 +250,18 @@ export default function ConsultationRoomPage() {
           pc.current?.addTrack(track, activeStream);
         });
 
-        // Remote Media Handshake
+        // Track Handling
         pc.current.ontrack = (event) => {
+          console.log("Remote track received:", event.track.kind);
           if (!isEffectActive || !remoteVideoRef.current) return;
           
-          let remoteStream = event.streams[0];
-          if (!remoteStream) {
-              remoteStream = new MediaStream([event.track]);
-          }
+          event.streams[0].getTracks().forEach(track => {
+            remoteStream.current.addTrack(track);
+          });
           
-          remoteVideoRef.current.srcObject = remoteStream;
+          remoteVideoRef.current.srcObject = remoteStream.current;
           remoteVideoRef.current.onloadedmetadata = () => {
+             console.log("Remote media playing...");
              remoteVideoRef.current?.play().catch(e => console.warn("Auto-play blocked", e));
           };
           
@@ -238,42 +269,58 @@ export default function ConsultationRoomPage() {
           setSignalingStatus("Secure Link Established");
         };
 
+        // State Monitoring
         pc.current.oniceconnectionstatechange = () => {
           if (!isEffectActive) return;
           const state = pc.current?.iceConnectionState;
+          console.log("ICE Connection State:", state);
           if (state === 'connected' || state === 'completed') {
             setIsPeerConnected(true);
             setSignalingStatus("Connected");
+            setConnectionError(null);
           } else if (state === 'failed' || state === 'disconnected') {
             setSignalingStatus("Reconnecting...");
           }
+        };
+
+        pc.current.onconnectionstatechange = () => {
+          console.log("Connection State:", pc.current?.connectionState);
+        };
+
+        pc.current.onicecandidateerror = (e) => {
+          console.error("ICE Candidate Error:", e);
         };
 
         const callDoc = doc(firestore, 'calls', appointmentId);
         const offerCandidates = collection(callDoc, 'offerCandidates');
         const answerCandidates = collection(callDoc, 'answerCandidates');
 
+        // Candidate Generation
         pc.current.onicecandidate = (event) => {
           if (event.candidate && isEffectActive) {
+            console.log("Generated local ICE candidate");
             const col = isDoctor ? offerCandidates : answerCandidates;
             addDoc(col, event.candidate.toJSON());
           }
         };
 
+        // Process Queue Logic
         const processCandidateQueue = async () => {
+          console.log(`Processing candidate queue: ${candidatesQueue.current.length} items`);
           while (candidatesQueue.current.length > 0) {
             const candidate = candidatesQueue.current.shift();
             try {
-              if (pc.current?.remoteDescription && pc.current.remoteDescription.type) {
+              if (pc.current?.remoteDescription) {
                   await pc.current.addIceCandidate(new RTCIceCandidate(candidate));
               }
             } catch (e) {
-              console.error("ICE Load Error:", e);
+              console.error("ICE Add Error:", e);
             }
           }
         };
 
         if (isDoctor) {
+          console.log("Doctor: Creating Offer...");
           const offer = await pc.current.createOffer();
           await pc.current.setLocalDescription(offer);
           
@@ -283,9 +330,11 @@ export default function ConsultationRoomPage() {
             updatedAt: new Date().toISOString()
           }, { merge: true });
 
+          // Listen for Answer
           const unsubCall = onSnapshot(callDoc, async (snap) => {
             const data = snap.data();
             if (data?.answer && !pc.current?.currentRemoteDescription) {
+              console.log("Doctor: Received Answer from Patient");
               const answerDesc = new RTCSessionDescription(data.answer);
               await pc.current?.setRemoteDescription(answerDesc);
               await processCandidateQueue();
@@ -293,6 +342,7 @@ export default function ConsultationRoomPage() {
           });
           unsubscribes.push(unsubCall);
 
+          // Listen for Patient Candidates
           const unsubRemoteCands = onSnapshot(answerCandidates, (snap) => {
             snap.docChanges().forEach(async (change) => {
               if (change.type === 'added' && isEffectActive) {
@@ -308,9 +358,11 @@ export default function ConsultationRoomPage() {
           unsubscribes.push(unsubRemoteCands);
 
         } else {
+          console.log("Patient: Listening for Offer...");
           const unsubCall = onSnapshot(callDoc, async (snap) => {
             const data = snap.data();
             if (data?.offer && !pc.current?.currentRemoteDescription) {
+              console.log("Patient: Received Offer from Doctor");
               const offerDesc = new RTCSessionDescription(data.offer);
               await pc.current?.setRemoteDescription(offerDesc);
 
@@ -327,6 +379,7 @@ export default function ConsultationRoomPage() {
           });
           unsubscribes.push(unsubCall);
 
+          // Listen for Doctor Candidates
           const unsubRemoteCands = onSnapshot(offerCandidates, (snap) => {
             snap.docChanges().forEach(async (change) => {
               if (change.type === 'added' && isEffectActive) {
@@ -352,6 +405,7 @@ export default function ConsultationRoomPage() {
 
     return () => {
       isEffectActive = false;
+      clearTimeout(connectionTimeout);
       unsubscribes.forEach(u => u());
       if (pc.current) {
         pc.current.close();
@@ -453,7 +507,18 @@ export default function ConsultationRoomPage() {
       <main className="flex-1 relative flex flex-col lg:flex-row overflow-hidden min-h-0">
         <div className="flex-1 relative flex flex-col overflow-hidden bg-black">
           <div className="flex-1 relative overflow-hidden flex items-center justify-center">
-            {isExpired && !isCompleted ? (
+            {connectionError ? (
+                <div className="text-center p-8 space-y-6 max-w-md animate-in fade-in zoom-in-95 duration-500 bg-slate-900/50 backdrop-blur rounded-[2rem] border border-white/5 mx-4">
+                    <AlertTriangle className="h-16 w-16 text-red-500 mx-auto" />
+                    <div className="space-y-2">
+                        <h3 className="text-lg font-bold">Tunnel Error</h3>
+                        <p className="text-xs text-slate-400 leading-relaxed italic">{connectionError}</p>
+                    </div>
+                    <Button onClick={() => window.location.reload()} variant="outline" className="rounded-xl border-white/20 hover:bg-white/10 gap-2">
+                        <RefreshCcw className="h-4 w-4" /> Re-initiate Tunnel
+                    </Button>
+                </div>
+            ) : isExpired && !isCompleted ? (
               <div className="text-center p-6 space-y-4 animate-in fade-in">
                   <AlertTriangle className="h-12 w-12 text-red-500 mx-auto" />
                   <p className="font-bold uppercase text-xs text-white tracking-widest">Clinical Window Expired</p>
