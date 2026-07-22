@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef, useMemo } from 'react';
@@ -240,19 +241,36 @@ export default function ConsultationRoomPage() {
         // Handle incoming tracks
         pc.current.ontrack = (event) => {
           if (!isEffectActive) return;
-          event.streams[0].getTracks().forEach(track => {
-            remoteStream.current?.addTrack(track);
-          });
+          console.log("Remote track received:", event.track.kind);
+          
+          if (event.streams && event.streams[0]) {
+            event.streams[0].getTracks().forEach(track => {
+                remoteStream.current?.addTrack(track);
+            });
+          } else {
+            remoteStream.current?.addTrack(event.track);
+          }
+
           setIsPeerConnected(true);
           setSignalingStatus("Tunnel Active");
+          
           if (remoteVideoRef.current) {
-            remoteVideoRef.current.play().catch(console.warn);
+            remoteVideoRef.current.play().catch(err => console.warn("Remote play error:", err));
           }
         };
 
         pc.current.oniceconnectionstatechange = () => {
           if (!isEffectActive) return;
-          if (pc.current?.iceConnectionState === 'disconnected') {
+          const state = pc.current?.iceConnectionState;
+          console.log("ICE Connection State:", state);
+          
+          if (state === 'connected' || state === 'completed') {
+            setIsPeerConnected(true);
+            setSignalingStatus("Tunnel Active");
+          } else if (state === 'disconnected') {
+            // Don't immediately drop, could be temporary
+            setSignalingStatus("Connection Fragile");
+          } else if (state === 'failed' || state === 'closed') {
             setIsPeerConnected(false);
             setSignalingStatus("Connection Lost");
           }
@@ -287,6 +305,9 @@ export default function ConsultationRoomPage() {
               const answerDesc = new RTCSessionDescription(data.answer);
               await pc.current?.setRemoteDescription(answerDesc);
               isRemoteDescriptionSet.current = true;
+              console.log("Doctor: Remote description set (Answer)");
+              
+              // Apply buffered candidates
               while (bufferedCandidates.current.length > 0) {
                 const cand = bufferedCandidates.current.shift();
                 await pc.current?.addIceCandidate(new RTCIceCandidate(cand));
@@ -318,6 +339,7 @@ export default function ConsultationRoomPage() {
               const offerDesc = new RTCSessionDescription(data.offer);
               await pc.current?.setRemoteDescription(offerDesc);
               isRemoteDescriptionSet.current = true;
+              console.log("Patient: Remote description set (Offer)");
 
               const answer = await pc.current?.createAnswer();
               if (answer) {
@@ -328,6 +350,7 @@ export default function ConsultationRoomPage() {
                 }, { merge: true });
               }
 
+              // Apply buffered candidates
               while (bufferedCandidates.current.length > 0) {
                 const cand = bufferedCandidates.current.shift();
                 await pc.current?.addIceCandidate(new RTCIceCandidate(cand));
