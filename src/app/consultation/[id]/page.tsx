@@ -1,22 +1,21 @@
 'use client';
 /**
- * @fileOverview Precision Clinical Consultation Room with WebRTC P2P signaling.
+ * @fileOverview Precision Clinical Consultation Room with Resilient WebRTC P2P signaling.
  * Handles production-grade peer-to-peer media sessions with signaling via Firestore.
  */
 
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } from '@/firebase';
-import { collection, doc, setDoc, onSnapshot, addDoc, query, orderBy } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, addDoc, query, orderBy, deleteDoc, getDocs } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, Clock, AlertTriangle, ClipboardCheck, CheckCircle2, Calendar, RefreshCcw } from 'lucide-react';
+import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, Clock, AlertTriangle, ClipboardCheck, CheckCircle2, RefreshCcw } from 'lucide-react';
 import { addMinutes, differenceInSeconds } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { updateDocumentNonBlocking, addDocumentNonBlocking } from '@/firebase/non-blocking-updates';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
 import { useForm } from 'react-hook-form';
@@ -36,6 +35,7 @@ import { format } from 'date-fns';
 const ICE_SERVERS = {
   iceServers: [
     { urls: ['stun:stun1.l.google.com:19302', 'stun:stun2.l.google.com:19302'] },
+    { urls: ['stun:stun3.l.google.com:19302', 'stun:stun4.l.google.com:19302'] },
     { urls: ['stun:global.stun.twilio.com:3478?transport=udp'] },
   ],
   iceCandidatePoolSize: 10,
@@ -59,8 +59,7 @@ export default function ConsultationRoomPage() {
   const [newMessage, setNewMessage] = useState('');
   const [isEnding, setIsEnding] = useState(false);
   const [isPeerConnected, setIsPeerConnected] = useState(false);
-  const [signalingStatus, setSignalingStatus] = useState('Initiating...');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [signalingStatus, setSignalingStatus] = useState('Initiating Hardware...');
   const [timeRemaining, setTimeRemaining] = useState<string>('15:00'); 
   const [isExpired, setIsExpired] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
@@ -74,7 +73,7 @@ export default function ConsultationRoomPage() {
   const pc = useRef<RTCPeerConnection | null>(null);
   const localStream = useRef<MediaStream | null>(null);
   const remoteStream = useRef<MediaStream>(new MediaStream());
-  const iceCandidatesQueue = useRef<RTCIceCandidate[]>([]);
+  const iceCandidatesQueue = useRef<any[]>([]);
 
   const appointmentDocRef = useMemoFirebase(() => {
     if (!firestore || !appointmentId) return null;
@@ -148,9 +147,9 @@ export default function ConsultationRoomPage() {
     let isMounted = true;
     const unsubscribes: (() => void)[] = [];
 
-    const initializeMediaAndSignaling = async () => {
+    const initializeTunnel = async () => {
       try {
-        setSignalingStatus("Accessing Hardware...");
+        setSignalingStatus("Requesting Camera...");
         const stream = await navigator.mediaDevices.getUserMedia({
           video: isAudioOnly ? false : { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } },
           audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
@@ -162,36 +161,51 @@ export default function ConsultationRoomPage() {
         }
 
         localStream.current = stream;
-        if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-        if (isAudioOnly) setIsVideoOff(true);
+        if (localVideoRef.current) {
+          localVideoRef.current.srcObject = stream;
+          localVideoRef.current.play().catch(e => console.warn("Local play blocked", e));
+        }
 
         const peerConnection = new RTCPeerConnection(ICE_SERVERS);
         pc.current = peerConnection;
 
+        // Ensure remote stream is bound to ref immediately
+        if (remoteVideoRef.current) {
+          remoteVideoRef.current.srcObject = remoteStream.current;
+        }
+
         stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
         peerConnection.ontrack = (event) => {
-          console.log("Remote track received");
+          console.log("Track received:", event.track.kind);
           event.streams[0].getTracks().forEach(track => {
             if (!remoteStream.current.getTrackById(track.id)) {
               remoteStream.current.addTrack(track);
             }
           });
+          
           if (remoteVideoRef.current) {
-            remoteVideoRef.current.srcObject = remoteStream.current;
-            remoteVideoRef.current.play().catch(e => console.warn("Remote play error", e));
+            remoteVideoRef.current.play().catch(e => {
+                console.warn("Remote play pending interaction", e);
+            });
           }
           setIsPeerConnected(true);
           setSignalingStatus("Connected");
         };
 
         peerConnection.oniceconnectionstatechange = () => {
-          console.log("ICE State:", peerConnection.iceConnectionState);
-          if (peerConnection.iceConnectionState === 'connected' || peerConnection.iceConnectionState === 'completed') {
+          const state = peerConnection.iceConnectionState;
+          console.log("ICE State:", state);
+          if (state === 'connected' || state === 'completed') {
             setIsPeerConnected(true);
             setSignalingStatus("Connected");
-          } else if (peerConnection.iceConnectionState === 'disconnected' || peerConnection.iceConnectionState === 'failed') {
-            setSignalingStatus("Reconnecting...");
+            setConnectionError(null);
+          } else if (state === 'failed') {
+            setSignalingStatus("Tunnel Error");
+            setConnectionError("The secure tunnel could not be established. Please check your firewall and try again.");
+          } else if (state === 'disconnected') {
+            setSignalingStatus("Lost Connection");
+            setIsPeerConnected(false);
           }
         };
 
@@ -206,32 +220,28 @@ export default function ConsultationRoomPage() {
           }
         };
 
+        // Candidate Buffer Logic
         const processQueuedCandidates = async () => {
           if (!peerConnection.remoteDescription) return;
+          console.log("Draining candidate queue:", iceCandidatesQueue.current.length);
           while (iceCandidatesQueue.current.length > 0) {
             const candidate = iceCandidatesQueue.current.shift();
             try {
-              await peerConnection.addIceCandidate(new RTCIceCandidate(candidate!));
+              await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
             } catch (e) {
-              console.error("Delayed ICE Error:", e);
+              console.error("Candidate apply error:", e);
             }
           }
         };
 
         if (isDoctor) {
-          setSignalingStatus("Calling Patient...");
-          const offer = await peerConnection.createOffer();
-          await peerConnection.setLocalDescription(offer);
-
-          await setDoc(callDoc, { 
-            offer: { sdp: offer.sdp, type: offer.type },
-            doctorId: user.uid,
-            updatedAt: new Date().toISOString()
-          }, { merge: true });
-
+          setSignalingStatus("Syncing Protocol...");
+          
+          // Setup listeners BEFORE creating offer
           unsubscribes.push(onSnapshot(callDoc, async (snap) => {
             const data = snap.data();
             if (data?.answer && !peerConnection.currentRemoteDescription) {
+              console.log("Applying Answer");
               await peerConnection.setRemoteDescription(new RTCSessionDescription(data.answer));
               await processQueuedCandidates();
             }
@@ -244,24 +254,38 @@ export default function ConsultationRoomPage() {
                 if (peerConnection.remoteDescription) {
                   await peerConnection.addIceCandidate(new RTCIceCandidate(data));
                 } else {
-                  iceCandidatesQueue.current.push(data as any);
+                  iceCandidatesQueue.current.push(data);
                 }
               }
             });
           }));
 
+          const offer = await peerConnection.createOffer();
+          await peerConnection.setLocalDescription(offer);
+
+          await setDoc(callDoc, { 
+            offer: { sdp: offer.sdp, type: offer.type },
+            doctorId: user.uid,
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+
         } else {
-          setSignalingStatus("Entering Room...");
+          setSignalingStatus("Entering Tunnel...");
+          
           unsubscribes.push(onSnapshot(callDoc, async (snap) => {
             const data = snap.data();
             if (data?.offer && !peerConnection.currentRemoteDescription) {
+              console.log("Applying Offer");
               await peerConnection.setRemoteDescription(new RTCSessionDescription(data.offer));
+              
               const answer = await peerConnection.createAnswer();
               await peerConnection.setLocalDescription(answer);
+              
               await setDoc(callDoc, { 
                 answer: { type: answer.type, sdp: answer.sdp },
                 patientId: user.uid 
               }, { merge: true });
+              
               await processQueuedCandidates();
             }
           }));
@@ -273,20 +297,28 @@ export default function ConsultationRoomPage() {
                 if (peerConnection.remoteDescription) {
                   await peerConnection.addIceCandidate(new RTCIceCandidate(data));
                 } else {
-                  iceCandidatesQueue.current.push(data as any);
+                  iceCandidatesQueue.current.push(data);
                 }
               }
             });
           }));
         }
 
-      } catch (err) {
-        console.error("Signaling Failure:", err);
-        setConnectionError("Could not establish secure tunnel. Please check camera permissions and refresh.");
+        // Connection Timeout
+        setTimeout(() => {
+            if (isMounted && !peerConnection.remoteDescription) {
+                setSignalingStatus("Timeout");
+                setConnectionError("Tunnel fault: Peer not detected. Please verify both parties are in the room.");
+            }
+        }, 60000);
+
+      } catch (err: any) {
+        console.error("Signaling Error:", err);
+        setConnectionError("Hardware or Tunnel Error: " + (err.message || "Unknown failure"));
       }
     };
 
-    initializeMediaAndSignaling();
+    initializeTunnel();
 
     return () => {
       isMounted = false;
@@ -345,7 +377,7 @@ export default function ConsultationRoomPage() {
               <ShieldCheck className="text-white h-4 w-4" />
             </div>
             <div className="min-w-0">
-              <h1 className="font-bold text-[10px] uppercase truncate text-white tracking-widest">Clinical Consultation Tunnel</h1>
+              <h1 className="font-bold text-[10px] uppercase truncate text-white tracking-widest">Clinical Tunnel</h1>
               <p className="text-[8px] text-white/70 font-bold uppercase tracking-widest truncate">{appointment?.appointmentType}</p>
             </div>
           </div>
@@ -426,14 +458,11 @@ export default function ConsultationRoomPage() {
           </div>
         </div>
 
-        <aside className={cn(
-            "shrink-0 w-full lg:w-[420px] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col z-[60] bg-slate-900 transition-all duration-300",
-            isSidebarOpen ? "h-[45dvh] lg:h-full" : "h-0 lg:w-0 overflow-hidden"
-        )}>
+        <aside className="shrink-0 w-full lg:w-[420px] border-t lg:border-t-0 lg:border-l border-white/10 flex flex-col z-[60] bg-slate-900 h-[45dvh] lg:h-full">
           <Tabs defaultValue="chat" className="w-full h-full flex flex-col overflow-hidden">
             <TabsList className="shrink-0 bg-slate-950/40 p-1.5 flex h-14">
                 <TabsTrigger value="chat" className="flex-1 text-[10px] uppercase font-bold tracking-widest gap-2 py-2.5 rounded-xl"><MessageSquare className="h-3.5 w-3.5" /> Chat</TabsTrigger>
-                {isDoctor && <TabsTrigger value="notes" className="flex-1 text-[10px] uppercase font-bold tracking-widest gap-2 py-2.5 rounded-xl"><ClipboardCheck className="h-3.5 w-3.5" /> Clinical Records</TabsTrigger>}
+                {isDoctor && <TabsTrigger value="notes" className="flex-1 text-[10px] uppercase font-bold tracking-widest gap-2 py-2.5 rounded-xl"><ClipboardCheck className="h-3.5 w-3.5" /> Records</TabsTrigger>}
             </TabsList>
             <TabsContent value="chat" className="flex-1 flex flex-col m-0 min-h-0 overflow-hidden">
                 <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
@@ -451,7 +480,7 @@ export default function ConsultationRoomPage() {
                     <div ref={chatScrollRef} />
                 </div>
                 <form onSubmit={handleSendMessage} className="shrink-0 p-3 bg-slate-950/60 border-t border-white/5 flex gap-2">
-                    <Input placeholder={isCompleted ? "Session Concluded" : "Secure clinical message..."} disabled={isCompleted} className="bg-white/5 border-white/10 h-12 text-xs rounded-xl focus-visible:ring-primary text-white" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
+                    <Input placeholder={isCompleted ? "Session Concluded" : "Secure message..."} disabled={isCompleted} className="bg-white/5 border-white/10 h-12 text-xs rounded-xl focus-visible:ring-primary text-white" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
                     <Button type="submit" disabled={!newMessage.trim() || isCompleted} className="bg-primary h-12 w-12 p-0 rounded-xl shrink-0"><Send className="h-4 w-4" /></Button>
                 </form>
             </TabsContent>
@@ -466,7 +495,7 @@ export default function ConsultationRoomPage() {
                                 <FormItem><FormLabel className="text-[10px] font-bold uppercase tracking-widest text-slate-400">Medications & Advice</FormLabel><FormControl><Textarea placeholder="Detail instructions..." rows={8} className="bg-white/5 border-white/10 text-sm rounded-xl resize-none focus-visible:ring-primary text-white" {...field} disabled={isCompleted || isFinalizing} /></FormControl><FormMessage className="text-[9px]" /></FormItem>
                             )} />
                             <Button type="submit" className="w-full h-16 font-bold rounded-2xl bg-primary hover:bg-primary/90 shadow-xl" disabled={isCompleted || isFinalizing}>
-                                {isFinalizing ? <Loader2 className="h-5 w-5 animate-spin" /> : "Finalize Clinical Record"}
+                                {isFinalizing ? <Loader2 className="h-5 w-5 animate-spin" /> : "Finalize Record"}
                             </Button>
                         </form>
                     </Form>
@@ -481,7 +510,7 @@ export default function ConsultationRoomPage() {
               <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto"><Clock className="h-8 w-8 text-primary" /></div>
               <div className="space-y-2">
                   <DialogTitle className="text-2xl font-headline tracking-tight">Extend Session?</DialogTitle>
-                  <p className="text-sm text-slate-500 font-medium">Professional window concludes in 5 minutes. Apply 10m clinical buffer?</p>
+                  <p className="text-sm text-slate-500 font-medium">Professional window concludes in 5 minutes. Apply 10m buffer?</p>
               </div>
               <DialogFooter className="flex flex-col sm:flex-row gap-3">
                   <Button variant="ghost" onClick={() => setShowExtensionDialog(false)} className="flex-1 h-12 rounded-xl font-bold">Dismiss</Button>
