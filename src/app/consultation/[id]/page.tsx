@@ -138,6 +138,16 @@ export default function ConsultationRoomPage() {
             doctorInRoom: false,
             readyToStart: false 
         });
+
+        // AUDIT LOGGING FOR ADMIN SURVEILLANCE
+        addDocumentNonBlocking(collection(firestore, 'missedSessionAudits'), {
+          appointmentId: appointmentId,
+          doctorId: appointment.doctorId,
+          patientId: appointment.patientId,
+          scheduledTime: appointment.appointmentDateTime,
+          loggedAt: new Date().toISOString(),
+          reason: 'Clinical Window Expired (Auto-Finalized by System)'
+        });
     }
     toast({ variant: "destructive", title: "Window Concluded", description: "Finalizing clinical record..." });
     setTimeout(() => router.push(isDoctor ? '/doctor-portal' : '/patient-portal'), 3000);

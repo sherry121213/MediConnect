@@ -291,7 +291,7 @@ export default function AdminDashboardPage() {
                 </div>
                 <div>
                     <h4 className="font-bold text-base text-slate-900">Record History</h4>
-                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-0.5">Manage Providers</p>
+                    <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest mt-0.5">Manage Doctors</p>
                 </div>
             </Link>
           </Card>
