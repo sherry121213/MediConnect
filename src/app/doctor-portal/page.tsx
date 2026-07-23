@@ -4,14 +4,14 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, Zap, BellRing, UserCheck, AlertCircle, PlayCircle, LogIn, CheckCircle2, User, FileText, Stethoscope, Eye, CreditCard, X, ShieldCheck } from "lucide-react";
+import { Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, Zap, BellRing, UserCheck, AlertCircle, PlayCircle, LogIn, CheckCircle2, User, FileText, Stethoscope, Eye, CreditCard, X, ShieldCheck, Calendar as CalendarIcon, Edit2 } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where, doc, getDocs, updateDoc } from "firebase/firestore";
 import type { Appointment, Patient } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
-import { format, isSameDay, subDays, addDays, addMinutes, isAfter } from "date-fns";
+import { format, isSameDay, subDays, addDays, addMinutes, isAfter, parse, startOfDay } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
@@ -23,6 +23,10 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
 
 const AppointmentRow = ({ 
     apt, 
@@ -106,6 +110,15 @@ export default function DoctorPortalPage() {
     const [nowTicker, setNowTicker] = useState<Date | null>(null);
     const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
 
+    // Reschedule States
+    const [isRescheduleOpen, setIsRescheduleOpen] = useState(false);
+    const [aptToReschedule, setAptToReschedule] = useState<Appointment | null>(null);
+    const [newRescheduleDate, setNewRescheduleDate] = useState<Date | undefined>(new Date());
+    const [resHour, setResHour] = useState("10");
+    const [resMin, setResMin] = useState("00");
+    const [resPeriod, setResPeriod] = useState("AM");
+    const [isRescheduling, setIsRescheduling] = useState(false);
+
     useEffect(() => { 
         setNowTicker(new Date());
         const timer = setInterval(() => setNowTicker(new Date()), 15000);
@@ -168,7 +181,7 @@ export default function DoctorPortalPage() {
             .filter(apt => apt && isSameDay(new Date(apt.appointmentDateTime), viewDate))
             .sort((a,b) => b.appointmentDateTime.localeCompare(a.appointmentDateTime));
             
-        const activeQ = allToday.filter(apt => apt.status === 'scheduled' && isAfter(addMinutes(new Date(apt.appointmentDateTime), 20), nowTicker)).sort((a, b) => (a.sequencePosition || 0) - (b.sequencePosition || 0));
+        const activeQ = allToday.filter(apt => (apt.status === 'scheduled' || apt.status === 'expired') && isAfter(addMinutes(new Date(apt.appointmentDateTime), 20), nowTicker)).sort((a, b) => (a.sequencePosition || 0) - (b.sequencePosition || 0));
         const revenue = allToday.reduce((sum, a) => sum + (a.amount || 1500), 0);
         return { activeQueue: activeQ, timelineApts: viewDay, stats: { todayRevenue: revenue } };
     }, [appointments, viewDate, nowTicker]);
@@ -185,6 +198,35 @@ export default function DoctorPortalPage() {
         });
         window.location.assign(`/consultation/${apt.id}`);
     };
+
+    const handleRescheduleSubmit = async () => {
+        if (!firestore || !aptToReschedule || !newRescheduleDate) return;
+        setIsRescheduling(true);
+        try {
+            const timeStr = `${resHour}:${resMin} ${resPeriod}`;
+            const proposedTime = parse(timeStr, 'hh:mm a', startOfDay(newRescheduleDate));
+            
+            await updateDoc(doc(firestore, 'appointments', aptToReschedule.id), {
+                appointmentDateTime: proposedTime.toISOString(),
+                status: 'scheduled',
+                patientCheckedIn: false,
+                doctorInRoom: false,
+                readyToStart: false,
+                queueStatus: 'waiting',
+                updatedAt: new Date().toISOString()
+            });
+            
+            toast({ title: "Reschedule Successful", description: `Consultation moved to ${format(proposedTime, "PPP p")}` });
+            setIsRescheduleOpen(false);
+        } catch (e) {
+            toast({ variant: 'destructive', title: "Update Failed", description: "Could not sync new time." });
+        } finally {
+            setIsRescheduling(false);
+        }
+    };
+
+    const availableHours = ["12", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11"];
+    const availableMinutes = Array.from({length: 60}, (_, i) => i.toString().padStart(2, '0'));
 
     if (isUserLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin" /></div>;
 
@@ -269,13 +311,13 @@ export default function DoctorPortalPage() {
                     </div>
 
                     <div className="lg:col-span-8">
-                        <Card className="rounded-[2.5rem] bg-white shadow-2xl border-none overflow-hidden flex flex-col">
+                        <Card className="rounded-[2.5rem] bg-white shadow-2xl border-none overflow-hidden flex flex-col h-full">
                             <CardHeader className="border-b bg-slate-900 text-white p-6 md:p-8 flex flex-row justify-between items-center shrink-0">
                                 <div className="space-y-1">
                                     <CardTitle className="text-lg md:text-xl font-headline flex items-center gap-3">
                                         <Clock className="h-5 w-5 md:h-6 md:h-6 text-primary" /> Daily Timeline
                                     </CardTitle>
-                                    <p className="text-[9px] md:text-[10px] uppercase font-bold text-slate-400 tracking-widest">Consultations</p>
+                                    <p className="text-[9px] md:text-[10px] uppercase font-bold text-slate-400 tracking-widest">Clinical Schedule</p>
                                 </div>
                                 <div className="flex items-center gap-2 bg-white/5 p-1 rounded-2xl border border-white/10 backdrop-blur-sm">
                                     <Button variant="ghost" size="icon" className="h-7 w-7 text-white hover:bg-white/10" onClick={() => setViewDate(subDays(viewDate, 1))}>
@@ -303,16 +345,26 @@ export default function DoctorPortalPage() {
                                                                 <div className="bg-slate-900 text-white text-[9px] font-bold px-3 py-1 rounded-full uppercase tracking-tighter shadow-sm">
                                                                     {format(new Date(apt.appointmentDateTime), "p")}
                                                                 </div>
-                                                                {apt.paymentReceiptUrl && (
+                                                                <div className="flex gap-2">
+                                                                    {apt.paymentReceiptUrl && (
+                                                                        <Button 
+                                                                            variant="outline" 
+                                                                            size="sm" 
+                                                                            className="h-8 w-8 rounded-lg border-2 bg-white text-primary hover:bg-primary/5 p-0 shadow-sm"
+                                                                            onClick={(e) => { e.stopPropagation(); setReceiptPreview(apt.paymentReceiptUrl!); }}
+                                                                        >
+                                                                            <Eye className="h-3.5 w-3.5" />
+                                                                        </Button>
+                                                                    )}
                                                                     <Button 
                                                                         variant="outline" 
                                                                         size="sm" 
-                                                                        className="h-8 w-8 rounded-lg border-2 bg-white text-primary hover:bg-primary/5 p-0 shadow-sm"
-                                                                        onClick={(e) => { e.stopPropagation(); setReceiptPreview(apt.paymentReceiptUrl!); }}
+                                                                        className="h-8 w-8 rounded-lg border-2 bg-white text-slate-500 hover:text-primary p-0 shadow-sm"
+                                                                        onClick={(e) => { e.stopPropagation(); setAptToReschedule(apt); setIsRescheduleOpen(true); }}
                                                                     >
-                                                                        <Eye className="h-3.5 w-3.5" />
+                                                                        <Edit2 className="h-3.5 w-3.5" />
                                                                     </Button>
-                                                                )}
+                                                                </div>
                                                             </div>
                                                         </div>
 
@@ -449,6 +501,87 @@ export default function DoctorPortalPage() {
                                 </div>
                             )}
                         </div>
+                    </DialogContent>
+                </Dialog>
+
+                {/* RESCHEDULE DIALOG */}
+                <Dialog open={isRescheduleOpen} onOpenChange={setIsRescheduleOpen}>
+                    <DialogContent className="w-[95vw] max-w-md rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
+                        <DialogHeader className="bg-slate-900 p-8 text-white">
+                            <div className="flex items-center gap-3 text-primary mb-2">
+                                <Edit2 className="h-5 w-5" />
+                                <span className="text-[10px] font-bold uppercase tracking-widest">Schedule Update</span>
+                            </div>
+                            <DialogTitle className="text-2xl font-headline">Reschedule Consultation</DialogTitle>
+                            <DialogDescription className="text-slate-400">Modify the professional practice window for this patient.</DialogDescription>
+                        </DialogHeader>
+                        <div className="p-8 space-y-8 bg-white">
+                            <div className="space-y-4">
+                                <Label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest ml-1">Proposed Clinical Date</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant={"outline"}
+                                            className={cn(
+                                                "w-full justify-start text-left font-bold h-14 rounded-2xl border-2 transition-all",
+                                                !newRescheduleDate ? "text-muted-foreground" : "border-slate-100 hover:border-primary/30"
+                                            )}
+                                        >
+                                            <CalendarIcon className="mr-3 h-5 w-5 text-primary" />
+                                            {newRescheduleDate ? format(newRescheduleDate, "PPP") : <span>Select date</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl" align="start">
+                                        <Calendar
+                                            mode="single"
+                                            selected={newRescheduleDate}
+                                            onSelect={setNewRescheduleDate}
+                                            disabled={(date) => date < subDays(new Date(), 1)}
+                                            initialFocus
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-bold uppercase ml-1 text-slate-500">Hour</Label>
+                                    <Select value={resHour} onValueChange={setResHour}>
+                                        <SelectTrigger className="h-14 rounded-2xl border-2 bg-white font-bold text-lg"><SelectValue /></SelectTrigger>
+                                        <SelectContent className="max-h-[200px] rounded-xl shadow-2xl">{availableHours.map(h => (<SelectItem key={h} value={h} className="font-bold">{h}</SelectItem>))}</SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-bold uppercase ml-1 text-slate-500">Min</Label>
+                                    <Select value={resMin} onValueChange={setResMin}>
+                                        <SelectTrigger className="h-14 rounded-2xl border-2 bg-white font-bold text-lg"><SelectValue /></SelectTrigger>
+                                        <SelectContent className="max-h-[200px] rounded-xl shadow-2xl">{availableMinutes.map(m => (<SelectItem key={m} value={m} className="font-bold">{m}</SelectItem>))}</SelectContent>
+                                    </Select>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label className="text-[10px] font-bold uppercase ml-1 text-slate-500">PRD</Label>
+                                    <Select value={resPeriod} onValueChange={setResPeriod}>
+                                        <SelectTrigger className="h-14 rounded-2xl border-2 bg-white font-bold text-lg"><SelectValue /></SelectTrigger>
+                                        <SelectContent className="rounded-xl shadow-2xl"><SelectItem value="AM" className="font-bold">AM</SelectItem><SelectItem value="PM" className="font-bold">PM</SelectItem></SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
+
+                            <div className="p-4 bg-amber-50 text-amber-800 rounded-2xl text-[10px] font-bold border border-amber-100 flex gap-3 italic leading-relaxed">
+                                <Clock className="h-5 w-5 shrink-0 text-amber-600" />
+                                Rescheduling will reset patient check-in status. A new tunnel signal must be sent for the updated time.
+                            </div>
+                        </div>
+                        <DialogFooter className="p-8 bg-slate-50 border-t flex flex-col sm:flex-row gap-3">
+                            <Button variant="ghost" onClick={() => setIsRescheduleOpen(false)} className="flex-1 rounded-2xl h-12 font-bold order-2 sm:order-1">Cancel</Button>
+                            <Button 
+                                onClick={handleRescheduleSubmit} 
+                                disabled={isRescheduling || !newRescheduleDate}
+                                className="bg-primary hover:bg-primary/90 font-bold flex-1 h-12 rounded-2xl shadow-xl shadow-primary/20 order-1 sm:order-2"
+                            >
+                                {isRescheduling ? <Loader2 className="h-4 w-4 animate-spin" /> : "Update Schedule"}
+                            </Button>
+                        </DialogFooter>
                     </DialogContent>
                 </Dialog>
 
