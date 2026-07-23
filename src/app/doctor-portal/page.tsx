@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, Zap, BellRing, UserCheck, AlertCircle, PlayCircle, LogIn, CheckCircle2, User, FileText } from "lucide-react";
+import { Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, Zap, BellRing, UserCheck, AlertCircle, PlayCircle, LogIn, CheckCircle2, User, FileText, Stethoscope } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -24,6 +23,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 
 const AppointmentRow = ({ apt, patient, onSelect, isMounted, nowTicker }: { apt: Appointment, patient?: Patient, onSelect: (a: Appointment) => void, isMounted: boolean, nowTicker: Date | null }) => {
     const firestore = useFirestore();
@@ -92,7 +92,6 @@ export default function DoctorPortalPage() {
     }, [firestore, user]);
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
 
-    // AUTO-HIDE ARRIVAL DIALOG AFTER 15 SECONDS
     useEffect(() => {
         if (showArrivalDialog) {
             const autoDismiss = setTimeout(() => {
@@ -102,7 +101,6 @@ export default function DoctorPortalPage() {
         }
     }, [showArrivalDialog]);
 
-    // REAL-TIME ARRIVAL POP-UP LOGIC
     useEffect(() => {
         if (!appointments || !nowTicker) return;
         
@@ -139,7 +137,12 @@ export default function DoctorPortalPage() {
     const { activeQueue, timelineApts, stats } = useMemo(() => {
         if (!appointments || !nowTicker) return { activeQueue: [], timelineApts: [], stats: { todayRevenue: 0 } };
         const allToday = appointments.filter(apt => apt && isSameDay(new Date(apt.appointmentDateTime), nowTicker));
-        const viewDay = appointments.filter(apt => apt && isSameDay(new Date(apt.appointmentDateTime), viewDate)).sort((a,b) => a.appointmentDateTime.localeCompare(b.appointmentDateTime));
+        
+        // SORTING: SHOW IN PROPER WAY FROM CURRENT TO PREVIOUS (DESCENDING)
+        const viewDay = appointments
+            .filter(apt => apt && isSameDay(new Date(apt.appointmentDateTime), viewDate))
+            .sort((a,b) => b.appointmentDateTime.localeCompare(a.appointmentDateTime));
+            
         const activeQ = allToday.filter(apt => apt.status === 'scheduled' && isAfter(addMinutes(new Date(apt.appointmentDateTime), 20), nowTicker)).sort((a, b) => (a.sequencePosition || 0) - (b.sequencePosition || 0));
         const revenue = allToday.reduce((sum, a) => sum + (a.amount || 1500), 0);
         return { activeQueue: activeQ, timelineApts: viewDay, stats: { todayRevenue: revenue } };
@@ -163,37 +166,152 @@ export default function DoctorPortalPage() {
     return (
         <main className="min-h-screen bg-slate-50/50 py-10 px-4">
             <div className="max-w-7xl mx-auto space-y-10 pb-20">
-                <div className="flex justify-between items-end">
-                    <div><h1 className="text-3xl font-bold font-headline">Practice Control</h1><p className="text-muted-foreground text-sm flex items-center gap-2"><Activity className="h-4 w-4 text-primary" /> Precision Schedule</p></div>
-                    <Card className="p-4 bg-primary text-white rounded-2xl shadow-lg shadow-primary/20"><p className="text-[10px] font-bold uppercase opacity-80">Today's Revenue</p><p className="text-xl font-bold">PKR {stats.todayRevenue.toLocaleString()}</p></Card>
+                
+                {/* ELEGANT HEADER - DOCTORS PORTAL */}
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
+                    <div className="space-y-1">
+                        <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest mb-2">
+                             <Stethoscope className="h-3 w-3" /> Professional Access
+                        </div>
+                        <h1 className="text-4xl font-bold font-headline tracking-tight text-slate-900">Doctors Portal</h1>
+                        <p className="text-muted-foreground text-sm flex items-center gap-2">
+                            <Activity className="h-4 w-4 text-primary" /> Precision Practice Analytics & Scheduling
+                        </p>
+                    </div>
+                    <Card className="p-6 bg-slate-900 text-white rounded-[2rem] shadow-2xl border-none flex items-center gap-6">
+                        <div className="h-12 w-12 rounded-2xl bg-white/10 flex items-center justify-center text-primary shadow-inner">
+                            <Zap className="h-6 w-6" />
+                        </div>
+                        <div>
+                            <p className="text-[10px] font-bold uppercase opacity-60 tracking-widest">Today's Settlements</p>
+                            <p className="text-2xl font-bold tracking-tight">PKR {stats.todayRevenue.toLocaleString()}</p>
+                        </div>
+                    </Card>
                 </div>
 
                 <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
                     <div className="lg:col-span-4 space-y-8">
-                         <Card className="bg-slate-900 text-white rounded-[2rem] shadow-2xl overflow-hidden"><CardHeader className="p-8"><CardTitle className="text-lg flex items-center gap-3"><Zap className="h-6 w-6 text-primary" /> Practice Center</CardTitle></CardHeader><CardContent className="p-8 pt-0 space-y-3"><Button variant="outline" className="w-full justify-start h-12 bg-white/5 border-none hover:bg-white/10" asChild><Link href="/doctor-portal/patients">Clinical Records</Link></Button><Button variant="outline" className="w-full justify-start h-12 bg-white/5 border-none hover:bg-white/10" asChild><Link href="/doctor-portal/unavailability">Pause Practice</Link></Button></CardContent></Card>
-                         <Card className="bg-white rounded-3xl shadow-xl overflow-hidden"><CardHeader className="bg-primary/5 p-6"><CardTitle className="text-[10px] uppercase font-bold flex items-center gap-2"><ClipboardCheck className="h-4 w-4 text-primary" /> Back-to-Back Queue</CardTitle></CardHeader><CardContent className="p-0">{isLoadingAppointments ? <div className="p-12 text-center"><Loader2 className="animate-spin mx-auto opacity-10" /></div> : activeQueue.length > 0 ? <div className="divide-y">{activeQueue.map(apt => <AppointmentRow key={apt.id} apt={apt} patient={patientsMap.get(apt.patientId)} onSelect={(a)=>{setSelectedApt(a);setIsConsultOpen(true)}} isMounted={true} nowTicker={nowTicker} />)}</div> : <div className="p-12 text-center text-[10px] font-bold uppercase text-slate-300">No active sequences</div>}</CardContent></Card>
+                         <Card className="bg-primary text-white rounded-[2rem] shadow-2xl overflow-hidden border-none">
+                            <CardHeader className="p-8 pb-4">
+                                <CardTitle className="text-xl flex items-center gap-3 font-headline">
+                                    <Zap className="h-6 w-6 text-white" /> Quick Ops
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-8 pt-0 space-y-3">
+                                <Button variant="outline" className="w-full justify-start h-12 bg-white/10 border-white/20 text-white hover:bg-white/20 rounded-xl font-bold" asChild>
+                                    <Link href="/doctor-portal/patients">
+                                        <ClipboardCheck className="mr-3 h-4 w-4" /> Clinical Records
+                                    </Link>
+                                </Button>
+                                <Button variant="outline" className="w-full justify-start h-12 bg-white/10 border-white/20 text-white hover:bg-white/20 rounded-xl font-bold" asChild>
+                                    <Link href="/doctor-portal/unavailability">
+                                        <Clock className="mr-3 h-4 w-4" /> Pause Practice
+                                    </Link>
+                                </Button>
+                            </CardContent>
+                         </Card>
+                         
+                         <Card className="bg-white rounded-[2rem] shadow-xl overflow-hidden border-none">
+                            <CardHeader className="bg-primary/5 p-6 border-b">
+                                <CardTitle className="text-[11px] uppercase font-bold flex items-center gap-2 text-primary tracking-widest">
+                                    <ClipboardCheck className="h-4 w-4" /> Live Queue Stream
+                                </CardTitle>
+                            </CardHeader>
+                            <CardContent className="p-0">
+                                {isLoadingAppointments ? (
+                                    <div className="p-12 text-center"><Loader2 className="animate-spin mx-auto opacity-10" /></div>
+                                ) : activeQueue.length > 0 ? (
+                                    <div className="divide-y divide-slate-50">
+                                        {activeQueue.map(apt => (
+                                            <AppointmentRow 
+                                                key={apt.id} 
+                                                apt={apt} 
+                                                patient={patientsMap.get(apt.patientId)} 
+                                                onSelect={(a)=>{setSelectedApt(a);setIsConsultOpen(true)}} 
+                                                isMounted={true} 
+                                                nowTicker={nowTicker} 
+                                            />
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <div className="p-12 text-center">
+                                        <History className="h-10 w-10 text-slate-200 mx-auto mb-3" />
+                                        <p className="text-[10px] font-bold uppercase text-slate-300">No pending sessions</p>
+                                    </div>
+                                )}
+                            </CardContent>
+                         </Card>
                     </div>
 
                     <div className="lg:col-span-8">
-                        <Card className="rounded-[2.5rem] bg-white shadow-xl overflow-hidden">
-                            <CardHeader className="border-b bg-slate-50 p-8 flex flex-row justify-between items-center">
-                                <CardTitle className="text-xl font-headline flex items-center gap-3"><Clock className="h-6 w-6 text-primary" /> Timeline</CardTitle>
-                                <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border-2 shadow-sm">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewDate(subDays(viewDate, 1))}><ChevronLeft className="h-4 w-4" /></Button>
-                                    <span className="px-2 text-[10px] font-bold uppercase">{format(viewDate, "MMM dd")}</span>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewDate(addDays(viewDate, 1))}><ChevronRight className="h-4 w-4" /></Button>
+                        {/* TIMELINE WITH PRECISE SLIDER */}
+                        <Card className="rounded-[2.5rem] bg-white shadow-2xl border-none overflow-hidden h-full flex flex-col">
+                            <CardHeader className="border-b bg-slate-900 text-white p-8 flex flex-row justify-between items-center shrink-0">
+                                <div className="space-y-1">
+                                    <CardTitle className="text-xl font-headline flex items-center gap-3">
+                                        <Clock className="h-6 w-6 text-primary" /> Daily Timeline
+                                    </CardTitle>
+                                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Chronological Record Analysis</p>
+                                </div>
+                                <div className="flex items-center gap-2 bg-white/5 p-1.5 rounded-2xl border border-white/10 backdrop-blur-sm">
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10" onClick={() => setViewDate(subDays(viewDate, 1))}>
+                                        <ChevronLeft className="h-4 w-4" />
+                                    </Button>
+                                    <span className="px-3 text-[10px] font-bold uppercase tracking-wider">{format(viewDate, "MMM dd, yyyy")}</span>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10" onClick={() => setViewDate(addDays(viewDate, 1))}>
+                                        <ChevronRight className="h-4 w-4" />
+                                    </Button>
                                 </div>
                             </CardHeader>
-                            <CardContent className="p-8 min-h-[300px]">
+                            <CardContent className="p-8 flex-1 flex flex-col justify-center min-h-[400px]">
                                 {timelineApts.length > 0 ? (
-                                    <div className="space-y-4">{timelineApts.map(apt => (<div key={apt.id} className="flex items-center justify-between p-6 rounded-[1.5rem] border-2 border-slate-50 bg-white shadow-sm"><div><p className="font-bold">{patientsMap.get(apt.patientId)?.firstName} {patientsMap.get(apt.patientId)?.lastName}</p><p className="text-[10px] text-muted-foreground uppercase">{apt.appointmentType} • {format(new Date(apt.appointmentDateTime), "p")}</p></div><Button variant="outline" size="sm" onClick={() => {setSelectedApt(apt);setIsConsultOpen(true)}} className="rounded-xl font-bold h-9 px-4 text-[9px] uppercase border-2">Details</Button></div>))}</div>
-                                ) : <div className="py-24 text-center text-slate-200"><Clock className="h-16 w-16 auto mx-auto mb-4" /><p className="font-bold uppercase text-xs">No Records Found</p></div>}
+                                    <div className="relative w-full px-12">
+                                        <Carousel opts={{ align: "start", loop: false }} className="w-full">
+                                            <CarouselContent className="-ml-4">
+                                                {timelineApts.map(apt => (
+                                                    <CarouselItem key={apt.id} className="pl-4 md:basis-1/2 lg:basis-1/2 xl:basis-1/2">
+                                                        <Card className="border-2 border-slate-50 bg-slate-50/30 rounded-[2rem] hover:border-primary/20 transition-all group p-6 h-full flex flex-col justify-between shadow-sm hover:shadow-md">
+                                                            <div className="space-y-4">
+                                                                <div className="flex justify-between items-start">
+                                                                    <div className="h-10 w-10 rounded-2xl bg-white flex items-center justify-center border shadow-inner">
+                                                                        <User className="h-5 w-5 text-slate-400" />
+                                                                    </div>
+                                                                    <Badge variant="outline" className="text-[8px] font-bold uppercase border-slate-200">
+                                                                        {format(new Date(apt.appointmentDateTime), "p")}
+                                                                    </Badge>
+                                                                </div>
+                                                                <div>
+                                                                    <p className="font-bold text-slate-900 line-clamp-1">{patientsMap.get(apt.patientId)?.firstName} {patientsMap.get(apt.patientId)?.lastName}</p>
+                                                                    <p className="text-[10px] text-muted-foreground uppercase font-medium mt-1">{apt.appointmentType}</p>
+                                                                </div>
+                                                            </div>
+                                                            <Button 
+                                                                variant="outline" 
+                                                                size="sm" 
+                                                                onClick={() => {setSelectedApt(apt);setIsConsultOpen(true)}} 
+                                                                className="w-full mt-6 rounded-xl font-bold h-10 text-[9px] uppercase border-2 bg-white group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all"
+                                                            >
+                                                                View Record
+                                                            </Button>
+                                                        </Card>
+                                                    </CarouselItem>
+                                                ))}
+                                            </CarouselContent>
+                                            <CarouselPrevious className="-left-4 bg-white border-2 shadow-lg h-10 w-10" />
+                                            <CarouselNext className="-right-4 bg-white border-2 shadow-lg h-10 w-10" />
+                                        </Carousel>
+                                    </div>
+                                ) : (
+                                    <div className="py-24 text-center text-slate-200 animate-in fade-in zoom-in-95">
+                                        <Clock className="h-20 w-20 mx-auto mb-6 opacity-5" />
+                                        <p className="font-bold uppercase text-[10px] tracking-[0.3em] text-slate-300">No scheduled sessions</p>
+                                    </div>
+                                )}
                             </CardContent>
                         </Card>
                     </div>
                 </div>
 
-                {/* CLINICAL SELECTION DIALOG */}
                 <DialogPrimitive.Root open={isConsultOpen} onOpenChange={setIsConsultOpen}>
                     <DialogPrimitive.Portal>
                         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80 animate-in fade-in duration-200" />
@@ -240,7 +358,6 @@ export default function DoctorPortalPage() {
                     </DialogPrimitive.Portal>
                 </DialogPrimitive.Root>
 
-                {/* PATIENT ARRIVAL DIALOG (AUTO-DISMISS AFTER 15S) */}
                 <Dialog open={showArrivalDialog} onOpenChange={setShowArrivalDialog}>
                     <DialogContent className="rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden max-w-sm">
                         <div className="bg-green-600 p-8 text-white text-center space-y-4">
