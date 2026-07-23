@@ -1,4 +1,3 @@
-
 'use client';
 
 import Link from 'next/link';
@@ -23,6 +22,8 @@ import {
   CalendarClock,
   AlertCircle,
   Layers,
+  Star,
+  MessageSquare,
 } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth, useUserData, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
@@ -50,6 +51,12 @@ export default function AdminSidebar() {
   }, [firestore]);
   const { data: pendingPayments } = useCollection(paymentsQuery);
 
+  const contactsQuery = useMemoFirebase(() => {
+      if (!firestore) return null;
+      return collection(firestore, 'contacts');
+  }, [firestore]);
+  const { data: contacts } = useCollection(contactsQuery);
+
   const adminNavItems = [
     { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/admin/queues', label: 'Queue Monitor', icon: Layers },
@@ -57,6 +64,8 @@ export default function AdminSidebar() {
     { href: '/admin/patients', label: 'Patients', icon: Users },
     { href: '/admin/requests', label: 'Clinical Requests', icon: CalendarClock, badge: pendingRequests?.length },
     { href: '/admin/payments', label: 'Payments', icon: CreditCard, badge: pendingPayments?.length },
+    { href: '/admin/reviews', label: 'Reviews Audit', icon: Star },
+    { href: '/admin/inquiries', label: 'Public Inquiries', icon: MessageSquare, badge: contacts?.length },
     { href: '/admin/missed-slots', label: 'History', icon: AlertCircle },
   ];
 

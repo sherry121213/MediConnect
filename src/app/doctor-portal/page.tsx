@@ -1,10 +1,9 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, Zap, BellRing, UserCheck, AlertCircle, PlayCircle, LogIn, CheckCircle2, User, FileText, Stethoscope, Eye, CreditCard, X, ShieldCheck, Calendar as CalendarIcon, Edit2 } from "lucide-react";
+import { Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, Zap, BellRing, UserCheck, AlertCircle, PlayCircle, LogIn, CheckCircle2, User, FileText, Stethoscope, Eye, CreditCard, X, ShieldCheck, Calendar as CalendarIcon, Edit2, Star } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -272,6 +271,11 @@ export default function DoctorPortalPage() {
                                 <Button variant="outline" className="w-full justify-start h-12 bg-white/10 border-white/20 text-white hover:bg-white/20 rounded-xl font-bold" asChild>
                                     <Link href="/doctor-portal/unavailability">
                                         <Clock className="mr-3 h-4 w-4" /> Clinical Pause
+                                    </Link>
+                                </Button>
+                                <Button variant="outline" className="w-full justify-start h-12 bg-white/10 border-white/20 text-white hover:bg-white/20 rounded-xl font-bold" asChild>
+                                    <Link href="/doctor-portal/reviews">
+                                        <Star className="mr-3 h-4 w-4" /> Professional Feedback
                                     </Link>
                                 </Button>
                             </CardContent>

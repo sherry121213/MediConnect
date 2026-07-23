@@ -171,6 +171,7 @@ export default function AppointmentDetailsPage() {
         try {
             const reviewData = {
                 patientId: userData.id,
+                patientName: `${userData.firstName} ${userData.lastName}`,
                 doctorId: appointment.doctorId,
                 appointmentId: appointment.id,
                 rating: values.rating,
@@ -224,6 +225,7 @@ export default function AppointmentDetailsPage() {
     const doctorImage = doctor ? PlaceHolderImages.find(p => p.id === doctor.profileImageId) : null;
     const photoSrc = doctor?.photoURL || doctorImage?.imageUrl;
     const isPerformed = appointment.status === 'completed';
+    const isPatient = userData?.id === appointment.patientId;
 
     return (
         <div className="flex flex-col min-h-screen">
@@ -231,9 +233,9 @@ export default function AppointmentDetailsPage() {
             <main className="flex-grow bg-secondary/30 py-8 sm:py-12">
                 <div className="container mx-auto px-4 max-w-5xl space-y-12">
                     <Button variant="ghost" asChild className="mb-2 rounded-xl hover:bg-white shadow-sm border border-transparent hover:border-muted">
-                        <Link href="/patient-portal">
+                        <Link href={userData?.role === 'doctor' ? '/doctor-portal' : '/patient-portal'}>
                             <ArrowLeft className="mr-2 h-4 w-4" />
-                            Back to Appointments
+                            Back to Dashboard
                         </Link>
                     </Button>
                     
@@ -322,8 +324,8 @@ export default function AppointmentDetailsPage() {
                         </CardContent>
                     </Card>
 
-                    {/* RATING SECTION - ONLY FOR PERFORMED SESSIONS */}
-                    {isPerformed && (
+                    {/* RATING SECTION - ONLY FOR PERFORMED SESSIONS BY PATIENTS */}
+                    {isPerformed && isPatient && (
                         <Card className="border-none shadow-xl bg-white rounded-[2rem] overflow-hidden">
                             <CardHeader className="bg-primary/5 border-b p-8">
                                 <CardTitle className="text-2xl font-headline flex items-center gap-3">
@@ -401,6 +403,13 @@ export default function AppointmentDetailsPage() {
                                 )}
                             </CardContent>
                         </Card>
+                    )}
+
+                    {isPerformed && !isPatient && (
+                         <div className="p-8 bg-slate-50 border-2 border-dashed rounded-[2rem] text-center">
+                            <Star className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
+                            <p className="text-sm font-medium text-muted-foreground italic">Feedback section is exclusively available for patients after session completion.</p>
+                        </div>
                     )}
 
                     <div className="p-8 bg-slate-900 text-white rounded-[2rem] border border-white/10 flex flex-col md:flex-row items-center justify-between gap-6">

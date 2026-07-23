@@ -1,15 +1,14 @@
-
 'use client';
 
 import { useParams, useRouter } from 'next/navigation';
 import { useDoc, useFirestore, useUser, useMemoFirebase, useCollection } from '@/firebase';
-import { doc, collection, query, where } from 'firebase/firestore';
-import type { Doctor, Appointment } from '@/lib/types';
+import { doc, collection, query, where, orderBy, limit } from 'firebase/firestore';
+import type { Doctor, Appointment, Review } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, CalendarDays, Loader2, MapPin, CheckCircle2, XCircle, Copy, Wallet, Landmark, Smartphone, Clock as ClockIcon, ShieldCheck, Video, Phone, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Loader2, MapPin, CheckCircle2, XCircle, Copy, Wallet, Landmark, Smartphone, Clock as ClockIcon, ShieldCheck, Video, Phone, AlertTriangle, Star, Quote } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -76,6 +75,13 @@ export default function DoctorDetailPage() {
     }, [firestore, doctorId]);
 
     const { data: doctor, isLoading } = useDoc<Doctor>(doctorDocRef);
+
+    // FETCH REVIEWS FOR DISPLAY
+    const reviewsQuery = useMemoFirebase(() => {
+        if (!firestore || !doctorId) return null;
+        return query(collection(firestore, 'reviews'), where('doctorId', '==', doctorId), orderBy('createdAt', 'desc'), limit(10));
+    }, [firestore, doctorId]);
+    const { data: reviews } = useCollection<Review>(reviewsQuery);
 
     const leavesQuery = useMemoFirebase(() => {
         if (!firestore || !doctorId) return null;
@@ -150,14 +156,12 @@ export default function DoctorDetailPage() {
         }
     }, [isToday, availableHours, availableMinutes, selectedPeriod, selectedHour, mounted]);
 
-    // Query for DOCTOR'S appointments to check for doctor-side availability
     const doctorAppointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !doctorId) return null;
         return query(collection(firestore, 'appointments'), where('doctorId', '==', doctorId));
     }, [firestore, doctorId]);
     const { data: existingDoctorAppointments } = useCollection<Appointment>(doctorAppointmentsQuery);
 
-    // Query for PATIENT'S appointments to check for patient-side conflict (New Requirement)
     const patientAppointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !user?.uid) return null;
         return query(collection(firestore, 'appointments'), where('patientId', '==', user.uid));
@@ -182,7 +186,6 @@ export default function DoctorDetailPage() {
 
         const proposedEnd = addMinutes(proposedStart, 20);
 
-        // 1. Audit Doctor Schedule
         if (existingDoctorAppointments) {
             const doctorOverlap = existingDoctorAppointments.find(apt => {
                 if (!apt || !apt.appointmentDateTime || apt.status !== 'scheduled') return false;
@@ -196,7 +199,6 @@ export default function DoctorDetailPage() {
             }
         }
 
-        // 2. Audit Patient Schedule (PREVENT SAME PATIENT BOOKING TWO DOCTORS AT SAME TIME)
         if (patientAppointments) {
             const patientOverlap = patientAppointments.find(apt => {
                 if (!apt || !apt.appointmentDateTime || apt.status !== 'scheduled') return false;
@@ -290,6 +292,39 @@ export default function DoctorDetailPage() {
                                             {doctor?.location || 'Pakistan'}
                                         </div>
                                     </div>
+                                </CardContent>
+                            </Card>
+
+                            <Card className="rounded-[2rem] border-none shadow-xl bg-white overflow-hidden">
+                                <CardHeader className="bg-primary/5 p-6 border-b">
+                                    <CardTitle className="text-sm font-bold flex items-center gap-2">
+                                        <Star className="h-4 w-4 text-amber-500 fill-amber-500" /> Patient Feedback
+                                    </CardTitle>
+                                </CardHeader>
+                                <CardContent className="p-6 space-y-6">
+                                    {reviews && reviews.length > 0 ? (
+                                        <div className="space-y-4">
+                                            {reviews.map((review) => (
+                                                <div key={review.id} className="p-4 bg-slate-50 rounded-2xl space-y-2 border border-slate-100">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-[10px] font-bold text-slate-900 truncate max-w-[120px]">{review.patientName || 'Anonymous'}</span>
+                                                        <div className="flex gap-0.5">
+                                                            {Array.from({ length: 5 }).map((_, i) => (
+                                                                <Star key={i} className={cn("h-2.5 w-2.5", i < review.rating ? "text-amber-400 fill-amber-400" : "text-slate-200")} />
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-[11px] text-slate-600 italic line-clamp-3">"{review.comment}"</p>
+                                                    <p className="text-[8px] text-slate-400 uppercase font-bold tracking-tighter text-right">Verified Visit</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="text-center py-10 opacity-40">
+                                            <Quote className="h-8 w-8 mx-auto mb-2 text-slate-200" />
+                                            <p className="text-[10px] font-bold uppercase tracking-widest">No reviews indexed</p>
+                                        </div>
+                                    )}
                                 </CardContent>
                             </Card>
                         </div>
