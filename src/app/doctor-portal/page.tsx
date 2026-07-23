@@ -22,7 +22,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Carousel, CarouselContent, CarouselItem } from "@/components/ui/carousel";
 
 const AppointmentRow = ({ 
     apt, 
@@ -287,71 +286,69 @@ export default function DoctorPortalPage() {
                                     </Button>
                                 </div>
                             </CardHeader>
-                            <CardContent className="p-8 flex-1 flex flex-col justify-center min-h-[450px] overflow-hidden">
+                            <CardContent className="p-0 flex-1 flex flex-col min-h-[450px]">
                                 {timelineApts.length > 0 ? (
-                                    <div className="relative w-full h-full flex flex-col justify-center">
-                                        <Carousel opts={{ align: "start", loop: false, dragFree: true }} className="w-full">
-                                            <CarouselContent className="-ml-6">
-                                                {timelineApts.map(apt => {
-                                                    const patient = patientsMap.get(apt.patientId);
-                                                    return (
-                                                        <CarouselItem key={apt.id} className="pl-6 md:basis-1/2 lg:basis-1/2 select-none">
-                                                            <Card className="border border-slate-100 bg-white rounded-[2rem] hover:border-primary/20 transition-all group h-full flex flex-col justify-between shadow-md hover:shadow-xl p-6 sm:p-8 space-y-8">
-                                                                <div className="space-y-6">
-                                                                    <div className="flex justify-between items-start">
-                                                                        <div className="h-14 w-14 rounded-2xl bg-slate-50 flex items-center justify-center border shadow-inner">
-                                                                            <User className="h-7 w-7 text-slate-300" />
-                                                                        </div>
-                                                                        <div className="flex flex-col items-end gap-3">
-                                                                            <Badge variant="outline" className="text-[9px] font-bold uppercase border-slate-100 bg-slate-50 text-slate-500 py-1 px-3 h-auto rounded-full">
-                                                                                {format(new Date(apt.appointmentDateTime), "p")}
-                                                                            </Badge>
-                                                                            {apt.paymentReceiptUrl && (
-                                                                                <Button 
-                                                                                    variant="ghost" 
-                                                                                    size="sm" 
-                                                                                    className="h-10 w-10 rounded-xl bg-white border hover:bg-primary/5 hover:text-primary p-0 shadow-sm transition-all"
-                                                                                    onClick={(e) => { e.stopPropagation(); setReceiptPreview(apt.paymentReceiptUrl!); }}
-                                                                                >
-                                                                                    <Eye className="h-5 w-5" />
-                                                                                </Button>
-                                                                            )}
-                                                                        </div>
-                                                                    </div>
-                                                                    <div>
-                                                                        <h4 className="font-bold text-slate-900 text-xl tracking-tight leading-none truncate">{patient?.firstName} {patient?.lastName || '...'}</h4>
-                                                                        <p className="text-[10px] text-muted-foreground uppercase font-bold mt-2 tracking-widest opacity-60">{apt.appointmentType}</p>
-                                                                    </div>
-                                                                    <div className="flex items-center gap-3 pt-2">
-                                                                        <Badge 
-                                                                            variant={apt.status === 'completed' ? 'secondary' : 'outline'} 
-                                                                            className={cn(
-                                                                                "text-[9px] font-bold uppercase tracking-wider py-1 px-3 h-auto rounded-full", 
-                                                                                apt.status === 'completed' ? "bg-green-50 text-green-700 border-green-100" : "bg-white text-slate-400 border-slate-100"
-                                                                            )}
-                                                                        >
-                                                                            {apt.status}
-                                                                        </Badge>
-                                                                        <Badge variant="outline" className="text-[9px] font-bold uppercase border-primary/20 text-primary py-1 px-3 h-auto rounded-full">PKR 1,500</Badge>
-                                                                    </div>
+                                    <div className="flex-1 w-full overflow-x-auto custom-scrollbar snap-x snap-mandatory flex items-stretch p-8 gap-6">
+                                        {timelineApts.map(apt => {
+                                            const patient = patientsMap.get(apt.patientId);
+                                            return (
+                                                <div key={apt.id} className="min-w-[300px] sm:min-w-[340px] snap-start flex-shrink-0">
+                                                    <Card className="border-l-4 border-l-primary border-slate-100 bg-white rounded-3xl hover:border-primary/20 transition-all group h-full flex flex-col justify-between shadow-md hover:shadow-xl p-6 sm:p-8 space-y-6">
+                                                        <div className="space-y-6 flex-1">
+                                                            <div className="flex justify-between items-start">
+                                                                <div className="h-14 w-14 rounded-2xl bg-slate-50 flex items-center justify-center border shadow-inner">
+                                                                    <User className="h-7 w-7 text-slate-300" />
                                                                 </div>
-                                                                <Button 
-                                                                    variant="outline" 
-                                                                    size="lg" 
-                                                                    onClick={() => {setSelectedApt(apt);setIsConsultOpen(true)}} 
-                                                                    className="w-full mt-4 rounded-2xl font-bold h-14 text-[11px] uppercase border-2 bg-slate-50 text-slate-900 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all shadow-sm"
+                                                                <div className="flex flex-col items-end gap-2">
+                                                                    <Badge variant="outline" className="text-[9px] font-bold uppercase border-slate-100 bg-slate-50 text-slate-500 py-1 px-3 h-auto rounded-full">
+                                                                        {format(new Date(apt.appointmentDateTime), "p")}
+                                                                    </Badge>
+                                                                    {apt.paymentReceiptUrl && (
+                                                                        <Button 
+                                                                            variant="ghost" 
+                                                                            size="sm" 
+                                                                            className="h-10 w-10 rounded-xl bg-white border hover:bg-primary/5 hover:text-primary p-0 shadow-sm transition-all"
+                                                                            onClick={(e) => { e.stopPropagation(); setReceiptPreview(apt.paymentReceiptUrl!); }}
+                                                                        >
+                                                                            <Eye className="h-5 w-5" />
+                                                                        </Button>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                            <div>
+                                                                <h4 className="font-bold text-slate-900 text-xl tracking-tight leading-none truncate">{patient?.firstName} {patient?.lastName || '...'}</h4>
+                                                                <p className="text-[10px] text-muted-foreground uppercase font-bold mt-2 tracking-widest opacity-60 flex items-center gap-2">
+                                                                    <Activity className="h-3 w-3" /> {apt.appointmentType}
+                                                                </p>
+                                                            </div>
+                                                            <div className="flex flex-wrap items-center gap-2 pt-2">
+                                                                <Badge 
+                                                                    variant={apt.status === 'completed' ? 'secondary' : 'outline'} 
+                                                                    className={cn(
+                                                                        "text-[9px] font-bold uppercase tracking-wider py-1 px-3 h-auto rounded-full", 
+                                                                        apt.status === 'completed' ? "bg-green-50 text-green-700 border-green-100" : "bg-white text-slate-400 border-slate-100"
+                                                                    )}
                                                                 >
-                                                                    Audit Record
-                                                                </Button>
-                                                            </Card>
-                                                        </CarouselItem>
-                                                    );
-                                                })}
-                                            </CarouselContent>
-                                        </Carousel>
+                                                                    {apt.status}
+                                                                </Badge>
+                                                                <Badge variant="outline" className="text-[9px] font-bold uppercase border-primary/20 text-primary py-1 px-3 h-auto rounded-full">PKR 1,500</Badge>
+                                                            </div>
+                                                        </div>
+                                                        <Button 
+                                                            variant="outline" 
+                                                            size="lg" 
+                                                            onClick={() => {setSelectedApt(apt);setIsConsultOpen(true)}} 
+                                                            className="w-full mt-4 rounded-2xl font-bold h-14 text-[11px] uppercase border-2 bg-slate-50 text-slate-900 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all shadow-sm"
+                                                        >
+                                                            Audit Record
+                                                        </Button>
+                                                    </Card>
+                                                </div>
+                                            );
+                                        })}
                                     </div>
                                 ) : (
-                                    <div className="py-24 text-center text-slate-200 animate-in fade-in zoom-in-95">
+                                    <div className="flex-1 flex flex-col items-center justify-center text-slate-200 animate-in fade-in zoom-in-95">
                                         <Clock className="h-20 w-20 mx-auto mb-6 opacity-5" />
                                         <p className="font-bold uppercase text-[10px] tracking-[0.3em] text-slate-300">No scheduled sessions</p>
                                     </div>
