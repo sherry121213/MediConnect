@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
@@ -286,62 +287,63 @@ export default function DoctorPortalPage() {
                                     </Button>
                                 </div>
                             </CardHeader>
-                            <CardContent className="p-0 flex-1 flex flex-col min-h-[450px]">
+                            <CardContent className="p-0 flex-1 flex flex-col min-h-[480px]">
                                 {timelineApts.length > 0 ? (
                                     <div className="flex-1 w-full overflow-x-auto custom-scrollbar snap-x snap-mandatory flex items-stretch p-8 gap-6">
                                         {timelineApts.map(apt => {
                                             const patient = patientsMap.get(apt.patientId);
                                             return (
-                                                <div key={apt.id} className="min-w-[300px] sm:min-w-[340px] snap-start flex-shrink-0">
-                                                    <Card className="border-l-4 border-l-primary border-slate-100 bg-white rounded-3xl hover:border-primary/20 transition-all group h-full flex flex-col justify-between shadow-md hover:shadow-xl p-6 sm:p-8 space-y-6">
-                                                        <div className="space-y-6 flex-1">
-                                                            <div className="flex justify-between items-start">
-                                                                <div className="h-14 w-14 rounded-2xl bg-slate-50 flex items-center justify-center border shadow-inner">
-                                                                    <User className="h-7 w-7 text-slate-300" />
-                                                                </div>
-                                                                <div className="flex flex-col items-end gap-2">
-                                                                    <Badge variant="outline" className="text-[9px] font-bold uppercase border-slate-100 bg-slate-50 text-slate-500 py-1 px-3 h-auto rounded-full">
-                                                                        {format(new Date(apt.appointmentDateTime), "p")}
-                                                                    </Badge>
-                                                                    {apt.paymentReceiptUrl && (
-                                                                        <Button 
-                                                                            variant="ghost" 
-                                                                            size="sm" 
-                                                                            className="h-10 w-10 rounded-xl bg-white border hover:bg-primary/5 hover:text-primary p-0 shadow-sm transition-all"
-                                                                            onClick={(e) => { e.stopPropagation(); setReceiptPreview(apt.paymentReceiptUrl!); }}
-                                                                        >
-                                                                            <Eye className="h-5 w-5" />
-                                                                        </Button>
-                                                                    )}
-                                                                </div>
+                                                <div key={apt.id} className="min-w-[320px] sm:min-w-[360px] snap-start flex-shrink-0">
+                                                    <Card className="relative overflow-hidden bg-white rounded-[2.5rem] border-none shadow-[0_20px_50px_-20px_rgba(0,0,0,0.1)] hover:shadow-[0_20px_50px_-10px_rgba(0,0,0,0.15)] transition-all duration-500 h-full flex flex-col p-8 group">
+                                                        <div className="flex justify-between items-start mb-8">
+                                                            <div className="h-16 w-16 rounded-[1.5rem] bg-slate-50 flex items-center justify-center border border-slate-100 shadow-sm transition-transform group-hover:scale-105 duration-500">
+                                                                <User className="h-8 w-8 text-slate-300" />
                                                             </div>
-                                                            <div>
-                                                                <h4 className="font-bold text-slate-900 text-xl tracking-tight leading-none truncate">{patient?.firstName} {patient?.lastName || '...'}</h4>
-                                                                <p className="text-[10px] text-muted-foreground uppercase font-bold mt-2 tracking-widest opacity-60 flex items-center gap-2">
-                                                                    <Activity className="h-3 w-3" /> {apt.appointmentType}
-                                                                </p>
-                                                            </div>
-                                                            <div className="flex flex-wrap items-center gap-2 pt-2">
-                                                                <Badge 
-                                                                    variant={apt.status === 'completed' ? 'secondary' : 'outline'} 
-                                                                    className={cn(
-                                                                        "text-[9px] font-bold uppercase tracking-wider py-1 px-3 h-auto rounded-full", 
-                                                                        apt.status === 'completed' ? "bg-green-50 text-green-700 border-green-100" : "bg-white text-slate-400 border-slate-100"
-                                                                    )}
-                                                                >
-                                                                    {apt.status}
-                                                                </Badge>
-                                                                <Badge variant="outline" className="text-[9px] font-bold uppercase border-primary/20 text-primary py-1 px-3 h-auto rounded-full">PKR 1,500</Badge>
+                                                            <div className="flex flex-col items-end gap-3">
+                                                                <div className="bg-slate-50 text-slate-500 text-[10px] font-bold px-4 py-1.5 rounded-full border border-slate-100 uppercase tracking-tighter">
+                                                                    {format(new Date(apt.appointmentDateTime), "p")}
+                                                                </div>
+                                                                {apt.paymentReceiptUrl && (
+                                                                    <Button 
+                                                                        variant="ghost" 
+                                                                        size="sm" 
+                                                                        className="h-10 w-10 rounded-2xl bg-white border border-slate-100 shadow-sm hover:bg-primary/5 hover:text-primary p-0 transition-all active:scale-90"
+                                                                        onClick={(e) => { e.stopPropagation(); setReceiptPreview(apt.paymentReceiptUrl!); }}
+                                                                    >
+                                                                        <Eye className="h-5 w-5" />
+                                                                    </Button>
+                                                                )}
                                                             </div>
                                                         </div>
-                                                        <Button 
-                                                            variant="outline" 
-                                                            size="lg" 
-                                                            onClick={() => {setSelectedApt(apt);setIsConsultOpen(true)}} 
-                                                            className="w-full mt-4 rounded-2xl font-bold h-14 text-[11px] uppercase border-2 bg-slate-50 text-slate-900 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all shadow-sm"
-                                                        >
-                                                            Audit Record
-                                                        </Button>
+
+                                                        <div className="flex-1 space-y-2">
+                                                            <h4 className="font-bold text-slate-900 text-2xl tracking-tight leading-tight truncate">{patient?.firstName} {patient?.lastName || '...'}</h4>
+                                                            <div className="flex items-center gap-2 text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] opacity-80">
+                                                                <Activity className="h-3 w-3 text-primary/40" /> {apt.appointmentType}
+                                                            </div>
+                                                        </div>
+
+                                                        <div className="mt-8 flex items-center gap-3">
+                                                            <Badge 
+                                                                className={cn(
+                                                                    "text-[9px] font-bold uppercase tracking-wider py-1.5 px-4 h-auto rounded-full border-none shadow-sm", 
+                                                                    apt.status === 'completed' ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
+                                                                )}
+                                                            >
+                                                                {apt.status}
+                                                            </Badge>
+                                                            <Badge className="text-[9px] font-bold uppercase border-none bg-primary/10 text-primary py-1.5 px-4 h-auto rounded-full shadow-sm">PKR 1,500</Badge>
+                                                        </div>
+                                                        
+                                                        <div className="mt-10 pt-6 border-t border-slate-50">
+                                                            <Button 
+                                                                variant="ghost" 
+                                                                onClick={() => {setSelectedApt(apt);setIsConsultOpen(true)}} 
+                                                                className="w-full rounded-2xl font-bold h-12 text-[10px] uppercase tracking-widest text-slate-400 hover:text-primary hover:bg-primary/5 transition-all"
+                                                            >
+                                                                Audit Clinical Record
+                                                            </Button>
+                                                        </div>
                                                     </Card>
                                                 </div>
                                             );
