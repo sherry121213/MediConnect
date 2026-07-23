@@ -182,15 +182,16 @@ export default function PatientPortalPage() {
         return { upcomingAppointments: upcoming, recentPastAppointments: past, ringingApt: ringing, signalApt: signaled, activeQueueApt: queue };
     }, [appointments, mounted, nowState]);
 
-    // AUTO-HIDE LOGIC FOR EARLY SIGNAL
+    // AUTO-HIDE LOGIC FOR ALL INTERRUPTIVE ALERTS (15 SECONDS)
     useEffect(() => {
-        if (signalApt && !dismissedSignalIds.has(signalApt.id)) {
+        const activeAlert = ringingApt || signalApt;
+        if (activeAlert && !dismissedSignalIds.has(activeAlert.id)) {
             const hideTimer = setTimeout(() => {
-                setDismissedSignalIds(prev => new Set(prev).add(signalApt.id));
-            }, 15000); // Remove alert after 15 seconds
+                setDismissedSignalIds(prev => new Set(prev).add(activeAlert.id));
+            }, 15000);
             return () => clearTimeout(hideTimer);
         }
-    }, [signalApt?.id, dismissedSignalIds]);
+    }, [ringingApt?.id, signalApt?.id, dismissedSignalIds]);
 
     const handleIgnoreSignal = (id: string) => {
         setDismissedSignalIds(prev => new Set(prev).add(id));
@@ -202,20 +203,30 @@ export default function PatientPortalPage() {
         <main className="min-h-screen bg-secondary/30 py-10 px-4">
             <div className="max-w-7xl mx-auto space-y-10 pb-24">
                 
-                {/* LIVE CALL BANNER */}
-                {ringingApt && (
+                {/* LIVE CALL BANNER (RINGING) */}
+                {ringingApt && !dismissedSignalIds.has(ringingApt.id) && (
                     <Card className="bg-red-600 text-white border-none shadow-2xl rounded-3xl animate-in slide-in-from-top-4 duration-500">
-                        <CardContent className="p-6 flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-4">
-                                <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center animate-pulse"><BellRing className="h-6 w-6" /></div>
-                                <div><p className="text-[10px] uppercase font-bold opacity-80">Consultation Live</p><p className="text-lg font-bold">Your doctor has entered the clinical room.</p></div>
+                        <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-6">
+                            <div className="flex items-center gap-4 w-full">
+                                <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center animate-pulse shrink-0"><BellRing className="h-6 w-6" /></div>
+                                <div>
+                                    <p className="text-[10px] uppercase font-bold opacity-80 tracking-widest">Consultation Live</p>
+                                    <p className="text-base sm:text-lg font-bold leading-tight">Your doctor has entered the clinical room.</p>
+                                </div>
                             </div>
-                            <Button asChild className="bg-white text-red-600 hover:bg-slate-100 font-bold px-8 h-12 rounded-2xl shadow-lg"><Link href={`/consultation/${ringingApt.id}`}>Join Now</Link></Button>
+                            <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
+                                <Button variant="ghost" onClick={() => handleIgnoreSignal(ringingApt.id)} className="text-white hover:bg-white/10 font-bold px-6 h-12 rounded-2xl">
+                                    Ignore
+                                </Button>
+                                <Button asChild className="bg-white text-red-600 hover:bg-slate-100 font-bold px-8 h-12 rounded-2xl shadow-lg flex-1 sm:flex-none">
+                                    <Link href={`/consultation/${ringingApt.id}`}>Join Now</Link>
+                                </Button>
+                            </div>
                         </CardContent>
                     </Card>
                 )}
 
-                {/* EARLY SIGNAL BANNER (DOCTOR CLICKED RING) */}
+                {/* EARLY SIGNAL BANNER */}
                 {signalApt && !ringingApt && !dismissedSignalIds.has(signalApt.id) && (
                     <Card className="bg-primary text-white border-none shadow-2xl rounded-3xl animate-in slide-in-from-top-4 duration-500">
                         <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-6">

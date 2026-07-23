@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
@@ -90,6 +91,16 @@ export default function DoctorPortalPage() {
         return query(collection(firestore, 'appointments'), where('doctorId', '==', user.uid), where('paymentStatus', '==', 'approved'));
     }, [firestore, user]);
     const { data: appointments, isLoading: isLoadingAppointments } = useCollection<Appointment>(appointmentsQuery);
+
+    // AUTO-HIDE ARRIVAL DIALOG AFTER 15 SECONDS
+    useEffect(() => {
+        if (showArrivalDialog) {
+            const autoDismiss = setTimeout(() => {
+                setShowArrivalDialog(false);
+            }, 15000);
+            return () => clearTimeout(autoDismiss);
+        }
+    }, [showArrivalDialog]);
 
     // REAL-TIME ARRIVAL POP-UP LOGIC
     useEffect(() => {
@@ -229,7 +240,7 @@ export default function DoctorPortalPage() {
                     </DialogPrimitive.Portal>
                 </DialogPrimitive.Root>
 
-                {/* PATIENT ARRIVAL DIALOG (PROPER POP-UP) */}
+                {/* PATIENT ARRIVAL DIALOG (AUTO-DISMISS AFTER 15S) */}
                 <Dialog open={showArrivalDialog} onOpenChange={setShowArrivalDialog}>
                     <DialogContent className="rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden max-w-sm">
                         <div className="bg-green-600 p-8 text-white text-center space-y-4">
@@ -257,7 +268,7 @@ export default function DoctorPortalPage() {
                                 <Button className="w-full h-14 rounded-2xl font-bold bg-green-600 hover:bg-green-700 shadow-xl shadow-green-100" onClick={() => arrivalApt && handleStartSession(arrivalApt)}>
                                     <Video className="mr-2 h-5 w-5" /> Open Room Now
                                 </Button>
-                                <Button variant="ghost" className="w-full h-12 rounded-xl text-slate-400 font-bold" onClick={() => setShowArrivalDialog(false)}>Ignore</Button>
+                                <Button variant="ghost" className="w-full h-12 rounded-xl text-slate-400 font-bold" onClick={() => setShowArrivalDialog(false)}>Ignore (Auto-dismiss in 15s)</Button>
                             </DialogFooter>
                         </div>
                     </DialogContent>

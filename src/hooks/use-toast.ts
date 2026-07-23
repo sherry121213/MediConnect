@@ -1,3 +1,4 @@
+
 "use client"
 
 // Inspired by react-hot-toast library
@@ -158,7 +159,7 @@ function toast({ ...props }: Toast) {
       ...props,
       id,
       open: true,
-      duration: props.duration ?? 8000,
+      duration: props.duration ?? 15000, // Standard 15s duration for all alerts
       onOpenChange: (open) => {
         if (!open) dismiss()
       },
