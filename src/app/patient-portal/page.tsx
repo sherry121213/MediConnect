@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Calendar, Video, MessageSquare, PlusCircle, Loader2, History, ChevronRight, FileText, RefreshCw, CalendarIcon, ShieldCheck, Clock, BellRing, UserCheck, Layers, HelpCircle, Siren } from "lucide-react";
+import { Calendar, Video, MessageSquare, PlusCircle, Loader2, History, ChevronRight, FileText, RefreshCw, CalendarIcon, ShieldCheck, Clock, BellRing, UserCheck, Layers, HelpCircle, Siren, X } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -141,6 +141,7 @@ export default function PatientPortalPage() {
     const firestore = useFirestore();
     const [mounted, setMounted] = useState(false);
     const [nowState, setNowState] = useState<number | null>(null);
+    const [dismissedSignalIds, setDismissedSignalIds] = useState<Set<string>>(new Set());
 
     useEffect(() => {
         setMounted(true);
@@ -170,17 +171,30 @@ export default function PatientPortalPage() {
         
         const ringing = valid.find(apt => apt.doctorInRoom && apt.status === 'scheduled' && apt.paymentStatus === 'approved' && isSameDay(new Date(apt.appointmentDateTime), now));
         
-        // REFINED: Only show early signal if it is actually BEFORE session time
         const signaled = valid.find(apt => {
             if (!apt.readyToStart || apt.doctorInRoom || apt.status !== 'scheduled' || apt.paymentStatus !== 'approved') return false;
             const startTime = new Date(apt.appointmentDateTime).getTime();
-            return nowState < startTime; // Trigger banner ONLY if early
+            return nowState < startTime; 
         });
 
         const queue = valid.find(apt => apt.status === 'scheduled' && apt.paymentStatus === 'approved' && isSameDay(new Date(apt.appointmentDateTime), now) && apt.queueStatus !== 'completed');
         
         return { upcomingAppointments: upcoming, recentPastAppointments: past, ringingApt: ringing, signalApt: signaled, activeQueueApt: queue };
     }, [appointments, mounted, nowState]);
+
+    // AUTO-HIDE LOGIC FOR EARLY SIGNAL
+    useEffect(() => {
+        if (signalApt && !dismissedSignalIds.has(signalApt.id)) {
+            const hideTimer = setTimeout(() => {
+                setDismissedSignalIds(prev => new Set(prev).add(signalApt.id));
+            }, 15000); // Remove alert after 15 seconds
+            return () => clearTimeout(hideTimer);
+        }
+    }, [signalApt?.id, dismissedSignalIds]);
+
+    const handleIgnoreSignal = (id: string) => {
+        setDismissedSignalIds(prev => new Set(prev).add(id));
+    };
 
     if (!mounted || isUserLoading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="animate-spin text-primary" /></div>;
 
@@ -202,18 +216,21 @@ export default function PatientPortalPage() {
                 )}
 
                 {/* EARLY SIGNAL BANNER (DOCTOR CLICKED RING) */}
-                {signalApt && !ringingApt && (
+                {signalApt && !ringingApt && !dismissedSignalIds.has(signalApt.id) && (
                     <Card className="bg-primary text-white border-none shadow-2xl rounded-3xl animate-in slide-in-from-top-4 duration-500">
-                        <CardContent className="p-6 flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-4">
-                                <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center"><Siren className="h-6 w-6 animate-pulse" /></div>
+                        <CardContent className="p-6 flex flex-col sm:flex-row items-center justify-between gap-6">
+                            <div className="flex items-center gap-4 w-full">
+                                <div className="h-12 w-12 rounded-full bg-white/20 flex items-center justify-center shrink-0"><Siren className="h-6 w-6 animate-pulse" /></div>
                                 <div>
-                                    <p className="text-[10px] uppercase font-bold opacity-80">Early Availability</p>
-                                    <p className="text-lg font-bold">Your doctor is ready to start earlier than scheduled.</p>
+                                    <p className="text-[10px] uppercase font-bold opacity-80 tracking-widest">Early Availability</p>
+                                    <p className="text-base sm:text-lg font-bold leading-tight">Your doctor is ready to start earlier than scheduled.</p>
                                 </div>
                             </div>
-                            <div className="flex gap-3">
-                                <Button asChild className="bg-white text-primary hover:bg-slate-100 font-bold px-8 h-12 rounded-2xl shadow-lg">
+                            <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
+                                <Button variant="ghost" onClick={() => handleIgnoreSignal(signalApt.id)} className="text-white hover:bg-white/10 font-bold px-6 h-12 rounded-2xl">
+                                    Ignore
+                                </Button>
+                                <Button asChild className="bg-white text-primary hover:bg-slate-100 font-bold px-8 h-12 rounded-2xl shadow-lg flex-1 sm:flex-none">
                                     <Link href="/patient-portal">View Alert</Link>
                                 </Button>
                             </div>
