@@ -11,7 +11,7 @@ import { useUserData, useFirestore, useCollection, useMemoFirebase } from '@/fir
 import { collection, query, where, doc, getDocs, updateDoc } from "firebase/firestore";
 import type { Appointment, Patient } from '@/lib/types';
 import { useToast } from "@/hooks/use-toast";
-import { format, isSameDay, subDays, addDays, addMinutes, isAfter, parse, startOfDay } from "date-fns";
+import { format, isSameDay, subDays, addDays, addMinutes, isAfter, parse, startOfDay, isBefore } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
@@ -334,6 +334,10 @@ export default function DoctorPortalPage() {
                                     <div className="flex-1 w-full overflow-x-auto custom-scrollbar snap-x snap-mandatory flex items-stretch p-6 md:p-8 gap-5">
                                         {timelineApts.map(apt => {
                                             const patient = patientsMap.get(apt.patientId);
+                                            const aptDate = new Date(apt.appointmentDateTime);
+                                            const isFuture = nowTicker ? isAfter(aptDate, nowTicker) : false;
+                                            const canReschedule = apt.status === 'scheduled' && isFuture;
+
                                             return (
                                                 <div key={apt.id} className="min-w-[260px] md:min-w-[280px] snap-start flex-shrink-0">
                                                     <Card className="relative overflow-hidden bg-white rounded-3xl border border-slate-100 shadow-lg hover:shadow-xl transition-all duration-300 h-full flex flex-col p-5 group">
@@ -356,14 +360,16 @@ export default function DoctorPortalPage() {
                                                                             <Eye className="h-3.5 w-3.5" />
                                                                         </Button>
                                                                     )}
-                                                                    <Button 
-                                                                        variant="outline" 
-                                                                        size="sm" 
-                                                                        className="h-8 w-8 rounded-lg border-2 bg-white text-slate-500 hover:text-primary p-0 shadow-sm"
-                                                                        onClick={(e) => { e.stopPropagation(); setAptToReschedule(apt); setIsRescheduleOpen(true); }}
-                                                                    >
-                                                                        <Edit2 className="h-3.5 w-3.5" />
-                                                                    </Button>
+                                                                    {canReschedule && (
+                                                                        <Button 
+                                                                            variant="outline" 
+                                                                            size="sm" 
+                                                                            className="h-8 w-8 rounded-lg border-2 bg-white text-slate-500 hover:text-primary p-0 shadow-sm"
+                                                                            onClick={(e) => { e.stopPropagation(); setAptToReschedule(apt); setIsRescheduleOpen(true); }}
+                                                                        >
+                                                                            <Edit2 className="h-3.5 w-3.5" />
+                                                                        </Button>
+                                                                    )}
                                                                 </div>
                                                             </div>
                                                         </div>
