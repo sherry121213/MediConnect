@@ -287,53 +287,59 @@ export default function DoctorPortalPage() {
                                     </Button>
                                 </div>
                             </CardHeader>
-                            <CardContent className="p-8 flex-1 flex flex-col justify-center min-h-[450px]">
+                            <CardContent className="p-8 flex-1 flex flex-col justify-center min-h-[450px] overflow-hidden">
                                 {timelineApts.length > 0 ? (
-                                    <div className="relative w-full">
-                                        <Carousel opts={{ align: "start", loop: false }} className="w-full">
-                                            <CarouselContent className="-ml-4">
+                                    <div className="relative w-full h-full flex flex-col justify-center">
+                                        <Carousel opts={{ align: "start", loop: false, dragFree: true }} className="w-full">
+                                            <CarouselContent className="-ml-6">
                                                 {timelineApts.map(apt => {
                                                     const patient = patientsMap.get(apt.patientId);
                                                     return (
-                                                        <CarouselItem key={apt.id} className="pl-4 md:basis-1/2 lg:basis-1/2 xl:basis-1/2">
-                                                            <Card className="border-2 border-slate-50 bg-slate-50/30 rounded-[2.5rem] hover:border-primary/20 transition-all group p-6 h-full flex flex-col justify-between shadow-sm hover:shadow-md">
-                                                                <div className="space-y-4">
+                                                        <CarouselItem key={apt.id} className="pl-6 md:basis-1/2 lg:basis-1/2 select-none">
+                                                            <Card className="border border-slate-100 bg-white rounded-[2rem] hover:border-primary/20 transition-all group h-full flex flex-col justify-between shadow-md hover:shadow-xl p-6 sm:p-8 space-y-8">
+                                                                <div className="space-y-6">
                                                                     <div className="flex justify-between items-start">
-                                                                        <div className="h-12 w-12 rounded-2xl bg-white flex items-center justify-center border shadow-inner">
-                                                                            <User className="h-6 w-6 text-slate-400" />
+                                                                        <div className="h-14 w-14 rounded-2xl bg-slate-50 flex items-center justify-center border shadow-inner">
+                                                                            <User className="h-7 w-7 text-slate-300" />
                                                                         </div>
-                                                                        <div className="flex flex-col items-end gap-2">
-                                                                            <Badge variant="outline" className="text-[8px] font-bold uppercase border-slate-200 bg-white">
+                                                                        <div className="flex flex-col items-end gap-3">
+                                                                            <Badge variant="outline" className="text-[9px] font-bold uppercase border-slate-100 bg-slate-50 text-slate-500 py-1 px-3 h-auto rounded-full">
                                                                                 {format(new Date(apt.appointmentDateTime), "p")}
                                                                             </Badge>
                                                                             {apt.paymentReceiptUrl && (
                                                                                 <Button 
                                                                                     variant="ghost" 
                                                                                     size="sm" 
-                                                                                    className="h-7 w-7 rounded-xl bg-white border hover:text-primary p-0 shadow-sm"
-                                                                                    onClick={() => setReceiptPreview(apt.paymentReceiptUrl!)}
+                                                                                    className="h-10 w-10 rounded-xl bg-white border hover:bg-primary/5 hover:text-primary p-0 shadow-sm transition-all"
+                                                                                    onClick={(e) => { e.stopPropagation(); setReceiptPreview(apt.paymentReceiptUrl!); }}
                                                                                 >
-                                                                                    <Eye className="h-3.5 w-3.5" />
+                                                                                    <Eye className="h-5 w-5" />
                                                                                 </Button>
                                                                             )}
                                                                         </div>
                                                                     </div>
                                                                     <div>
-                                                                        <p className="font-bold text-slate-900 text-lg line-clamp-1">{patient?.firstName} {patient?.lastName || '...'}</p>
-                                                                        <p className="text-[10px] text-muted-foreground uppercase font-bold mt-1">{apt.appointmentType}</p>
+                                                                        <h4 className="font-bold text-slate-900 text-xl tracking-tight leading-none truncate">{patient?.firstName} {patient?.lastName || '...'}</h4>
+                                                                        <p className="text-[10px] text-muted-foreground uppercase font-bold mt-2 tracking-widest opacity-60">{apt.appointmentType}</p>
                                                                     </div>
-                                                                    <div className="flex items-center gap-2 pt-2">
-                                                                        <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("text-[8px] font-bold uppercase", apt.status === 'completed' ? "bg-green-100 text-green-700" : "")}>
+                                                                    <div className="flex items-center gap-3 pt-2">
+                                                                        <Badge 
+                                                                            variant={apt.status === 'completed' ? 'secondary' : 'outline'} 
+                                                                            className={cn(
+                                                                                "text-[9px] font-bold uppercase tracking-wider py-1 px-3 h-auto rounded-full", 
+                                                                                apt.status === 'completed' ? "bg-green-50 text-green-700 border-green-100" : "bg-white text-slate-400 border-slate-100"
+                                                                            )}
+                                                                        >
                                                                             {apt.status}
                                                                         </Badge>
-                                                                        <Badge variant="outline" className="text-[8px] font-bold uppercase border-primary/20 text-primary">PKR 1,500</Badge>
+                                                                        <Badge variant="outline" className="text-[9px] font-bold uppercase border-primary/20 text-primary py-1 px-3 h-auto rounded-full">PKR 1,500</Badge>
                                                                     </div>
                                                                 </div>
                                                                 <Button 
                                                                     variant="outline" 
-                                                                    size="sm" 
+                                                                    size="lg" 
                                                                     onClick={() => {setSelectedApt(apt);setIsConsultOpen(true)}} 
-                                                                    className="w-full mt-6 rounded-2xl font-bold h-12 text-[10px] uppercase border-2 bg-white group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all shadow-sm"
+                                                                    className="w-full mt-4 rounded-2xl font-bold h-14 text-[11px] uppercase border-2 bg-slate-50 text-slate-900 hover:bg-slate-900 hover:text-white hover:border-slate-900 transition-all shadow-sm"
                                                                 >
                                                                     Audit Record
                                                                 </Button>
