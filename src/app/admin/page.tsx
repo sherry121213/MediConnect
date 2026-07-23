@@ -150,7 +150,7 @@ export default function AdminDashboardPage() {
           <CardContent className="p-6">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Verified Providers</p>
+                <p className="text-[10px] font-bold uppercase text-muted-foreground tracking-widest">Verified Doctors</p>
                 <p className="text-3xl font-bold mt-1 tracking-tight">{stats.verifiedDoctors}</p>
               </div>
               <div className="p-3 bg-green-50 text-green-600 rounded-xl group-hover:bg-green-600 group-hover:text-white transition-colors">
