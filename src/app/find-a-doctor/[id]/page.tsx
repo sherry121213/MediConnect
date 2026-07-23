@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
 import { PlaceHolderImages as placeholderImages } from '@/lib/placeholder-images';
-import { ArrowLeft, CalendarDays, Loader2, MapPin, CheckCircle2, XCircle, Copy, Wallet, Landmark, Smartphone, Clock as ClockIcon, ShieldCheck, Video, Phone } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Loader2, MapPin, CheckCircle2, XCircle, Copy, Wallet, Landmark, Smartphone, Clock as ClockIcon, ShieldCheck, Video, Phone, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import {
@@ -70,6 +70,34 @@ export default function DoctorDetailPage() {
         return () => clearInterval(interval);
     }, []);
 
+    const doctorDocRef = useMemoFirebase(() => {
+        if (!firestore || !doctorId) return null;
+        return doc(firestore, 'doctors', doctorId);
+    }, [firestore, doctorId]);
+
+    const { data: doctor, isLoading } = useDoc<Doctor>(doctorDocRef);
+
+    const leavesQuery = useMemoFirebase(() => {
+        if (!firestore || !doctorId) return null;
+        return query(
+            collection(firestore, 'doctorUnavailabilityRequests'),
+            where('doctorId', '==', doctorId),
+            where('status', '==', 'approved')
+        );
+    }, [firestore, doctorId]);
+
+    const { data: approvedLeaves } = useCollection<any>(leavesQuery);
+
+    const isDateBlocked = (date: Date) => {
+        if (!approvedLeaves) return false;
+        return approvedLeaves.some(leave => {
+            const start = startOfDay(new Date(leave.startDate || leave.requestedDate));
+            const end = startOfDay(new Date(leave.endDate || leave.startDate || leave.requestedDate));
+            const current = startOfDay(date);
+            return current >= start && current <= end;
+        });
+    };
+
     const isToday = isSameDay(selectedDate, nowTicker);
     const currentHour24 = nowTicker.getHours();
     const currentMin = nowTicker.getMinutes();
@@ -81,10 +109,8 @@ export default function DoctorDetailPage() {
     const availableHours = useMemo(() => {
         let filtered = [];
         if (selectedPeriod === 'AM') {
-            // Standard: 10, 11 | Night/Early: 12, 01, 02, 03, 04, 05
             filtered = ["12", "01", "02", "03", "04", "05", "10", "11"];
         } else {
-            // PM Hours: 12 PM to 11 PM
             filtered = ["12", "01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11"];
         }
         if (!isToday) return filtered;
@@ -124,13 +150,6 @@ export default function DoctorDetailPage() {
         }
     }, [isToday, availableHours, availableMinutes, selectedPeriod, selectedHour, mounted]);
 
-    const doctorDocRef = useMemoFirebase(() => {
-        if (!firestore || !doctorId) return null;
-        return doc(firestore, 'doctors', doctorId);
-    }, [firestore, doctorId]);
-
-    const { data: doctor, isLoading } = useDoc<Doctor>(doctorDocRef);
-
     const appointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !doctorId) return null;
         return query(collection(firestore, 'appointments'), where('doctorId', '==', doctorId));
@@ -140,7 +159,11 @@ export default function DoctorDetailPage() {
     const selectedTimeStr = useMemo(() => `${selectedHour}:${selectedMinute} ${selectedPeriod}`, [selectedHour, selectedMinute, selectedPeriod]);
 
     const timeValidation = useMemo(() => {
-        if (!mounted || !existingAppointments || !selectedDate || !selectedTimeStr) return { isAvailable: true, message: '' };
+        if (!mounted || !selectedDate || !selectedTimeStr) return { isAvailable: true, message: '' };
+
+        if (isDateBlocked(selectedDate)) {
+            return { isAvailable: false, message: 'Provider is currently unavailable for this date (Approved Leave).' };
+        }
 
         const proposedStart = parse(selectedTimeStr, 'hh:mm a', startOfDay(selectedDate));
         if (!isValid(proposedStart)) return { isAvailable: false, message: 'Select a valid time.' };
@@ -149,8 +172,9 @@ export default function DoctorDetailPage() {
             return { isAvailable: false, message: 'This time has already passed.' };
         }
 
+        if (!existingAppointments) return { isAvailable: true, message: '' };
+
         const proposedEnd = addMinutes(proposedStart, 20);
-        // PRECISION CONFLICT CHECK: Only block for "Scheduled" sessions. Concluded/Expired/Cancelled sessions are released.
         const overlap = existingAppointments.find(apt => {
             if (!apt || !apt.appointmentDateTime || apt.status !== 'scheduled') return false;
             
@@ -165,7 +189,7 @@ export default function DoctorDetailPage() {
         }
 
         return { isAvailable: true, message: '' };
-    }, [selectedTimeStr, selectedDate, existingAppointments, mounted, nowTicker]);
+    }, [selectedTimeStr, selectedDate, existingAppointments, approvedLeaves, mounted, nowTicker]);
 
     const handleConfirmBooking = () => {
         if (isUserLoading || !user || !firestore || !doctor || !paymentReceipt) return;
@@ -256,7 +280,7 @@ export default function DoctorDetailPage() {
                                             <CardTitle className="text-xl md:text-2xl font-headline flex items-center gap-3">
                                                 <CalendarDays className="h-6 w-6 md:h-7 md:h-7 text-primary"/> Precision Scheduling
                                             </CardTitle>
-                                            <p className="text-xs md:text-sm text-muted-foreground mt-1">Select your 20-minute window (15m consult + 5m buffer).</p>
+                                            <p className="text-xs md:text-sm text-muted-foreground mt-1">Select your practice window.</p>
                                         </div>
                                         <Badge className="w-fit bg-primary text-white px-3 py-1 text-[10px] uppercase font-bold">Live Availability</Badge>
                                     </div>
@@ -268,46 +292,52 @@ export default function DoctorDetailPage() {
                                             Choose Date
                                         </p>
                                         <div className="flex gap-3 md:gap-4 overflow-x-auto pb-4 custom-scrollbar">
-                                            {dateOptions.map(day => (
-                                                <button 
-                                                    key={day.date.toISOString()}
-                                                    onClick={() => setSelectedDate(day.date)}
-                                                    className={cn(
-                                                        "p-4 md:p-5 rounded-2xl md:rounded-3xl border-2 transition-all shrink-0 w-24 md:w-28 text-center flex flex-col gap-1",
-                                                        selectedDate.toDateString() === day.date.toDateString() ? 'bg-primary text-white border-primary shadow-xl scale-105' : 'bg-white border-slate-100 hover:border-primary/20 hover:bg-slate-50'
-                                                    )}
-                                                >
-                                                    <p className="text-[9px] md:text-[10px] font-bold uppercase">{day.dayName}</p>
-                                                    <p className="text-xl md:text-2xl font-bold font-headline">{day.dayNumber}</p>
-                                                </button>
-                                            ))}
+                                            {dateOptions.map(day => {
+                                                const blocked = isDateBlocked(day.date);
+                                                return (
+                                                    <button 
+                                                        key={day.date.toISOString()}
+                                                        disabled={blocked}
+                                                        onClick={() => setSelectedDate(day.date)}
+                                                        className={cn(
+                                                            "p-4 md:p-5 rounded-2xl md:rounded-3xl border-2 transition-all shrink-0 w-24 md:w-28 text-center flex flex-col gap-1 relative overflow-hidden",
+                                                            selectedDate.toDateString() === day.date.toDateString() ? 'bg-primary text-white border-primary shadow-xl scale-105' : 'bg-white border-slate-100 hover:border-primary/20 hover:bg-slate-50',
+                                                            blocked && "opacity-40 grayscale cursor-not-allowed bg-slate-100 border-dashed"
+                                                        )}
+                                                    >
+                                                        <p className="text-[9px] md:text-[10px] font-bold uppercase">{day.dayName}</p>
+                                                        <p className="text-xl md:text-2xl font-bold font-headline">{day.dayNumber}</p>
+                                                        {blocked && <Badge className="absolute inset-x-0 bottom-0 rounded-none bg-slate-800 text-[6px] font-black uppercase text-white h-4 p-0 flex items-center justify-center">Blocked</Badge>}
+                                                    </button>
+                                                );
+                                            })}
                                         </div>
                                     </div>
 
                                     <div>
                                         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground mb-4 md:mb-6 flex items-center gap-2">
                                             <span className="h-4 w-4 rounded-full bg-primary/20 text-primary flex items-center justify-center text-[8px]">2</span> 
-                                            Precise Time (Extended til 5 AM)
+                                            Precise Time
                                         </p>
                                         <div className="p-6 md:p-8 border-2 md:border-4 border-dashed rounded-[2rem] bg-slate-50/50 space-y-6">
                                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                                                 <div className="space-y-2">
                                                     <Label className="text-[10px] font-bold uppercase ml-1 text-slate-500">Hour</Label>
-                                                    <Select value={selectedHour} onValueChange={setSelectedHour}>
+                                                    <Select value={selectedHour} onValueChange={setSelectedHour} disabled={isDateBlocked(selectedDate)}>
                                                         <SelectTrigger className="h-12 md:h-14 rounded-xl md:rounded-2xl border-2 bg-white font-bold text-lg"><SelectValue /></SelectTrigger>
                                                         <SelectContent className="max-h-[200px] rounded-xl shadow-2xl">{availableHours.map(h => (<SelectItem key={h} value={h} className="font-bold">{h}</SelectItem>))}</SelectContent>
                                                     </Select>
                                                 </div>
                                                 <div className="space-y-2">
                                                     <Label className="text-[10px] font-bold uppercase ml-1 text-slate-500">Minute</Label>
-                                                    <Select value={selectedMinute} onValueChange={setSelectedMinute}>
+                                                    <Select value={selectedMinute} onValueChange={setSelectedMinute} disabled={isDateBlocked(selectedDate)}>
                                                         <SelectTrigger className="h-12 md:h-14 rounded-xl md:rounded-2xl border-2 bg-white font-bold text-lg"><SelectValue /></SelectTrigger>
                                                         <SelectContent className="max-h-[200px] rounded-xl shadow-2xl">{availableMinutes.map(m => (<SelectItem key={m} value={m} className="font-bold">{m}</SelectItem>))}</SelectContent>
                                                     </Select>
                                                 </div>
                                                 <div className="space-y-2">
                                                     <Label className="text-[10px] font-bold uppercase ml-1 text-slate-500">Period</Label>
-                                                    <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
+                                                    <Select value={selectedPeriod} onValueChange={setSelectedPeriod} disabled={isDateBlocked(selectedDate)}>
                                                         <SelectTrigger className="h-12 md:h-14 rounded-xl md:rounded-2xl border-2 bg-white font-bold text-lg"><SelectValue /></SelectTrigger>
                                                         <SelectContent className="rounded-xl shadow-2xl">{availablePeriods.map(p => (<SelectItem key={p} value={p} className="font-bold">{p}</SelectItem>))}</SelectContent>
                                                     </Select>
@@ -315,7 +345,7 @@ export default function DoctorDetailPage() {
                                             </div>
                                             {selectedTimeStr && !timeValidation.isAvailable ? (
                                                 <div className="p-4 bg-red-50 border border-red-200 rounded-2xl flex items-center gap-3 animate-in fade-in zoom-in-95">
-                                                    <XCircle className="h-5 w-5 text-red-600 shrink-0" />
+                                                    <AlertTriangle className="h-5 w-5 text-red-600 shrink-0" />
                                                     <p className="text-xs text-red-800 font-bold">{timeValidation.message}</p>
                                                 </div>
                                             ) : <div className="p-4 bg-green-50 border border-green-200 rounded-2xl flex items-center gap-3 animate-in fade-in zoom-in-95">
@@ -339,7 +369,7 @@ export default function DoctorDetailPage() {
                                                         <span className="text-[10px] font-bold uppercase tracking-widest">Final Step</span>
                                                     </div>
                                                     <AlertDialogTitle className="text-2xl font-headline tracking-tight">Clinical Settlement</AlertDialogTitle>
-                                                    <AlertDialogDescription>Choose your consultation mode and upload the verification receipt.</AlertDialogDescription>
+                                                    <AlertDialogDescription>Choose your mode and upload evidence.</AlertDialogDescription>
                                                 </AlertDialogHeader>
                                                 
                                                 <div className="bg-primary/5 p-6 rounded-3xl border border-primary/10 text-center space-y-1">
@@ -419,7 +449,6 @@ export default function DoctorDetailPage() {
                                                             <div className="space-y-2 animate-in zoom-in-95">
                                                                 <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto" />
                                                                 <p className="text-sm font-bold text-green-700">Digital Receipt Secured</p>
-                                                                <p className="text-[8px] uppercase font-bold text-slate-400">Click to change evidence</p>
                                                             </div>
                                                         ) : (
                                                             <div className="space-y-3">
@@ -428,7 +457,6 @@ export default function DoctorDetailPage() {
                                                                 </div>
                                                                 <div className="space-y-1">
                                                                     <p className="text-sm font-bold text-primary">Upload Transfer Receipt</p>
-                                                                    <p className="text-[9px] text-slate-400 font-bold uppercase tracking-tighter">Images (JPG, PNG) supported</p>
                                                                 </div>
                                                             </div>
                                                         )}
@@ -460,10 +488,10 @@ export default function DoctorDetailPage() {
                                     </div>
                                     <div>
                                         <p className="font-bold text-sm">Need immediate care?</p>
-                                        <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-0.5">Average wait time: 12 minutes</p>
+                                        <p className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mt-0.5">Contact support for emergency slots.</p>
                                     </div>
                                 </div>
-                                <Button variant="outline" className="rounded-xl border-white/20 bg-transparent hover:bg-white/10 text-white font-bold h-11 px-8">View Urgent Slots</Button>
+                                <Button variant="outline" className="rounded-xl border-white/20 bg-transparent hover:bg-white/10 text-white font-bold h-11 px-8">Audit Inquiries</Button>
                             </div>
                         </div>
                     </div>

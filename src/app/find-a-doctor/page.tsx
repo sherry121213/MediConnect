@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -7,7 +8,7 @@ import DoctorCard from '@/components/doctor-card';
 import { specialties } from '@/lib/data';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, MapPin, Loader2, X, AlertCircle, Filter, Users, Star, Clock, User } from 'lucide-react';
+import { Search, MapPin, Loader2, X, AlertCircle, Filter, Users, Star, Clock, User, Calendar as CalendarIcon } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import type { Doctor } from '@/lib/types';
@@ -17,6 +18,9 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { format, startOfDay, isSameDay } from 'date-fns';
 
 const locations = ["Islamabad", "Rawalpindi", "Lahore", "Karachi", "Peshawar", "Faisalabad", "Multan", "Quetta"];
 
@@ -24,13 +28,13 @@ const filterPills = [
     { id: 'female', label: "Female Doctors", icon: User },
     { id: 'near', label: "Doctors Near Me", icon: MapPin },
     { id: 'exp', label: "Most Experienced", icon: Star },
-    { id: 'today', label: "Available Today", icon: Clock },
 ];
 
 export default function FindADoctorPage() {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>('all');
   const [selectedLocation, setSelectedLocation] = useState<string>('all');
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [detectedCity, setDetectedCity] = useState<string | null>(null);
   const [activeFilterId, setActiveFilterId] = useState<string | null>(null);
   const [isLocating, setIsLocating] = useState(false);
@@ -49,6 +53,16 @@ export default function FindADoctorPage() {
   }, [firestore]);
 
   const { data: doctors, isLoading: isLoadingDoctors } = useCollection<Doctor>(doctorsQuery);
+
+  const leavesQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(
+        collection(firestore, 'doctorUnavailabilityRequests'),
+        where('status', '==', 'approved')
+    );
+  }, [firestore]);
+
+  const { data: allLeaves } = useCollection<any>(leavesQuery);
 
   const handlePillClick = (filterId: string) => {
       if (activeFilterId === filterId) {
@@ -99,7 +113,6 @@ export default function FindADoctorPage() {
                     const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
                     const data = await response.json();
                     const addr = data.address;
-                    // Check multiple address fields for hub city names
                     const cityValue = addr.city || addr.town || addr.village || addr.county || addr.state;
                     const matched = matchCity(cityValue);
                     
@@ -117,7 +130,6 @@ export default function FindADoctorPage() {
                 }
             },
             async () => {
-                // Fallback to IP if browser geolocation is denied or fails
                 await fetchIPFallback();
             },
             { timeout: 8000 }
@@ -133,10 +145,21 @@ export default function FindADoctorPage() {
       const isActive = doctor.isActive !== false;
       if (!isActive) return false;
       
+      // UNAVAILABILITY CHECK FOR SELECTED DATE
+      if (allLeaves && selectedDate) {
+          const isUnavailable = allLeaves.some(leave => {
+              if (leave.doctorId !== doctor.id) return false;
+              const start = startOfDay(new Date(leave.startDate || leave.requestedDate));
+              const end = startOfDay(new Date(leave.endDate || leave.startDate || leave.requestedDate));
+              const current = startOfDay(selectedDate);
+              return current >= start && current <= end;
+          });
+          if (isUnavailable) return false;
+      }
+
       const nameMatch = `${doctor.firstName} ${doctor.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
       const specialtyMatch = selectedSpecialty === 'all' || doctor.specialty === selectedSpecialty;
       
-      // Near Me Priority Logic
       let locationMatch = true;
       if (activeFilterId === 'near' && detectedCity) {
           locationMatch = doctor.location === detectedCity;
@@ -144,17 +167,16 @@ export default function FindADoctorPage() {
           locationMatch = selectedLocation === 'all' || doctor.location === selectedLocation;
       }
       
-      // Pill Specific Logic
       const experienceMatch = activeFilterId === 'exp' ? (doctor.experience || 0) >= 10 : true;
       const genderMatch = activeFilterId === 'female' ? doctor.gender === 'female' : true;
 
       return nameMatch && specialtyMatch && locationMatch && experienceMatch && genderMatch;
     });
-  }, [doctors, searchTerm, selectedSpecialty, selectedLocation, activeFilterId, detectedCity]);
+  }, [doctors, allLeaves, searchTerm, selectedSpecialty, selectedLocation, selectedDate, activeFilterId, detectedCity]);
   
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, selectedSpecialty, selectedLocation, activeFilterId]);
+  }, [searchTerm, selectedSpecialty, selectedLocation, selectedDate, activeFilterId]);
 
   const pageCount = Math.ceil(filteredDoctors.length / doctorsPerPage);
   const paginatedDoctors = filteredDoctors.slice((currentPage - 1) * doctorsPerPage, currentPage * doctorsPerPage);
@@ -164,7 +186,7 @@ export default function FindADoctorPage() {
       <AppHeader />
       <main className="flex-grow w-full max-w-[100vw]">
         <div className="container mx-auto px-4 py-8 md:py-12">
-          <div className="max-w-4xl mx-auto space-y-8">
+          <div className="max-w-5xl mx-auto space-y-8">
             <div className="text-center space-y-3">
                 <h1 className="text-4xl md:text-5xl font-bold font-headline text-slate-900 tracking-tight">Clinical Record</h1>
                 <p className="text-muted-foreground text-sm max-w-lg mx-auto font-medium">Search and book verified healthcare professionals instantly.</p>
@@ -195,16 +217,35 @@ export default function FindADoctorPage() {
 
             <div className="p-2 bg-white rounded-[2rem] shadow-2xl shadow-slate-200/50 border-4 border-white">
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
-                    <div className="md:col-span-6 relative group">
+                    <div className="md:col-span-5 relative group">
                         <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-slate-300 group-focus-within:text-primary transition-colors" />
                         <Input
-                            placeholder="Search by doctor name..."
+                            placeholder="Search doctor..."
                             className="pl-12 h-14 border-none bg-slate-50 rounded-2xl font-medium focus-visible:ring-0"
                             value={searchTerm}
                             onChange={e => setSearchTerm(e.target.value)}
                         />
                     </div>
                     <div className="md:col-span-3">
+                        <Popover>
+                            <PopoverTrigger asChild>
+                                <Button variant="ghost" className="w-full h-14 border-none bg-slate-50 rounded-2xl font-bold text-xs justify-start px-4">
+                                    <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
+                                    {isSameDay(selectedDate, new Date()) ? 'Today' : format(selectedDate, "MMM dd, yyyy")}
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl" align="start">
+                                <Calendar
+                                    mode="single"
+                                    selected={selectedDate}
+                                    onSelect={(date) => date && setSelectedDate(date)}
+                                    disabled={(date) => date < startOfDay(new Date())}
+                                    initialFocus
+                                />
+                            </PopoverContent>
+                        </Popover>
+                    </div>
+                    <div className="md:col-span-2">
                         <Select onValueChange={setSelectedSpecialty} value={selectedSpecialty}>
                             <SelectTrigger className="h-14 border-none bg-slate-50 rounded-2xl font-bold text-xs">
                                 <SelectValue placeholder="Specialty" />
@@ -217,7 +258,7 @@ export default function FindADoctorPage() {
                             </SelectContent>
                         </Select>
                     </div>
-                    <div className="md:col-span-3">
+                    <div className="md:col-span-2">
                         <Select 
                             onValueChange={(val) => {
                                 setSelectedLocation(val);
@@ -243,14 +284,6 @@ export default function FindADoctorPage() {
             </div>
           </div>
 
-          {activeFilterId === 'near' && detectedCity && (
-              <div className="mt-8 max-w-4xl mx-auto flex items-center justify-center animate-in fade-in slide-in-from-top-2">
-                  <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 gap-2 py-1.5 px-4 rounded-full font-bold text-[10px] uppercase tracking-widest">
-                      <MapPin className="h-3 w-3" /> Showing results for {detectedCity}
-                  </Badge>
-              </div>
-          )}
-
           <div className="mt-16 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
             {isLoadingDoctors ? (
                 Array.from({ length: 6 }).map((_, i) => (
@@ -270,11 +303,8 @@ export default function FindADoctorPage() {
             ) : (
               <div className="col-span-full text-center py-32 bg-white rounded-[3rem] border-4 border-dashed border-slate-100">
                 <AlertCircle className="h-16 w-16 mx-auto mb-4 text-slate-200" />
-                <h3 className="text-xl font-bold text-slate-900">No record matches found</h3>
-                <p className="text-muted-foreground text-sm mt-1">Adjust your search parameters or filters.</p>
-                {activeFilterId === 'near' && !detectedCity && (
-                    <p className="text-primary font-bold text-[10px] uppercase mt-4">Try selecting a city manually from the hub list.</p>
-                )}
+                <h3 className="text-xl font-bold text-slate-900">No available professionals</h3>
+                <p className="text-muted-foreground text-sm mt-1 px-8">Try searching for a different date or clinical hub.</p>
               </div>
             )}
           </div>
