@@ -26,7 +26,7 @@ const locations = ["Islamabad", "Rawalpindi", "Lahore", "Karachi", "Peshawar", "
 const filterPills = [
     { id: 'female', label: "Female Doctors", icon: User },
     { id: 'near', label: "Doctors Near Me", icon: MapPin },
-    { id: 'exp', label: "Most Experienced", icon: BriefcaseMedical }, // Changed from Star to clarify practice vs reviews
+    { id: 'availableToday', label: "Available Today", icon: Clock },
 ];
 
 export default function FindADoctorPage() {
@@ -71,6 +71,9 @@ export default function FindADoctorPage() {
           setActiveFilterId(filterId);
           if (filterId === 'near') {
               handleLocationClick();
+          }
+          if (filterId === 'availableToday') {
+              setSelectedDate(new Date());
           }
       }
   };
@@ -156,6 +159,18 @@ export default function FindADoctorPage() {
           if (isUnavailable) return false;
       }
 
+      // AVAILABLE TODAY PILL LOGIC
+      if (activeFilterId === 'availableToday' && allLeaves) {
+        const isOffToday = allLeaves.some(leave => {
+            if (leave.doctorId !== doctor.id) return false;
+            const start = startOfDay(new Date(leave.startDate || leave.requestedDate));
+            const end = startOfDay(new Date(leave.endDate || leave.startDate || leave.requestedDate));
+            const today = startOfDay(new Date());
+            return today >= start && today <= end;
+        });
+        if (isOffToday) return false;
+      }
+
       const nameMatch = `${doctor.firstName} ${doctor.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
       const specialtyMatch = selectedSpecialty === 'all' || doctor.specialty === selectedSpecialty;
       
@@ -166,11 +181,9 @@ export default function FindADoctorPage() {
           locationMatch = selectedLocation === 'all' || doctor.location === selectedLocation;
       }
       
-      // Most Experienced filter: based on verified practice years (> 4 years)
-      const experienceMatch = activeFilterId === 'exp' ? (Number(doctor.experience) || 0) > 4 : true;
       const genderMatch = activeFilterId === 'female' ? doctor.gender === 'female' : true;
 
-      return nameMatch && specialtyMatch && locationMatch && experienceMatch && genderMatch;
+      return nameMatch && specialtyMatch && locationMatch && genderMatch;
     });
   }, [doctors, allLeaves, searchTerm, selectedSpecialty, selectedLocation, selectedDate, activeFilterId, detectedCity]);
   
