@@ -12,10 +12,10 @@ import { Badge } from "@/components/ui/badge";
 import { useFirestore, useCollection, useMemoFirebase } from "@/firebase";
 import { collection, doc } from "firebase/firestore";
 import type { Appointment, Doctor, Patient } from "@/lib/types";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
-import { Eye, MoreHorizontal, CreditCard, Wallet, Landmark, ShieldCheck } from "lucide-react";
+import { Eye, MoreHorizontal, CreditCard, Wallet, Landmark, ShieldCheck, X } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,10 +25,12 @@ import {
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 export default function AdminPaymentsPage() {
   const firestore = useFirestore();
   const { toast } = useToast();
+  const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
 
   const appointmentsCollection = useMemoFirebase(() => {
       if (!firestore) return null;
@@ -163,11 +165,14 @@ export default function AdminPaymentsPage() {
                   <TableCell>{getPaymentStatusBadge(payment.paymentStatus)}</TableCell>
                   <TableCell className="text-center">
                       {payment.paymentReceiptUrl ? (
-                          <Button asChild variant="ghost" size="icon" className="h-9 w-9 text-primary hover:bg-primary/10 rounded-xl">
-                              <a href={payment.paymentReceiptUrl} target="_blank" rel="noopener noreferrer">
-                                  <Eye className="h-5 w-5" />
-                                  <span className="sr-only">View Receipt</span>
-                              </a>
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            className="h-9 w-9 text-primary hover:bg-primary/10 rounded-xl"
+                            onClick={() => setReceiptPreview(payment.paymentReceiptUrl!)}
+                          >
+                              <Eye className="h-5 w-5" />
+                              <span className="sr-only">View Receipt</span>
                           </Button>
                       ) : (
                           <span className="text-[10px] text-muted-foreground italic font-bold opacity-30">N/A</span>
@@ -208,6 +213,32 @@ export default function AdminPaymentsPage() {
           </Table>
         </div>
       </div>
+
+      {/* ADMIN RECEIPT PREVIEW DIALOG */}
+      <Dialog open={!!receiptPreview} onOpenChange={(open) => !open && setReceiptPreview(null)}>
+        <DialogContent className="max-w-4xl rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
+            <div className="bg-slate-900 p-6 text-white flex justify-between items-center shrink-0">
+                <div className="flex items-center gap-3">
+                    <div className="p-2 bg-primary/20 rounded-xl">
+                        <ShieldCheck className="h-5 w-5 text-primary" />
+                    </div>
+                    <h3 className="font-headline text-lg tracking-tight">Audit Confirmation Image</h3>
+                </div>
+                <Button variant="ghost" size="icon" onClick={() => setReceiptPreview(null)} className="text-white/50 hover:text-white rounded-xl">
+                    <X className="h-5 w-5" />
+                </Button>
+            </div>
+            <div className="p-4 sm:p-10 bg-slate-50 flex items-center justify-center min-h-[500px] max-h-[85dvh] overflow-y-auto custom-scrollbar">
+                {receiptPreview && (
+                    <img 
+                        src={receiptPreview} 
+                        alt="Audit Evidence" 
+                        className="max-w-full h-auto object-contain rounded-2xl shadow-2xl border-4 border-white"
+                    />
+                )}
+            </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

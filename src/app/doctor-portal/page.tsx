@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, Zap, BellRing, UserCheck, AlertCircle, PlayCircle, LogIn, CheckCircle2, User, FileText, Stethoscope, Eye, CreditCard } from "lucide-react";
+import { Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, Zap, BellRing, UserCheck, AlertCircle, PlayCircle, LogIn, CheckCircle2, User, FileText, Stethoscope, Eye, CreditCard, X } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -14,7 +14,6 @@ import { format, isSameDay, subDays, addDays, addMinutes, isAfter } from "date-f
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -25,7 +24,21 @@ import {
 } from "@/components/ui/dialog";
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel";
 
-const AppointmentRow = ({ apt, patient, onSelect, isMounted, nowTicker }: { apt: Appointment, patient?: Patient, onSelect: (a: Appointment) => void, isMounted: boolean, nowTicker: Date | null }) => {
+const AppointmentRow = ({ 
+    apt, 
+    patient, 
+    onSelect, 
+    onPreview,
+    isMounted, 
+    nowTicker 
+}: { 
+    apt: Appointment, 
+    patient?: Patient, 
+    onSelect: (a: Appointment) => void, 
+    onPreview: (url: string) => void,
+    isMounted: boolean, 
+    nowTicker: Date | null 
+}) => {
     const firestore = useFirestore();
     const { toast } = useToast();
     const appointmentDate = new Date(apt.appointmentDateTime);
@@ -62,12 +75,9 @@ const AppointmentRow = ({ apt, patient, onSelect, isMounted, nowTicker }: { apt:
                                 variant="ghost" 
                                 size="icon" 
                                 className="h-5 w-5 text-slate-400 hover:text-primary transition-colors" 
-                                asChild 
-                                onClick={(e) => e.stopPropagation()}
+                                onClick={(e) => { e.stopPropagation(); onPreview(apt.paymentReceiptUrl!); }}
                             >
-                                <a href={apt.paymentReceiptUrl} target="_blank" rel="noopener noreferrer" title="View Payment Receipt">
-                                    <Eye className="h-3 w-3" />
-                                </a>
+                                <Eye className="h-3 w-3" />
                             </Button>
                         )}
                     </div>
@@ -94,6 +104,7 @@ export default function DoctorPortalPage() {
     const [viewDate, setViewDate] = useState(new Date());
     const [patientsMap, setPatientsMap] = useState<Map<string, Patient>>(new Map());
     const [nowTicker, setNowTicker] = useState<Date | null>(null);
+    const [receiptPreview, setReceiptPreview] = useState<string | null>(null);
 
     useEffect(() => { 
         setNowTicker(new Date());
@@ -153,7 +164,6 @@ export default function DoctorPortalPage() {
         if (!appointments || !nowTicker) return { activeQueue: [], timelineApts: [], stats: { todayRevenue: 0 } };
         const allToday = appointments.filter(apt => apt && isSameDay(new Date(apt.appointmentDateTime), nowTicker));
         
-        // Timeline sorted from current to previous (descending)
         const viewDay = appointments
             .filter(apt => apt && isSameDay(new Date(apt.appointmentDateTime), viewDate))
             .sort((a,b) => b.appointmentDateTime.localeCompare(a.appointmentDateTime));
@@ -182,7 +192,6 @@ export default function DoctorPortalPage() {
         <main className="min-h-screen bg-slate-50/50 py-10 px-4">
             <div className="max-w-7xl mx-auto space-y-10 pb-20">
                 
-                {/* ELEGANT HEADER - DOCTORS PORTAL */}
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
                     <div className="space-y-1">
                         <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest mb-2">
@@ -243,6 +252,7 @@ export default function DoctorPortalPage() {
                                                 apt={apt} 
                                                 patient={patientsMap.get(apt.patientId)} 
                                                 onSelect={(a)=>{setSelectedApt(a);setIsConsultOpen(true)}} 
+                                                onPreview={(url) => setReceiptPreview(url)}
                                                 isMounted={true} 
                                                 nowTicker={nowTicker} 
                                             />
@@ -259,7 +269,6 @@ export default function DoctorPortalPage() {
                     </div>
 
                     <div className="lg:col-span-8">
-                        {/* TIMELINE SLIDER */}
                         <Card className="rounded-[2.5rem] bg-white shadow-2xl border-none overflow-hidden h-full flex flex-col">
                             <CardHeader className="border-b bg-slate-900 text-white p-8 flex flex-row justify-between items-center shrink-0">
                                 <div className="space-y-1">
@@ -298,10 +307,13 @@ export default function DoctorPortalPage() {
                                                                                 {format(new Date(apt.appointmentDateTime), "p")}
                                                                             </Badge>
                                                                             {apt.paymentReceiptUrl && (
-                                                                                <Button variant="ghost" size="sm" className="h-7 w-7 rounded-xl bg-white border hover:text-primary p-0 shadow-sm" asChild>
-                                                                                    <a href={apt.paymentReceiptUrl} target="_blank" rel="noopener noreferrer" title="Verification Evidence">
-                                                                                        <Eye className="h-3.5 w-3.5" />
-                                                                                    </a>
+                                                                                <Button 
+                                                                                    variant="ghost" 
+                                                                                    size="sm" 
+                                                                                    className="h-7 w-7 rounded-xl bg-white border hover:text-primary p-0 shadow-sm"
+                                                                                    onClick={() => setReceiptPreview(apt.paymentReceiptUrl!)}
+                                                                                >
+                                                                                    <Eye className="h-3.5 w-3.5" />
                                                                                 </Button>
                                                                             )}
                                                                         </div>
@@ -363,10 +375,13 @@ export default function DoctorPortalPage() {
                                         </div>
                                     </div>
                                     {selectedApt?.paymentReceiptUrl && (
-                                        <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl border-2 shadow-sm text-primary" asChild>
-                                            <a href={selectedApt.paymentReceiptUrl} target="_blank" rel="noopener noreferrer">
-                                                <Eye className="h-5 w-5" />
-                                            </a>
+                                        <Button 
+                                            variant="outline" 
+                                            size="icon" 
+                                            className="h-10 w-10 rounded-xl border-2 shadow-sm text-primary"
+                                            onClick={() => setReceiptPreview(selectedApt.paymentReceiptUrl!)}
+                                        >
+                                            <Eye className="h-5 w-5" />
                                         </Button>
                                     )}
                                 </div>
@@ -402,6 +417,32 @@ export default function DoctorPortalPage() {
                         </DialogPrimitive.Content>
                     </DialogPrimitive.Portal>
                 </DialogPrimitive.Root>
+
+                {/* RECEIPT PREVIEW DIALOG */}
+                <Dialog open={!!receiptPreview} onOpenChange={(open) => !open && setReceiptPreview(null)}>
+                    <DialogContent className="max-w-3xl rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
+                        <div className="bg-slate-900 p-6 text-white flex justify-between items-center shrink-0">
+                            <div className="flex items-center gap-3">
+                                <div className="p-2 bg-primary/20 rounded-xl">
+                                    <Eye className="h-5 w-5 text-primary" />
+                                </div>
+                                <h3 className="font-headline text-lg tracking-tight">Payment Verification Evidence</h3>
+                            </div>
+                            <Button variant="ghost" size="icon" onClick={() => setReceiptPreview(null)} className="text-white/50 hover:text-white rounded-xl">
+                                <X className="h-5 w-5" />
+                            </Button>
+                        </div>
+                        <div className="p-4 sm:p-8 bg-slate-50 flex items-center justify-center min-h-[400px] max-h-[80dvh] overflow-y-auto custom-scrollbar">
+                            {receiptPreview && (
+                                <img 
+                                    src={receiptPreview} 
+                                    alt="Payment Receipt" 
+                                    className="max-w-full h-auto object-contain rounded-2xl shadow-2xl border-8 border-white"
+                                />
+                            )}
+                        </div>
+                    </DialogContent>
+                </Dialog>
 
                 <Dialog open={showArrivalDialog} onOpenChange={setShowArrivalDialog}>
                     <DialogContent className="rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden max-w-sm">
