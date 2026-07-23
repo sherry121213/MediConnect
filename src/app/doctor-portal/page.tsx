@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, Zap, BellRing, UserCheck, AlertCircle, PlayCircle, LogIn, CheckCircle2, User, FileText, Stethoscope } from "lucide-react";
+import { Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, Zap, BellRing, UserCheck, AlertCircle, PlayCircle, LogIn, CheckCircle2, User, FileText, Stethoscope, Eye, CreditCard } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -53,13 +53,28 @@ const AppointmentRow = ({ apt, patient, onSelect, isMounted, nowTicker }: { apt:
                 <div className="min-w-0">
                     <div className="flex items-center gap-2">
                         <p className="font-bold text-sm truncate">{patient ? `${patient.firstName} ${patient.lastName}` : '...'}</p>
-                        {apt.patientCheckedIn && <Badge className="bg-green-100 text-green-700 border-green-200 h-3.5 text-[6px] px-1.5 font-bold uppercase">Patient Arrived</Badge>}
+                        {apt.patientCheckedIn && <Badge className="bg-green-100 text-green-700 border-green-200 h-3.5 text-[6px] px-1.5 font-bold uppercase">Arrived</Badge>}
                     </div>
-                    <p className="text-[10px] text-muted-foreground uppercase">{format(appointmentDate, "p")}</p>
+                    <div className="flex items-center gap-2">
+                        <p className="text-[10px] text-muted-foreground uppercase">{format(appointmentDate, "p")}</p>
+                        {apt.paymentReceiptUrl && (
+                            <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-5 w-5 text-slate-400 hover:text-primary transition-colors" 
+                                asChild 
+                                onClick={(e) => e.stopPropagation()}
+                            >
+                                <a href={apt.paymentReceiptUrl} target="_blank" rel="noopener noreferrer" title="View Payment Receipt">
+                                    <Eye className="h-3 w-3" />
+                                </a>
+                            </Button>
+                        )}
+                    </div>
                 </div>
             </div>
             <div className="flex items-center gap-2">
-                {isLive && apt.status === 'scheduled' && <Badge className="bg-red-600 text-white animate-pulse text-[8px] h-4 uppercase px-1.5">Live Window</Badge>}
+                {isLive && apt.status === 'scheduled' && <Badge className="bg-red-600 text-white animate-pulse text-[8px] h-4 uppercase px-1.5">Live</Badge>}
                 <Button variant="ghost" size="icon" className={cn("h-8 w-8 rounded-full", apt.readyToStart ? "text-primary" : "text-slate-400")} onClick={handleNotifyPatient}>
                     <BellRing className="h-4 w-4" />
                 </Button>
@@ -138,7 +153,7 @@ export default function DoctorPortalPage() {
         if (!appointments || !nowTicker) return { activeQueue: [], timelineApts: [], stats: { todayRevenue: 0 } };
         const allToday = appointments.filter(apt => apt && isSameDay(new Date(apt.appointmentDateTime), nowTicker));
         
-        // SORTING: SHOW IN PROPER WAY FROM CURRENT TO PREVIOUS (DESCENDING)
+        // Timeline sorted from current to previous (descending)
         const viewDay = appointments
             .filter(apt => apt && isSameDay(new Date(apt.appointmentDateTime), viewDate))
             .sort((a,b) => b.appointmentDateTime.localeCompare(a.appointmentDateTime));
@@ -171,11 +186,11 @@ export default function DoctorPortalPage() {
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
                     <div className="space-y-1">
                         <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-widest mb-2">
-                             <Stethoscope className="h-3 w-3" /> Professional Access
+                             <Stethoscope className="h-3 w-3" /> Professional Hub
                         </div>
                         <h1 className="text-4xl font-bold font-headline tracking-tight text-slate-900">Doctors Portal</h1>
                         <p className="text-muted-foreground text-sm flex items-center gap-2">
-                            <Activity className="h-4 w-4 text-primary" /> Precision Practice Analytics & Scheduling
+                            <Activity className="h-4 w-4 text-primary" /> Precision Clinical Intelligence & Practice Management
                         </p>
                     </div>
                     <Card className="p-6 bg-slate-900 text-white rounded-[2rem] shadow-2xl border-none flex items-center gap-6">
@@ -183,7 +198,7 @@ export default function DoctorPortalPage() {
                             <Zap className="h-6 w-6" />
                         </div>
                         <div>
-                            <p className="text-[10px] font-bold uppercase opacity-60 tracking-widest">Today's Settlements</p>
+                            <p className="text-[10px] font-bold uppercase opacity-60 tracking-widest">Today's Revenue</p>
                             <p className="text-2xl font-bold tracking-tight">PKR {stats.todayRevenue.toLocaleString()}</p>
                         </div>
                     </Card>
@@ -194,18 +209,18 @@ export default function DoctorPortalPage() {
                          <Card className="bg-primary text-white rounded-[2rem] shadow-2xl overflow-hidden border-none">
                             <CardHeader className="p-8 pb-4">
                                 <CardTitle className="text-xl flex items-center gap-3 font-headline">
-                                    <Zap className="h-6 w-6 text-white" /> Quick Ops
+                                    <Zap className="h-6 w-6 text-white" /> Rapid Operations
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-8 pt-0 space-y-3">
                                 <Button variant="outline" className="w-full justify-start h-12 bg-white/10 border-white/20 text-white hover:bg-white/20 rounded-xl font-bold" asChild>
                                     <Link href="/doctor-portal/patients">
-                                        <ClipboardCheck className="mr-3 h-4 w-4" /> Clinical Records
+                                        <ClipboardCheck className="mr-3 h-4 w-4" /> Patient Records
                                     </Link>
                                 </Button>
                                 <Button variant="outline" className="w-full justify-start h-12 bg-white/10 border-white/20 text-white hover:bg-white/20 rounded-xl font-bold" asChild>
                                     <Link href="/doctor-portal/unavailability">
-                                        <Clock className="mr-3 h-4 w-4" /> Pause Practice
+                                        <Clock className="mr-3 h-4 w-4" /> Clinical Pause
                                     </Link>
                                 </Button>
                             </CardContent>
@@ -214,7 +229,7 @@ export default function DoctorPortalPage() {
                          <Card className="bg-white rounded-[2rem] shadow-xl overflow-hidden border-none">
                             <CardHeader className="bg-primary/5 p-6 border-b">
                                 <CardTitle className="text-[11px] uppercase font-bold flex items-center gap-2 text-primary tracking-widest">
-                                    <ClipboardCheck className="h-4 w-4" /> Live Queue Stream
+                                    <ClipboardCheck className="h-4 w-4" /> Live Patient Queue
                                 </CardTitle>
                             </CardHeader>
                             <CardContent className="p-0">
@@ -236,7 +251,7 @@ export default function DoctorPortalPage() {
                                 ) : (
                                     <div className="p-12 text-center">
                                         <History className="h-10 w-10 text-slate-200 mx-auto mb-3" />
-                                        <p className="text-[10px] font-bold uppercase text-slate-300">No pending sessions</p>
+                                        <p className="text-[10px] font-bold uppercase text-slate-300">No active queue</p>
                                     </div>
                                 )}
                             </CardContent>
@@ -244,61 +259,79 @@ export default function DoctorPortalPage() {
                     </div>
 
                     <div className="lg:col-span-8">
-                        {/* TIMELINE WITH PRECISE SLIDER */}
+                        {/* TIMELINE SLIDER */}
                         <Card className="rounded-[2.5rem] bg-white shadow-2xl border-none overflow-hidden h-full flex flex-col">
                             <CardHeader className="border-b bg-slate-900 text-white p-8 flex flex-row justify-between items-center shrink-0">
                                 <div className="space-y-1">
                                     <CardTitle className="text-xl font-headline flex items-center gap-3">
                                         <Clock className="h-6 w-6 text-primary" /> Daily Timeline
                                     </CardTitle>
-                                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Chronological Record Analysis</p>
+                                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Consultations (Latest First)</p>
                                 </div>
                                 <div className="flex items-center gap-2 bg-white/5 p-1.5 rounded-2xl border border-white/10 backdrop-blur-sm">
                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10" onClick={() => setViewDate(subDays(viewDate, 1))}>
                                         <ChevronLeft className="h-4 w-4" />
                                     </Button>
-                                    <span className="px-3 text-[10px] font-bold uppercase tracking-wider">{format(viewDate, "MMM dd, yyyy")}</span>
+                                    <span className="px-3 text-[10px] font-bold uppercase tracking-wider">{format(viewDate, "MMM dd")}</span>
                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10" onClick={() => setViewDate(addDays(viewDate, 1))}>
                                         <ChevronRight className="h-4 w-4" />
                                     </Button>
                                 </div>
                             </CardHeader>
-                            <CardContent className="p-8 flex-1 flex flex-col justify-center min-h-[400px]">
+                            <CardContent className="p-8 flex-1 flex flex-col justify-center min-h-[450px]">
                                 {timelineApts.length > 0 ? (
                                     <div className="relative w-full px-12">
                                         <Carousel opts={{ align: "start", loop: false }} className="w-full">
                                             <CarouselContent className="-ml-4">
-                                                {timelineApts.map(apt => (
-                                                    <CarouselItem key={apt.id} className="pl-4 md:basis-1/2 lg:basis-1/2 xl:basis-1/2">
-                                                        <Card className="border-2 border-slate-50 bg-slate-50/30 rounded-[2rem] hover:border-primary/20 transition-all group p-6 h-full flex flex-col justify-between shadow-sm hover:shadow-md">
-                                                            <div className="space-y-4">
-                                                                <div className="flex justify-between items-start">
-                                                                    <div className="h-10 w-10 rounded-2xl bg-white flex items-center justify-center border shadow-inner">
-                                                                        <User className="h-5 w-5 text-slate-400" />
+                                                {timelineApts.map(apt => {
+                                                    const patient = patientsMap.get(apt.patientId);
+                                                    return (
+                                                        <CarouselItem key={apt.id} className="pl-4 md:basis-1/2 lg:basis-1/2 xl:basis-1/2">
+                                                            <Card className="border-2 border-slate-50 bg-slate-50/30 rounded-[2.5rem] hover:border-primary/20 transition-all group p-6 h-full flex flex-col justify-between shadow-sm hover:shadow-md">
+                                                                <div className="space-y-4">
+                                                                    <div className="flex justify-between items-start">
+                                                                        <div className="h-12 w-12 rounded-2xl bg-white flex items-center justify-center border shadow-inner">
+                                                                            <User className="h-6 w-6 text-slate-400" />
+                                                                        </div>
+                                                                        <div className="flex flex-col items-end gap-2">
+                                                                            <Badge variant="outline" className="text-[8px] font-bold uppercase border-slate-200 bg-white">
+                                                                                {format(new Date(apt.appointmentDateTime), "p")}
+                                                                            </Badge>
+                                                                            {apt.paymentReceiptUrl && (
+                                                                                <Button variant="ghost" size="sm" className="h-7 w-7 rounded-xl bg-white border hover:text-primary p-0 shadow-sm" asChild>
+                                                                                    <a href={apt.paymentReceiptUrl} target="_blank" rel="noopener noreferrer" title="Verification Evidence">
+                                                                                        <Eye className="h-3.5 w-3.5" />
+                                                                                    </a>
+                                                                                </Button>
+                                                                            )}
+                                                                        </div>
                                                                     </div>
-                                                                    <Badge variant="outline" className="text-[8px] font-bold uppercase border-slate-200">
-                                                                        {format(new Date(apt.appointmentDateTime), "p")}
-                                                                    </Badge>
+                                                                    <div>
+                                                                        <p className="font-bold text-slate-900 text-lg line-clamp-1">{patient?.firstName} {patient?.lastName || '...'}</p>
+                                                                        <p className="text-[10px] text-muted-foreground uppercase font-bold mt-1">{apt.appointmentType}</p>
+                                                                    </div>
+                                                                    <div className="flex items-center gap-2 pt-2">
+                                                                        <Badge variant={apt.status === 'completed' ? 'secondary' : 'outline'} className={cn("text-[8px] font-bold uppercase", apt.status === 'completed' ? "bg-green-100 text-green-700" : "")}>
+                                                                            {apt.status}
+                                                                        </Badge>
+                                                                        <Badge variant="outline" className="text-[8px] font-bold uppercase border-primary/20 text-primary">PKR 1,500</Badge>
+                                                                    </div>
                                                                 </div>
-                                                                <div>
-                                                                    <p className="font-bold text-slate-900 line-clamp-1">{patientsMap.get(apt.patientId)?.firstName} {patientsMap.get(apt.patientId)?.lastName}</p>
-                                                                    <p className="text-[10px] text-muted-foreground uppercase font-medium mt-1">{apt.appointmentType}</p>
-                                                                </div>
-                                                            </div>
-                                                            <Button 
-                                                                variant="outline" 
-                                                                size="sm" 
-                                                                onClick={() => {setSelectedApt(apt);setIsConsultOpen(true)}} 
-                                                                className="w-full mt-6 rounded-xl font-bold h-10 text-[9px] uppercase border-2 bg-white group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all"
-                                                            >
-                                                                View Record
-                                                            </Button>
-                                                        </Card>
-                                                    </CarouselItem>
-                                                ))}
+                                                                <Button 
+                                                                    variant="outline" 
+                                                                    size="sm" 
+                                                                    onClick={() => {setSelectedApt(apt);setIsConsultOpen(true)}} 
+                                                                    className="w-full mt-6 rounded-2xl font-bold h-12 text-[10px] uppercase border-2 bg-white group-hover:bg-primary group-hover:text-white group-hover:border-primary transition-all shadow-sm"
+                                                                >
+                                                                    Audit Record
+                                                                </Button>
+                                                            </Card>
+                                                        </CarouselItem>
+                                                    );
+                                                })}
                                             </CarouselContent>
-                                            <CarouselPrevious className="-left-4 bg-white border-2 shadow-lg h-10 w-10" />
-                                            <CarouselNext className="-right-4 bg-white border-2 shadow-lg h-10 w-10" />
+                                            <CarouselPrevious className="-left-6 bg-white border-2 shadow-lg h-12 w-12 rounded-2xl" />
+                                            <CarouselNext className="-right-6 bg-white border-2 shadow-lg h-12 w-12 rounded-2xl" />
                                         </Carousel>
                                     </div>
                                 ) : (
@@ -321,9 +354,21 @@ export default function DoctorPortalPage() {
                                 <DialogPrimitive.Close className="absolute right-6 top-6 text-white/50 hover:text-white"><X className="h-5 w-5" /></DialogPrimitive.Close>
                             </div>
                             <div className="p-8 space-y-6">
-                                <div className="flex items-center gap-4 p-4 bg-slate-50 rounded-2xl border-2">
-                                    <Avatar className="h-12 w-12"><AvatarFallback className="bg-primary/10 text-primary font-bold">{patientsMap.get(selectedApt?.patientId || '')?.firstName?.[0]}</AvatarFallback></Avatar>
-                                    <div><p className="font-bold text-lg">{patientsMap.get(selectedApt?.patientId || '')?.firstName} {patientsMap.get(selectedApt?.patientId || '')?.lastName}</p><p className="text-[10px] uppercase font-bold text-muted-foreground">Patient Identity Verified</p></div>
+                                <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border-2">
+                                    <div className="flex items-center gap-4">
+                                        <Avatar className="h-12 w-12"><AvatarFallback className="bg-primary/10 text-primary font-bold">{patientsMap.get(selectedApt?.patientId || '')?.firstName?.[0]}</AvatarFallback></Avatar>
+                                        <div>
+                                            <p className="font-bold text-lg">{patientsMap.get(selectedApt?.patientId || '')?.firstName} {patientsMap.get(selectedApt?.patientId || '')?.lastName}</p>
+                                            <p className="text-[10px] uppercase font-bold text-muted-foreground">Identity Verified</p>
+                                        </div>
+                                    </div>
+                                    {selectedApt?.paymentReceiptUrl && (
+                                        <Button variant="outline" size="icon" className="h-10 w-10 rounded-xl border-2 shadow-sm text-primary" asChild>
+                                            <a href={selectedApt.paymentReceiptUrl} target="_blank" rel="noopener noreferrer">
+                                                <Eye className="h-5 w-5" />
+                                            </a>
+                                        </Button>
+                                    )}
                                 </div>
 
                                 {selectedApt?.status === 'completed' ? (
@@ -345,7 +390,7 @@ export default function DoctorPortalPage() {
                                     <>
                                         <div className={cn("p-4 rounded-2xl flex items-center gap-3 border-2 transition-all", selectedApt?.patientCheckedIn ? "bg-green-50 border-green-200 text-green-800" : "bg-amber-50 border-amber-200 text-amber-800")}>
                                             {selectedApt?.patientCheckedIn ? <UserCheck className="h-5 w-5" /> : <AlertCircle className="h-5 w-5" />}
-                                            <div className="space-y-1"><p className="text-[10px] font-bold uppercase">{selectedApt?.patientCheckedIn ? "Presence Confirmed" : "Patient Not Arrived"}</p><p className="text-[9px] leading-tight">Gated entry: Start is only enabled once the patient completes their digital check-in.</p></div>
+                                            <div className="space-y-1"><p className="text-[10px] font-bold uppercase">{selectedApt?.patientCheckedIn ? "Presence Confirmed" : "Awaiting Patient"}</p><p className="text-[9px] leading-tight">Start is only enabled once the patient completes their digital check-in.</p></div>
                                         </div>
                                         <Button className="w-full h-16 rounded-2xl font-bold text-lg shadow-xl shadow-primary/20" disabled={!selectedApt?.patientCheckedIn} onClick={() => selectedApt && handleStartSession(selectedApt)}>
                                             {selectedApt?.patientCheckedIn ? <><Video className="mr-3 h-6 w-6" /> Start Consultation</> : "Waiting for Check-in..."}
