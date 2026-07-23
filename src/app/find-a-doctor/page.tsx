@@ -24,9 +24,9 @@ import { format, startOfDay, isSameDay } from 'date-fns';
 const locations = ["Islamabad", "Rawalpindi", "Lahore", "Karachi", "Peshawar", "Faisalabad", "Multan", "Quetta"];
 
 const filterPills = [
-    { id: 'female', label: "Female Doctors", icon: User },
     { id: 'near', label: "Doctors Near Me", icon: MapPin },
     { id: 'availableToday', label: "Available Today", icon: Clock },
+    { id: 'female', label: "Female Doctors", icon: User },
 ];
 
 export default function FindADoctorPage() {
@@ -70,7 +70,7 @@ export default function FindADoctorPage() {
       } else {
           setActiveFilterId(filterId);
           if (filterId === 'near') {
-              handleLocationClick();
+              handleLocationAccess();
           }
           if (filterId === 'availableToday') {
               setSelectedDate(new Date());
@@ -78,7 +78,7 @@ export default function FindADoctorPage() {
       }
   };
 
-  const handleLocationClick = () => {
+  const handleLocationAccess = () => {
     setIsLocating(true);
     
     const matchCity = (cityName: string | undefined) => {
@@ -89,9 +89,8 @@ export default function FindADoctorPage() {
 
     const fetchIPFallback = async () => {
         try {
-            // Using ipapi.co with error handling
             const res = await fetch('https://ipapi.co/json/');
-            if (!res.ok) throw new Error("Service Unavailable");
+            if (!res.ok) throw new Error("Service rate-limited");
             const data = await res.json();
             
             const matched = matchCity(data.city);
@@ -100,7 +99,7 @@ export default function FindADoctorPage() {
                 setSelectedLocation('all');
                 toast({ title: `Location Detected: ${matched}`, description: "Clinical record filtered for your area." });
             } else {
-                toast({ title: "Global Search", description: `You are browsing from ${data.city || 'a new region'}. Showing all verified records.` });
+                toast({ title: "Global Search Active", description: `Showing all verified records for ${data.city || 'your region'}.` });
                 setDetectedCity(null);
                 setActiveFilterId(null);
             }
@@ -108,7 +107,7 @@ export default function FindADoctorPage() {
             toast({ 
                 variant: "destructive", 
                 title: "Location Unresolved", 
-                description: "Automatic detection is unavailable. Please select your clinical hub city manually." 
+                description: "Detection failed. Please select your clinical hub city manually from the dropdown." 
             });
             setDetectedCity(null);
             setActiveFilterId(null);
@@ -121,29 +120,47 @@ export default function FindADoctorPage() {
         navigator.geolocation.getCurrentPosition(
             async (position) => {
                 try {
-                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
-                    if (!response.ok) throw new Error("Mapping Error");
+                    // OpenStreetMap Reverse Geocoding
+                    const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}&zoom=10`);
+                    if (!response.ok) throw new Error("Mapping Service Error");
                     const data = await response.json();
+                    
                     const addr = data.address;
-                    const cityValue = addr.city || addr.town || addr.village || addr.county || addr.state;
+                    const cityValue = addr.city || addr.town || addr.village || addr.county || addr.state || addr.suburb;
                     const matched = matchCity(cityValue);
                     
                     if (matched) {
                          setDetectedCity(matched);
                          setSelectedLocation('all');
-                         toast({ title: `Location Detected: ${matched}`, description: "Clinical record filtered for your area." });
+                         toast({ 
+                            title: `Device Linked: ${matched}`, 
+                            description: "Your Clinical Hub has been synchronized." 
+                         });
                          setIsLocating(false);
                     } else {
+                        // Coordinates found but doesn't match our main cities, try IP fallback for broader regional match
                         await fetchIPFallback();
                     }
                 } catch (error) {
                     await fetchIPFallback();
                 }
             },
-            async () => {
-                await fetchIPFallback();
+            (error) => {
+                // User denied or hardware error
+                if (error.code === error.PERMISSION_DENIED) {
+                    toast({ 
+                        variant: "destructive", 
+                        title: "Access Restricted", 
+                        description: "Location permission was denied. Please select your city manually." 
+                    });
+                    setDetectedCity(null);
+                    setActiveFilterId(null);
+                    setIsLocating(false);
+                } else {
+                    fetchIPFallback();
+                }
             },
-            { timeout: 6000 }
+            { timeout: 8000, enableHighAccuracy: true }
         );
     } else {
         fetchIPFallback();
@@ -156,7 +173,7 @@ export default function FindADoctorPage() {
       const isActive = doctor.isActive !== false;
       if (!isActive) return false;
       
-      // UNAVAILABILITY CHECK FOR SELECTED DATE
+      // Clinical Unavailability Audit
       if (allLeaves && selectedDate) {
           const isUnavailable = allLeaves.some(leave => {
               if (leave.doctorId !== doctor.id) return false;
@@ -166,18 +183,6 @@ export default function FindADoctorPage() {
               return current >= start && current <= end;
           });
           if (isUnavailable) return false;
-      }
-
-      // AVAILABLE TODAY PILL LOGIC
-      if (activeFilterId === 'availableToday' && allLeaves) {
-        const isOffToday = allLeaves.some(leave => {
-            if (leave.doctorId !== doctor.id) return false;
-            const start = startOfDay(new Date(leave.startDate || leave.requestedDate));
-            const end = startOfDay(new Date(leave.endDate || leave.startDate || leave.requestedDate));
-            const today = startOfDay(new Date());
-            return today >= start && today <= end;
-        });
-        if (isOffToday) return false;
       }
 
       const nameMatch = `${doctor.firstName} ${doctor.lastName}`.toLowerCase().includes(searchTerm.toLowerCase());
@@ -214,7 +219,7 @@ export default function FindADoctorPage() {
                 <p className="text-muted-foreground text-sm max-w-lg mx-auto font-medium">Search and book verified healthcare professionals instantly.</p>
             </div>
 
-            <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 no-scrollbar custom-scrollbar">
+            <div className="flex gap-3 overflow-x-auto pb-4 -mx-4 px-4 no-scrollbar custom-scrollbar justify-center">
                 {filterPills.map((pill) => (
                     <button 
                         key={pill.id} 
@@ -224,7 +229,8 @@ export default function FindADoctorPage() {
                             "h-10 px-6 rounded-full border-2 whitespace-nowrap text-[10px] font-bold uppercase tracking-widest flex items-center gap-2 transition-all shadow-sm shrink-0",
                             activeFilterId === pill.id 
                                 ? "bg-primary border-primary text-white" 
-                                : "bg-white border-slate-100 text-slate-600 hover:border-primary/30 hover:bg-primary/5"
+                                : "bg-white border-slate-100 text-slate-600 hover:border-primary/30 hover:bg-primary/5",
+                            pill.id === 'near' && isLocating && "opacity-80"
                         )}
                     >
                         {pill.id === 'near' && isLocating ? (
@@ -253,7 +259,7 @@ export default function FindADoctorPage() {
                             <PopoverTrigger asChild>
                                 <Button variant="ghost" className="w-full h-14 border-none bg-slate-50 rounded-2xl font-bold text-xs justify-start px-4">
                                     <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
-                                    {isSameDay(selectedDate, new Date()) ? 'Today' : format(selectedDate, "MMM dd, yyyy")}
+                                    {isSameDay(selectedDate, new Date()) ? 'Available Today' : format(selectedDate, "MMM dd, yyyy")}
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl" align="start">
@@ -326,7 +332,7 @@ export default function FindADoctorPage() {
               <div className="col-span-full text-center py-32 bg-white rounded-[3rem] border-4 border-dashed border-slate-100">
                 <AlertCircle className="h-16 w-16 mx-auto mb-4 text-slate-200" />
                 <h3 className="text-xl font-bold text-slate-900">No available professionals</h3>
-                <p className="text-muted-foreground text-sm mt-1 px-8">Try searching for a different date or clinical hub.</p>
+                <p className="text-muted-foreground text-sm mt-1 px-8">Try searching for a different date or clinical hub city.</p>
               </div>
             )}
           </div>
