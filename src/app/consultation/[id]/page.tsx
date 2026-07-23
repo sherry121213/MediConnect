@@ -10,7 +10,7 @@ import { useFirestore, useUserData, useCollection, useDoc, useMemoFirebase } fro
 import { collection, doc, setDoc, onSnapshot, addDoc, query, orderBy } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, Clock, AlertTriangle, ClipboardCheck, CheckCircle2, RefreshCcw } from 'lucide-react';
+import { Loader2, Send, PhoneOff, Video, VideoOff, Mic, MicOff, MessageSquare, ShieldCheck, Clock, AlertTriangle, ClipboardCheck, CheckCircle2, RefreshCcw, Paperclip, FileText, ExternalLink, Image as ImageIcon } from 'lucide-react';
 import { addMinutes, differenceInSeconds } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
@@ -65,10 +65,12 @@ export default function ConsultationRoomPage() {
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [showExtensionDialog, setShowExtensionDialog] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const remoteVideoRef = useRef<HTMLVideoElement>(null);
   const chatScrollRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   
   const pc = useRef<RTCPeerConnection | null>(null);
   const localStream = useRef<MediaStream | null>(null);
@@ -151,11 +153,6 @@ export default function ConsultationRoomPage() {
       try {
         setSignalingStatus("Requesting Hardware...");
         
-        /**
-         * CLINICAL AUDIO REINFORCEMENT
-         * Explicitly requesting echo cancellation and noise suppression
-         * for high-stakes medical consultations.
-         */
         const stream = await navigator.mediaDevices.getUserMedia({
           video: isAudioOnly ? false : { 
             facingMode: "user", 
@@ -191,7 +188,6 @@ export default function ConsultationRoomPage() {
         stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
 
         peerConnection.ontrack = (event) => {
-          console.log("Remote track detected:", event.track.kind);
           event.streams[0].getTracks().forEach(track => {
             if (remoteStream.current && !remoteStream.current.getTrackById(track.id)) {
               remoteStream.current.addTrack(track);
@@ -351,6 +347,34 @@ export default function ConsultationRoomPage() {
     setNewMessage('');
   };
 
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files?.[0] || !firestore || !user) return;
+    const file = e.target.files[0];
+    setIsUploading(true);
+
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64Data = event.target?.result as string;
+      const fileName = file.name;
+      const isImage = file.type.startsWith('image/');
+
+      addDocumentNonBlocking(collection(firestore, 'consultationSessions', appointmentId, 'messages'), {
+        senderId: user.uid,
+        senderRole: userData?.role || 'patient',
+        content: `Shared document: ${fileName}`,
+        fileUrl: base64Data,
+        fileName: fileName,
+        fileType: file.type,
+        timestamp: new Date().toISOString(),
+      });
+
+      toast({ title: "Clinical Asset Shared", description: "Document successfully attached to session transcript." });
+      setIsUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+    reader.readAsDataURL(file);
+  };
+
   const handleFinalizeClinicalNotes = (values: any) => {
     if (!firestore || !appointmentId) return;
     setIsFinalizing(true);
@@ -471,10 +495,40 @@ export default function ConsultationRoomPage() {
                 <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar">
                     {messages?.map((msg: any) => {
                         const isMe = msg.senderId === user?.uid;
+                        const isDocFile = !!msg.fileUrl;
+                        const isImage = msg.fileType?.startsWith('image/');
+
                         return (
                             <div key={msg.id} className={cn("flex flex-col", isMe ? "items-end" : "items-start")}>
-                                <div className={cn("max-w-[85%] p-3.5 rounded-2xl text-xs shadow-lg", isMe ? "bg-primary text-white rounded-br-none" : "bg-white/5 border border-white/10 text-slate-200 rounded-bl-none")}>
-                                    <p className="leading-relaxed">{msg.content}</p>
+                                <div className={cn(
+                                    "max-w-[85%] p-3.5 rounded-2xl text-xs shadow-lg", 
+                                    isMe ? "bg-primary text-white rounded-br-none" : "bg-white/5 border border-white/10 text-slate-200 rounded-bl-none",
+                                    isDocFile && "p-2 bg-slate-800"
+                                )}>
+                                    {isDocFile ? (
+                                        <div className="space-y-2">
+                                            {isImage ? (
+                                                <div className="relative aspect-video rounded-lg overflow-hidden border border-white/10">
+                                                    <img src={msg.fileUrl} alt="shared evidence" className="w-full h-full object-cover" />
+                                                </div>
+                                            ) : (
+                                                <div className="flex items-center gap-3 p-3 bg-white/5 rounded-xl border border-white/5">
+                                                    <FileText className="h-6 w-6 text-primary" />
+                                                    <div className="min-w-0">
+                                                        <p className="text-[10px] font-bold truncate max-w-[150px]">{msg.fileName}</p>
+                                                        <p className="text-[8px] text-slate-400 uppercase">Clinical Document</p>
+                                                    </div>
+                                                </div>
+                                            )}
+                                            <Button asChild size="sm" variant="ghost" className="w-full h-8 text-[9px] font-bold uppercase gap-2 hover:bg-white/10 text-white">
+                                                <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer">
+                                                    View Mediconnect Link <ExternalLink className="h-3 w-3" />
+                                                </a>
+                                            </Button>
+                                        </div>
+                                    ) : (
+                                        <p className="leading-relaxed">{msg.content}</p>
+                                    )}
                                 </div>
                                 <span className="text-[7px] text-slate-500 mt-1 uppercase font-bold">{isMe ? 'You' : 'Participant'} • {msg.timestamp ? format(new Date(msg.timestamp), "p") : ''}</span>
                             </div>
@@ -482,10 +536,42 @@ export default function ConsultationRoomPage() {
                     })}
                     <div ref={chatScrollRef} />
                 </div>
-                <form onSubmit={handleSendMessage} className="shrink-0 p-3 bg-slate-950/60 border-t border-white/5 flex gap-2">
-                    <Input placeholder={isCompleted ? "Session Concluded" : "Secure message..."} disabled={isCompleted} className="bg-white/5 border-white/10 h-12 text-xs rounded-xl focus-visible:ring-primary text-white" value={newMessage} onChange={(e) => setNewMessage(e.target.value)} />
-                    <Button type="submit" disabled={!newMessage.trim() || isCompleted} className="bg-primary h-12 w-12 p-0 rounded-xl shrink-0"><Send className="h-4 w-4" /></Button>
-                </form>
+                <div className="shrink-0 p-3 bg-slate-950/60 border-t border-white/5">
+                    <form onSubmit={handleSendMessage} className="flex gap-2">
+                        <div className="relative flex-1">
+                            <Input 
+                                placeholder={isCompleted ? "Session Concluded" : "Secure message..."} 
+                                disabled={isCompleted} 
+                                className="bg-white/5 border-white/10 h-12 text-xs rounded-xl focus-visible:ring-primary text-white pr-12" 
+                                value={newMessage} 
+                                onChange={(e) => setNewMessage(e.target.value)} 
+                            />
+                            {!isCompleted && (
+                                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+                                    <button 
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={isUploading}
+                                        className="h-8 w-8 rounded-lg flex items-center justify-center text-slate-400 hover:text-white hover:bg-white/5 transition-all"
+                                        title="Clinical Document Share"
+                                    >
+                                        {isUploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Paperclip className="h-4 w-4" />}
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                        <Button type="submit" disabled={!newMessage.trim() || isCompleted} className="bg-primary h-12 w-12 p-0 rounded-xl shrink-0">
+                            <Send className="h-4 w-4" />
+                        </Button>
+                    </form>
+                    <input 
+                        type="file" 
+                        ref={fileInputRef} 
+                        className="hidden" 
+                        accept="image/*,.pdf" 
+                        onChange={handleFileUpload} 
+                    />
+                </div>
             </TabsContent>
             {isDoctor && (
                 <TabsContent value="notes" className="flex-1 overflow-y-auto p-6 m-0 bg-slate-950/20">
@@ -512,8 +598,10 @@ export default function ConsultationRoomPage() {
           <DialogContent className="rounded-[2.5rem] border-none shadow-2xl p-8 text-center space-y-6 bg-white text-slate-900">
               <div className="h-16 w-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto"><Clock className="h-8 w-8 text-primary" /></div>
               <div className="space-y-2">
-                  <DialogTitle className="text-2xl font-headline tracking-tight">Extend Session?</DialogTitle>
-                  <p className="text-sm text-slate-500 font-medium">Professional window concludes in 5 minutes. Apply 10m buffer?</p>
+                  <DialogHeader>
+                    <DialogTitle className="text-2xl font-headline tracking-tight text-center">Extend Session?</DialogTitle>
+                    <DialogDescription className="text-sm text-slate-500 font-medium text-center">Professional window concludes in 5 minutes. Apply 10m buffer?</DialogDescription>
+                  </DialogHeader>
               </div>
               <DialogFooter className="flex flex-col sm:flex-row gap-3">
                   <Button variant="ghost" onClick={() => setShowExtensionDialog(false)} className="flex-1 h-12 rounded-xl font-bold">Dismiss</Button>
