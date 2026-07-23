@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, Zap, BellRing, UserCheck, AlertCircle, PlayCircle, LogIn, CheckCircle2, User, FileText, Stethoscope, Eye, CreditCard, X, ShieldCheck } from "lucide-react";
 import Link from "next/link";
@@ -362,7 +362,8 @@ export default function DoctorPortalPage() {
                         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-black/80 animate-in fade-in duration-200" />
                         <DialogPrimitive.Content className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[95vw] max-w-lg bg-white rounded-[2.5rem] overflow-hidden shadow-2xl z-50 focus:outline-none animate-in zoom-in-95 duration-200">
                             <div className="bg-slate-900 p-8 text-white relative">
-                                <h2 className="text-2xl font-headline">Clinical Record</h2>
+                                <DialogTitle className="text-2xl font-headline text-white">Clinical Record</DialogTitle>
+                                <DialogDescription className="text-slate-400 text-xs mt-1">Reviewing patient interaction and consultation status.</DialogDescription>
                                 <DialogPrimitive.Close className="absolute right-6 top-6 text-white/50 hover:text-white"><X className="h-5 w-5" /></DialogPrimitive.Close>
                             </div>
                             <div className="p-8 space-y-6">
@@ -421,20 +422,20 @@ export default function DoctorPortalPage() {
                 {/* BUBBLE-UP RECEIPT PREVIEW DIALOG */}
                 <Dialog open={!!receiptPreview} onOpenChange={(open) => !open && setReceiptPreview(null)}>
                     <DialogContent className="w-[95vw] max-w-4xl rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl animate-in zoom-in-95 fade-in duration-300">
-                        <div className="bg-slate-950 p-6 sm:p-8 text-white flex justify-between items-center shrink-0 border-b border-white/5">
+                        <DialogHeader className="bg-slate-950 p-6 sm:p-8 text-white flex-row justify-between items-center shrink-0 border-b border-white/5 space-y-0">
                             <div className="flex items-center gap-4">
                                 <div className="p-3 bg-primary/20 rounded-[1.25rem] border border-primary/30">
                                     <ShieldCheck className="h-6 w-6 text-primary" />
                                 </div>
-                                <div className="space-y-0.5">
-                                    <h3 className="font-headline text-lg sm:text-xl tracking-tight">Audit Confirmation</h3>
-                                    <p className="text-[9px] text-slate-500 uppercase font-bold tracking-[0.2em]">Clinical Settlement Secure View</p>
+                                <div className="space-y-0.5 text-left">
+                                    <DialogTitle className="font-headline text-lg sm:text-xl tracking-tight text-white">Audit Confirmation</DialogTitle>
+                                    <DialogDescription className="text-[9px] text-slate-500 uppercase font-bold tracking-[0.2em]">Clinical Settlement Secure View</DialogDescription>
                                 </div>
                             </div>
                             <Button variant="ghost" size="icon" onClick={() => setReceiptPreview(null)} className="h-12 w-12 text-white/40 hover:text-white hover:bg-white/10 rounded-2xl transition-all">
                                 <X className="h-6 w-6" />
                             </Button>
-                        </div>
+                        </DialogHeader>
                         <div className="p-4 sm:p-12 bg-slate-100 flex items-center justify-center min-h-[400px] max-h-[85vh] overflow-y-auto custom-scrollbar">
                             {receiptPreview && (
                                 <div className="relative w-full h-full flex items-center justify-center p-2 sm:p-4">
@@ -456,7 +457,7 @@ export default function DoctorPortalPage() {
                                 <CheckCircle2 className="h-10 w-10 text-white" />
                             </div>
                             <div className="space-y-1">
-                                <DialogTitle className="text-2xl font-headline">Patient Arrived!</DialogTitle>
+                                <DialogTitle className="text-2xl font-headline text-white">Patient Arrived!</DialogTitle>
                                 <DialogDescription className="text-green-50 font-medium">
                                     Token #{arrivalApt?.sequencePosition} is ready for clinical tunnel.
                                 </DialogDescription>

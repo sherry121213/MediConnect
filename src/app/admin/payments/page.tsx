@@ -25,7 +25,7 @@ import {
 import { updateDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 
 export default function AdminPaymentsPage() {
   const firestore = useFirestore();
@@ -217,20 +217,20 @@ export default function AdminPaymentsPage() {
       {/* BUBBLE-UP ADMIN RECEIPT PREVIEW DIALOG */}
       <Dialog open={!!receiptPreview} onOpenChange={(open) => !open && setReceiptPreview(null)}>
         <DialogContent className="w-[95vw] max-w-4xl rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl animate-in zoom-in-95 fade-in duration-300">
-            <div className="bg-slate-950 p-6 sm:p-8 text-white flex justify-between items-center shrink-0 border-b border-white/5">
+            <DialogHeader className="bg-slate-950 p-6 sm:p-8 text-white flex-row justify-between items-center shrink-0 border-b border-white/5 space-y-0">
                 <div className="flex items-center gap-4">
                     <div className="p-3 bg-primary/20 rounded-[1.25rem] border border-primary/30">
                         <ShieldCheck className="h-6 w-6 text-primary" />
                     </div>
-                    <div className="space-y-0.5">
-                        <h3 className="font-headline text-lg sm:text-xl tracking-tight">Audit Verification</h3>
-                        <p className="text-[9px] text-slate-500 uppercase font-bold tracking-[0.2em]">High-Fidelity Financial Evidence</p>
+                    <div className="space-y-0.5 text-left">
+                        <DialogTitle className="font-headline text-lg sm:text-xl tracking-tight text-white">Audit Verification</DialogTitle>
+                        <DialogDescription className="text-[9px] text-slate-500 uppercase font-bold tracking-[0.2em]">High-Fidelity Financial Evidence</DialogDescription>
                     </div>
                 </div>
                 <Button variant="ghost" size="icon" onClick={() => setReceiptPreview(null)} className="h-12 w-12 text-white/40 hover:text-white hover:bg-white/10 rounded-2xl transition-all">
                     <X className="h-6 w-6" />
                 </Button>
-            </div>
+            </DialogHeader>
             <div className="p-4 sm:p-12 bg-slate-100 flex items-center justify-center min-h-[500px] max-h-[85vh] overflow-y-auto custom-scrollbar">
                 {receiptPreview && (
                     <div className="relative w-full h-full flex items-center justify-center p-2 sm:p-4">
