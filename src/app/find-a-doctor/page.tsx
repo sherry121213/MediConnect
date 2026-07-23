@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
@@ -167,7 +166,7 @@ export default function FindADoctorPage() {
           locationMatch = selectedLocation === 'all' || doctor.location === selectedLocation;
       }
       
-      const experienceMatch = activeFilterId === 'exp' ? (doctor.experience || 0) >= 10 : true;
+      const experienceMatch = activeFilterId === 'exp' ? (doctor.experience || 0) > 4 : true;
       const genderMatch = activeFilterId === 'female' ? doctor.gender === 'female' : true;
 
       return nameMatch && specialtyMatch && locationMatch && experienceMatch && genderMatch;
