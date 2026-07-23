@@ -83,25 +83,34 @@ export default function FindADoctorPage() {
     
     const matchCity = (cityName: string | undefined) => {
         if (!cityName) return null;
-        return locations.find(loc => cityName.toLowerCase().includes(loc.toLowerCase()));
+        const lowerCity = cityName.toLowerCase();
+        return locations.find(loc => lowerCity.includes(loc.toLowerCase()) || loc.toLowerCase().includes(lowerCity));
     };
 
     const fetchIPFallback = async () => {
         try {
+            // Using ipapi.co with error handling
             const res = await fetch('https://ipapi.co/json/');
+            if (!res.ok) throw new Error("Service Unavailable");
             const data = await res.json();
+            
             const matched = matchCity(data.city);
             if (matched) {
                 setDetectedCity(matched);
                 setSelectedLocation('all');
-                toast({ title: `Location Detected (IP): ${matched}`, description: "Filtered by your region." });
+                toast({ title: `Location Detected: ${matched}`, description: "Clinical record filtered for your area." });
             } else {
-                toast({ title: "Global Location", description: `You are in ${data.city || 'a new area'}. Showing all records.` });
+                toast({ title: "Global Search", description: `You are browsing from ${data.city || 'a new region'}. Showing all verified records.` });
                 setDetectedCity(null);
                 setActiveFilterId(null);
             }
         } catch (e) {
-            toast({ variant: "destructive", title: "Detection Failed", description: "Could not resolve global location." });
+            toast({ 
+                variant: "destructive", 
+                title: "Location Unresolved", 
+                description: "Automatic detection is unavailable. Please select your clinical hub city manually." 
+            });
+            setDetectedCity(null);
             setActiveFilterId(null);
         } finally {
             setIsLocating(false);
@@ -113,6 +122,7 @@ export default function FindADoctorPage() {
             async (position) => {
                 try {
                     const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`);
+                    if (!response.ok) throw new Error("Mapping Error");
                     const data = await response.json();
                     const addr = data.address;
                     const cityValue = addr.city || addr.town || addr.village || addr.county || addr.state;
@@ -122,19 +132,18 @@ export default function FindADoctorPage() {
                          setDetectedCity(matched);
                          setSelectedLocation('all');
                          toast({ title: `Location Detected: ${matched}`, description: "Clinical record filtered for your area." });
+                         setIsLocating(false);
                     } else {
                         await fetchIPFallback();
                     }
                 } catch (error) {
                     await fetchIPFallback();
-                } finally {
-                    setIsLocating(false);
                 }
             },
             async () => {
                 await fetchIPFallback();
             },
-            { timeout: 8000 }
+            { timeout: 6000 }
         );
     } else {
         fetchIPFallback();
