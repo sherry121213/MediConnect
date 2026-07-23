@@ -150,11 +150,19 @@ export default function DoctorDetailPage() {
         }
     }, [isToday, availableHours, availableMinutes, selectedPeriod, selectedHour, mounted]);
 
-    const appointmentsQuery = useMemoFirebase(() => {
+    // Query for DOCTOR'S appointments to check for doctor-side availability
+    const doctorAppointmentsQuery = useMemoFirebase(() => {
         if (!firestore || !doctorId) return null;
         return query(collection(firestore, 'appointments'), where('doctorId', '==', doctorId));
     }, [firestore, doctorId]);
-    const { data: existingAppointments } = useCollection<Appointment>(appointmentsQuery);
+    const { data: existingDoctorAppointments } = useCollection<Appointment>(doctorAppointmentsQuery);
+
+    // Query for PATIENT'S appointments to check for patient-side conflict (New Requirement)
+    const patientAppointmentsQuery = useMemoFirebase(() => {
+        if (!firestore || !user?.uid) return null;
+        return query(collection(firestore, 'appointments'), where('patientId', '==', user.uid));
+    }, [firestore, user?.uid]);
+    const { data: patientAppointments } = useCollection<Appointment>(patientAppointmentsQuery);
 
     const selectedTimeStr = useMemo(() => `${selectedHour}:${selectedMinute} ${selectedPeriod}`, [selectedHour, selectedMinute, selectedPeriod]);
 
@@ -172,24 +180,38 @@ export default function DoctorDetailPage() {
             return { isAvailable: false, message: 'This time has already passed.' };
         }
 
-        if (!existingAppointments) return { isAvailable: true, message: '' };
-
         const proposedEnd = addMinutes(proposedStart, 20);
-        const overlap = existingAppointments.find(apt => {
-            if (!apt || !apt.appointmentDateTime || apt.status !== 'scheduled') return false;
-            
-            const aptStart = new Date(apt.appointmentDateTime);
-            if (!isValid(aptStart)) return false;
-            const aptEnd = addMinutes(aptStart, 20);
-            return proposedStart < aptEnd && proposedEnd > aptStart;
-        });
 
-        if (overlap) {
-            return { isAvailable: false, message: 'Window Occupied (Consultation + 5m Break).' };
+        // 1. Audit Doctor Schedule
+        if (existingDoctorAppointments) {
+            const doctorOverlap = existingDoctorAppointments.find(apt => {
+                if (!apt || !apt.appointmentDateTime || apt.status !== 'scheduled') return false;
+                const aptStart = new Date(apt.appointmentDateTime);
+                if (!isValid(aptStart)) return false;
+                const aptEnd = addMinutes(aptStart, 20);
+                return proposedStart < aptEnd && proposedEnd > aptStart;
+            });
+            if (doctorOverlap) {
+                return { isAvailable: false, message: 'Doctor Window Occupied (Consultation + 5m Break).' };
+            }
+        }
+
+        // 2. Audit Patient Schedule (PREVENT SAME PATIENT BOOKING TWO DOCTORS AT SAME TIME)
+        if (patientAppointments) {
+            const patientOverlap = patientAppointments.find(apt => {
+                if (!apt || !apt.appointmentDateTime || apt.status !== 'scheduled') return false;
+                const aptStart = new Date(apt.appointmentDateTime);
+                if (!isValid(aptStart)) return false;
+                const aptEnd = addMinutes(aptStart, 20);
+                return proposedStart < aptEnd && proposedEnd > aptStart;
+            });
+            if (patientOverlap) {
+                return { isAvailable: false, message: 'You already have another consultation at this time.' };
+            }
         }
 
         return { isAvailable: true, message: '' };
-    }, [selectedTimeStr, selectedDate, existingAppointments, approvedLeaves, mounted, nowTicker]);
+    }, [selectedTimeStr, selectedDate, existingDoctorAppointments, patientAppointments, approvedLeaves, mounted, nowTicker]);
 
     const handleConfirmBooking = () => {
         if (isUserLoading || !user || !firestore || !doctor || !paymentReceipt) return;
@@ -202,7 +224,7 @@ export default function DoctorDetailPage() {
 
         setIsBooking(true);
         const appointmentDateTimeISO = proposedTime.toISOString();
-        const dayApts = (existingAppointments || []).filter(a => {
+        const dayApts = (existingDoctorAppointments || []).filter(a => {
             if (!a || !a.appointmentDateTime) return false;
             const d = new Date(a.appointmentDateTime);
             return isValid(d) && isSameDay(d, selectedDate);
