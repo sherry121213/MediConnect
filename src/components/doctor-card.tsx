@@ -98,7 +98,7 @@ export default function DoctorCard({ doctor, variant = 'default' }: DoctorCardPr
                 <p className="text-[9px] uppercase font-bold text-slate-400 tracking-widest">Wait Time</p>
             </div>
             <div className="text-center space-y-1.5 border-r border-slate-50">
-                <p className="text-sm font-bold text-slate-900">{doctor.experience || 12} Years</p>
+                <p className="text-sm font-bold text-slate-900">{doctor.experience ?? 0} Years</p>
                 <p className="text-[9px] uppercase font-bold text-slate-400 tracking-widest">Practice</p>
             </div>
             <div className="text-center space-y-1.5">

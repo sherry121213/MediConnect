@@ -7,7 +7,7 @@ import DoctorCard from '@/components/doctor-card';
 import { specialties } from '@/lib/data';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Search, MapPin, Loader2, X, AlertCircle, Filter, Users, Star, Clock, User, Calendar as CalendarIcon } from 'lucide-react';
+import { Search, MapPin, Loader2, X, AlertCircle, Filter, Users, Star, Clock, User, Calendar as CalendarIcon, BriefcaseMedical } from 'lucide-react';
 import { useFirestore, useCollection, useMemoFirebase } from '@/firebase';
 import { collection, query, where } from 'firebase/firestore';
 import type { Doctor } from '@/lib/types';
@@ -26,7 +26,7 @@ const locations = ["Islamabad", "Rawalpindi", "Lahore", "Karachi", "Peshawar", "
 const filterPills = [
     { id: 'female', label: "Female Doctors", icon: User },
     { id: 'near', label: "Doctors Near Me", icon: MapPin },
-    { id: 'exp', label: "Most Experienced", icon: Star },
+    { id: 'exp', label: "Most Experienced", icon: BriefcaseMedical }, // Changed from Star to clarify practice vs reviews
 ];
 
 export default function FindADoctorPage() {
@@ -166,7 +166,7 @@ export default function FindADoctorPage() {
           locationMatch = selectedLocation === 'all' || doctor.location === selectedLocation;
       }
       
-      // Most Experienced filter: more than 4 years (as requested)
+      // Most Experienced filter: based on verified practice years (> 4 years)
       const experienceMatch = activeFilterId === 'exp' ? (Number(doctor.experience) || 0) > 4 : true;
       const genderMatch = activeFilterId === 'female' ? doctor.gender === 'female' : true;
 
