@@ -266,7 +266,7 @@ export default function DoctorPortalPage() {
                                     <CardTitle className="text-xl font-headline flex items-center gap-3">
                                         <Clock className="h-6 w-6 text-primary" /> Daily Timeline
                                     </CardTitle>
-                                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Consultations (Latest First)</p>
+                                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Consultations</p>
                                 </div>
                                 <div className="flex items-center gap-2 bg-white/5 p-1.5 rounded-2xl border border-white/10 backdrop-blur-sm">
                                     <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10" onClick={() => setViewDate(subDays(viewDate, 1))}>
