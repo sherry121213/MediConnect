@@ -25,6 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Label } from '@/components/ui/label';
+import type { DateRange } from "react-day-picker";
 
 export default function DoctorChatPage() {
   const { user } = useUserData();
@@ -33,7 +34,9 @@ export default function DoctorChatPage() {
   const [newMessage, setNewMessage] = useState('');
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [emergencyReason, setEmergencyReason] = useState('');
-  const [requestedDate, setRequestedDate] = useState<Date>(addDays(new Date(), 1));
+  const [requestedRange, setRequestedRange] = useState<DateRange | undefined>({
+    from: addDays(new Date(), 1),
+  });
   const [isRequesting, setIsRequesting] = useState(false);
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -98,12 +101,16 @@ export default function DoctorChatPage() {
   };
 
   const handleSubmitEmergencyRequest = () => {
-    if (!user || !firestore || !emergencyReason.trim() || !requestedDate) return;
+    if (!user || !firestore || !emergencyReason.trim() || !requestedRange?.from) return;
     setIsRequesting(true);
+
+    const startDate = requestedRange.from.toISOString();
+    const endDate = requestedRange.to?.toISOString() || startDate;
 
     const requestData = {
       doctorId: user.uid,
-      requestedDate: requestedDate.toISOString(),
+      startDate,
+      endDate,
       reason: `[EMERGENCY CHAT REQUEST] ${emergencyReason}`,
       status: 'pending',
       requestedAt: new Date().toISOString(),
@@ -113,12 +120,16 @@ export default function DoctorChatPage() {
     const colRef = collection(firestore, 'doctorUnavailabilityRequests');
     addDocumentNonBlocking(colRef, requestData);
 
+    const dateStr = requestedRange.to 
+        ? `${format(requestedRange.from, "MMM dd")} - ${format(requestedRange.to, "MMM dd")}`
+        : format(requestedRange.from, "PPP");
+
     // Also send as a chat message for context
     const messageData = {
       sessionId,
       senderId: user.uid,
       senderRole: 'doctor',
-      content: `I have submitted an emergency absence request for ${format(requestedDate, "PPP")}. Reason: ${emergencyReason}`,
+      content: `I have submitted an emergency absence request for ${dateStr}. Reason: ${emergencyReason}`,
       timestamp: new Date().toISOString(),
       isRead: false,
       doctorId: user.uid,
@@ -127,14 +138,14 @@ export default function DoctorChatPage() {
     addDoc(collection(firestore, 'adminDoctorChatSessions', sessionId!, 'messages'), messageData);
 
     toast({
-      title: "Emergency Logged",
-      description: `Admin notified of your unavailability for ${format(requestedDate, "MMM dd")}.`,
+      title: "Request Received",
+      description: "This will take some time; we will notify you when approved.",
     });
 
     setIsRequesting(false);
     setIsDialogOpen(false);
     setEmergencyReason('');
-    setRequestedDate(addDays(new Date(), 1));
+    setRequestedRange({ from: addDays(new Date(), 1) });
   };
 
   return (
@@ -159,39 +170,25 @@ export default function DoctorChatPage() {
                         <Siren className="h-4 w-4" /> <span className="hidden xs:inline">Emergency Pause</span><span className="xs:hidden">Off</span>
                     </Button>
                 </DialogTrigger>
-                <DialogContent className="w-[95vw] sm:max-w-[450px] rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
+                <DialogContent className="w-[95vw] sm:max-w-[480px] rounded-[2.5rem] border-none shadow-2xl p-0 overflow-hidden">
                     <div className="bg-red-600 p-6 text-white text-center space-y-1">
                         <DialogTitle className="text-xl font-headline">Clinical Emergency</DialogTitle>
                         <DialogDescription className="text-red-100 text-xs font-medium">
-                            Log an urgent clinical or personal pause.
+                            Log an urgent clinical or personal pause (Single or Multiple Days).
                         </DialogDescription>
                     </div>
                     <div className="p-6 sm:p-8 space-y-6 max-h-[60dvh] overflow-y-auto custom-scrollbar bg-white">
                         <div className="space-y-3">
-                            <Label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest ml-1">Proposed Absence Date</Label>
-                            <Popover>
-                                <PopoverTrigger asChild>
-                                    <Button
-                                        variant={"outline"}
-                                        className={cn(
-                                            "w-full justify-start text-left font-bold h-14 rounded-2xl border-2 transition-all",
-                                            !requestedDate ? "text-muted-foreground" : "border-slate-100 hover:border-primary/30"
-                                        )}
-                                    >
-                                        <CalendarIcon className="mr-3 h-5 w-5 text-primary" />
-                                        {requestedDate ? format(requestedDate, "PPP") : <span>Select date</span>}
-                                    </Button>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0 rounded-2xl border-none shadow-2xl" align="start">
-                                    <Calendar
-                                        mode="single"
-                                        selected={requestedDate}
-                                        onSelect={(date) => date && setRequestedDate(date)}
-                                        disabled={(date) => date <= startOfDay(new Date())}
-                                        initialFocus
-                                    />
-                                </PopoverContent>
-                            </Popover>
+                            <Label className="text-[10px] uppercase font-bold text-slate-400 tracking-widest ml-1">Proposed Absence Window</Label>
+                            <div className="border rounded-2xl p-2 bg-slate-50/50">
+                                <Calendar
+                                    mode="range"
+                                    selected={requestedRange}
+                                    onSelect={setRequestedRange}
+                                    disabled={(date) => date <= startOfDay(new Date())}
+                                    initialFocus
+                                />
+                            </div>
                         </div>
 
                         <div className="space-y-3">
@@ -214,7 +211,7 @@ export default function DoctorChatPage() {
                         <Button variant="ghost" onClick={() => setIsDialogOpen(false)} className="flex-1 rounded-2xl h-12 font-bold order-2 sm:order-1">Cancel</Button>
                         <Button 
                             onClick={handleSubmitEmergencyRequest} 
-                            disabled={!emergencyReason.trim() || !requestedDate || isRequesting}
+                            disabled={!emergencyReason.trim() || !requestedRange?.from || isRequesting}
                             className="bg-red-600 hover:bg-red-700 font-bold flex-1 h-12 rounded-2xl shadow-xl shadow-red-100 order-1 sm:order-2"
                         >
                             {isRequesting ? <Loader2 className="h-4 w-4 animate-spin" /> : "File Emergency"}

@@ -19,9 +19,13 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import Link from 'next/link';
+import type { DateRange } from "react-day-picker";
 
 const requestSchema = z.object({
-  requestedDate: z.date({ required_error: "A clinical date is required." }),
+  dateRange: z.object({
+    from: z.date({ required_error: "Start date is required." }),
+    to: z.date().optional(),
+  }, { required_error: "A clinical date range is required." }),
   reason: z.string().min(5, "Please provide a clinical or personal reason for audit (min 5 characters)."),
 });
 
@@ -56,7 +60,8 @@ export default function DoctorUnavailabilityPage() {
 
     const requestData = {
       doctorId: user.uid,
-      requestedDate: values.requestedDate.toISOString(),
+      startDate: values.dateRange.from.toISOString(),
+      endDate: values.dateRange.to?.toISOString() || values.dateRange.from.toISOString(),
       reason: values.reason,
       status: 'pending',
       requestedAt: new Date().toISOString(),
@@ -66,8 +71,8 @@ export default function DoctorUnavailabilityPage() {
     addDocumentNonBlocking(colRef, requestData);
 
     toast({
-      title: "Clinical Request Logged",
-      description: "Admin audit initiated for " + format(values.requestedDate, "PPP"),
+      title: "Request Received",
+      description: "This will take some time; we will notify you when approved.",
     });
     
     form.reset();
@@ -82,11 +87,20 @@ export default function DoctorUnavailabilityPage() {
     }
   };
 
+  const formatLeaveDate = (req: any) => {
+    const start = new Date(req.startDate || req.requestedDate);
+    const end = req.endDate ? new Date(req.endDate) : start;
+    
+    if (start.getTime() === end.getTime()) {
+        return format(start, "MMM dd, yyyy");
+    }
+    return `${format(start, "MMM dd")} - ${format(end, "MMM dd, yyyy")}`;
+  };
+
   return (
     <main className="flex-grow bg-secondary/30 py-10">
       <div className="container mx-auto px-4 max-w-6xl space-y-10">
         
-        {/* Navigation Action */}
         <div className="flex justify-start">
             <Button variant="ghost" asChild className="rounded-xl hover:bg-white border shadow-sm px-4 group">
                 <Link href="/doctor-portal">
@@ -116,24 +130,24 @@ export default function DoctorUnavailabilityPage() {
         </div>
 
         <div className="grid lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-4 space-y-6">
+          <div className="lg:col-span-5 space-y-6">
             <Card className="h-fit border-none shadow-2xl overflow-hidden bg-white">
                 <CardHeader className="bg-slate-900 text-white text-center">
                     <CardTitle className="text-xl font-headline">Request Future Leave</CardTitle>
-                    <CardDescription className="text-slate-400">Formal audit for planned clinical absences.</CardDescription>
+                    <CardDescription className="text-slate-400">Formal audit for planned clinical absences (single or multiple days).</CardDescription>
                 </CardHeader>
                 <CardContent className="p-6">
                 <Form {...form}>
                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
                     <FormField
                         control={form.control}
-                        name="requestedDate"
+                        name="dateRange"
                         render={({ field }) => (
                         <FormItem className="flex flex-col">
-                            <FormLabel className="text-[11px] uppercase font-bold tracking-[0.2em] opacity-60 mb-2">Step 1: Pick a Clinical Date</FormLabel>
+                            <FormLabel className="text-[11px] uppercase font-bold tracking-[0.2em] opacity-60 mb-2">Step 1: Pick Clinical Date Range</FormLabel>
                             <div className="border rounded-2xl p-2 bg-muted/20">
                                 <Calendar
-                                    mode="single"
+                                    mode="range"
                                     selected={field.value}
                                     onSelect={field.onChange}
                                     disabled={(date) => date <= startOfDay(new Date())}
@@ -200,7 +214,7 @@ export default function DoctorUnavailabilityPage() {
             </Card>
           </div>
 
-          <Card className="lg:col-span-8 border-none shadow-2xl bg-white overflow-hidden">
+          <Card className="lg:col-span-7 border-none shadow-2xl bg-white overflow-hidden">
             <CardHeader className="border-b bg-muted/20">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-xl font-headline flex items-center gap-2">
@@ -217,7 +231,7 @@ export default function DoctorUnavailabilityPage() {
                     <Table>
                     <TableHeader className="bg-muted/30">
                         <TableRow>
-                        <TableHead className="font-bold py-5">Audit Date</TableHead>
+                        <TableHead className="font-bold py-5">Audit Period</TableHead>
                         <TableHead className="font-bold">Clinical Reason</TableHead>
                         <TableHead className="font-bold">Status</TableHead>
                         <TableHead className="text-right font-bold pr-6">Logged At</TableHead>
@@ -228,9 +242,9 @@ export default function DoctorUnavailabilityPage() {
                         <TableRow key={req.id} className="hover:bg-primary/5 transition-all group">
                             <TableCell className="py-4">
                                 <p className="font-bold text-sm text-primary group-hover:translate-x-1 transition-transform">
-                                    {format(new Date(req.requestedDate), "MMM dd, yyyy")}
+                                    {formatLeaveDate(req)}
                                 </p>
-                                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tighter mt-0.5">{format(new Date(req.requestedDate), "EEEE")}</p>
+                                <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-tighter mt-0.5">Clinical Absence</p>
                             </TableCell>
                             <TableCell className="max-w-[200px] truncate text-xs font-medium text-slate-600 italic">
                                 {req.reason}

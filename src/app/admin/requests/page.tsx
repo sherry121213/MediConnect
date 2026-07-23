@@ -59,6 +59,16 @@ export default function AdminRequestsPage() {
     });
   };
 
+  const formatRequestRange = (req: any) => {
+    const start = new Date(req.startDate || req.requestedDate);
+    const end = req.endDate ? new Date(req.endDate) : start;
+    
+    if (start.getTime() === end.getTime()) {
+        return format(start, "MMM dd, yyyy");
+    }
+    return `${format(start, "MMM dd")} - ${format(end, "MMM dd, yyyy")}`;
+  };
+
   return (
     <div className="p-4 md:p-8 space-y-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
@@ -83,7 +93,7 @@ export default function AdminRequestsPage() {
                 <TableHeader className="bg-muted/30">
                     <TableRow>
                     <TableHead className="py-4 min-w-[180px]">Doctor</TableHead>
-                    <TableHead className="min-w-[150px]">Requested Date</TableHead>
+                    <TableHead className="min-w-[200px]">Requested Period</TableHead>
                     <TableHead className="hidden lg:table-cell min-w-[200px]">Reason</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead className="text-right pr-6 min-w-[120px]">Actions</TableHead>
@@ -96,7 +106,7 @@ export default function AdminRequestsPage() {
                         <TableCell>
                         <div className="flex items-center gap-2 text-sm font-semibold text-slate-700">
                             <Calendar className="h-3 w-3 text-muted-foreground" />
-                            {format(new Date(req.requestedDate), "MMM dd, yyyy")}
+                            {formatRequestRange(req)}
                         </div>
                         </TableCell>
                         <TableCell className="hidden lg:table-cell text-xs text-muted-foreground italic max-w-xs truncate">
