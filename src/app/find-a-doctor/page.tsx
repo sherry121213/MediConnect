@@ -166,7 +166,8 @@ export default function FindADoctorPage() {
           locationMatch = selectedLocation === 'all' || doctor.location === selectedLocation;
       }
       
-      const experienceMatch = activeFilterId === 'exp' ? (doctor.experience || 0) > 4 : true;
+      // Most Experienced filter: more than 4 years (as requested)
+      const experienceMatch = activeFilterId === 'exp' ? (Number(doctor.experience) || 0) > 4 : true;
       const genderMatch = activeFilterId === 'female' ? doctor.gender === 'female' : true;
 
       return nameMatch && specialtyMatch && locationMatch && experienceMatch && genderMatch;
