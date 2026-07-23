@@ -231,13 +231,13 @@ export default function AdminPaymentsPage() {
                     <X className="h-6 w-6" />
                 </Button>
             </DialogHeader>
-            <div className="p-4 sm:p-12 bg-slate-100 flex items-center justify-center min-h-[500px] max-h-[85vh] overflow-y-auto custom-scrollbar">
+            <div className="p-4 sm:p-12 bg-slate-100 flex items-center justify-center min-h-[300px] max-h-[75vh] overflow-hidden">
                 {receiptPreview && (
-                    <div className="relative w-full h-full flex items-center justify-center p-2 sm:p-4">
+                    <div className="relative w-full h-full flex items-center justify-center p-2 sm:p-4 animate-in zoom-in-95 duration-500">
                         <img 
                             src={receiptPreview} 
                             alt="Audit Evidence" 
-                            className="max-w-full h-auto object-contain rounded-[2rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] border-[6px] sm:border-[12px] border-white ring-1 ring-slate-200 animate-in zoom-in-95 duration-500"
+                            className="max-w-full max-h-[60vh] w-auto h-auto object-contain rounded-[2rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] border-[6px] sm:border-[12px] border-white ring-1 ring-slate-200"
                         />
                     </div>
                 )}
