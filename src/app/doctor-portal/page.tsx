@@ -269,79 +269,78 @@ export default function DoctorPortalPage() {
                     </div>
 
                     <div className="lg:col-span-8">
-                        <Card className="rounded-[2.5rem] bg-white shadow-2xl border-none overflow-hidden h-full flex flex-col">
-                            <CardHeader className="border-b bg-slate-900 text-white p-8 flex flex-row justify-between items-center shrink-0">
+                        <Card className="rounded-[2.5rem] bg-white shadow-2xl border-none overflow-hidden flex flex-col">
+                            <CardHeader className="border-b bg-slate-900 text-white p-6 md:p-8 flex flex-row justify-between items-center shrink-0">
                                 <div className="space-y-1">
-                                    <CardTitle className="text-xl font-headline flex items-center gap-3">
-                                        <Clock className="h-6 w-6 text-primary" /> Daily Timeline
+                                    <CardTitle className="text-lg md:text-xl font-headline flex items-center gap-3">
+                                        <Clock className="h-5 w-5 md:h-6 md:h-6 text-primary" /> Daily Timeline
                                     </CardTitle>
-                                    <p className="text-[10px] uppercase font-bold text-slate-400 tracking-widest">Consultations</p>
+                                    <p className="text-[9px] md:text-[10px] uppercase font-bold text-slate-400 tracking-widest">Consultations</p>
                                 </div>
-                                <div className="flex items-center gap-2 bg-white/5 p-1.5 rounded-2xl border border-white/10 backdrop-blur-sm">
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10" onClick={() => setViewDate(subDays(viewDate, 1))}>
-                                        <ChevronLeft className="h-4 w-4" />
+                                <div className="flex items-center gap-2 bg-white/5 p-1 rounded-2xl border border-white/10 backdrop-blur-sm">
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-white hover:bg-white/10" onClick={() => setViewDate(subDays(viewDate, 1))}>
+                                        <ChevronLeft className="h-3.5 w-3.5" />
                                     </Button>
-                                    <span className="px-3 text-[10px] font-bold uppercase tracking-wider">{format(viewDate, "MMM dd")}</span>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8 text-white hover:bg-white/10" onClick={() => setViewDate(addDays(viewDate, 1))}>
-                                        <ChevronRight className="h-4 w-4" />
+                                    <span className="px-2 text-[9px] md:text-[10px] font-bold uppercase tracking-wider">{format(viewDate, "MMM dd")}</span>
+                                    <Button variant="ghost" size="icon" className="h-7 w-7 text-white hover:bg-white/10" onClick={() => setViewDate(addDays(viewDate, 1))}>
+                                        <ChevronRight className="h-3.5 w-3.5" />
                                     </Button>
                                 </div>
                             </CardHeader>
-                            <CardContent className="p-0 flex-1 flex flex-col min-h-[480px]">
+                            <CardContent className="p-0 flex-1 flex flex-col min-h-0">
                                 {timelineApts.length > 0 ? (
-                                    <div className="flex-1 w-full overflow-x-auto custom-scrollbar snap-x snap-mandatory flex items-stretch p-8 gap-6">
+                                    <div className="flex-1 w-full overflow-x-auto custom-scrollbar snap-x snap-mandatory flex items-stretch p-6 md:p-8 gap-5">
                                         {timelineApts.map(apt => {
                                             const patient = patientsMap.get(apt.patientId);
                                             return (
-                                                <div key={apt.id} className="min-w-[320px] sm:min-w-[360px] snap-start flex-shrink-0">
-                                                    <Card className="relative overflow-hidden bg-white rounded-[2.5rem] border-none shadow-[0_20px_50px_-20px_rgba(0,0,0,0.1)] hover:shadow-[0_20px_50px_-10px_rgba(0,0,0,0.15)] transition-all duration-500 h-full flex flex-col p-8 group">
-                                                        <div className="flex justify-between items-start mb-8">
-                                                            <div className="h-16 w-16 rounded-[1.5rem] bg-slate-50 flex items-center justify-center border border-slate-100 shadow-sm transition-transform group-hover:scale-105 duration-500">
-                                                                <User className="h-8 w-8 text-slate-300" />
+                                                <div key={apt.id} className="min-w-[260px] md:min-w-[280px] snap-start flex-shrink-0">
+                                                    <Card className="relative overflow-hidden bg-white rounded-3xl border border-slate-100 shadow-lg hover:shadow-xl transition-all duration-300 h-full flex flex-col p-5 group">
+                                                        <div className="flex justify-between items-start mb-6">
+                                                            <div className="h-14 w-14 rounded-2xl bg-slate-50 flex items-center justify-center border border-slate-100 shadow-sm">
+                                                                <User className="h-7 w-7 text-slate-300" />
                                                             </div>
-                                                            <div className="flex flex-col items-end gap-3">
-                                                                <div className="bg-slate-50 text-slate-500 text-[10px] font-bold px-4 py-1.5 rounded-full border border-slate-100 uppercase tracking-tighter">
+                                                            <div className="flex flex-col items-end gap-2">
+                                                                <div className="bg-slate-900 text-white text-[9px] font-bold px-3 py-1 rounded-full uppercase tracking-tighter shadow-sm">
                                                                     {format(new Date(apt.appointmentDateTime), "p")}
                                                                 </div>
                                                                 {apt.paymentReceiptUrl && (
                                                                     <Button 
-                                                                        variant="ghost" 
+                                                                        variant="outline" 
                                                                         size="sm" 
-                                                                        className="h-10 w-10 rounded-2xl bg-white border border-slate-100 shadow-sm hover:bg-primary/5 hover:text-primary p-0 transition-all active:scale-90"
+                                                                        className="h-8 w-8 rounded-lg border-2 bg-white text-primary hover:bg-primary/5 p-0 shadow-sm"
                                                                         onClick={(e) => { e.stopPropagation(); setReceiptPreview(apt.paymentReceiptUrl!); }}
                                                                     >
-                                                                        <Eye className="h-5 w-5" />
+                                                                        <Eye className="h-3.5 w-3.5" />
                                                                     </Button>
                                                                 )}
                                                             </div>
                                                         </div>
 
-                                                        <div className="flex-1 space-y-2">
-                                                            <h4 className="font-bold text-slate-900 text-2xl tracking-tight leading-tight truncate">{patient?.firstName} {patient?.lastName || '...'}</h4>
-                                                            <div className="flex items-center gap-2 text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em] opacity-80">
-                                                                <Activity className="h-3 w-3 text-primary/40" /> {apt.appointmentType}
+                                                        <div className="flex-1 space-y-1 mb-6">
+                                                            <h4 className="font-bold text-slate-900 text-lg tracking-tight truncate">{patient?.firstName} {patient?.lastName || '...'}</h4>
+                                                            <div className="flex items-center gap-1.5 text-slate-400 font-bold text-[9px] uppercase tracking-widest opacity-80">
+                                                                <Activity className="h-2.5 w-2.5 text-primary/60" /> {apt.appointmentType}
                                                             </div>
                                                         </div>
 
-                                                        <div className="mt-8 flex items-center gap-3">
-                                                            <Badge 
-                                                                className={cn(
-                                                                    "text-[9px] font-bold uppercase tracking-wider py-1.5 px-4 h-auto rounded-full border-none shadow-sm", 
-                                                                    apt.status === 'completed' ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
-                                                                )}
-                                                            >
-                                                                {apt.status}
-                                                            </Badge>
-                                                            <Badge className="text-[9px] font-bold uppercase border-none bg-primary/10 text-primary py-1.5 px-4 h-auto rounded-full shadow-sm">PKR 1,500</Badge>
-                                                        </div>
-                                                        
-                                                        <div className="mt-10 pt-6 border-t border-slate-50">
+                                                        <div className="space-y-4">
+                                                            <div className="flex items-center gap-2">
+                                                                <Badge 
+                                                                    className={cn(
+                                                                        "text-[8px] font-bold uppercase tracking-wider py-1 px-3 h-auto rounded-full border-none", 
+                                                                        apt.status === 'completed' ? "bg-green-100 text-green-700" : "bg-slate-100 text-slate-500"
+                                                                    )}
+                                                                >
+                                                                    {apt.status}
+                                                                </Badge>
+                                                                <Badge className="text-[8px] font-bold uppercase border-none bg-primary/10 text-primary py-1 px-3 h-auto rounded-full">PKR 1,500</Badge>
+                                                            </div>
                                                             <Button 
-                                                                variant="ghost" 
+                                                                variant="default" 
                                                                 onClick={() => {setSelectedApt(apt);setIsConsultOpen(true)}} 
-                                                                className="w-full rounded-2xl font-bold h-12 text-[10px] uppercase tracking-widest text-slate-400 hover:text-primary hover:bg-primary/5 transition-all"
+                                                                className="w-full rounded-xl font-bold h-10 text-[9px] uppercase tracking-widest bg-slate-100 hover:bg-primary hover:text-white text-slate-600 transition-all shadow-sm border-none"
                                                             >
-                                                                Audit Clinical Record
+                                                                Audit Record
                                                             </Button>
                                                         </div>
                                                     </Card>
@@ -350,9 +349,9 @@ export default function DoctorPortalPage() {
                                         })}
                                     </div>
                                 ) : (
-                                    <div className="flex-1 flex flex-col items-center justify-center text-slate-200 animate-in fade-in zoom-in-95">
-                                        <Clock className="h-20 w-20 mx-auto mb-6 opacity-5" />
-                                        <p className="font-bold uppercase text-[10px] tracking-[0.3em] text-slate-300">No scheduled sessions</p>
+                                    <div className="flex-1 flex flex-col items-center justify-center text-slate-200 py-16 animate-in fade-in zoom-in-95">
+                                        <Clock className="h-16 w-16 mx-auto mb-4 opacity-5" />
+                                        <p className="font-bold uppercase text-[9px] tracking-[0.3em] text-slate-300">No scheduled sessions</p>
                                     </div>
                                 )}
                             </CardContent>
