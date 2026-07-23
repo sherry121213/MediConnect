@@ -3,7 +3,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, Zap, BellRing, UserCheck, AlertCircle, PlayCircle, LogIn, CheckCircle2, User, FileText, Stethoscope, Eye, CreditCard, X } from "lucide-react";
+import { Video, Loader2, Clock, History, Activity, ClipboardCheck, ChevronLeft, ChevronRight, Zap, BellRing, UserCheck, AlertCircle, PlayCircle, LogIn, CheckCircle2, User, FileText, Stethoscope, Eye, CreditCard, X, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { useUserData, useFirestore, useCollection, useMemoFirebase } from '@/firebase';
@@ -418,27 +418,32 @@ export default function DoctorPortalPage() {
                     </DialogPrimitive.Portal>
                 </DialogPrimitive.Root>
 
-                {/* RECEIPT PREVIEW DIALOG */}
+                {/* BUBBLE-UP RECEIPT PREVIEW DIALOG */}
                 <Dialog open={!!receiptPreview} onOpenChange={(open) => !open && setReceiptPreview(null)}>
-                    <DialogContent className="max-w-3xl rounded-[2.5rem] p-0 overflow-hidden border-none shadow-2xl">
-                        <div className="bg-slate-900 p-6 text-white flex justify-between items-center shrink-0">
-                            <div className="flex items-center gap-3">
-                                <div className="p-2 bg-primary/20 rounded-xl">
-                                    <Eye className="h-5 w-5 text-primary" />
+                    <DialogContent className="w-[95vw] max-w-4xl rounded-[3rem] p-0 overflow-hidden border-none shadow-2xl animate-in zoom-in-95 fade-in duration-300">
+                        <div className="bg-slate-950 p-6 sm:p-8 text-white flex justify-between items-center shrink-0 border-b border-white/5">
+                            <div className="flex items-center gap-4">
+                                <div className="p-3 bg-primary/20 rounded-[1.25rem] border border-primary/30">
+                                    <ShieldCheck className="h-6 w-6 text-primary" />
                                 </div>
-                                <h3 className="font-headline text-lg tracking-tight">Payment Verification Evidence</h3>
+                                <div className="space-y-0.5">
+                                    <h3 className="font-headline text-lg sm:text-xl tracking-tight">Audit Confirmation</h3>
+                                    <p className="text-[9px] text-slate-500 uppercase font-bold tracking-[0.2em]">Clinical Settlement Secure View</p>
+                                </div>
                             </div>
-                            <Button variant="ghost" size="icon" onClick={() => setReceiptPreview(null)} className="text-white/50 hover:text-white rounded-xl">
-                                <X className="h-5 w-5" />
+                            <Button variant="ghost" size="icon" onClick={() => setReceiptPreview(null)} className="h-12 w-12 text-white/40 hover:text-white hover:bg-white/10 rounded-2xl transition-all">
+                                <X className="h-6 w-6" />
                             </Button>
                         </div>
-                        <div className="p-4 sm:p-8 bg-slate-50 flex items-center justify-center min-h-[400px] max-h-[80dvh] overflow-y-auto custom-scrollbar">
+                        <div className="p-4 sm:p-12 bg-slate-100 flex items-center justify-center min-h-[400px] max-h-[85vh] overflow-y-auto custom-scrollbar">
                             {receiptPreview && (
-                                <img 
-                                    src={receiptPreview} 
-                                    alt="Payment Receipt" 
-                                    className="max-w-full h-auto object-contain rounded-2xl shadow-2xl border-8 border-white"
-                                />
+                                <div className="relative w-full h-full flex items-center justify-center p-2 sm:p-4">
+                                    <img 
+                                        src={receiptPreview} 
+                                        alt="Payment Evidence" 
+                                        className="max-w-full h-auto object-contain rounded-[2rem] shadow-[0_32px_64px_-12px_rgba(0,0,0,0.3)] border-[6px] sm:border-[12px] border-white ring-1 ring-slate-200 animate-in zoom-in-95 duration-500"
+                                    />
+                                </div>
                             )}
                         </div>
                     </DialogContent>
